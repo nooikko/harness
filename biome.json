@@ -38,7 +38,8 @@
       "!**/.next",
       "!**/.turbo",
       "!**/coverage",
-      "!**/.prisma"
+      "!**/.prisma",
+      "!**/generated"
     ]
   }
 }
