@@ -7,7 +7,7 @@ A modern, production-ready full-stack monorepo template with best-in-class devel
 ### Core
 - **[pnpm](https://pnpm.io/)** - Fast, disk space efficient package manager
 - **[Turborepo](https://turbo.build/)** - High-performance build system for monorepos
-- **[Next.js 15](https://nextjs.org/)** - React framework for production
+- **[Next.js 16](https://nextjs.org/)** - React framework for production
 - **[TypeScript](https://www.typescriptlang.org/)** - Typed JavaScript at scale
 - **[Prisma](https://www.prisma.io/)** - Next-generation ORM for Node.js and TypeScript
 
@@ -117,7 +117,7 @@ The web app will be available at `http://localhost:3000`
 ## Workspace Packages
 
 ### `apps/web`
-Next.js 15 application with:
+Next.js 16 application with:
 - App Router
 - TypeScript
 - Tailwind CSS

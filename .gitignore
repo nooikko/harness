@@ -35,3 +35,12 @@ yarn-error.log*
 
 # vercel
 .vercel
+
+# TypeScript build info
+*.tsbuildinfo
+
+# Next.js auto-generated
+**/next-env.d.ts
+
+# Prisma generated client
+**/generated/
