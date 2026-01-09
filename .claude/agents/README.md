@@ -87,3 +87,59 @@ Each agent type has specific tool access:
 - **Documentation agents**: Markdown tools, read access, limited write to docs/
 - **DevOps agents**: Infrastructure tools, deployment scripts, environment access
 - **Analysis agents**: Read-only access, static analysis tools
+
+## Persistent Memory Access
+
+All agents have access to persistent memory via the `mcp-knowledge-graph` MCP:
+
+**Available Tools:**
+- `aim_search_nodes` - Search for relevant prior context
+- `aim_create_entities` - Create new entities (concepts, patterns, decisions)
+- `aim_add_observations` - Add facts to existing entities
+- `aim_create_relations` - Link entities together
+- `aim_read_graph` - View complete memory
+- `aim_open_nodes` - Retrieve specific entities by name
+- `aim_list_databases` - Check available databases and current location
+
+**Storage Locations:**
+- **Project**: `.aim/` directory (project-specific memory)
+- **Global**: `~/.aim/` directory (cross-project memory)
+
+**Usage Guidelines:**
+1. Check memory at the start of tasks for relevant context
+2. Store significant findings, patterns, and decisions
+3. Use consistent entity naming for searchability
+4. Memory persists across sessions and is shared between agents
+
+## Doppler CLI for Secrets Management
+
+Agents can use the Doppler CLI for secrets management. The CLI is pre-authenticated.
+
+**Common Commands:**
+```bash
+# List projects
+doppler projects
+
+# List secrets in a config (names only)
+doppler secrets --project athena --config prd --only-names
+
+# Get a specific secret value
+doppler secrets get SECRET_NAME --project athena --config prd
+
+# Set a secret
+doppler secrets set SECRET_NAME=value --project athena --config prd
+
+# Run a command with secrets injected
+doppler run --project athena --config prd -- your-command
+```
+
+**Available Projects:**
+- `athena` - Main backend service
+  - `dev_personal` - Local development config
+  - `prd` - Production config (currently needs population)
+- `metrics-bot` - Discord metrics bot
+
+**Usage Guidelines:**
+1. Always specify `--project` and `--config` flags
+2. Use `--only-names` when listing to avoid exposing values
+3. For production deployments, use `doppler run` to inject secrets at runtime

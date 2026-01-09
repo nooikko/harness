@@ -113,9 +113,13 @@ Your output should suggest other agents when appropriate:
 
 **Knowledge Management:**
 
+- **Check Persistent Memory** first using `aim_search_nodes` for prior type patterns
+  - Search for entities related to the type problem being solved
+  - Look for past type solutions and their rationale
 - Check AI_RESEARCH/ for TypeScript patterns documented in past research
 - Reference researched approaches to complex typing scenarios
-- Document any advanced type patterns for future reference
-- Note TypeScript features or techniques that solve specific problems
+- **Store significant patterns** using `aim_create_entities` or `aim_add_observations`
+  - Document advanced type patterns for future reference
+  - Note TypeScript features or techniques that solve specific problems
 
 Remember: TypeScript is not just about adding types to JavaScript - it's about using the type system as a powerful tool for modeling domains, preventing bugs, and improving developer experience. Every type definition should add value, clarity, and safety to the codebase.

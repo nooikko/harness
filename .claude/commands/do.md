@@ -274,13 +274,21 @@ Use 3 tasks in parallel:
 
 Before delegating any task:
 
-1. **Check AI_RESEARCH/**: Look for existing research on the topic
+1. **Check Persistent Memory**: Use `aim_search_nodes` to find relevant context
+   - Search for entities related to the task (people, projects, patterns)
+   - Include relevant memories in agent context
+   - Verify storage location with `aim_list_databases` if uncertain
+
+2. **Check AI_RESEARCH/**: Look for existing research on the topic
    - If relevant research exists, include it in the context
    - Avoid duplicate research efforts
 
-2. **Check CLAUDE.md**: Reference project-specific patterns and conventions
+3. **Check CLAUDE.md**: Reference project-specific patterns and conventions
 
-3. **After completion**: Document significant findings in AI_RESEARCH/ for future use
+4. **After completion**:
+   - Document significant findings in AI_RESEARCH/ for future use
+   - Store important learnings in memory using `aim_create_entities` and `aim_add_observations`
+   - Create relations between entities using `aim_create_relations`
 
 ---
 
