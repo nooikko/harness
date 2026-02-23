@@ -18,7 +18,10 @@ const createMockContext: CreateMockContext = () => ({
       create: vi.fn().mockResolvedValue({}),
     },
     agentRun: {
-      create: vi.fn().mockResolvedValue({}),
+      create: vi.fn().mockResolvedValue({ id: 'run-123' }),
+    },
+    metric: {
+      createMany: vi.fn().mockResolvedValue({ count: 4 }),
     },
   } as never,
   invoker: {
