@@ -1,5 +1,411 @@
 {
   "master": {
-    "tasks": []
+    "tasks": [
+      {
+        "id": 1,
+        "title": "Extend Prisma Schema with Orchestrator Models",
+        "description": "Add Thread, Message, Task, AgentRun, CronJob, and Metric models to the existing Prisma schema for the orchestrator pipeline",
+        "details": "Edit packages/database/prisma/schema.prisma to add: Thread model with id (cuid), source, sourceId, name, kind (primary|task|cron|general), parentThreadId, status, lastActivity fields with unique constraint on [source, sourceId]. Message model with threadId, role, content, timestamp. Task model with status tracking, delegation prompt, iteration counts. AgentRun for invocation metrics. CronJob for scheduled tasks. Metric for telemetry. Include all proper indexes and relations as specified in PRD. Use Prisma 6.19.2 compatible syntax.",
+        "testStrategy": "Run 'pnpm db:generate' to validate schema compiles without errors. Check that generated Prisma client exports all new types correctly. Verify indexes are created properly with 'pnpm db:push'.",
+        "priority": "high",
+        "dependencies": [],
+        "status": "pending",
+        "subtasks": []
+      },
+      {
+        "id": 2,
+        "title": "Create Core Orchestrator Directory Structure",
+        "description": "Set up the apps/orchestrator directory with proper module organization following the co-location pattern",
+        "details": "Create apps/orchestrator directory structure with src/index.ts, src/config.ts, src/orchestrator/index.ts with _helpers subdirectory, src/invoker/index.ts with _helpers, src/thread-router.ts, src/plugin-loader/index.ts with _helpers, and src/plugins/ directory for built-in plugins. Initialize package.json with Node.js project configuration, typescript, tsx for dev, minimal dependencies (@prisma/client, express@^5, ws@^8). Set up tsconfig.json extending from base config.",
+        "testStrategy": "Verify directory structure matches specification. Ensure all index.ts files exist. Run 'pnpm install' in orchestrator directory to validate package.json. Check TypeScript compilation with 'pnpm tsc --noEmit'.",
+        "priority": "high",
+        "dependencies": [],
+        "status": "pending",
+        "subtasks": []
+      },
+      {
+        "id": 3,
+        "title": "Implement Plugin Contract and Context Types",
+        "description": "Define the PluginContext interface and plugin contract types that all plugins must implement",
+        "details": "In src/orchestrator/index.ts, define and export PluginContext interface with all methods: onMessage, sendMessage, sendToThread, onBeforeInvoke, onAfterInvoke, onCommand, onTaskCreate, onTaskComplete, onTaskValidated, onTaskFailed, onBroadcast, broadcast, plus db, invoker, config, logger properties. Define Register, Start, Stop function types. Use arrow function type signatures following project conventions. Export from orchestrator module, not from a separate types file.",
+        "testStrategy": "TypeScript compilation should pass with strict mode. Create a mock plugin that implements the contract to verify all types work correctly. Ensure imports work from '@/orchestrator' not from internal paths.",
+        "priority": "high",
+        "dependencies": [2],
+        "status": "pending",
+        "subtasks": []
+      },
+      {
+        "id": 4,
+        "title": "Build Plugin Loader Discovery System",
+        "description": "Implement plugin discovery, validation, and lifecycle management in plugin-loader module",
+        "details": "Create src/plugin-loader/index.ts that discovers plugins in src/plugins/*/index.ts, validates they export required 'register' function and optional 'start', 'stop', 'name', 'version'. Create _helpers/validator.ts for export validation logic. Implement loadPlugins function that returns array of loaded plugin instances. Handle errors gracefully if plugin fails to load. Use dynamic imports to load plugin modules.",
+        "testStrategy": "Create test plugins with valid and invalid exports. Verify validator catches missing register function. Ensure plugin loader handles missing directories gracefully. Test that all discovered plugins are loaded in correct order.",
+        "priority": "high",
+        "dependencies": [3],
+        "status": "pending",
+        "subtasks": []
+      },
+      {
+        "id": 5,
+        "title": "Implement Core Message Pipeline Orchestration",
+        "description": "Build the main message processing pipeline that coordinates all hooks and plugin interactions",
+        "details": "In src/orchestrator/index.ts, implement the core pipeline flow: receive message → fire onBeforeInvoke hooks → assemble prompt → invoke Claude → fire onAfterInvoke hooks → parse response → route commands → send response → broadcast events. Create handleMessage arrow function that accepts IncomingMessage type. Manage hook registry as internal state. Implement hook registration methods that plugins call. Ensure proper async handling and error boundaries.",
+        "testStrategy": "Unit test each pipeline stage in isolation. Mock Claude invocation to test pipeline flow. Verify hooks fire in correct order. Test error handling when hooks throw. Ensure broadcast events are emitted at correct points.",
+        "priority": "high",
+        "dependencies": [3],
+        "status": "pending",
+        "subtasks": []
+      },
+      {
+        "id": 6,
+        "title": "Create Claude CLI Invoker Module",
+        "description": "Build the subprocess management for invoking claude -p with proper timeout and output capture",
+        "details": "Create src/invoker/index.ts with invokeClaude function that spawns 'claude -p <prompt> --model <model> --output-format text' subprocess. Handle --allowedTools flag construction in _helpers/tool-filter.ts. Implement timeout (default 2 minutes, configurable). Capture stdout/stderr properly. Return structured result with output, error, duration. Handle subprocess errors and timeouts gracefully. Export as arrow function with type signature.",
+        "testStrategy": "Mock subprocess spawn to test without actual Claude CLI. Verify timeout kills process correctly. Test output parsing for various response formats. Ensure --allowedTools flag is built correctly based on context.",
+        "priority": "high",
+        "dependencies": [2],
+        "status": "pending",
+        "subtasks": []
+      },
+      {
+        "id": 7,
+        "title": "Implement Thread Router for Source Mapping",
+        "description": "Create thread routing logic that maps (source, sourceId) pairs to Thread database records",
+        "details": "Create src/thread-router.ts with getOrCreateThread function that takes source and sourceId, queries Thread table for existing record, creates new Thread if not found with appropriate defaults based on source type. Include support for thread kinds (primary, task, cron, general) and parent thread relationships. Use Prisma client from database package. Export as single file module since it's focused enough.",
+        "testStrategy": "Test thread creation for new source/sourceId pairs. Verify unique constraint is respected. Test retrieval of existing threads. Ensure parent thread relationships work correctly.",
+        "priority": "medium",
+        "dependencies": [1],
+        "status": "pending",
+        "subtasks": []
+      },
+      {
+        "id": 8,
+        "title": "Build Prompt Assembly Helper",
+        "description": "Create helper module that assembles prompts from base message and hook contributions",
+        "details": "Create src/orchestrator/_helpers/prompt-assembler.ts with assemblePrompt function. Takes base message, calls all registered onBeforeInvoke hooks in sequence, each hook can modify/append to prompt. Maintains proper prompt structure with system context, conversation history, and user message. Handles async hooks properly. Returns final assembled prompt string ready for Claude invocation.",
+        "testStrategy": "Test prompt assembly with multiple hooks contributing content. Verify hook order is preserved. Test with async hooks. Ensure prompt structure is valid for Claude CLI.",
+        "priority": "medium",
+        "dependencies": [5],
+        "status": "pending",
+        "subtasks": []
+      },
+      {
+        "id": 9,
+        "title": "Build Response Parser for Command Extraction",
+        "description": "Implement parser that extracts [COMMAND] blocks and regular content from agent responses",
+        "details": "Create src/orchestrator/_helpers/response-parser.ts with parseResponse function. Uses regex to find [COMMAND type=\"delegate\" model=\"claude-sonnet-4-6\"] blocks with content. Extracts command type, parameters, and content. Returns structured object with commands array and regular message content. Handle malformed commands gracefully. Support nested JSON in command content.",
+        "testStrategy": "Test parsing of various command formats. Verify multiple commands in one response are handled. Test malformed command blocks are ignored. Ensure regular content is preserved correctly.",
+        "priority": "medium",
+        "dependencies": [5],
+        "status": "pending",
+        "subtasks": []
+      },
+      {
+        "id": 10,
+        "title": "Implement Command Router System",
+        "description": "Build command routing that dispatches parsed commands to registered handlers",
+        "details": "Create src/orchestrator/_helpers/command-router.ts with routeCommand function. Maintains registry of command type to handler mappings. When command is parsed, looks up handler by type, calls handler with command content and context. Handles missing handlers gracefully. Supports async command handlers. Returns handler results for pipeline to process.",
+        "testStrategy": "Test routing to correct handlers by type. Verify unknown command types are handled gracefully. Test async command handlers. Ensure handler errors don't crash pipeline.",
+        "priority": "medium",
+        "dependencies": [9],
+        "status": "pending",
+        "subtasks": []
+      },
+      {
+        "id": 11,
+        "title": "Create Configuration Module",
+        "description": "Build configuration system that loads environment variables and provides defaults",
+        "details": "Create src/config.ts that reads DATABASE_URL, CLAUDE_MODEL_DEFAULT, DISCORD_TOKEN, DISCORD_CHANNEL_ID, PORT, and other env vars. Provide sensible defaults where appropriate. Export resolved config object that plugins can access. Use process.env with proper typing. Validate required vars are present at boot time.",
+        "testStrategy": "Test with various env var combinations. Verify defaults are applied correctly. Test validation throws for missing required vars. Ensure config is accessible from plugins.",
+        "priority": "medium",
+        "dependencies": [2],
+        "status": "pending",
+        "subtasks": []
+      },
+      {
+        "id": 12,
+        "title": "Implement Context Plugin for Memory Injection",
+        "description": "Create plugin that reads context files and injects them into prompts before invocation",
+        "details": "Create src/plugins/context/index.ts implementing plugin contract. Register onBeforeInvoke hook. In _helpers/file-reader.ts, implement readContextFiles using fs.readFileSync for context/*.md files (memory.md, world-state.md, thread-summaries.md, inbox.md). In _helpers/history-loader.ts, load recent messages from Thread via Prisma. Concatenate context into prompt. Handle missing files gracefully.",
+        "testStrategy": "Test with various context file states (present, missing, empty). Verify conversation history is loaded correctly. Test prompt modification includes all context. Ensure file reads use fs not MCP tools.",
+        "priority": "high",
+        "dependencies": [3, 4],
+        "status": "pending",
+        "subtasks": []
+      },
+      {
+        "id": 13,
+        "title": "Build Discord Plugin Message Source",
+        "description": "Implement Discord bot integration as a plugin for message input and output",
+        "details": "Create src/plugins/discord/index.ts with plugin exports. On start(), initialize Discord.js client with DISCORD_TOKEN. Register message listener that converts Discord messages to pipeline format via _helpers/message-adapter.ts. Register with onMessage hook. Implement sendMessage to reply in originating channel. Create _helpers/channel-resolver.ts to map Discord channels to sourceIds. Handle connection errors gracefully.",
+        "testStrategy": "Mock Discord.js client for testing. Verify message conversion works correctly. Test channel resolution logic. Ensure replies go to correct channel/thread. Test reconnection on disconnect.",
+        "priority": "high",
+        "dependencies": [3, 4],
+        "status": "pending",
+        "subtasks": []
+      },
+      {
+        "id": 14,
+        "title": "Create Web Plugin with REST and WebSocket",
+        "description": "Build web interface plugin providing HTTP API and real-time WebSocket updates",
+        "details": "Create src/plugins/web/index.ts implementing plugin contract. On start(), initialize Express server on PORT (default 3001) and WebSocket server. Create _helpers/routes.ts with REST endpoints: POST /api/chat, GET /api/threads, GET /api/tasks, GET /api/metrics. Create _helpers/ws-broadcaster.ts that listens to onBroadcast hook and emits to connected WebSocket clients. Handle CORS for dashboard access.",
+        "testStrategy": "Test REST endpoints with various payloads. Verify WebSocket connections and broadcasting work. Test CORS headers are set correctly. Ensure graceful shutdown on stop().",
+        "priority": "high",
+        "dependencies": [3, 4],
+        "status": "pending",
+        "subtasks": []
+      },
+      {
+        "id": 15,
+        "title": "Implement Delegation Plugin Core Loop",
+        "description": "Build the sub-agent delegation system with task management and iteration control",
+        "details": "Create src/plugins/delegation/index.ts registering 'delegate' and 're-delegate' command handlers. In _helpers/delegation-loop.ts, implement delegation flow: create Task record, fire onTaskCreate hooks, invoke sub-agent via ctx.invoker, fire onTaskComplete hooks for validation, handle accept/reject with re-delegation, fire onTaskValidated or onTaskFailed. Track iterations, max 5 by default. Create task thread with parentThreadId.",
+        "testStrategy": "Test full delegation flow with mock sub-agent. Verify task lifecycle hooks fire correctly. Test iteration limits are enforced. Ensure task threads link to parent properly.",
+        "priority": "high",
+        "dependencies": [3, 4, 6],
+        "status": "pending",
+        "subtasks": []
+      },
+      {
+        "id": 16,
+        "title": "Build Task Persistence Helper",
+        "description": "Implement database operations for Task and AgentRun record management",
+        "details": "Create src/plugins/delegation/_helpers/task-persistence.ts with functions: createTask (inserts Task record with initial status), updateTaskStatus, recordAgentRun (tracks each invocation with token estimates and duration), getTask, completeTask. Use Prisma client from context. Include proper error handling and database transaction support where needed.",
+        "testStrategy": "Test CRUD operations for Task records. Verify AgentRun records are created correctly. Test transaction rollback on errors. Ensure status transitions are valid.",
+        "priority": "medium",
+        "dependencies": [1, 15],
+        "status": "pending",
+        "subtasks": []
+      },
+      {
+        "id": 17,
+        "title": "Create Validation Plugin with Adversarial Review",
+        "description": "Implement quality gate plugin that spawns separate reviewer agent for task validation",
+        "details": "Create src/plugins/validation/index.ts registering onTaskComplete handler. In _helpers/reviewer-prompt.ts, build reviewer system prompt emphasizing adversarial review, checking tests/lint/build/coverage. In _helpers/quality-checks.ts, define validation criteria. Spawn separate claude invocation with reviewer prompt, parse response for accept/reject decision with specific feedback. Use different model or prompt than worker agent.",
+        "testStrategy": "Test validation with mock reviewer responses. Verify accept/reject decisions are parsed correctly. Test feedback is actionable. Ensure reviewer uses different context than worker.",
+        "priority": "high",
+        "dependencies": [3, 4, 6],
+        "status": "deferred",
+        "subtasks": []
+      },
+      {
+        "id": 18,
+        "title": "Implement Worktree Plugin for Task Isolation",
+        "description": "Build git worktree management for isolated task development environments",
+        "details": "Create src/plugins/worktree/index.ts with handlers for onTaskCreate (creates worktree at .claude/worktrees/task-id with branch task/task-id, runs pnpm install), onTaskValidated (merges branch back to base), onTaskFailed (cleanup). In _helpers/worktree-manager.ts, implement git operations using child_process. In _helpers/branch-naming.ts, handle task ID to branch name conversion. Enrich task context with worktree path.",
+        "testStrategy": "Test worktree creation with mock git commands. Verify branch naming follows convention. Test merge on validation success. Ensure cleanup happens on failure.",
+        "priority": "high",
+        "dependencies": [3, 4],
+        "status": "deferred",
+        "subtasks": []
+      },
+      {
+        "id": 19,
+        "title": "Build Cron Plugin with Scheduler",
+        "description": "Implement cron job management plugin with node-cron scheduling and admin commands",
+        "details": "Create src/plugins/cron/index.ts that on start() loads CronJob records from database and schedules them. Register command handlers for cron_create, cron_update, cron_delete, cron_toggle. In _helpers/scheduler.ts, wrap node-cron to manage job lifecycle. In _helpers/admin-commands.ts, implement CRUD operations. When cron fires, create synthetic message and feed to pipeline. Support timezone handling.",
+        "testStrategy": "Test cron job scheduling with mock timers. Verify CRUD commands modify database correctly. Test synthetic message creation. Ensure jobs reload after modifications.",
+        "priority": "medium",
+        "dependencies": [3, 4, 1],
+        "status": "pending",
+        "subtasks": []
+      },
+      {
+        "id": 20,
+        "title": "Create Bootstrap and Lifecycle Management",
+        "description": "Implement main orchestrator entry point with plugin loading and graceful shutdown",
+        "details": "In src/index.ts, implement boot sequence: load config, discover plugins via plugin-loader, call register() on each plugin with PluginContext, call start() on plugins that export it, set up signal handlers for SIGTERM/SIGINT, implement graceful shutdown calling stop() on all plugins. Handle errors during boot. Log startup progress.",
+        "testStrategy": "Test boot sequence with various plugin configurations. Verify graceful shutdown on signals. Test error handling during plugin registration. Ensure all plugins get proper lifecycle calls.",
+        "priority": "high",
+        "dependencies": [4, 5, 11],
+        "status": "pending",
+        "subtasks": []
+      },
+      {
+        "id": 21,
+        "title": "Seed Initial Cron Jobs",
+        "description": "Create database seeds for default cron jobs like morning digest and memory consolidation",
+        "details": "Create seed script in packages/database that inserts CronJob records: Morning Digest (7:00 AM MST daily), Memory Consolidation (1:00 AM MST daily), Calendar/Email Refresh (every 30 min), Weekly Review (Friday 5:00 PM MST). Each with appropriate prompt text and target channel. Use Prisma's seed functionality.",
+        "testStrategy": "Run seed script and verify records are created in database. Check cron expressions are valid. Test that seeded jobs are picked up by cron plugin on start.",
+        "priority": "low",
+        "dependencies": [1, 19],
+        "status": "pending",
+        "subtasks": []
+      },
+      {
+        "id": 22,
+        "title": "Build Microsoft Graph MCP Server Package",
+        "description": "Create standalone MCP server package for Microsoft Graph calendar and email integration",
+        "details": "Create packages/mcp-graph directory with package.json, src/index.ts implementing MCP server protocol. Use @modelcontextprotocol/sdk to expose tools: calendar_list_events, calendar_create_event, mail_list_messages, mail_send_message, mail_search. Implement OAuth2 auth with @azure/msal-node. Use @microsoft/microsoft-graph-client for API calls. Export as executable MCP server.",
+        "testStrategy": "Test MCP protocol compliance with mock requests. Verify OAuth flow works with test credentials. Test each tool with mock Graph API responses. Ensure package builds and runs as MCP server.",
+        "priority": "medium",
+        "dependencies": [],
+        "status": "deferred",
+        "subtasks": []
+      },
+      {
+        "id": 23,
+        "title": "Create Context Directory with Starter Files",
+        "description": "Initialize context directory at project root with markdown files for agent memory",
+        "details": "Create context/ directory at project root with starter files: memory.md (empty with header), inbox.md (empty with date header), world-state.md (template for calendar/email state), thread-summaries.md (template for thread tracking), system.md (template for cron schedules and config). Each file should have minimal structure to guide agent usage.",
+        "testStrategy": "Verify files are created at correct paths. Ensure context plugin can read files. Test that missing files don't crash the system.",
+        "priority": "low",
+        "dependencies": [],
+        "status": "pending",
+        "subtasks": []
+      },
+      {
+        "id": 24,
+        "title": "Write Orchestrator Agent Instructions",
+        "description": "Create comprehensive CLAUDE.md file defining agent behavior for the orchestrator",
+        "details": "Create apps/orchestrator/CLAUDE.md or extend root CLAUDE.md with orchestrator-specific instructions: context file management rules, command syntax for delegation/cron/admin operations, memory consolidation patterns, calendar/email awareness triggers, sub-agent delegation decision tree, timezone handling (MST/America/Phoenix), personality guidelines. Include examples of each command type.",
+        "testStrategy": "Review instructions for completeness. Test that following the instructions produces expected behavior. Verify command examples are syntactically correct.",
+        "priority": "medium",
+        "dependencies": [],
+        "status": "pending",
+        "subtasks": []
+      },
+      {
+        "id": 25,
+        "title": "Create Dashboard Next.js Application",
+        "description": "Repurpose the existing apps/web Next.js 16 application as the dashboard with server-first architecture and App Router",
+        "status": "pending",
+        "dependencies": [],
+        "priority": "medium",
+        "details": "Reconfigure the existing apps/web Next.js 16 application for dashboard use. Update package.json name from 'web' to 'dashboard'. Modify apps/web/src/app/layout.tsx metadata to reflect dashboard branding. Keep existing dependencies on database and ui packages. Maintain transpilePackages configuration in next.config.ts. Preserve the current App Router structure with Inter font. Keep strict TypeScript config. Ensure server components remain default, use 'use client' directive only where necessary. Consider renaming the apps/web directory to apps/dashboard for clarity.",
+        "testStrategy": "Run pnpm dev in apps/web and verify dashboard starts with updated branding. Check TypeScript compilation passes. Verify imports from database and ui packages work correctly. Test server components render without hydration errors. Ensure all existing configurations still function after renaming.",
+        "subtasks": [
+          {
+            "id": 1,
+            "title": "Update package.json name",
+            "description": "Change name field in apps/web/package.json from 'web' to 'dashboard'",
+            "status": "pending",
+            "dependencies": [],
+            "details": "",
+            "testStrategy": ""
+          },
+          {
+            "id": 2,
+            "title": "Update application metadata",
+            "description": "Modify apps/web/src/app/layout.tsx to update title and description for dashboard branding",
+            "status": "pending",
+            "dependencies": [],
+            "details": "",
+            "testStrategy": ""
+          },
+          {
+            "id": 3,
+            "title": "Rename directory (optional)",
+            "description": "Consider renaming apps/web to apps/dashboard for better clarity, updating all references in package.json scripts and turbo.json",
+            "status": "pending",
+            "dependencies": [],
+            "details": "",
+            "testStrategy": ""
+          },
+          {
+            "id": 4,
+            "title": "Verify existing configurations",
+            "description": "Ensure all existing Next.js 16, TypeScript, and package dependencies continue to work after reconfiguration",
+            "status": "pending",
+            "dependencies": [],
+            "details": "",
+            "testStrategy": ""
+          }
+        ]
+      },
+      {
+        "id": 26,
+        "title": "Build Dashboard Thread Management UI",
+        "description": "Implement multi-chat interface with thread sidebar and message history",
+        "details": "Create app/chat/[threadId]/page.tsx as Server Component that fetches thread and messages from Prisma. Build thread sidebar showing all threads with primary pinned, active threads by lastActivity. Implement thread kind icons/labels. Use URL params for active thread selection. Create loading.tsx for route-level loading. Keep all data fetching server-side, no useEffect.",
+        "testStrategy": "Test thread list renders correctly. Verify primary thread is always pinned. Test navigation between threads updates URL. Ensure server rendering works without JavaScript.",
+        "priority": "medium",
+        "dependencies": [25, 1],
+        "status": "pending",
+        "subtasks": []
+      },
+      {
+        "id": 27,
+        "title": "Implement Dashboard Real-time Updates",
+        "description": "Add WebSocket client for live message streaming and task updates",
+        "details": "Create 'use client' component for WebSocket connection to orchestrator. Listen for message and task events. Update UI optimistically on new messages. Handle reconnection logic. Use React 19's use() hook for streaming responses. Wrap in Suspense boundary. Only this component should be client-side, rest stays server components.",
+        "testStrategy": "Test WebSocket connection and reconnection. Verify messages appear in real-time. Test task status updates are reflected. Ensure works with server components.",
+        "priority": "medium",
+        "dependencies": [26, 14],
+        "status": "pending",
+        "subtasks": []
+      },
+      {
+        "id": 28,
+        "title": "Build Dashboard Admin Pages",
+        "description": "Create server-rendered pages for tasks, crons, metrics, and memory management",
+        "details": "Create app/tasks/page.tsx fetching Task records with status badges. Create app/crons/page.tsx showing CronJob list with toggle controls via Server Actions. Create app/metrics/page.tsx with token usage and cost charts. Create app/memory/page.tsx displaying context file contents. All pages use async data fetching in Server Components, no client state.",
+        "testStrategy": "Verify each page loads with correct data. Test Server Actions update database. Ensure pages work without JavaScript. Test data revalidation after mutations.",
+        "priority": "low",
+        "dependencies": [25, 1],
+        "status": "pending",
+        "subtasks": []
+      },
+      {
+        "id": 29,
+        "title": "Implement Cross-thread Notifications",
+        "description": "Add support for task completion notifications across thread boundaries",
+        "details": "Extend delegation plugin to use sendToThread for parent thread notifications when tasks complete. Create system message type in Message model. In dashboard, render cross-thread notifications with source thread link. Implement 'View thread' navigation. Ensure notifications appear in correct thread with proper formatting.",
+        "testStrategy": "Test task completion sends notification to parent. Verify notification appears in parent thread UI. Test clicking notification navigates to task thread. Ensure message persistence works.",
+        "priority": "low",
+        "dependencies": [15, 26],
+        "status": "pending",
+        "subtasks": []
+      },
+      {
+        "id": 30,
+        "title": "Add Production Deployment Configuration",
+        "description": "Set up pm2 configuration and systemd service files for production deployment",
+        "details": "Create ecosystem.config.js for pm2 with orchestrator and dashboard apps. Write systemd service file for orchestrator. Add health check endpoint. Configure log rotation. Set up proper NODE_ENV handling. Create deployment scripts. Document deployment process in README.",
+        "testStrategy": "Test pm2 starts both services correctly. Verify systemd service file is valid. Test health endpoint responds. Ensure logs rotate properly. Verify graceful reload works.",
+        "priority": "low",
+        "dependencies": [20],
+        "status": "pending",
+        "subtasks": []
+      },
+      {
+        "id": 31,
+        "title": "Implement Token Usage Tracking",
+        "description": "Add comprehensive token counting and cost estimation throughout the pipeline",
+        "details": "Extend AgentRun records with accurate token counts using tiktoken or Claude's token counting. Calculate costs based on model pricing. Add token usage to Metric records. Create dashboard visualizations showing usage over time, cost breakdowns by model, task token efficiency metrics. Include token budget warnings.",
+        "testStrategy": "Verify token counts are reasonable estimates. Test cost calculations match pricing. Ensure metrics are recorded correctly. Test dashboard charts render properly.",
+        "priority": "low",
+        "dependencies": [16, 28],
+        "status": "pending",
+        "subtasks": []
+      },
+      {
+        "id": 32,
+        "title": "Create Plugin Development Documentation",
+        "description": "Write comprehensive guide for third-party plugin developers",
+        "details": "Create docs/plugin-development.md with: plugin contract reference, lifecycle hook documentation, example plugin implementations, testing guidelines, best practices for hook usage, common patterns, debugging tips. Include working example of a simple notification plugin. Document how to package and distribute plugins.",
+        "testStrategy": "Follow documentation to create a test plugin. Verify all code examples compile. Test that following the guide produces working plugin. Ensure documentation is clear and complete.",
+        "priority": "low",
+        "dependencies": [3, 4],
+        "status": "pending",
+        "subtasks": []
+      },
+      {
+        "id": 33,
+        "title": "Rename project from one-stack to Harness",
+        "description": "Update all references to 'one-stack' and 'One Stack' throughout the codebase to 'Harness', including package names, metadata, documentation, and configuration files",
+        "details": "Rename the project in the following locations:\n1. Root package.json: Change name field from 'one-stack' to 'harness' (line 2)\n2. apps/web/src/app/layout.tsx: Update metadata title from 'One Stack' to 'Harness' (line 8), update description to 'Claude Orchestrator with persistent conversation threads and sub-agent delegation' (line 9)\n3. apps/web/src/app/page.tsx: Change h1 text from 'One Stack' to 'Harness' (line 7), update description text to 'Claude Orchestrator — Persistent threads, sub-agent delegation, scheduled invocations, and interface adapters' (lines 8-10)\n4. README.md: Update title from '# One Stack' to '# Harness' (line 1), replace 'one-stack/' with 'harness/' in project structure diagram (line 32)\n5. LICENSE file: Change copyright from 'One Stack' to 'Harness' (line 3)\n6. AI_RESEARCH/2026-02-23-task-master-ai-configuration.md: Update projectName from 'one-stack' to 'harness' (line 345) if this file needs to be preserved\n\nNote: Git logs contain historical references that should not be modified. The web app package name remains 'web' as it's an internal package name and doesn't need the project branding.",
+        "testStrategy": "Verify the renaming is complete by:\n1. Run 'grep -r \"one-stack\" --exclude-dir=.git .' to confirm no references remain (except in git history)\n2. Run 'grep -r \"One Stack\" --exclude-dir=.git .' to confirm no references remain (except in git history)\n3. Verify package.json name field is 'harness'\n4. Run 'pnpm install' to ensure workspace configuration still works\n5. Run 'pnpm dev' and visit localhost:3000 to verify the web app displays 'Harness' as the title\n6. Check browser tab title shows 'Harness'\n7. Run 'pnpm ci' to ensure all CI checks still pass after renaming",
+        "status": "pending",
+        "dependencies": [],
+        "priority": "high",
+        "subtasks": []
+      }
+    ],
+    "metadata": {
+      "created": "2026-02-23T03:29:17.848Z",
+      "updated": "2026-02-23T03:32:14.622Z",
+      "description": "Tasks for master context"
+    }
   }
 }
