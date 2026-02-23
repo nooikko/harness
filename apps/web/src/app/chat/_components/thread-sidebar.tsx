@@ -1,5 +1,6 @@
 import type { Thread } from 'database';
 import { MessageSquarePlus } from 'lucide-react';
+import { ScrollArea } from 'ui';
 import { sortThreads } from '../_helpers/sort-threads';
 import { ThreadListItem } from './thread-list-item';
 
@@ -25,19 +26,21 @@ export const ThreadSidebar: ThreadSidebarComponent = ({ threads }) => {
           <MessageSquarePlus className='h-4 w-4 text-muted-foreground' />
         </span>
       </div>
-      <nav className='flex-1 overflow-y-auto p-2' aria-label='Thread list'>
-        {sorted.length === 0 ? (
-          <p className='px-3 py-4 text-center text-sm text-muted-foreground'>No threads yet</p>
-        ) : (
-          <ul className='flex flex-col gap-0.5'>
-            {sorted.map((thread) => (
-              <li key={thread.id}>
-                <ThreadListItem thread={thread} />
-              </li>
-            ))}
-          </ul>
-        )}
-      </nav>
+      <ScrollArea className='flex-1'>
+        <nav className='p-2' aria-label='Thread list'>
+          {sorted.length === 0 ? (
+            <p className='px-3 py-4 text-center text-sm text-muted-foreground'>No threads yet</p>
+          ) : (
+            <ul className='flex flex-col gap-0.5'>
+              {sorted.map((thread) => (
+                <li key={thread.id}>
+                  <ThreadListItem thread={thread} />
+                </li>
+              ))}
+            </ul>
+          )}
+        </nav>
+      </ScrollArea>
     </aside>
   );
 };

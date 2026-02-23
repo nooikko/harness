@@ -1,4 +1,5 @@
 import type { Message } from 'database';
+import { ScrollArea } from 'ui';
 import { MessageItem } from './message-item';
 
 type MessageListProps = {
@@ -21,10 +22,12 @@ export const MessageList: MessageListComponent = ({ messages }) => {
   }
 
   return (
-    <div className='flex flex-1 flex-col gap-4 overflow-y-auto p-4'>
-      {messages.map((message) => (
-        <MessageItem key={message.id} message={message} />
-      ))}
-    </div>
+    <ScrollArea className='flex-1'>
+      <div className='flex flex-col gap-4 p-4'>
+        {messages.map((message) => (
+          <MessageItem key={message.id} message={message} />
+        ))}
+      </div>
+    </ScrollArea>
   );
 };
