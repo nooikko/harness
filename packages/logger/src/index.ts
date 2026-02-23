@@ -1,4 +1,4 @@
-// Logger module — structured logging for the orchestrator
+// Logger package — structured logging for Harness
 
 export type Logger = {
   info: (message: string, meta?: Record<string, unknown>) => void;

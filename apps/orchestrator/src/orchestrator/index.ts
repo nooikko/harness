@@ -1,9 +1,9 @@
 // Orchestrator module — plugin contract and lifecycle management
 
+import type { Logger } from "@harness/logger";
 import type { PrismaClient } from "database";
 import type { OrchestratorConfig } from "../config";
 import type { InvokeOptions, InvokeResult } from "../invoker";
-import type { Logger } from "../logger";
 
 export type Invoker = {
   invoke: (prompt: string, options?: InvokeOptions) => Promise<InvokeResult>;

@@ -9,7 +9,7 @@
         "testStrategy": "Run 'pnpm db:generate' to validate schema compiles without errors. Check that generated Prisma client exports all new types correctly. Verify indexes are created properly with 'pnpm db:push'.",
         "priority": "high",
         "dependencies": [],
-        "status": "pending",
+        "status": "done",
         "subtasks": []
       },
       {
@@ -20,7 +20,7 @@
         "testStrategy": "Verify directory structure matches specification. Ensure all index.ts files exist. Run 'pnpm install' in orchestrator directory to validate package.json. Check TypeScript compilation with 'pnpm tsc --noEmit'.",
         "priority": "high",
         "dependencies": [],
-        "status": "pending",
+        "status": "done",
         "subtasks": []
       },
       {
@@ -31,7 +31,7 @@
         "testStrategy": "TypeScript compilation should pass with strict mode. Create a mock plugin that implements the contract to verify all types work correctly. Ensure imports work from '@/orchestrator' not from internal paths.",
         "priority": "high",
         "dependencies": [2],
-        "status": "pending",
+        "status": "done",
         "subtasks": []
       },
       {
@@ -64,7 +64,7 @@
         "testStrategy": "Mock subprocess spawn to test without actual Claude CLI. Verify timeout kills process correctly. Test output parsing for various response formats. Ensure --allowedTools flag is built correctly based on context.",
         "priority": "high",
         "dependencies": [2],
-        "status": "pending",
+        "status": "done",
         "subtasks": []
       },
       {
@@ -75,7 +75,7 @@
         "testStrategy": "Test thread creation for new source/sourceId pairs. Verify unique constraint is respected. Test retrieval of existing threads. Ensure parent thread relationships work correctly.",
         "priority": "medium",
         "dependencies": [1],
-        "status": "pending",
+        "status": "done",
         "subtasks": []
       },
       {
@@ -396,7 +396,7 @@
         "description": "Update all references to 'one-stack' and 'One Stack' throughout the codebase to 'Harness', including package names, metadata, documentation, and configuration files",
         "details": "Rename the project in the following locations:\n1. Root package.json: Change name field from 'one-stack' to 'harness' (line 2)\n2. apps/web/src/app/layout.tsx: Update metadata title from 'One Stack' to 'Harness' (line 8), update description to 'Claude Orchestrator with persistent conversation threads and sub-agent delegation' (line 9)\n3. apps/web/src/app/page.tsx: Change h1 text from 'One Stack' to 'Harness' (line 7), update description text to 'Claude Orchestrator — Persistent threads, sub-agent delegation, scheduled invocations, and interface adapters' (lines 8-10)\n4. README.md: Update title from '# One Stack' to '# Harness' (line 1), replace 'one-stack/' with 'harness/' in project structure diagram (line 32)\n5. LICENSE file: Change copyright from 'One Stack' to 'Harness' (line 3)\n6. AI_RESEARCH/2026-02-23-task-master-ai-configuration.md: Update projectName from 'one-stack' to 'harness' (line 345) if this file needs to be preserved\n\nNote: Git logs contain historical references that should not be modified. The web app package name remains 'web' as it's an internal package name and doesn't need the project branding.",
         "testStrategy": "Verify the renaming is complete by:\n1. Run 'grep -r \"one-stack\" --exclude-dir=.git .' to confirm no references remain (except in git history)\n2. Run 'grep -r \"One Stack\" --exclude-dir=.git .' to confirm no references remain (except in git history)\n3. Verify package.json name field is 'harness'\n4. Run 'pnpm install' to ensure workspace configuration still works\n5. Run 'pnpm dev' and visit localhost:3000 to verify the web app displays 'Harness' as the title\n6. Check browser tab title shows 'Harness'\n7. Run 'pnpm ci' to ensure all CI checks still pass after renaming",
-        "status": "pending",
+        "status": "done",
         "dependencies": [],
         "priority": "high",
         "subtasks": []
@@ -404,7 +404,7 @@
     ],
     "metadata": {
       "created": "2026-02-23T03:29:17.848Z",
-      "updated": "2026-02-23T03:32:14.622Z",
+      "updated": "2026-02-23T04:09:10.843Z",
       "description": "Tasks for master context"
     }
   }
