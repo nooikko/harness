@@ -64,8 +64,10 @@ packages/plugins/web/        → Web plugin (@harness/plugin-web)
 ### UI Package
 
 - Exports `cn()` utility (clsx + tailwind-merge) from `packages/ui/src/index.ts`
-- shadcn/ui components live in `apps/web/src/components/ui/` (app-local, not in shared package yet)
-- Uses Radix UI primitives, Class Variance Authority for variants, Lucide for icons
+- ShadCN components live in `packages/ui/src/components/` (shared across apps)
+- Available components: Alert, Badge, Button, Card, Dialog, DropdownMenu, Input, Label, Progress, ScrollArea, Separator, Skeleton, Table, Tooltip
+- Uses Radix UI primitives (`@radix-ui/react-*`), Class Variance Authority for variants, Lucide for icons
+- Import components from `"ui"` (e.g., `import { Button, Card, Dialog } from "ui"`)
 
 ### Web App
 
