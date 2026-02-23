@@ -112,7 +112,7 @@ def detect_projects(testable_files: list[str]) -> list[str]:
     """Detect which vitest projects contain the staged files to scope coverage runs."""
     # Map directory prefixes to vitest project names (from vitest.config.ts)
     project_map = {
-        "apps/web/": "web",
+        "apps/web/": "dashboard",
         "apps/orchestrator/": "orchestrator",
         "packages/ui/": "ui",
         "packages/logger/": "logger",
