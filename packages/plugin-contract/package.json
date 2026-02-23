@@ -7,7 +7,9 @@
   "types": "./src/index.ts",
   "scripts": {
     "lint": "biome check .",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run",
+    "test:watch": "vitest"
   },
   "dependencies": {
     "@harness/logger": "workspace:*",
@@ -15,6 +17,8 @@
   },
   "devDependencies": {
     "@types/node": "^22.19.11",
-    "typescript": "^5.9.3"
+    "@vitest/coverage-v8": "^4.0.18",
+    "typescript": "^5.9.3",
+    "vitest": "^4.0.18"
   }
 }

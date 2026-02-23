@@ -76,7 +76,7 @@ describe("runCommandHooks", () => {
     const result = await runCommandHooks(allHooks, "thread-1", "ping", "arg1", mockLogger);
 
     expect(result).toBe(true);
-    expect(mockLogger.error).toHaveBeenCalledWith('Hook "onCommand" threw for /ping: handler crashed');
+    expect(mockLogger.error).toHaveBeenCalledWith('Hook "onCommand(/ping)" threw: handler crashed');
     expect(secondHook).toHaveBeenCalledTimes(1);
   });
 
@@ -89,7 +89,7 @@ describe("runCommandHooks", () => {
 
     await runCommandHooks(allHooks, "thread-1", "ping", "", mockLogger);
 
-    expect(mockLogger.error).toHaveBeenCalledWith('Hook "onCommand" threw for /ping: a plain string error');
+    expect(mockLogger.error).toHaveBeenCalledWith('Hook "onCommand(/ping)" threw: a plain string error');
   });
 
   it("returns false when no hook handles the command", async () => {
