@@ -1,11 +1,97 @@
 // Invoker module — manages Claude CLI process invocations
 
-export const createInvoker = () => {
-  // TODO: Spawn claude CLI processes, manage stdin/stdout
-  return {
-    invoke: async (_prompt: string) => {
-      console.log("Invoker: Claude CLI invocation placeholder");
-      return { output: "" };
-    },
-  };
+import { spawn } from "node:child_process";
+import { buildArgs } from "./_helpers";
+
+type InvokeOptions = {
+  model?: string;
+  timeout?: number;
+  allowedTools?: string[];
+  maxTokens?: number;
 };
+
+type InvokeResult = {
+  output: string;
+  error?: string;
+  durationMs: number;
+  exitCode: number | null;
+};
+
+type InvokerConfig = {
+  defaultModel: string;
+  defaultTimeout: number;
+};
+
+const createInvoker = (config: InvokerConfig) => {
+  const invoke = async (
+    prompt: string,
+    options?: InvokeOptions
+  ): Promise<InvokeResult> => {
+    const startTime = Date.now();
+    const args = buildArgs(prompt, {
+      model: options?.model ?? config.defaultModel,
+      allowedTools: options?.allowedTools,
+      maxTokens: options?.maxTokens,
+    });
+    const timeout = options?.timeout ?? config.defaultTimeout;
+
+    return new Promise<InvokeResult>((resolve) => {
+      const child = spawn("claude", args, {
+        stdio: ["pipe", "pipe", "pipe"],
+        env: { ...process.env },
+      });
+
+      let stdout = "";
+      let stderr = "";
+      let killed = false;
+
+      const timer = setTimeout(() => {
+        killed = true;
+        child.kill("SIGTERM");
+        // Give it a moment to clean up, then force kill
+        setTimeout(() => {
+          if (!child.killed) {
+            child.kill("SIGKILL");
+          }
+        }, 5000);
+      }, timeout);
+
+      child.stdout?.on("data", (chunk: Buffer) => {
+        stdout += chunk.toString();
+      });
+
+      child.stderr?.on("data", (chunk: Buffer) => {
+        stderr += chunk.toString();
+      });
+
+      child.on("close", (code) => {
+        clearTimeout(timer);
+        const durationMs = Date.now() - startTime;
+        resolve({
+          output: stdout.trim(),
+          error: killed
+            ? `Timed out after ${timeout}ms`
+            : stderr.trim() || undefined,
+          durationMs,
+          exitCode: code,
+        });
+      });
+
+      child.on("error", (err) => {
+        clearTimeout(timer);
+        const durationMs = Date.now() - startTime;
+        resolve({
+          output: "",
+          error: `Failed to spawn claude: ${err.message}`,
+          durationMs,
+          exitCode: null,
+        });
+      });
+    });
+  };
+
+  return { invoke };
+};
+
+export { createInvoker };
+export type { InvokeOptions, InvokeResult, InvokerConfig };
