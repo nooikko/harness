@@ -108,6 +108,24 @@ def get_testable_files(staged_files: list[str]) -> list[str]:
 MAX_RETRIES = 3  # Node.js ESM race condition is non-deterministic; retry on failure
 
 
+def detect_projects(testable_files: list[str]) -> list[str]:
+    """Detect which vitest projects contain the staged files to scope coverage runs."""
+    # Map directory prefixes to vitest project names (from vitest.config.ts)
+    project_map = {
+        "apps/web/": "web",
+        "apps/orchestrator/": "orchestrator",
+        "packages/ui/": "ui",
+        "packages/logger/": "logger",
+    }
+    projects: set[str] = set()
+    for filepath in testable_files:
+        for prefix, project_name in project_map.items():
+            if filepath.startswith(prefix):
+                projects.add(project_name)
+                break
+    return sorted(projects)
+
+
 def run_coverage(testable_files: list[str], project_dir: str) -> dict | None:
     """Run vitest with coverage on files related to the testable files.
 
@@ -120,6 +138,13 @@ def run_coverage(testable_files: list[str], project_dir: str) -> dict | None:
     """
     coverage_path = os.path.join(project_dir, "coverage", "coverage-final.json")
 
+    # Scope to only the projects that contain staged files to avoid loading
+    # unrelated project configs that may fail in worktree environments
+    projects = detect_projects(testable_files)
+    project_args = []
+    for project in projects:
+        project_args.extend(["--project", project])
+
     # Remove stale coverage data
     if os.path.isfile(coverage_path):
         os.remove(coverage_path)
@@ -131,6 +156,7 @@ def run_coverage(testable_files: list[str], project_dir: str) -> dict | None:
         "--run",
         "--coverage",
         "--coverage.reporter=json",
+        *project_args,
     ]
 
     subprocess.run(
@@ -149,6 +175,7 @@ def run_coverage(testable_files: list[str], project_dir: str) -> dict | None:
         "--run",
         "--coverage",
         "--coverage.reporter=json",
+        *project_args,
     ]
 
     for attempt in range(1, MAX_RETRIES + 1):
