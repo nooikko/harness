@@ -25,6 +25,18 @@ const validateConfig: ValidateConfig = (config) => {
   return config;
 };
 
+type ParseDisabledPlugins = (raw: string | undefined) => string[];
+
+const parseDisabledPlugins: ParseDisabledPlugins = (raw) => {
+  if (!raw || raw.trim() === '') {
+    return [];
+  }
+  return raw
+    .split(',')
+    .map((s) => s.trim())
+    .filter((s) => s.length > 0);
+};
+
 type LoadConfig = () => OrchestratorConfig;
 
 export const loadConfig: LoadConfig = () => {
@@ -38,6 +50,7 @@ export const loadConfig: LoadConfig = () => {
     discordChannelId: process.env.DISCORD_CHANNEL_ID,
     port: Number(process.env.PORT ?? '3001'),
     logLevel: parseLogLevel(process.env.LOG_LEVEL),
+    disabledPlugins: parseDisabledPlugins(process.env.DISABLED_PLUGINS),
   };
 
   return validateConfig(config);

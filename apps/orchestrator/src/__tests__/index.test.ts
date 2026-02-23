@@ -67,6 +67,7 @@ const makeConfig = (overrides?: Partial<OrchestratorConfig>): OrchestratorConfig
   discordChannelId: undefined,
   port: 3001,
   logLevel: 'info' as const,
+  disabledPlugins: [],
   ...overrides,
 });
 

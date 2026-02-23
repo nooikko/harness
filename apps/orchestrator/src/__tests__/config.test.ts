@@ -213,4 +213,69 @@ describe('loadConfig', () => {
       expect(config.logLevel).toBe('info');
     });
   });
+
+  describe('parseDisabledPlugins (via loadConfig)', () => {
+    it('defaults to empty array when DISABLED_PLUGINS is not set', () => {
+      process.env.DATABASE_URL = 'postgres://localhost/test';
+      delete process.env.DISABLED_PLUGINS;
+
+      const config = loadConfig();
+
+      expect(config.disabledPlugins).toEqual([]);
+    });
+
+    it('defaults to empty array when DISABLED_PLUGINS is empty string', () => {
+      process.env.DATABASE_URL = 'postgres://localhost/test';
+      process.env.DISABLED_PLUGINS = '';
+
+      const config = loadConfig();
+
+      expect(config.disabledPlugins).toEqual([]);
+    });
+
+    it('defaults to empty array when DISABLED_PLUGINS is whitespace only', () => {
+      process.env.DATABASE_URL = 'postgres://localhost/test';
+      process.env.DISABLED_PLUGINS = '   ';
+
+      const config = loadConfig();
+
+      expect(config.disabledPlugins).toEqual([]);
+    });
+
+    it('parses a single plugin name', () => {
+      process.env.DATABASE_URL = 'postgres://localhost/test';
+      process.env.DISABLED_PLUGINS = 'discord';
+
+      const config = loadConfig();
+
+      expect(config.disabledPlugins).toEqual(['discord']);
+    });
+
+    it('parses comma-separated plugin names', () => {
+      process.env.DATABASE_URL = 'postgres://localhost/test';
+      process.env.DISABLED_PLUGINS = 'discord,web';
+
+      const config = loadConfig();
+
+      expect(config.disabledPlugins).toEqual(['discord', 'web']);
+    });
+
+    it('trims whitespace around plugin names', () => {
+      process.env.DATABASE_URL = 'postgres://localhost/test';
+      process.env.DISABLED_PLUGINS = ' discord , web , context ';
+
+      const config = loadConfig();
+
+      expect(config.disabledPlugins).toEqual(['discord', 'web', 'context']);
+    });
+
+    it('filters out empty entries from trailing commas', () => {
+      process.env.DATABASE_URL = 'postgres://localhost/test';
+      process.env.DISABLED_PLUGINS = 'discord,,web,';
+
+      const config = loadConfig();
+
+      expect(config.disabledPlugins).toEqual(['discord', 'web']);
+    });
+  });
 });

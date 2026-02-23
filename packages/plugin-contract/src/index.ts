@@ -23,6 +23,7 @@ export type OrchestratorConfig = {
   discordChannelId: string | undefined;
   port: number;
   logLevel: LogLevel;
+  disabledPlugins: string[];
 };
 
 // Inlined from orchestrator invoker

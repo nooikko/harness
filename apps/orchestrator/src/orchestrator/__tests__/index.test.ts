@@ -56,6 +56,7 @@ const mockConfig: OrchestratorConfig = {
   discordChannelId: undefined,
   port: 3001,
   logLevel: 'info' as const,
+  disabledPlugins: [],
 };
 
 const makeDeps = (overrides?: Partial<OrchestratorDeps>): OrchestratorDeps => ({
