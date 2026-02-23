@@ -72,10 +72,16 @@ You are implementing a task for the Harness project.
 ## Instructions
 
 - Read CLAUDE.md at the project root for all coding conventions
+- Read .taskmaster/docs/prd.md for architecture and design decisions
+- Read existing code in the modules you'll touch to match patterns
 - Hooks enforce conventions automatically — focus on the implementation
 - When done, commit your changes with message: "feat(task-{id}): {short description}"
 - The pre-commit hook will validate typecheck/lint/build — fix any failures it reports
 ```
+
+<HARD-GATE>
+Do NOT write code in the agent prompt. Describe WHAT to build, not HOW. The agent reads CLAUDE.md, the PRD, and existing code — it makes its own implementation decisions. If you find yourself writing code snippets, type definitions, or implementation details in the prompt, STOP. That is micromanagement. Pass through the taskmaster description/details verbatim and let the agent work.
+</HARD-GATE>
 
 ### 3c. Parallel dispatch
 
