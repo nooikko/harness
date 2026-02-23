@@ -2,7 +2,12 @@
 // Creates task records, fires lifecycle hooks, invokes sub-agents,
 // and handles accept/reject validation with re-delegation support
 
-import type { InvokeResult, PluginContext, PluginHooks } from "@harness/plugin-contract";
+import type { PluginContext, PluginHooks } from "@harness/plugin-contract";
+import { runHook } from "@harness/plugin-contract";
+import { buildIterationPrompt } from "./build-iteration-prompt";
+import { createTaskRecord } from "./create-task-record";
+import { createTaskThread } from "./create-task-thread";
+import { invokeSubAgent } from "./invoke-sub-agent";
 
 export type DelegationOptions = {
   prompt: string;
@@ -22,25 +27,6 @@ export type DelegationResult = {
 type TaskCompleteOutcome = {
   accepted: boolean;
   feedback?: string;
-};
-
-type FireTaskCreateHooks = (
-  allHooks: PluginHooks[],
-  threadId: string,
-  taskId: string,
-  ctx: PluginContext
-) => Promise<void>;
-
-const fireTaskCreateHooks: FireTaskCreateHooks = async (allHooks, threadId, taskId, ctx) => {
-  for (const hooks of allHooks) {
-    if (hooks.onTaskCreate) {
-      try {
-        await hooks.onTaskCreate(threadId, taskId);
-      } catch (err) {
-        ctx.logger.error(`Hook "onTaskCreate" threw: ${err instanceof Error ? err.message : String(err)}`);
-      }
-    }
-  }
 };
 
 type FireTaskCompleteHooks = (
@@ -68,109 +54,7 @@ const fireTaskCompleteHooks: FireTaskCompleteHooks = async (allHooks, threadId, 
   return { accepted: true };
 };
 
-type FireTaskFailedHooks = (
-  allHooks: PluginHooks[],
-  threadId: string,
-  taskId: string,
-  error: Error,
-  ctx: PluginContext
-) => Promise<void>;
-
-const fireTaskFailedHooks: FireTaskFailedHooks = async (allHooks, threadId, taskId, error, ctx) => {
-  for (const hooks of allHooks) {
-    if (hooks.onTaskFailed) {
-      try {
-        await hooks.onTaskFailed(threadId, taskId, error);
-      } catch (err) {
-        ctx.logger.error(`Hook "onTaskFailed" threw: ${err instanceof Error ? err.message : String(err)}`);
-      }
-    }
-  }
-};
-
 const DEFAULT_MAX_ITERATIONS = 5;
-
-type CreateTaskThread = (ctx: PluginContext, parentThreadId: string, prompt: string) => Promise<{ threadId: string }>;
-
-const createTaskThread: CreateTaskThread = async (ctx, parentThreadId, prompt) => {
-  const thread = await ctx.db.thread.create({
-    data: {
-      source: "delegation",
-      sourceId: `task-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
-      name: `Task: ${prompt.slice(0, 50)}`,
-      kind: "task",
-      status: "active",
-      parentThreadId,
-      lastActivity: new Date(),
-    },
-  });
-  return { threadId: thread.id };
-};
-
-type CreateTaskRecord = (
-  ctx: PluginContext,
-  threadId: string,
-  prompt: string,
-  maxIterations: number
-) => Promise<{ taskId: string }>;
-
-const createTaskRecord: CreateTaskRecord = async (ctx, threadId, prompt, maxIterations) => {
-  const task = await ctx.db.orchestratorTask.create({
-    data: {
-      threadId,
-      prompt,
-      status: "pending",
-      maxIterations,
-      currentIteration: 0,
-    },
-  });
-  return { taskId: task.id };
-};
-
-type BuildIterationPrompt = (originalPrompt: string, feedback: string | undefined) => string;
-
-const buildIterationPrompt: BuildIterationPrompt = (originalPrompt, feedback) => {
-  if (!feedback) {
-    return originalPrompt;
-  }
-  return `${originalPrompt}\n\n---\n\nPrevious attempt was rejected with the following feedback:\n\n${feedback}`;
-};
-
-type InvokeSubAgent = (
-  ctx: PluginContext,
-  prompt: string,
-  taskId: string,
-  threadId: string,
-  model: string | undefined
-) => Promise<InvokeResult>;
-
-const invokeSubAgent: InvokeSubAgent = async (ctx, prompt, taskId, threadId, model) => {
-  const result = await ctx.invoker.invoke(prompt, { model });
-
-  // Persist the sub-agent output as a message in the task thread
-  await ctx.db.message.create({
-    data: {
-      threadId,
-      role: "assistant",
-      content: result.output,
-    },
-  });
-
-  // Record the agent run
-  await ctx.db.agentRun.create({
-    data: {
-      threadId,
-      taskId,
-      model: model ?? ctx.config.claudeModel,
-      durationMs: result.durationMs,
-      status: result.exitCode === 0 ? "completed" : "failed",
-      error: result.error ?? null,
-      completedAt: new Date(),
-    },
-  });
-
-  return result;
-};
 
 type RunDelegationLoop = (
   ctx: PluginContext,
@@ -193,7 +77,17 @@ export const runDelegationLoop: RunDelegationLoop = async (ctx, allHooks, option
   });
 
   // Step 3: Fire onTaskCreate hooks
-  await fireTaskCreateHooks(allHooks, threadId, taskId, ctx);
+  await runHook(
+    allHooks,
+    "onTaskCreate",
+    (hooks) => {
+      if (hooks.onTaskCreate) {
+        return hooks.onTaskCreate(threadId, taskId);
+      }
+      return undefined;
+    },
+    ctx.logger
+  );
 
   // Broadcast task creation
   await ctx.broadcast("task:created", {
@@ -324,7 +218,17 @@ export const runDelegationLoop: RunDelegationLoop = async (ctx, allHooks, option
   );
 
   // Fire onTaskFailed hooks
-  await fireTaskFailedHooks(allHooks, threadId, taskId, failError, ctx);
+  await runHook(
+    allHooks,
+    "onTaskFailed",
+    (hooks) => {
+      if (hooks.onTaskFailed) {
+        return hooks.onTaskFailed(threadId, taskId, failError);
+      }
+      return undefined;
+    },
+    ctx.logger
+  );
 
   ctx.logger.error(`Delegation: task ${taskId} failed after ${maxIterations} iterations`);
 

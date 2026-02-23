@@ -7,6 +7,7 @@ export default defineConfig({
       "apps/orchestrator",
       "packages/ui",
       "packages/logger",
+      "packages/plugin-contract",
       "packages/plugins/context",
       "packages/plugins/discord",
       "packages/plugins/web",
