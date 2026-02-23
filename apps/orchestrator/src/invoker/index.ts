@@ -1,28 +1,32 @@
 // Invoker module — manages Claude CLI process invocations
 
 import { spawn } from "node:child_process";
-import { buildArgs } from "./_helpers";
+import { buildArgs } from "./_helpers/build-args";
 
-type InvokeOptions = {
+export type InvokeOptions = {
   model?: string;
   timeout?: number;
   allowedTools?: string[];
   maxTokens?: number;
 };
 
-type InvokeResult = {
+export type InvokeResult = {
   output: string;
   error?: string;
   durationMs: number;
   exitCode: number | null;
 };
 
-type InvokerConfig = {
+export type InvokerConfig = {
   defaultModel: string;
   defaultTimeout: number;
 };
 
-const createInvoker = (config: InvokerConfig) => {
+type CreateInvoker = (config: InvokerConfig) => {
+  invoke: (prompt: string, options?: InvokeOptions) => Promise<InvokeResult>;
+};
+
+export const createInvoker: CreateInvoker = (config) => {
   const invoke = async (
     prompt: string,
     options?: InvokeOptions
@@ -92,6 +96,3 @@ const createInvoker = (config: InvokerConfig) => {
 
   return { invoke };
 };
-
-export { createInvoker };
-export type { InvokeOptions, InvokeResult, InvokerConfig };

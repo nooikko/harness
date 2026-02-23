@@ -1,12 +1,14 @@
-// Internal helpers for the invoker module
+// Argument builder for Claude CLI invocations
 
-type BuildArgsOptions = {
+export type BuildArgsOptions = {
   model: string;
   allowedTools?: string[];
   maxTokens?: number;
 };
 
-const buildArgs = (prompt: string, options: BuildArgsOptions): string[] => {
+type BuildArgs = (prompt: string, options: BuildArgsOptions) => string[];
+
+export const buildArgs: BuildArgs = (prompt, options) => {
   const args: string[] = [
     "-p",
     prompt,
@@ -28,6 +30,3 @@ const buildArgs = (prompt: string, options: BuildArgsOptions): string[] => {
 
   return args;
 };
-
-export { buildArgs };
-export type { BuildArgsOptions };

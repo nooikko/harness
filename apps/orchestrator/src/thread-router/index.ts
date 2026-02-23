@@ -2,9 +2,9 @@
 
 import type { PrismaClient, Thread } from "database";
 
-type ThreadKind = "primary" | "task" | "cron" | "general";
+export type ThreadKind = "primary" | "task" | "cron" | "general";
 
-type GetOrCreateOptions = {
+export type GetOrCreateOptions = {
   source: string;
   sourceId: string;
   kind?: ThreadKind;
@@ -12,7 +12,7 @@ type GetOrCreateOptions = {
   parentThreadId?: string;
 };
 
-type CreateSubThreadOptions = {
+export type CreateSubThreadOptions = {
   parentThreadId: string;
   kind: ThreadKind;
   name?: string;
@@ -20,7 +20,16 @@ type CreateSubThreadOptions = {
   sourceId: string;
 };
 
-const createThreadRouter = (db: PrismaClient) => {
+type CreateThreadRouter = (db: PrismaClient) => {
+  getOrCreate: (options: GetOrCreateOptions) => Promise<Thread>;
+  createSubThread: (options: CreateSubThreadOptions) => Promise<Thread>;
+  getById: (id: string) => Promise<Thread | null>;
+  getBySource: (source: string, sourceId: string) => Promise<Thread | null>;
+  close: (id: string) => Promise<Thread>;
+  getChildren: (parentId: string) => Promise<Thread[]>;
+};
+
+export const createThreadRouter: CreateThreadRouter = (db) => {
   const getOrCreate = async (options: GetOrCreateOptions): Promise<Thread> => {
     const existing = await db.thread.findUnique({
       where: {
@@ -32,7 +41,6 @@ const createThreadRouter = (db: PrismaClient) => {
     });
 
     if (existing) {
-      // Update lastActivity on access
       return db.thread.update({
         where: { id: existing.id },
         data: { lastActivity: new Date() },
@@ -102,6 +110,3 @@ const createThreadRouter = (db: PrismaClient) => {
     getChildren,
   };
 };
-
-export { createThreadRouter };
-export type { CreateSubThreadOptions, GetOrCreateOptions, ThreadKind };

@@ -4,7 +4,7 @@ import type { PrismaClient } from "database";
 import type { OrchestratorConfig } from "../config";
 
 // Types for the invoker result (used by PluginContext)
-type InvokeResult = {
+export type InvokeResult = {
   output: string;
   error?: string;
   durationMs: number;
@@ -13,18 +13,18 @@ type InvokeResult = {
 };
 
 // Types for the invoker (passed to plugins via context)
-type Invoker = {
-  invoke: (prompt: string, options?: InvokeOptions) => Promise<InvokeResult>;
-};
-
-type InvokeOptions = {
+export type InvokeOptions = {
   model?: string;
   timeout?: number;
   allowedTools?: string[];
 };
 
+export type Invoker = {
+  invoke: (prompt: string, options?: InvokeOptions) => Promise<InvokeResult>;
+};
+
 // Logger interface for plugins
-type Logger = {
+export type Logger = {
   info: (message: string, meta?: Record<string, unknown>) => void;
   warn: (message: string, meta?: Record<string, unknown>) => void;
   error: (message: string, meta?: Record<string, unknown>) => void;
@@ -32,35 +32,29 @@ type Logger = {
 };
 
 // The object passed to every plugin, giving it access to the system
-type PluginContext = {
-  // Database access (Prisma client)
+export type PluginContext = {
   db: PrismaClient;
-  // Claude CLI invoker
   invoker: Invoker;
-  // Configuration
   config: OrchestratorConfig;
-  // Logging
   logger: Logger;
-  // Send a message to a specific thread
   sendToThread: (threadId: string, content: string) => Promise<void>;
-  // Broadcast a message to all registered plugins
   broadcast: (event: string, data: unknown) => Promise<void>;
 };
 
 // Event handlers a plugin can subscribe to
-type PluginHooks = {
+export type PluginHooks = {
   onMessage?: (
     threadId: string,
     role: string,
     content: string
   ) => Promise<void>;
-  onBeforeInvoke?: (threadId: string, prompt: string) => Promise<string>; // can transform prompt
+  onBeforeInvoke?: (threadId: string, prompt: string) => Promise<string>;
   onAfterInvoke?: (threadId: string, result: InvokeResult) => Promise<void>;
   onCommand?: (
     threadId: string,
     command: string,
     args: string
-  ) => Promise<boolean>; // return true if handled
+  ) => Promise<boolean>;
   onTaskCreate?: (threadId: string, taskId: string) => Promise<void>;
   onTaskComplete?: (
     threadId: string,
@@ -76,11 +70,11 @@ type PluginHooks = {
 };
 
 // Plugin contract — what every plugin must implement
-type RegisterFn = (ctx: PluginContext) => Promise<PluginHooks>;
-type StartFn = (ctx: PluginContext) => Promise<void>;
-type StopFn = (ctx: PluginContext) => Promise<void>;
+export type RegisterFn = (ctx: PluginContext) => Promise<PluginHooks>;
+export type StartFn = (ctx: PluginContext) => Promise<void>;
+export type StopFn = (ctx: PluginContext) => Promise<void>;
 
-type PluginDefinition = {
+export type PluginDefinition = {
   name: string;
   version: string;
   register: RegisterFn;
@@ -89,14 +83,23 @@ type PluginDefinition = {
 };
 
 // Dependencies required to create an orchestrator
-type OrchestratorDeps = {
+export type OrchestratorDeps = {
   db: PrismaClient;
   invoker: Invoker;
   config: OrchestratorConfig;
   logger: Logger;
 };
 
-const createOrchestrator = (deps: OrchestratorDeps) => {
+type CreateOrchestrator = (deps: OrchestratorDeps) => {
+  registerPlugin: (definition: PluginDefinition) => Promise<void>;
+  start: () => Promise<void>;
+  stop: () => Promise<void>;
+  getPlugins: () => string[];
+  getContext: () => PluginContext;
+  getHooks: () => PluginHooks[];
+};
+
+export const createOrchestrator: CreateOrchestrator = (deps) => {
   const plugins: Array<{ definition: PluginDefinition; hooks: PluginHooks }> =
     [];
 
@@ -143,22 +146,6 @@ const createOrchestrator = (deps: OrchestratorDeps) => {
     },
     getPlugins: () => plugins.map((p) => p.definition.name),
     getContext: () => context,
-    // Expose hooks for the message pipeline
     getHooks: () => plugins.map((p) => p.hooks),
   };
-};
-
-export { createOrchestrator };
-export type {
-  PluginContext,
-  PluginDefinition,
-  PluginHooks,
-  RegisterFn,
-  StartFn,
-  StopFn,
-  Invoker,
-  InvokeOptions,
-  InvokeResult,
-  Logger,
-  OrchestratorDeps,
 };

@@ -1,16 +1,15 @@
 // Orchestrator configuration
 
-type OrchestratorConfig = {
+export type OrchestratorConfig = {
   databaseUrl: string;
   timezone: string;
   maxConcurrentAgents: number;
 };
 
-const loadConfig = (): OrchestratorConfig => ({
+type LoadConfig = () => OrchestratorConfig;
+
+export const loadConfig: LoadConfig = () => ({
   databaseUrl: process.env.DATABASE_URL ?? "",
   timezone: process.env.TZ ?? "America/Phoenix",
   maxConcurrentAgents: Number(process.env.MAX_CONCURRENT_AGENTS ?? "3"),
 });
-
-export { loadConfig };
-export type { OrchestratorConfig };
