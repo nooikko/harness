@@ -9,14 +9,7 @@ export type BuildArgsOptions = {
 type BuildArgs = (prompt: string, options: BuildArgsOptions) => string[];
 
 export const buildArgs: BuildArgs = (prompt, options) => {
-  const args: string[] = [
-    "-p",
-    prompt,
-    "--model",
-    options.model,
-    "--output-format",
-    "text",
-  ];
+  const args: string[] = ["-p", prompt, "--model", options.model, "--output-format", "text"];
 
   if (options.allowedTools && options.allowedTools.length > 0) {
     for (const tool of options.allowedTools) {

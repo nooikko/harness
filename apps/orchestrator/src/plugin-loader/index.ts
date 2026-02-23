@@ -1,19 +1,17 @@
-// Plugin loader — discovers and loads plugins at startup
+// Plugin loader — validates and loads plugins from a static registry
 
 import type { Logger } from "@harness/logger";
-import type { PluginDefinition } from "@/plugin-contract";
-import { discoverPlugins } from "./_helpers/discover-plugins";
+import type { PluginDefinition } from "@harness/plugin-contract";
 import { validatePluginExport } from "./_helpers/validate-plugin";
 
 export type PluginLoadSuccess = {
   status: "loaded";
   definition: PluginDefinition;
-  path: string;
 };
 
 export type PluginLoadFailure = {
   status: "failed";
-  path: string;
+  name: string;
   errors: string[];
 };
 
@@ -25,84 +23,52 @@ type LoadAllResult = {
 };
 
 type PluginLoaderOptions = {
-  pluginsDir: string;
+  plugins: PluginDefinition[];
   logger: Logger;
 };
 
 type CreatePluginLoader = (options: PluginLoaderOptions) => {
-  loadAll: () => Promise<LoadAllResult>;
+  loadAll: () => LoadAllResult;
 };
 
-export const createPluginLoader: CreatePluginLoader = ({
-  pluginsDir,
-  logger,
-}) => {
-  const loadAll = async (): Promise<LoadAllResult> => {
-    logger.info("Discovering plugins", { pluginsDir });
+export const createPluginLoader: CreatePluginLoader = ({ plugins, logger }) => {
+  const loadAll = (): LoadAllResult => {
+    logger.info(`Validating ${plugins.length} plugin(s)`);
 
-    const pluginPaths = await discoverPlugins(pluginsDir);
-
-    if (pluginPaths.length === 0) {
-      logger.info("No plugins found");
+    if (plugins.length === 0) {
+      logger.info("No plugins to load");
       return { loaded: [], results: [] };
     }
-
-    logger.info(`Found ${pluginPaths.length} plugin(s) to load`, {
-      paths: pluginPaths,
-    });
 
     const results: PluginLoadResult[] = [];
     const loaded: PluginDefinition[] = [];
 
-    for (const pluginPath of pluginPaths) {
-      try {
-        const moduleExports = (await import(pluginPath)) as Record<
-          string,
-          unknown
-        >;
+    for (const plugin of plugins) {
+      const moduleExports = { plugin } as Record<string, unknown>;
+      const validation = validatePluginExport(moduleExports, plugin.name ?? "unknown");
 
-        const validation = validatePluginExport(moduleExports, pluginPath);
-
-        if (!validation.valid) {
-          logger.warn("Plugin validation failed", {
-            path: pluginPath,
-            errors: validation.errors,
-          });
-          results.push({
-            status: "failed",
-            path: pluginPath,
-            errors: validation.errors,
-          });
-          continue;
-        }
-
-        loaded.push(validation.definition);
-        results.push({
-          status: "loaded",
-          definition: validation.definition,
-          path: pluginPath,
-        });
-        logger.info(
-          `Loaded plugin: ${validation.definition.name}@${validation.definition.version}`,
-          { path: pluginPath }
-        );
-      } catch (err) {
-        const errorMessage = err instanceof Error ? err.message : String(err);
-        logger.error("Failed to import plugin module", {
-          path: pluginPath,
-          error: errorMessage,
+      if (!validation.valid) {
+        logger.warn("Plugin validation failed", {
+          name: plugin.name,
+          errors: validation.errors,
         });
         results.push({
           status: "failed",
-          path: pluginPath,
-          errors: [`Import error: ${errorMessage}`],
+          name: plugin.name ?? "unknown",
+          errors: validation.errors,
         });
+        continue;
       }
+
+      loaded.push(validation.definition);
+      results.push({
+        status: "loaded",
+        definition: validation.definition,
+      });
+      logger.info(`Loaded plugin: ${validation.definition.name}@${validation.definition.version}`);
     }
 
-    logger.info(
-      `Plugin loading complete: ${loaded.length} loaded, ${results.length - loaded.length} failed`
-    );
+    logger.info(`Plugin loading complete: ${loaded.length} loaded, ${results.length - loaded.length} failed`);
 
     return { loaded, results };
   };

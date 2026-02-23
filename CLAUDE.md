@@ -40,14 +40,19 @@ pnpm --filter database lint # Lint only the database package
 ## Architecture
 
 ```
-apps/web/               → Next.js 16 app (App Router, Server Components)
-packages/database/      → Prisma client + schema (PostgreSQL)
-packages/ui/            → Shared UI library (shadcn/ui components, cn utility)
+apps/web/                    → Next.js 16 app (App Router, Server Components)
+apps/orchestrator/           → Core Node.js orchestrator service
+packages/database/           → Prisma client + schema (PostgreSQL)
+packages/ui/                 → Shared UI library (shadcn/ui components, cn utility)
+packages/plugin-contract/    → Shared plugin types (@harness/plugin-contract)
+packages/plugins/context/    → Context plugin (@harness/plugin-context)
+packages/plugins/discord/    → Discord plugin (@harness/plugin-discord)
+packages/plugins/web/        → Web plugin (@harness/plugin-web)
 ```
 
 ### Dependency Flow
 
-`apps/web` imports from both `database` and `ui`. The packages are referenced by name in `next.config.ts` via `transpilePackages: ["ui", "database"]`.
+`apps/web` imports from both `database` and `ui`. The packages are referenced by name in `next.config.ts` via `transpilePackages: ["ui", "database"]`. Plugin packages import from `@harness/plugin-contract` and `database` — never from the orchestrator. The orchestrator imports plugins via a static registry.
 
 ### Database Package
 
@@ -88,6 +93,8 @@ packages/ui/            → Shared UI library (shadcn/ui components, cn utility)
 **Imports:** Always import from the module directory (`@/orchestrator`), never reach into `_helpers/`. No `.js` or `.ts` file extensions in import paths.
 
 **File organization:** Co-location, isolation, orchestration. Every module is a directory with `index.ts` (orchestration), `_helpers/` (isolated logic), and `_components/` (sub-modules). The `_` prefix means private to the module.
+
+**Test placement:** Tests live in `__tests__/` folders within the directory they test. `src/__tests__/index.test.ts` tests `src/index.ts`. `src/_helpers/__tests__/foo.test.ts` tests `src/_helpers/foo.ts`. Never place test files directly alongside source files.
 
 ## Git Hooks
 

@@ -29,6 +29,7 @@ EXCLUDED_PATTERNS = [
     r"\.next/",
     r"node_modules/",
     r"dist/",
+    r"packages/plugin-contract/",  # types-only package, no runtime code
 ]
 
 # --- Barrel Detection ---
@@ -116,6 +117,9 @@ def detect_projects(testable_files: list[str]) -> list[str]:
         "apps/orchestrator/": "orchestrator",
         "packages/ui/": "ui",
         "packages/logger/": "logger",
+        "packages/plugins/context/": "plugin-context",
+        "packages/plugins/discord/": "plugin-discord",
+        "packages/plugins/web/": "plugin-web",
     }
     projects: set[str] = set()
     for filepath in testable_files:

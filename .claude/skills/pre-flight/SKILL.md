@@ -17,9 +17,13 @@ Before creating any new file, module, or helper, answer ALL of these:
 
 4. **Does this file have a purpose?** No empty barrel files. No placeholder `index.ts` that just re-exports. Every `index.ts` must contain orchestration logic. If a `_helpers/` directory has no helpers yet, don't create it.
 
-5. **Am I creating a centralized types file?** Types are co-located with the code that produces them. The one exception is `plugin-contract/` which defines the plugin API surface — that's a genuine isolated concern, not a type dump.
+5. **Am I creating a centralized types file?** Types are co-located with the code that produces them. The one exception is `packages/plugin-contract/` (`@harness/plugin-contract`) which defines the plugin API surface — that's a shared workspace package, not a type dump.
 
 6. **Am I creating a barrel export?** Never `export * from` in `_helpers/`. Each helper is imported directly by name from its file: `import { parseCommands } from "./_helpers/parse-commands"`. The `index.ts` of a module is orchestration, not re-exports.
+
+7. **Are my tests in `__tests__/` folders?** Tests live in `__tests__/` directories within the folder they test. `src/__tests__/index.test.ts`, not `src/index.test.ts`. `src/_helpers/__tests__/foo.test.ts`, not `src/_helpers/foo.test.ts`. Never place test files directly alongside source files.
+
+8. **Am I importing from the orchestrator inside a plugin?** Plugins are independent workspace packages at `packages/plugins/{name}/`. They import types from `@harness/plugin-contract` and data access from `database` — never from the orchestrator's internal modules.
 
 ## Red Flags
 
@@ -33,6 +37,8 @@ If you catch yourself thinking any of these, stop:
 | "I'll create the directory structure now and fill it in later" | Create files only when you have content for them. |
 | "This getter/setter needs its own module" | `prisma.model.findUnique()` IS the getter. |
 | "I'll re-export these helpers from index.ts" | Import each helper directly by name. No barrel exports. |
+| "I'll put the test next to the source file" | Tests go in `__tests__/` folders. Always. |
+| "I'll import from the orchestrator inside my plugin" | Plugins use `@harness/plugin-contract` and `database`. Never orchestrator internals. |
 
 ## Two-Layer Command Model
 

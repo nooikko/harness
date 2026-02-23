@@ -1,21 +1,10 @@
 // Invoker module — manages Claude CLI process invocations
 
 import { spawn } from "node:child_process";
+import type { InvokeOptions, InvokeResult } from "@harness/plugin-contract";
 import { buildArgs } from "./_helpers/build-args";
 
-export type InvokeOptions = {
-  model?: string;
-  timeout?: number;
-  allowedTools?: string[];
-  maxTokens?: number;
-};
-
-export type InvokeResult = {
-  output: string;
-  error?: string;
-  durationMs: number;
-  exitCode: number | null;
-};
+export type { InvokeOptions, InvokeResult } from "@harness/plugin-contract";
 
 export type InvokerConfig = {
   defaultModel: string;
@@ -27,10 +16,7 @@ type CreateInvoker = (config: InvokerConfig) => {
 };
 
 export const createInvoker: CreateInvoker = (config) => {
-  const invoke = async (
-    prompt: string,
-    options?: InvokeOptions
-  ): Promise<InvokeResult> => {
+  const invoke = async (prompt: string, options?: InvokeOptions): Promise<InvokeResult> => {
     const startTime = Date.now();
     const args = buildArgs(prompt, {
       model: options?.model ?? config.defaultModel,
@@ -73,9 +59,7 @@ export const createInvoker: CreateInvoker = (config) => {
         const durationMs = Date.now() - startTime;
         resolve({
           output: stdout.trim(),
-          error: killed
-            ? `Timed out after ${timeout}ms`
-            : stderr.trim() || undefined,
+          error: killed ? `Timed out after ${timeout}ms` : stderr.trim() || undefined,
           durationMs,
           exitCode: code,
         });

@@ -130,7 +130,7 @@
         "testStrategy": "Test with various context file states (present, missing, empty). Verify conversation history is loaded correctly. Test prompt modification includes all context. Ensure file reads use fs not MCP tools.",
         "priority": "high",
         "dependencies": [3, 4],
-        "status": "pending",
+        "status": "done",
         "subtasks": []
       },
       {
@@ -141,7 +141,7 @@
         "testStrategy": "Mock Discord.js client for testing. Verify message conversion works correctly. Test channel resolution logic. Ensure replies go to correct channel/thread. Test reconnection on disconnect.",
         "priority": "high",
         "dependencies": [3, 4],
-        "status": "pending",
+        "status": "done",
         "subtasks": []
       },
       {
@@ -152,7 +152,7 @@
         "testStrategy": "Test REST endpoints with various payloads. Verify WebSocket connections and broadcasting work. Test CORS headers are set correctly. Ensure graceful shutdown on stop().",
         "priority": "high",
         "dependencies": [3, 4],
-        "status": "pending",
+        "status": "done",
         "subtasks": []
       },
       {
@@ -400,11 +400,55 @@
         "dependencies": [],
         "priority": "high",
         "subtasks": []
+      },
+      {
+        "id": 34,
+        "title": "Clarify Web Plugin Purpose and Scope",
+        "description": "Review the web plugin's implementation and document its intended purpose, verifying alignment with project requirements",
+        "details": "Analyze packages/plugins/web/ to determine its actual role in the architecture. Based on analysis:\n\n1. Document findings in a structured review:\n   - Current implementation: Express server (port 3001) with REST API endpoints (/api/chat, /api/threads, /api/tasks, /api/metrics) and WebSocket broadcasting on /ws\n   - Actual functionality: Acts as HTTP/WebSocket bridge for the orchestrator, enabling web-based interfaces to interact with the pipeline\n   - Not a chat interface itself, but provides the API layer that a separate dashboard app would consume\n\n2. Compare against PRD specifications:\n   - PRD states: 'Web plugin provides REST API endpoints for the dashboard' and 'apps/dashboard talks to these endpoints'\n   - Current state aligns with design: plugin exposes APIs, dashboard (not yet built) will consume them\n   - WebSocket broadcasts pipeline events for real-time updates\n\n3. Identify scope clarifications needed:\n   - Plugin is correctly scoped as an API provider, not a UI component\n   - Missing dashboard app (apps/dashboard) that was specified in PRD\n   - Consider if plugin needs authentication/authorization for production use\n\n4. Create documentation at packages/plugins/web/README.md:\n   - Purpose statement: HTTP/WebSocket bridge enabling web clients to interact with orchestrator\n   - API endpoint documentation with request/response formats\n   - WebSocket event types and payloads\n   - Integration guide for dashboard developers\n   - Configuration options (port, CORS settings)\n\n5. Recommend next steps:\n   - Plugin implementation matches intended design as API layer\n   - Dashboard app (apps/dashboard) needs to be created as separate Next.js app\n   - Consider adding OpenAPI/Swagger documentation for REST endpoints\n   - May need rate limiting and auth middleware for production",
+        "testStrategy": "Verify review completeness:\n1. Check that README.md is created with clear purpose statement\n2. Confirm API documentation covers all endpoints with examples\n3. Validate that scope boundaries are explicitly documented\n4. Test that recommendations align with PRD architecture\n5. Ensure distinction between plugin (API) and dashboard (UI) is clear",
+        "status": "pending",
+        "dependencies": [14],
+        "priority": "medium",
+        "subtasks": []
+      },
+      {
+        "id": 35,
+        "title": "Make Context Plugin File Reader Dynamic",
+        "description": "Redesign the context plugin's file reader to dynamically discover and read relevant files based on patterns and configurations instead of using a hardcoded static list",
+        "details": "The context plugin currently uses a hardcoded `CONTEXT_FILES` array in `packages/plugins/context/src/_helpers/file-reader.ts` that only reads four specific markdown files (memory.md, world-state.md, thread-summaries.md, inbox.md). This implementation needs to be redesigned for flexibility and extensibility.\n\n**Current limitations:**\n- Static array `CONTEXT_FILES` hardcoded to only 4 specific filenames\n- No support for subdirectories within context/\n- Cannot read additional context files without code changes\n- No support for file patterns or glob matching\n- Cannot exclude certain files or directories\n\n**Implementation approach:**\n\n1. **Create file discovery module** (`_helpers/file-discovery.ts`):\n   - Implement `discoverContextFiles` function using Node's `readdirSync` with recursive option\n   - Support include/exclude patterns (e.g., `*.md`, `!*.draft.md`)\n   - Allow configuration of max depth for directory traversal\n   - Return discovered file paths relative to context directory\n\n2. **Create configuration types** (in `index.ts`):\n   ```typescript\n   export type FileDiscoveryConfig = {\n     includePatterns?: string[]; // Default: ['*.md']\n     excludePatterns?: string[]; // Default: ['*.draft.md', '.*']\n     maxDepth?: number; // Default: 3\n     followSymlinks?: boolean; // Default: false\n   };\n   ```\n\n3. **Refactor file-reader.ts**:\n   - Remove hardcoded `CONTEXT_FILES` constant\n   - Accept discovered files from file-discovery module\n   - Maintain backward compatibility by including default files if they exist\n   - Add file metadata (size, path, last modified) to ContextFile type\n   - Implement smart truncation for large files (e.g., only read first 10KB)\n\n4. **Update plugin options** (`ContextPluginOptions`):\n   ```typescript\n   export type ContextPluginOptions = {\n     contextDir?: string;\n     historyLimit?: number;\n     fileDiscovery?: FileDiscoveryConfig;\n     maxFileSize?: number; // bytes, default 50KB\n     priorityFiles?: string[]; // files to always include if present\n   };\n   ```\n\n5. **Implement pattern matching**:\n   - Use simple glob-like patterns without external dependencies\n   - Support `*` (match any characters), `**` (match any depth), `?` (single char)\n   - Implement using regex conversion of patterns\n\n6. **Add caching layer** (`_helpers/file-cache.ts`):\n   - Cache file contents with TTL (e.g., 5 seconds)\n   - Use file mtime to invalidate cache\n   - Reduce file system operations on frequent invocations\n\n7. **Enhance error handling**:\n   - Group errors by type (permissions, not found, too large)\n   - Provide helpful error messages for common issues\n   - Log warnings for skipped files (too large, binary, etc.)\n\n8. **Support for .contextignore file**:\n   - Check for .contextignore in context directory\n   - Parse gitignore-style patterns\n   - Apply exclusions during file discovery\n\n**File structure after refactoring:**\n```\npackages/plugins/context/src/\n├── index.ts (enhanced options)\n├── _helpers/\n│   ├── file-reader.ts (refactored)\n│   ├── file-discovery.ts (new)\n│   ├── file-cache.ts (new)\n│   ├── pattern-matcher.ts (new)\n│   └── history-loader.ts (unchanged)\n```",
+        "testStrategy": "1. **Unit tests for file-discovery.ts**:\n   - Test pattern matching with various glob patterns\n   - Verify exclude patterns work correctly\n   - Test max depth limiting\n   - Verify symlink handling based on configuration\n   - Test with nested directory structures\n\n2. **Unit tests for pattern-matcher.ts**:\n   - Test glob-to-regex conversion\n   - Verify `*`, `**`, `?` wildcards work as expected\n   - Test complex patterns like `docs/**/*.md`\n   - Verify exclusion patterns (starting with `!`)\n\n3. **Integration tests for file-reader.ts**:\n   - Test reading discovered files instead of static list\n   - Verify large file truncation\n   - Test with various file encodings\n   - Ensure backward compatibility with default files\n\n4. **Cache tests**:\n   - Verify TTL expiration\n   - Test mtime-based invalidation  \n   - Measure performance improvement with caching\n\n5. **End-to-end plugin tests**:\n   - Create test context directory with various file types\n   - Verify only matching files are included in prompts\n   - Test .contextignore file parsing and application\n   - Verify memory usage stays reasonable with many files\n   - Test error recovery when some files are unreadable\n\n6. **Performance benchmarks**:\n   - Measure time to discover and read 100+ files\n   - Compare cached vs uncached performance\n   - Verify no memory leaks with repeated invocations",
+        "status": "pending",
+        "dependencies": [12],
+        "priority": "medium",
+        "subtasks": []
+      },
+      {
+        "id": 36,
+        "title": "Review Discord Plugin Helper Structure",
+        "description": "Analyze the discord plugin's helper file decomposition to determine if the current granular structure adds value or should be consolidated for better maintainability",
+        "details": "The discord plugin at packages/plugins/discord/ currently has multiple fine-grained helper files that may represent over-engineering:\n\n**Current structure to review:**\n- `_helpers/channel-resolver.ts` - Maps Discord channels to sourceIds\n- `_helpers/message-adapter.ts` - Converts Discord messages to pipeline format\n- Potentially other helper files following similar patterns\n\n**Analysis approach:**\n1. **Measure actual complexity:** Review each helper file to determine lines of code, number of functions, and cyclomatic complexity\n2. **Evaluate separation of concerns:** Assess whether the current separation provides clear boundaries or creates artificial divisions\n3. **Check reusability:** Determine if helpers are used by multiple consumers or only by the main plugin\n4. **Compare with other plugins:** Look at context plugin (Task 12) and web plugin (Task 14) helper structures for consistency\n\n**Consolidation criteria:**\n- If helpers are < 50 LOC and single-purpose, consider merging\n- If helpers have high cohesion (operate on same data types), combine them\n- If helpers are only used once, inline them or merge with parent\n\n**Potential refactoring outcomes:**\n1. **Keep current structure:** If each helper has sufficient complexity and clear responsibility\n2. **Partial consolidation:** Merge highly-related helpers (e.g., all Discord-specific adapters)\n3. **Full consolidation:** Move all helper logic into main index.ts if total complexity is low\n\n**Documentation requirements:**\n- Document the decision rationale in a code comment\n- Update any existing plugin documentation to reflect new structure\n- Ensure consistency with project's module organization principles (co-location, isolation, orchestration)",
+        "testStrategy": "1. **Pre-refactoring verification:**\n   - Run existing discord plugin tests to establish baseline\n   - Verify current functionality with `pnpm test --filter @harness/plugin-discord`\n   - Check test coverage to ensure no functionality is lost\n\n2. **Static analysis:**\n   - Use complexity analysis tools to measure each helper's metrics\n   - Count imports/exports to understand coupling\n   - Review git history to understand evolution of structure\n\n3. **Post-refactoring validation:**\n   - All existing tests must pass without modification\n   - Type checking must pass: `pnpm typecheck`\n   - Linting must pass: `pnpm lint`\n   - No regression in functionality when integrated with orchestrator\n\n4. **Integration testing:**\n   - Test Discord message flow end-to-end if refactored\n   - Verify channel resolution still works correctly\n   - Ensure message adaptation maintains same format\n\n5. **Code review checklist:**\n   - Confirm refactoring follows project's arrow function conventions\n   - Verify no barrel files are created\n   - Check that any new structure maintains `_helpers/` convention if kept\n   - Ensure consistency with other plugin structures",
+        "status": "pending",
+        "dependencies": [13],
+        "priority": "medium",
+        "subtasks": []
+      },
+      {
+        "id": 37,
+        "title": "Implement Plugin Enable/Disable System with Metadata Discovery",
+        "description": "Create a comprehensive plugin management system that allows users to enable/disable plugins, with automatic metadata discovery and configuration persistence in the database",
+        "details": "Create a new PluginConfig model in packages/database/prisma/schema.prisma with fields: id (cuid), pluginName (unique string), enabled (boolean default true), metadata (Json for frontmatter), settings (Json for user configuration), createdAt, updatedAt. Add database migration. Create packages/plugin-contract/src/metadata.ts defining PluginMetadata type with required fields: name, version, description, author, requirements (optional dependencies/env vars), capabilities (hooks it registers), configSchema (JSON schema for settings). Update PluginDefinition in packages/plugin-contract/src/index.ts to include metadata: PluginMetadata field. Create apps/orchestrator/src/plugin-loader/_helpers/metadata-extractor.ts implementing extractMetadata function that reads plugin source files looking for frontmatter-style metadata comments (/* --- metadata --- */) or exported metadata object, parsing YAML/JSON metadata, validating against PluginMetadata schema. Update apps/orchestrator/src/plugin-loader/_helpers/validate-plugin.ts to validate metadata field is present and conforms to schema. Create apps/orchestrator/src/plugin-registry/_helpers/config-manager.ts with functions: loadPluginConfigs (reads from database), isPluginEnabled (checks enabled status), updatePluginConfig (persists changes), syncPluginRegistry (ensures all discovered plugins have config records). Update apps/orchestrator/src/plugin-registry/index.ts to filter plugins based on enabled status before returning, calling config-manager to check each plugin. Modify apps/orchestrator/src/orchestrator/index.ts registerPlugin method to skip registration if plugin is disabled, logging 'Plugin {name} is disabled, skipping registration'. Update each plugin in packages/plugins/*/src/index.ts to export metadata object with proper frontmatter. Create apps/orchestrator/src/plugins/admin/index.ts implementing admin commands: /plugins list (shows all with enabled status), /plugin enable {name}, /plugin disable {name}, /plugin config {name} {settings}. In web dashboard at apps/web/src/app/plugins/page.tsx, create server component that fetches plugin configs from database, displays table with name, description, enabled toggle, settings button, uses Server Actions for enable/disable operations. Update apps/orchestrator/src/index.ts bootstrap to call syncPluginRegistry before loading plugins, ensuring all plugins have database records. Add to PRD at .taskmaster/docs/prd.md under Design Concerns section about plugin lifecycle and configuration management.",
+        "testStrategy": "Test metadata extraction with various formats (YAML frontmatter, JSON export, missing metadata). Verify plugin validation rejects plugins without metadata. Test config-manager correctly persists and retrieves enabled states. Ensure disabled plugins are not registered in orchestrator. Test plugin-registry filters based on enabled status. Verify admin commands correctly enable/disable plugins and changes persist. Test web dashboard displays correct plugin states and toggle operations work. Ensure syncPluginRegistry creates config records for new plugins. Test that plugin settings are properly validated against configSchema. Verify bootstrap process respects enabled/disabled states on startup.",
+        "status": "pending",
+        "dependencies": [3, 4, 20],
+        "priority": "medium",
+        "subtasks": []
       }
     ],
     "metadata": {
       "created": "2026-02-23T03:29:17.848Z",
-      "updated": "2026-02-23T05:01:47.720Z",
+      "updated": "2026-02-23T17:32:40.648Z",
       "description": "Tasks for master context"
     }
   }

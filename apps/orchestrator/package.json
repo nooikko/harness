@@ -15,17 +15,14 @@
   },
   "dependencies": {
     "@harness/logger": "workspace:*",
-    "cors": "^2.8.6",
-    "database": "workspace:*",
-    "discord.js": "^14.25.1",
-    "express": "^5.2.1",
-    "ws": "^8.19.0"
+    "@harness/plugin-context": "workspace:*",
+    "@harness/plugin-contract": "workspace:*",
+    "@harness/plugin-discord": "workspace:*",
+    "@harness/plugin-web": "workspace:*",
+    "database": "workspace:*"
   },
   "devDependencies": {
-    "@types/cors": "^2.8.19",
-    "@types/express": "^5.0.6",
     "@types/node": "^22.19.11",
-    "@types/ws": "^8.18.1",
     "@vitest/coverage-v8": "^4.0.18",
     "tsx": "^4.19.4",
     "typescript": "^5.9.3",

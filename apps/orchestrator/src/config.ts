@@ -1,29 +1,10 @@
 // Orchestrator configuration
 
-import { resolve } from "node:path";
-import { fileURLToPath } from "node:url";
+export type { LogLevel, OrchestratorConfig } from "@harness/plugin-contract";
 
-export type LogLevel = "debug" | "info" | "warn" | "error";
+import type { LogLevel, OrchestratorConfig } from "@harness/plugin-contract";
 
-export type OrchestratorConfig = {
-  databaseUrl: string;
-  timezone: string;
-  maxConcurrentAgents: number;
-  claudeModel: string;
-  claudeTimeout: number;
-  discordToken: string | undefined;
-  discordChannelId: string | undefined;
-  port: number;
-  logLevel: LogLevel;
-  pluginsDir: string;
-};
-
-const LOG_LEVELS: ReadonlySet<string> = new Set([
-  "debug",
-  "info",
-  "warn",
-  "error",
-]);
+const LOG_LEVELS: ReadonlySet<string> = new Set(["debug", "info", "warn", "error"]);
 
 type ParseLogLevel = (raw: string | undefined) => LogLevel;
 
@@ -35,20 +16,12 @@ const parseLogLevel: ParseLogLevel = (raw) => {
   return "info";
 };
 
-type DefaultPluginsDir = () => string;
-
-const defaultPluginsDir: DefaultPluginsDir = () => {
-  const currentDir = resolve(fileURLToPath(import.meta.url), "..");
-  return resolve(currentDir, "..", "plugins");
-};
-
 type ValidateConfig = (config: OrchestratorConfig) => OrchestratorConfig;
 
 const validateConfig: ValidateConfig = (config) => {
   if (!config.databaseUrl) {
     throw new Error(
-      "Missing required environment variable: DATABASE_URL. " +
-        "Set it in your .env file or environment."
+      "Missing required environment variable: DATABASE_URL. " + "Set it in your .env file or environment."
     );
   }
   return config;
@@ -67,7 +40,6 @@ export const loadConfig: LoadConfig = () => {
     discordChannelId: process.env.DISCORD_CHANNEL_ID,
     port: Number(process.env.PORT ?? "3001"),
     logLevel: parseLogLevel(process.env.LOG_LEVEL),
-    pluginsDir: process.env.PLUGINS_DIR ?? defaultPluginsDir(),
   };
 
   return validateConfig(config);

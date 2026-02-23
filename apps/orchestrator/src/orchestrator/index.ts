@@ -1,15 +1,15 @@
 // Orchestrator module — plugin lifecycle management and message pipeline
 
 import type { Logger } from "@harness/logger";
-import type { PrismaClient } from "database";
-import type { OrchestratorConfig } from "@/config";
-import type { InvokeResult } from "@/invoker";
 import type {
+  InvokeResult,
   Invoker,
+  OrchestratorConfig,
   PluginContext,
   PluginDefinition,
   PluginHooks,
-} from "@/plugin-contract";
+} from "@harness/plugin-contract";
+import type { PrismaClient } from "database";
 import { parseCommands } from "./_helpers/parse-commands";
 import { runChainHooks } from "./_helpers/run-chain-hooks";
 import { runCommandHooks } from "./_helpers/run-command-hooks";
@@ -35,16 +35,11 @@ type CreateOrchestrator = (deps: OrchestratorDeps) => {
   getPlugins: () => string[];
   getContext: () => PluginContext;
   getHooks: () => PluginHooks[];
-  handleMessage: (
-    threadId: string,
-    role: string,
-    content: string
-  ) => Promise<HandleMessageResult>;
+  handleMessage: (threadId: string, role: string, content: string) => Promise<HandleMessageResult>;
 };
 
 export const createOrchestrator: CreateOrchestrator = (deps) => {
-  const plugins: Array<{ definition: PluginDefinition; hooks: PluginHooks }> =
-    [];
+  const plugins: Array<{ definition: PluginDefinition; hooks: PluginHooks }> = [];
 
   const allHooks = (): PluginHooks[] => plugins.map((p) => p.hooks);
 
@@ -57,12 +52,7 @@ export const createOrchestrator: CreateOrchestrator = (deps) => {
       // TODO: Implement message sending through thread router
     },
     broadcast: async (event: string, data: unknown) => {
-      await runNotifyHooks(
-        allHooks(),
-        "onBroadcast",
-        (h) => h.onBroadcast?.(event, data),
-        deps.logger
-      );
+      await runNotifyHooks(allHooks(), "onBroadcast", (h) => h.onBroadcast?.(event, data), deps.logger);
     },
   };
 
@@ -70,9 +60,7 @@ export const createOrchestrator: CreateOrchestrator = (deps) => {
     registerPlugin: async (definition: PluginDefinition) => {
       const hooks = await definition.register(context);
       plugins.push({ definition, hooks });
-      deps.logger.info(
-        `Plugin registered: ${definition.name}@${definition.version}`
-      );
+      deps.logger.info(`Plugin registered: ${definition.name}@${definition.version}`);
     },
     start: async () => {
       for (const plugin of plugins) {
@@ -93,23 +81,12 @@ export const createOrchestrator: CreateOrchestrator = (deps) => {
     getPlugins: () => plugins.map((p) => p.definition.name),
     getContext: () => context,
     getHooks: () => allHooks(),
-    handleMessage: async (
-      threadId: string,
-      role: string,
-      content: string
-    ): Promise<HandleMessageResult> => {
+    handleMessage: async (threadId: string, role: string, content: string): Promise<HandleMessageResult> => {
       const hooks = allHooks();
 
       // Step 1: Fire onMessage hooks (notification — no modification)
-      deps.logger.info(
-        `Pipeline: onMessage [thread=${threadId}, role=${role}]`
-      );
-      await runNotifyHooks(
-        hooks,
-        "onMessage",
-        (h) => h.onMessage?.(threadId, role, content),
-        deps.logger
-      );
+      deps.logger.info(`Pipeline: onMessage [thread=${threadId}, role=${role}]`);
+      await runNotifyHooks(hooks, "onMessage", (h) => h.onMessage?.(threadId, role, content), deps.logger);
 
       // Step 2: Run onBeforeInvoke hooks in sequence (each can modify prompt)
       deps.logger.info(`Pipeline: onBeforeInvoke [thread=${threadId}]`);
@@ -124,12 +101,7 @@ export const createOrchestrator: CreateOrchestrator = (deps) => {
       );
 
       // Step 4: Fire onAfterInvoke hooks (notification)
-      await runNotifyHooks(
-        hooks,
-        "onAfterInvoke",
-        (h) => h.onAfterInvoke?.(threadId, invokeResult),
-        deps.logger
-      );
+      await runNotifyHooks(hooks, "onAfterInvoke", (h) => h.onAfterInvoke?.(threadId, invokeResult), deps.logger);
 
       // Step 5: Parse commands from the response
       const commands = parseCommands(invokeResult.output);
@@ -137,22 +109,12 @@ export const createOrchestrator: CreateOrchestrator = (deps) => {
 
       // Step 6: For each command, fire onCommand hooks
       for (const cmd of commands) {
-        deps.logger.info(
-          `Pipeline: onCommand /${cmd.command} [thread=${threadId}]`
-        );
-        const handled = await runCommandHooks(
-          hooks,
-          threadId,
-          cmd.command,
-          cmd.args,
-          deps.logger
-        );
+        deps.logger.info(`Pipeline: onCommand /${cmd.command} [thread=${threadId}]`);
+        const handled = await runCommandHooks(hooks, threadId, cmd.command, cmd.args, deps.logger);
         if (handled) {
           commandsHandled.push(cmd.command);
         } else {
-          deps.logger.warn(
-            `Unhandled command: /${cmd.command} [thread=${threadId}]`
-          );
+          deps.logger.warn(`Unhandled command: /${cmd.command} [thread=${threadId}]`);
         }
       }
 

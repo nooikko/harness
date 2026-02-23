@@ -1,7 +1,7 @@
 // Fires onCommand hooks until one handles the command
 
 import type { Logger } from "@harness/logger";
-import type { PluginHooks } from "@/plugin-contract";
+import type { PluginHooks } from "@harness/plugin-contract";
 
 type RunCommandHooks = (
   allHooks: PluginHooks[],
@@ -11,13 +11,7 @@ type RunCommandHooks = (
   logger: Logger
 ) => Promise<boolean>;
 
-export const runCommandHooks: RunCommandHooks = async (
-  allHooks,
-  threadId,
-  command,
-  args,
-  logger
-) => {
+export const runCommandHooks: RunCommandHooks = async (allHooks, threadId, command, args, logger) => {
   for (const hooks of allHooks) {
     if (hooks.onCommand) {
       try {
@@ -26,9 +20,7 @@ export const runCommandHooks: RunCommandHooks = async (
           return true;
         }
       } catch (err) {
-        logger.error(
-          `Hook "onCommand" threw for /${command}: ${err instanceof Error ? err.message : String(err)}`
-        );
+        logger.error(`Hook "onCommand" threw for /${command}: ${err instanceof Error ? err.message : String(err)}`);
       }
     }
   }

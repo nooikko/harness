@@ -7,6 +7,9 @@ export default defineConfig({
       "apps/orchestrator",
       "packages/ui",
       "packages/logger",
+      "packages/plugins/context",
+      "packages/plugins/discord",
+      "packages/plugins/web",
     ],
     coverage: {
       provider: "v8",

@@ -75,9 +75,11 @@ You are implementing a task for the Harness project.
 - Read .taskmaster/docs/prd.md for architecture and design decisions
 - Read .claude/skills/pre-flight/SKILL.md and run every check before writing code
 - Read existing code in the modules you'll touch to match patterns
+- Tests go in __tests__/ folders (e.g., src/__tests__/index.test.ts, src/_helpers/__tests__/helper.test.ts) — never alongside source files
+- Plugins are independent workspace packages at packages/plugins/{name}/ — they import from @harness/plugin-contract, not from the orchestrator
 - Hooks enforce conventions automatically — focus on the implementation
 - When done, commit your changes with message: "feat(task-{id}): {short description}"
-- The pre-commit hook will validate typecheck/lint/build — fix any failures it reports
+- The pre-commit hook will validate typecheck/lint/build/coverage — fix any failures it reports
 ```
 
 <HARD-GATE>

@@ -38,34 +38,25 @@ importers:
       '@harness/logger':
         specifier: workspace:*
         version: link:../../packages/logger
-      cors:
-        specifier: ^2.8.6
-        version: 2.8.6
+      '@harness/plugin-context':
+        specifier: workspace:*
+        version: link:../../packages/plugins/context
+      '@harness/plugin-contract':
+        specifier: workspace:*
+        version: link:../../packages/plugin-contract
+      '@harness/plugin-discord':
+        specifier: workspace:*
+        version: link:../../packages/plugins/discord
+      '@harness/plugin-web':
+        specifier: workspace:*
+        version: link:../../packages/plugins/web
       database:
         specifier: workspace:*
         version: link:../../packages/database
-      discord.js:
-        specifier: ^14.25.1
-        version: 14.25.1
-      express:
-        specifier: ^5.2.1
-        version: 5.2.1
-      ws:
-        specifier: ^8.19.0
-        version: 8.19.0
     devDependencies:
-      '@types/cors':
-        specifier: ^2.8.19
-        version: 2.8.19
-      '@types/express':
-        specifier: ^5.0.6
-        version: 5.0.6
       '@types/node':
         specifier: ^22.19.11
         version: 22.19.11
-      '@types/ws':
-        specifier: ^8.18.1
-        version: 8.18.1
       '@vitest/coverage-v8':
         specifier: ^4.0.18
         version: 4.0.18(vitest@4.0.18(@types/node@22.19.11)(jiti@2.6.1)(jsdom@28.1.0)(lightningcss@1.31.1)(tsx@4.21.0)(yaml@2.8.2))
@@ -197,6 +188,114 @@ importers:
       tsup:
         specifier: ^8.5.0
         version: 8.5.1(jiti@2.6.1)(postcss@8.5.6)(tsx@4.21.0)(typescript@5.9.3)(yaml@2.8.2)
+      typescript:
+        specifier: ^5.9.3
+        version: 5.9.3
+      vitest:
+        specifier: ^4.0.18
+        version: 4.0.18(@types/node@22.19.11)(jiti@2.6.1)(jsdom@28.1.0)(lightningcss@1.31.1)(tsx@4.21.0)(yaml@2.8.2)
+
+  packages/plugin-contract:
+    dependencies:
+      '@harness/logger':
+        specifier: workspace:*
+        version: link:../logger
+      database:
+        specifier: workspace:*
+        version: link:../database
+    devDependencies:
+      '@types/node':
+        specifier: ^22.19.11
+        version: 22.19.11
+      typescript:
+        specifier: ^5.9.3
+        version: 5.9.3
+
+  packages/plugins: {}
+
+  packages/plugins/context:
+    dependencies:
+      '@harness/plugin-contract':
+        specifier: workspace:*
+        version: link:../../plugin-contract
+      database:
+        specifier: workspace:*
+        version: link:../../database
+    devDependencies:
+      '@types/node':
+        specifier: ^22.19.11
+        version: 22.19.11
+      '@vitest/coverage-v8':
+        specifier: ^4.0.18
+        version: 4.0.18(vitest@4.0.18(@types/node@22.19.11)(jiti@2.6.1)(jsdom@28.1.0)(lightningcss@1.31.1)(tsx@4.21.0)(yaml@2.8.2))
+      typescript:
+        specifier: ^5.9.3
+        version: 5.9.3
+      vitest:
+        specifier: ^4.0.18
+        version: 4.0.18(@types/node@22.19.11)(jiti@2.6.1)(jsdom@28.1.0)(lightningcss@1.31.1)(tsx@4.21.0)(yaml@2.8.2)
+
+  packages/plugins/discord:
+    dependencies:
+      '@harness/plugin-contract':
+        specifier: workspace:*
+        version: link:../../plugin-contract
+      database:
+        specifier: workspace:*
+        version: link:../../database
+      discord.js:
+        specifier: ^14.25.1
+        version: 14.25.1
+    devDependencies:
+      '@types/node':
+        specifier: ^22.19.11
+        version: 22.19.11
+      '@vitest/coverage-v8':
+        specifier: ^4.0.18
+        version: 4.0.18(vitest@4.0.18(@types/node@22.19.11)(jiti@2.6.1)(jsdom@28.1.0)(lightningcss@1.31.1)(tsx@4.21.0)(yaml@2.8.2))
+      typescript:
+        specifier: ^5.9.3
+        version: 5.9.3
+      vitest:
+        specifier: ^4.0.18
+        version: 4.0.18(@types/node@22.19.11)(jiti@2.6.1)(jsdom@28.1.0)(lightningcss@1.31.1)(tsx@4.21.0)(yaml@2.8.2)
+
+  packages/plugins/web:
+    dependencies:
+      '@harness/logger':
+        specifier: workspace:*
+        version: link:../../logger
+      '@harness/plugin-contract':
+        specifier: workspace:*
+        version: link:../../plugin-contract
+      cors:
+        specifier: ^2.8.6
+        version: 2.8.6
+      database:
+        specifier: workspace:*
+        version: link:../../database
+      express:
+        specifier: ^5.2.1
+        version: 5.2.1
+      ws:
+        specifier: ^8.19.0
+        version: 8.19.0
+    devDependencies:
+      '@types/cors':
+        specifier: ^2.8.19
+        version: 2.8.19
+      '@types/express':
+        specifier: ^5.0.6
+        version: 5.0.6
+      '@types/node':
+        specifier: ^22.19.11
+        version: 22.19.11
+      '@types/ws':
+        specifier: ^8.18.1
+        version: 8.18.1
+      '@vitest/coverage-v8':
+        specifier: ^4.0.18
+        version: 4.0.18(vitest@4.0.18(@types/node@22.19.11)(jiti@2.6.1)(jsdom@28.1.0)(lightningcss@1.31.1)(tsx@4.21.0)(yaml@2.8.2))
       typescript:
         specifier: ^5.9.3
         version: 5.9.3

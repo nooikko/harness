@@ -22,7 +22,7 @@ Types are **co-located with their source**. If `discord/index.ts` creates a Disc
 
 Three tenets govern all file organization in this project. They are not about line counts — they are about **purpose**.
 
-**1. Co-location.** Everything related to a concern lives together in one directory module. A module is a directory with an `index.ts` and internal subdirectories. If you need to understand how Discord works, you open `plugins/discord/` and everything is there — the adapter logic, the message conversion, the channel resolution. You don't chase imports across the codebase.
+**1. Co-location.** Everything related to a concern lives together in one directory module. A module is a directory with an `index.ts` and internal subdirectories. If you need to understand how Discord works, you open `packages/plugins/discord/` and everything is there — the adapter logic, the message conversion, the channel resolution. You don't chase imports across the codebase.
 
 **2. Isolation.** Every file has one purpose. Every `_helpers/` file is a discrete, testable unit with no bleed into other concerns. Prompt assembly is not in the same file as response parsing. The cron scheduler is not in the same file as the admin command handlers. You split on **purpose**, not on length. If a file does two fundamentally different things, it's two files — whether it's 50 lines or 500.
 
@@ -32,13 +32,20 @@ Three tenets govern all file organization in this project. They are not about li
 
 ```
 module-name/
-  index.ts              → ORCHESTRATION. Wires internals together, exports public API.
-  _helpers/             → ISOLATED logic. Each file = one testable purpose.
-    prompt-assembler.ts → Assembles prompts. That's it.
-    response-parser.ts  → Parses responses. That's it.
-  _components/          → ISOLATED sub-modules (when applicable).
-    command-router.ts   → Routes commands. That's it.
+  index.ts                → ORCHESTRATION. Wires internals together, exports public API.
+  __tests__/              → Tests for this module's index.ts.
+    index.test.ts
+  _helpers/               → ISOLATED logic. Each file = one testable purpose.
+    prompt-assembler.ts   → Assembles prompts. That's it.
+    response-parser.ts    → Parses responses. That's it.
+    __tests__/            → Tests for helpers in this directory.
+      prompt-assembler.test.ts
+      response-parser.test.ts
+  _components/            → ISOLATED sub-modules (when applicable).
+    command-router.ts     → Routes commands. That's it.
 ```
+
+**Test placement:** Tests live in `__tests__/` folders within the directory they test. A module's `index.test.ts` goes in `module-name/__tests__/index.test.ts`. A helper's test goes in `module-name/_helpers/__tests__/helper-name.test.ts`. Tests are never placed directly alongside source files.
 
 **Rules:**
 
@@ -46,6 +53,7 @@ module-name/
 2. **Split on purpose, not on length.** A file that does two different things is two files. A file that does one thing well stays one file regardless of how long it is.
 3. **`index.ts` is orchestration, not a barrel.** It coordinates. It wires. It delegates. It does NOT just `export * from "./thing"`.
 4. **Types follow the same three tenets.** Types are **isolated** in the file that generates them — if `message-adapter.ts` creates a `PipelineMessage` type, that type is exported from `message-adapter.ts`. They are **co-located** with the logic that produces them. They are **orchestrated** through imports at the `index.ts` level, which re-exports only the types that are part of the module's public API. Never create standalone type files. Never re-declare types that Prisma already generates.
+5. **Tests live in `__tests__/` folders.** Every directory that has testable code gets a `__tests__/` subdirectory. Never place test files directly alongside source files.
 
 ### Code Style: Arrow Functions with Named Type Signatures
 
@@ -139,7 +147,7 @@ import { buildToolFilter } from "@/invoker/_helpers/tool-filter";
 // CORRECT
 import { prisma } from "database";
 import { cn } from "ui";
-import { DiscordPlugin } from "@/plugins/discord";
+import { plugin as discordPlugin } from "@harness/plugin-discord";
 
 // WRONG
 import { prisma } from "database/src/index.js";
@@ -182,7 +190,7 @@ Every component must be evaluated against these questions before being considere
 apps/
   orchestrator/                    → Core Node.js service
     src/
-      index.ts                     → Boot: load config, discover plugins, start pipeline
+      index.ts                     → Boot: load config, import plugins, start pipeline
       config.ts                    → Environment variables and defaults
       orchestrator/                → THE message pipeline (directory module)
         index.ts                   → Pipeline orchestration: receive → hooks → invoke → parse → respond
@@ -194,66 +202,54 @@ apps/
         index.ts                   → Spawn `claude -p`, manage timeout, capture output
         _helpers/
           tool-filter.ts           → Builds --allowedTools flags per invocation context
-      plugin-contract/             → Plugin API surface types (PluginContext, PluginHooks, PluginDefinition)
-        index.ts                   → Contract definitions all plugins code against
-      plugin-loader/               → Plugin discovery and lifecycle
-        index.ts                   → Discover, validate, register, start, stop
+      plugin-loader/               → Plugin lifecycle management
+        index.ts                   → Validate, register, start, stop (receives plugins array)
         _helpers/
-          validator.ts             → Validates plugin exports match contract
-      plugins/                     → Built-in plugins (same contract as third-party)
-        discord/
-          index.ts                 → Registers message source + reply sink
-          _helpers/
-            message-adapter.ts     → Converts Discord.js messages to pipeline format
-            channel-resolver.ts    → Resolves channels/threads to sourceIds
-        web/
-          index.ts                 → Registers message source + broadcast sink + REST API
-          _helpers/
-            routes.ts              → Express route definitions
-            ws-broadcaster.ts      → WebSocket event broadcasting
-        cron/
-          index.ts                 → Loads jobs from DB, schedules, registers command handlers
-          _helpers/
-            scheduler.ts           → node-cron wrapper, manages running jobs
-            admin-commands.ts      → CRUD command handlers for cron management
-        delegation/
-          index.ts                 → Registers delegate/re-delegate command handlers
-          _helpers/
-            delegation-loop.ts     → The iterate-until-done sub-agent loop
-            task-persistence.ts    → Task + AgentRun record management
-        context/
-          index.ts                 → Registers onBeforeInvoke hook
-          _helpers/
-            file-reader.ts         → Reads context/*.md files via fs
-            history-loader.ts      → Loads conversation history from Postgres
-        validation/
-          index.ts                 → Registers onTaskComplete hook (adversarial reviewer)
-          _helpers/
-            reviewer-prompt.ts     → Builds the reviewer agent's system prompt
-            quality-checks.ts      → Defines the quality gate criteria
-        worktree/
-          index.ts                 → Registers onTaskCreate, onTaskValidated, onTaskFailed
-          _helpers/
-            worktree-manager.ts    → Git worktree create/merge/cleanup operations
-            branch-naming.ts       → Task ID → branch name conventions
+          validate-plugin.ts       → Validates plugin exports match contract
+      plugin-registry/             → Static plugin imports
+        index.ts                   → Imports all plugin packages, exports getPlugins()
   dashboard/                       → Next.js web dashboard
   web/                             → Existing template app (unchanged)
 packages/
+  plugin-contract/                 → Plugin API surface types (@harness/plugin-contract)
+    src/index.ts                   → PluginContext, PluginHooks, PluginDefinition, config types
+  plugins/                         → Organizational folder (no code, no package.json with logic)
+    context/                       → @harness/plugin-context (independent workspace package)
+      src/
+        index.ts                   → Registers onBeforeInvoke hook
+        _helpers/
+          file-reader.ts           → Reads context/*.md files via fs
+          history-loader.ts        → Loads conversation history from Postgres
+    discord/                       → @harness/plugin-discord (independent workspace package)
+      src/
+        index.ts                   → Registers message source + reply sink
+        _helpers/
+          message-adapter.ts       → Converts Discord.js messages to pipeline format
+          channel-resolver.ts      → Resolves channels/threads to sourceIds
+    web/                           → @harness/plugin-web (independent workspace package)
+      src/
+        index.ts                   → Registers message source + broadcast sink + REST API
+        _helpers/
+          routes.ts                → Express route definitions
+          ws-broadcaster.ts        → WebSocket event broadcasting
   database/                        → Extended Prisma schema
   ui/                              → Shared UI library
   mcp-graph/                       → Microsoft Graph MCP server
 context/                           → Agent-managed markdown files (project root)
 ```
 
+**Note:** Future plugins (cron, delegation, validation, worktree) will also be independent packages under `packages/plugins/`. Plugin-specific dependencies (discord.js, express, ws, cors, node-cron) live in their respective plugin package, not in the orchestrator.
+
 **This structure is not optional.** Every module is a directory. Every directory has an `index.ts` that orchestrates. Separate concerns go in separate files under `_helpers/`. Split on purpose, not on length.
 
 ### Dependency Flow
 
-- `apps/orchestrator` imports from `packages/database`
+- `apps/orchestrator` imports from `packages/database`, `packages/plugin-contract`, and each plugin package (`@harness/plugin-context`, `@harness/plugin-discord`, `@harness/plugin-web`)
+- Plugin packages import from `@harness/plugin-contract` and `packages/database` — never from the orchestrator
 - `apps/dashboard` imports from `packages/database` and `packages/ui`
 - `packages/mcp-graph` is standalone (runs as separate process via MCP protocol)
 - `context/` is read/written by the agent at runtime (not imported by any package)
-- Plugins import from the orchestrator's core exports — never the other way around
+- `packages/plugin-contract` is the shared API surface — it defines `PluginContext`, `PluginHooks`, `PluginDefinition`, and config types. All plugin packages depend on it.
 
 ---
 
@@ -261,7 +257,7 @@ context/                           → Agent-managed markdown files (project roo
 
 ### Core Concept
 
-The orchestrator exposes a set of **lifecycle hooks** that plugins attach to. A plugin is a directory with an `index.ts` that exports a `register` function. The core never imports plugins directly — it discovers them at boot time and calls their `register` function with a `PluginContext` object.
+The orchestrator exposes a set of **lifecycle hooks** that plugins attach to. Each plugin is an independent workspace package under `packages/plugins/` with its own `package.json`, dependencies, and test configuration. Plugins export a `register` function. The orchestrator imports them statically via a plugin registry (`src/plugin-registry/index.ts`) and calls their `register` function with a `PluginContext` object.
 
 ### Plugin Context (what the core gives to every plugin)
 
@@ -306,11 +302,12 @@ The response parser (`response-parser.ts`) extracts these blocks after invocatio
 
 ### Plugin Lifecycle
 
-1. **Discovery**: At boot, the plugin loader scans `src/plugins/*/index.ts` for directories containing an exported `register` function.
-2. **Registration**: Each plugin's `register(ctx: PluginContext)` is called. Plugins attach their hooks.
-3. **Start**: After all plugins register, the core calls `start()` on each plugin (if exported). This is where Discord connects, Express starts listening, cron jobs load, etc.
-4. **Runtime**: The message pipeline runs. Plugins feed messages in, hooks fire in order, responses flow back out.
-5. **Shutdown**: On SIGTERM/SIGINT, the core calls `stop()` on each plugin (if exported) for graceful cleanup.
+1. **Import**: At boot, the plugin registry (`src/plugin-registry/index.ts`) statically imports all plugin packages (`@harness/plugin-context`, `@harness/plugin-discord`, `@harness/plugin-web`) and returns them as an array. No filesystem scanning.
+2. **Validation**: The plugin loader validates each plugin's exports match the contract (has `name`, `version`, `register`).
+3. **Registration**: Each plugin's `register(ctx: PluginContext)` is called. Plugins attach their hooks.
+4. **Start**: After all plugins register, the core calls `start()` on each plugin (if exported). This is where Discord connects, Express starts listening, cron jobs load, etc.
+5. **Runtime**: The message pipeline runs. Plugins feed messages in, hooks fire in order, responses flow back out.
+6. **Shutdown**: On SIGTERM/SIGINT, the core calls `stop()` on each plugin (if exported) for graceful cleanup.
 
 ### Plugin Contract
 
@@ -333,10 +330,10 @@ export const version = "1.0.0";
 
 ### Why This Matters
 
-- **Adding a Slack adapter** = new plugin directory, implements `register` with `onMessage`/`sendMessage`. Zero core changes.
-- **Adding a time/timezone utility** = new plugin that registers an `onBeforeInvoke` hook to inject current time into every prompt. Zero core changes.
+- **Adding a Slack adapter** = new plugin package at `packages/plugins/slack/`, implements `register` with `onMessage`/`sendMessage`, add to plugin registry. Zero core changes.
+- **Adding a time/timezone utility** = new plugin package that registers an `onBeforeInvoke` hook to inject current time into every prompt. Zero core changes.
 - **Adding Notion integration** = new MCP server in `packages/mcp-notion/` + optionally a plugin that registers a cron to sync. Zero core changes.
-- **Removing Discord** = delete the plugin directory. Zero core changes.
+- **Removing Discord** = remove the plugin package and its import from the registry. Zero core changes.
 
 ---
 
@@ -380,22 +377,24 @@ A Node.js service (NOT Next.js) that runs as a long-lived process. The core is i
 
 **Core modules (these are the ONLY modules that aren't plugins):**
 
-- `src/index.ts` — Boot sequence: load config, discover plugins, call register on each, call start on each. Graceful shutdown on SIGTERM.
+- `src/index.ts` — Boot sequence: load config, import plugins from registry, call register on each, call start on each. Graceful shutdown on SIGTERM.
 - `src/config.ts` — Environment variables and defaults. Exported for plugins to consume.
 - `src/orchestrator/` — THE message pipeline. `index.ts` orchestrates the flow: receive → onBeforeInvoke hooks → invoke → onAfterInvoke hooks → parse → route commands → respond → broadcast. Exports the `PluginContext` interface. Internal `_helpers/` handle prompt assembly, response parsing, and command routing as separate concerns.
 - `src/invoker/` — Claude CLI subprocess management. `index.ts` spawns `claude -p <prompt> --model <model> --output-format text`. Internal `_helpers/` handle `--allowedTools` flag construction per invocation context. Handles timeout, stdout/stderr capture.
-- `src/plugin-contract/` — Defines the `PluginContext`, `PluginHooks`, and `PluginDefinition` types that all plugins code against. Isolated as its own concern — the contract is the API surface, separate from the pipeline that uses it.
-- `src/plugin-loader/` — Plugin discovery and lifecycle management. `index.ts` discovers plugin directories, validates exports against the contract, manages register → start → stop. Internal `_helpers/` handle export validation.
+- `src/plugin-loader/` — Plugin lifecycle management. `index.ts` receives a plugins array (from the registry), validates exports against the contract, manages register → start → stop. Internal `_helpers/` handle export validation.
+- `src/plugin-registry/` — Static plugin imports. `index.ts` imports `@harness/plugin-context`, `@harness/plugin-discord`, `@harness/plugin-web` and exports `getPlugins()`.
 
-**No `types.ts`.** The `PluginContext` interface is exported from `orchestrator/index.ts`. Prisma types come from `"database"`. Each plugin exports its own types from its own `index.ts`.
+**Plugin contract** lives in `packages/plugin-contract/` (`@harness/plugin-contract`) — a shared workspace package that defines `PluginContext`, `PluginHooks`, `PluginDefinition`, `OrchestratorConfig`, `InvokeOptions`, and `InvokeResult`. All plugin packages and the orchestrator depend on it.
 
-**Core dependencies (minimal):** `@prisma/client`, `express` ^5, `ws` ^8, `tsx` (dev). Interface-specific deps (discord.js, node-cron) are imported only by their respective plugins.
+**No `types.ts`.** Prisma types come from `"database"`. Each plugin exports its own types from its own `index.ts`. Shared plugin types come from `@harness/plugin-contract`.
+
+**Core dependencies (minimal):** `@prisma/client`, `@harness/plugin-contract`, plugin packages (all `workspace:*`), `tsx` (dev). Interface-specific deps (discord.js, express, ws, cors, node-cron) live in their respective plugin packages, not in the orchestrator.
 
 ### 3. Built-in Plugins
 
-These ship with the orchestrator but follow the exact same plugin contract as any third-party plugin would.
+Each plugin is an independent workspace package under `packages/plugins/` with its own `package.json`, dependencies, tests, and `vitest.config.ts`. They follow the exact same plugin contract as any third-party plugin would.
 
-#### 3a. Discord Plugin (`src/plugins/discord/`)
+#### 3a. Discord Plugin (`packages/plugins/discord/` — `@harness/plugin-discord`)
 
 - Registers as a message source via `onMessage`
 - Implements `sendMessage` to reply in the originating channel/thread
@@ -404,7 +403,7 @@ These ship with the orchestrator but follow the exact same plugin contract as an
 - Requires `DISCORD_TOKEN` env var
 - Exports Discord-specific types (e.g., channel mapping config) from its own `index.ts`
 
-#### 3b. Web Plugin (`src/plugins/web/`)
+#### 3b. Web Plugin (`packages/plugins/web/` — `@harness/plugin-web`)
 
 - Registers as a message source (HTTP POST `/api/chat`) and event sink (`onBroadcast` → WebSocket)
 - On `start()`: starts Express server + WebSocket on configured port
@@ -412,7 +411,7 @@ These ship with the orchestrator but follow the exact same plugin contract as an
 - The dashboard (`apps/dashboard`) talks to these endpoints
 - Requires `PORT` env var (default 3001)
 
-#### 3c. Cron Plugin (`src/plugins/cron/`)
+#### 3c. Cron Plugin (`packages/plugins/cron/` — future `@harness/plugin-cron`)
 
 - On `start()`: loads CronJob records from Postgres, schedules with node-cron
 - Registers command handlers for `cron_create`, `cron_update`, `cron_delete`, `cron_toggle`
@@ -420,7 +419,7 @@ These ship with the orchestrator but follow the exact same plugin contract as an
 - Exposes a `reloadCrons()` function called after admin commands mutate the CronJob table
 - Requires `node-cron` dep (scoped to this plugin)
 
-#### 3d. Delegation Plugin (`src/plugins/delegation/`)
+#### 3d. Delegation Plugin (`packages/plugins/delegation/` — future `@harness/plugin-delegation`)
 
 - Registers command handlers for `delegate` and `re-delegate`
 - Uses `ctx.invoker` to spawn sub-agents
@@ -434,14 +433,14 @@ These ship with the orchestrator but follow the exact same plugin contract as an
 - Broadcasts task status updates via `ctx.broadcast`
 - The delegation plugin itself does NOT validate work and does NOT manage worktrees — it fires hooks and other plugins handle those concerns
 
-#### 3e. Context Plugin (`src/plugins/context/`)
+#### 3e. Context Plugin (`packages/plugins/context/` — `@harness/plugin-context`)
 
 - Registers an `onBeforeInvoke` hook that reads context files (memory.md, world-state.md, thread-summaries.md, inbox.md) and injects them into the prompt
 - Uses direct `fs` calls (NOT MCP tools) for performance
 - Loads conversation history from Postgres and appends to prompt
 - This is what makes the agent "aware" — without this plugin, the agent gets raw messages with no context
 
-#### 3f. Validation Plugin (`src/plugins/validation/`)
+#### 3f. Validation Plugin (`packages/plugins/validation/` — future `@harness/plugin-validation`)
 
 The adversarial reviewer. This plugin ensures that no agent validates its own work. When a task completes, a completely separate agent reviews it.
 
@@ -464,7 +463,7 @@ The adversarial reviewer. This plugin ensures that no agent validates its own wo
 - The reviewer uses a different model or at minimum a different system prompt than the worker — it is structurally incapable of rubber-stamping its own work
 - The validation loop has its own iteration budget (separate from the delegation loop's `maxIterations`)
 
-#### 3g. Worktree Plugin (`src/plugins/worktree/`)
+#### 3g. Worktree Plugin (`packages/plugins/worktree/` — future `@harness/plugin-worktree`)
 
 Manages git worktree lifecycle for task isolation. Every delegated task gets its own branch and working directory. Work is merged only after validation passes.
 
@@ -645,7 +644,7 @@ These are stored as CronJob records in Postgres, managed by the cron plugin:
 
 ### Phase 1: Core Pipeline + Plugin System
 - Extend Prisma schema with orchestrator models (Thread with `kind` and `parentThreadId`, Message, Task, AgentRun, CronJob, Metric)
-- Build the plugin loader (discovery, validation, lifecycle: register → start → stop)
+- Build the plugin loader (validation, lifecycle: register → start → stop) and plugin registry (static imports)
 - Build the orchestrator message pipeline with ALL hook points (onBeforeInvoke, onAfterInvoke, onCommand, onBroadcast, onTaskCreate, onTaskComplete, onTaskValidated, onTaskFailed)
 - Build the invoker (Claude CLI subprocess wrapper with --allowedTools support)
 - Build the context plugin (reads context files, injects into prompt, loads conversation history)
