@@ -1,11 +1,11 @@
-import { defineConfig } from "vitest/config";
+import { defineConfig } from 'vitest/config';
 
 export default defineConfig({
   test: {
-    name: "logger",
-    environment: "node",
+    name: 'logger',
+    environment: 'node',
     coverage: {
-      provider: "v8",
+      provider: 'v8',
     },
   },
 });

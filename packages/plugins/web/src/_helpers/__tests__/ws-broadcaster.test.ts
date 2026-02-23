@@ -1,10 +1,10 @@
 // Tests for WebSocket broadcaster
 
-import { createServer, type Server as HttpServer } from "node:http";
-import type { Logger } from "@harness/logger";
-import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
-import WebSocket from "ws";
-import { createWsBroadcaster, type WsBroadcaster } from "../ws-broadcaster";
+import { createServer, type Server as HttpServer } from 'node:http';
+import type { Logger } from '@harness/logger';
+import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
+import WebSocket from 'ws';
+import { createWsBroadcaster, type WsBroadcaster } from '../ws-broadcaster';
 
 type TestSetup = {
   server: HttpServer;
@@ -19,15 +19,15 @@ type ConnectClient = (url: string) => Promise<WebSocket>;
 const connectClient: ConnectClient = (url) =>
   new Promise((resolve, reject) => {
     const ws = new WebSocket(url);
-    ws.on("open", () => resolve(ws));
-    ws.on("error", reject);
+    ws.on('open', () => resolve(ws));
+    ws.on('error', reject);
   });
 
 type WaitForMessage = (ws: WebSocket) => Promise<string>;
 
 const waitForMessage: WaitForMessage = (ws) =>
   new Promise((resolve) => {
-    ws.on("message", (data) => {
+    ws.on('message', (data) => {
       resolve(data.toString());
     });
   });
@@ -40,11 +40,11 @@ const closeClient: CloseClient = (ws) =>
       resolve();
       return;
     }
-    ws.on("close", () => resolve());
+    ws.on('close', () => resolve());
     ws.close();
   });
 
-describe("ws-broadcaster", () => {
+describe('ws-broadcaster', () => {
   let setup: TestSetup;
   const openClients: WebSocket[] = [];
 
@@ -64,7 +64,7 @@ describe("ws-broadcaster", () => {
     });
 
     const addr = server.address();
-    const port = typeof addr === "object" && addr !== null ? addr.port : 0;
+    const port = typeof addr === 'object' && addr !== null ? addr.port : 0;
 
     setup = {
       server,
@@ -89,7 +89,7 @@ describe("ws-broadcaster", () => {
     vi.clearAllMocks();
   });
 
-  it("accepts WebSocket connections", async () => {
+  it('accepts WebSocket connections', async () => {
     const client = await connectClient(setup.wsUrl);
     openClients.push(client);
 
@@ -100,25 +100,25 @@ describe("ws-broadcaster", () => {
     openClients.pop();
   });
 
-  it("broadcasts events to connected clients", async () => {
+  it('broadcasts events to connected clients', async () => {
     const client = await connectClient(setup.wsUrl);
     openClients.push(client);
 
     const messagePromise = waitForMessage(client);
-    setup.broadcaster.broadcast("test:event", { key: "value" });
+    setup.broadcaster.broadcast('test:event', { key: 'value' });
 
     const raw = await messagePromise;
     const parsed = JSON.parse(raw);
 
-    expect(parsed.event).toBe("test:event");
-    expect(parsed.data).toEqual({ key: "value" });
-    expect(typeof parsed.timestamp).toBe("number");
+    expect(parsed.event).toBe('test:event');
+    expect(parsed.data).toEqual({ key: 'value' });
+    expect(typeof parsed.timestamp).toBe('number');
 
     await closeClient(client);
     openClients.pop();
   });
 
-  it("broadcasts to multiple clients simultaneously", async () => {
+  it('broadcasts to multiple clients simultaneously', async () => {
     const client1 = await connectClient(setup.wsUrl);
     const client2 = await connectClient(setup.wsUrl);
     openClients.push(client1, client2);
@@ -126,14 +126,14 @@ describe("ws-broadcaster", () => {
     const msg1Promise = waitForMessage(client1);
     const msg2Promise = waitForMessage(client2);
 
-    setup.broadcaster.broadcast("multi:test", { count: 2 });
+    setup.broadcaster.broadcast('multi:test', { count: 2 });
 
     const [raw1, raw2] = await Promise.all([msg1Promise, msg2Promise]);
     const parsed1 = JSON.parse(raw1);
     const parsed2 = JSON.parse(raw2);
 
-    expect(parsed1.event).toBe("multi:test");
-    expect(parsed2.event).toBe("multi:test");
+    expect(parsed1.event).toBe('multi:test');
+    expect(parsed2.event).toBe('multi:test');
     expect(parsed1.data).toEqual({ count: 2 });
     expect(parsed2.data).toEqual({ count: 2 });
 
@@ -142,7 +142,7 @@ describe("ws-broadcaster", () => {
     openClients.splice(-2);
   });
 
-  it("removes clients on disconnect", async () => {
+  it('removes clients on disconnect', async () => {
     const client = await connectClient(setup.wsUrl);
     openClients.push(client);
     const countBefore = setup.broadcaster.getClientCount();
@@ -156,7 +156,7 @@ describe("ws-broadcaster", () => {
     expect(setup.broadcaster.getClientCount()).toBe(countBefore - 1);
   });
 
-  it("returns correct client count", async () => {
+  it('returns correct client count', async () => {
     const countBefore = setup.broadcaster.getClientCount();
     const client = await connectClient(setup.wsUrl);
     openClients.push(client);
@@ -170,33 +170,27 @@ describe("ws-broadcaster", () => {
     expect(setup.broadcaster.getClientCount()).toBe(countBefore);
   });
 
-  it("handles broadcasting with no connected clients", () => {
+  it('handles broadcasting with no connected clients', () => {
     // Should not throw
     expect(() => {
-      setup.broadcaster.broadcast("empty:test", { msg: "nobody listening" });
+      setup.broadcaster.broadcast('empty:test', { msg: 'nobody listening' });
     }).not.toThrow();
   });
 
-  it("logs connections and disconnections", async () => {
+  it('logs connections and disconnections', async () => {
     const client = await connectClient(setup.wsUrl);
     openClients.push(client);
 
-    expect(setup.logger.info).toHaveBeenCalledWith(
-      "WebSocket client connected",
-      expect.objectContaining({ total: expect.any(Number) })
-    );
+    expect(setup.logger.info).toHaveBeenCalledWith('WebSocket client connected', expect.objectContaining({ total: expect.any(Number) }));
 
     await closeClient(client);
     openClients.pop();
     await new Promise((r) => setTimeout(r, 50));
 
-    expect(setup.logger.info).toHaveBeenCalledWith(
-      "WebSocket client disconnected",
-      expect.objectContaining({ total: expect.any(Number) })
-    );
+    expect(setup.logger.info).toHaveBeenCalledWith('WebSocket client disconnected', expect.objectContaining({ total: expect.any(Number) }));
   });
 
-  it("skips sending to clients with non-OPEN readyState", async () => {
+  it('skips sending to clients with non-OPEN readyState', async () => {
     const client = await connectClient(setup.wsUrl);
     openClients.push(client);
 
@@ -206,7 +200,7 @@ describe("ws-broadcaster", () => {
 
     // Broadcast immediately — the server-side socket is likely still tracked
     // but its readyState will be CLOSING or CLOSED
-    setup.broadcaster.broadcast("closed:test", { msg: "skip closed" });
+    setup.broadcaster.broadcast('closed:test', { msg: 'skip closed' });
 
     // Give the server time to clean up
     await new Promise((r) => setTimeout(r, 100));
@@ -214,7 +208,7 @@ describe("ws-broadcaster", () => {
     openClients.pop();
   });
 
-  it("handles client errors and removes errored clients", async () => {
+  it('handles client errors and removes errored clients', async () => {
     const client = await connectClient(setup.wsUrl);
     openClients.push(client);
     const countBefore = setup.broadcaster.getClientCount();
@@ -231,8 +225,8 @@ describe("ws-broadcaster", () => {
   });
 });
 
-describe("ws-broadcaster close with active clients", () => {
-  it("closes all clients when broadcaster.close() is called", async () => {
+describe('ws-broadcaster close with active clients', () => {
+  it('closes all clients when broadcaster.close() is called', async () => {
     const logger: Logger = {
       info: vi.fn(),
       warn: vi.fn(),
@@ -248,7 +242,7 @@ describe("ws-broadcaster close with active clients", () => {
     });
 
     const addr = server.address();
-    const port = typeof addr === "object" && addr !== null ? addr.port : 0;
+    const port = typeof addr === 'object' && addr !== null ? addr.port : 0;
     const wsUrl = `ws://127.0.0.1:${port}/ws`;
 
     // Connect a client while the broadcaster is active

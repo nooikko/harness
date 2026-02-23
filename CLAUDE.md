@@ -94,6 +94,8 @@ packages/plugins/web/        → Web plugin (@harness/plugin-web)
 
 **File organization:** Co-location, isolation, orchestration. Every module is a directory with `index.ts` (orchestration), `_helpers/` (isolated logic), and `_components/` (sub-modules). The `_` prefix means private to the module.
 
+**One export per helper file.** Each file in `_helpers/` exports exactly one function, named to match the kebab-case filename. `_helpers/run-hook.ts` exports `runHook`, `_helpers/format-context-section.ts` exports `formatContextSection`. If you need a second export, create a second file. Each helper gets a corresponding test: `_helpers/__tests__/run-hook.test.ts`.
+
 **Test placement:** Tests live in `__tests__/` folders within the directory they test. `src/__tests__/index.test.ts` tests `src/index.ts`. `src/_helpers/__tests__/foo.test.ts` tests `src/_helpers/foo.ts`. Never place test files directly alongside source files.
 
 ## Git Hooks

@@ -2,12 +2,13 @@
 // Creates task records, fires lifecycle hooks, invokes sub-agents,
 // and handles accept/reject validation with re-delegation support
 
-import type { PluginContext, PluginHooks } from "@harness/plugin-contract";
-import { runHook } from "@harness/plugin-contract";
-import { buildIterationPrompt } from "./build-iteration-prompt";
-import { createTaskRecord } from "./create-task-record";
-import { createTaskThread } from "./create-task-thread";
-import { invokeSubAgent } from "./invoke-sub-agent";
+import type { PluginContext, PluginHooks } from '@harness/plugin-contract';
+import { runHook } from '@harness/plugin-contract';
+import { buildIterationPrompt } from './build-iteration-prompt';
+import { createTaskRecord } from './create-task-record';
+import { createTaskThread } from './create-task-thread';
+import { fireTaskCompleteHooks } from './fire-task-complete-hooks';
+import { invokeSubAgent } from './invoke-sub-agent';
 
 export type DelegationOptions = {
   prompt: string;
@@ -19,48 +20,14 @@ export type DelegationOptions = {
 export type DelegationResult = {
   taskId: string;
   threadId: string;
-  status: "completed" | "failed";
+  status: 'completed' | 'failed';
   result: string | null;
   iterations: number;
 };
 
-type TaskCompleteOutcome = {
-  accepted: boolean;
-  feedback?: string;
-};
-
-type FireTaskCompleteHooks = (
-  allHooks: PluginHooks[],
-  threadId: string,
-  taskId: string,
-  result: string,
-  ctx: PluginContext
-) => Promise<TaskCompleteOutcome>;
-
-const fireTaskCompleteHooks: FireTaskCompleteHooks = async (allHooks, threadId, taskId, result, ctx) => {
-  for (const hooks of allHooks) {
-    if (hooks.onTaskComplete) {
-      try {
-        await hooks.onTaskComplete(threadId, taskId, result);
-      } catch (err) {
-        ctx.logger.error(`Hook "onTaskComplete" threw: ${err instanceof Error ? err.message : String(err)}`);
-        return {
-          accepted: false,
-          feedback: `Validation hook error: ${err instanceof Error ? err.message : String(err)}`,
-        };
-      }
-    }
-  }
-  return { accepted: true };
-};
-
 const DEFAULT_MAX_ITERATIONS = 5;
 
-type RunDelegationLoop = (
-  ctx: PluginContext,
-  allHooks: PluginHooks[],
-  options: DelegationOptions
-) => Promise<DelegationResult>;
+type RunDelegationLoop = (ctx: PluginContext, allHooks: PluginHooks[], options: DelegationOptions) => Promise<DelegationResult>;
 
 export const runDelegationLoop: RunDelegationLoop = async (ctx, allHooks, options) => {
   const maxIterations = options.maxIterations ?? DEFAULT_MAX_ITERATIONS;
@@ -79,18 +46,18 @@ export const runDelegationLoop: RunDelegationLoop = async (ctx, allHooks, option
   // Step 3: Fire onTaskCreate hooks
   await runHook(
     allHooks,
-    "onTaskCreate",
+    'onTaskCreate',
     (hooks) => {
       if (hooks.onTaskCreate) {
         return hooks.onTaskCreate(threadId, taskId);
       }
       return undefined;
     },
-    ctx.logger
+    ctx.logger,
   );
 
   // Broadcast task creation
-  await ctx.broadcast("task:created", {
+  await ctx.broadcast('task:created', {
     taskId,
     threadId,
     parentThreadId: options.parentThreadId,
@@ -107,7 +74,7 @@ export const runDelegationLoop: RunDelegationLoop = async (ctx, allHooks, option
     await ctx.db.orchestratorTask.update({
       where: { id: taskId },
       data: {
-        status: "running",
+        status: 'running',
         currentIteration: iterations,
       },
     });
@@ -119,7 +86,7 @@ export const runDelegationLoop: RunDelegationLoop = async (ctx, allHooks, option
     await ctx.db.message.create({
       data: {
         threadId,
-        role: "user",
+        role: 'user',
         content: iterationPrompt,
       },
     });
@@ -133,21 +100,21 @@ export const runDelegationLoop: RunDelegationLoop = async (ctx, allHooks, option
         exitCode: invokeResult.exitCode,
         error: invokeResult.error,
       });
-      feedback = `Sub-agent invocation failed with exit code ${invokeResult.exitCode}: ${invokeResult.error ?? "unknown error"}`;
+      feedback = `Sub-agent invocation failed with exit code ${invokeResult.exitCode}: ${invokeResult.error ?? 'unknown error'}`;
       continue;
     }
 
     // Update task status to evaluating
     await ctx.db.orchestratorTask.update({
       where: { id: taskId },
-      data: { status: "evaluating" },
+      data: { status: 'evaluating' },
     });
 
     // Fire onTaskComplete hooks for validation
     const outcome = await fireTaskCompleteHooks(allHooks, threadId, taskId, invokeResult.output, ctx);
 
     // Broadcast task status update
-    await ctx.broadcast("task:evaluated", {
+    await ctx.broadcast('task:evaluated', {
       taskId,
       threadId,
       iteration: iterations,
@@ -159,7 +126,7 @@ export const runDelegationLoop: RunDelegationLoop = async (ctx, allHooks, option
       await ctx.db.orchestratorTask.update({
         where: { id: taskId },
         data: {
-          status: "completed",
+          status: 'completed',
           result: invokeResult.output,
         },
       });
@@ -167,13 +134,13 @@ export const runDelegationLoop: RunDelegationLoop = async (ctx, allHooks, option
       // Update thread status
       await ctx.db.thread.update({
         where: { id: threadId },
-        data: { status: "completed", lastActivity: new Date() },
+        data: { status: 'completed', lastActivity: new Date() },
       });
 
       ctx.logger.info(`Delegation: task ${taskId} completed after ${iterations} iteration(s)`);
 
       // Broadcast completion
-      await ctx.broadcast("task:validated", {
+      await ctx.broadcast('task:validated', {
         taskId,
         threadId,
         parentThreadId: options.parentThreadId,
@@ -181,22 +148,19 @@ export const runDelegationLoop: RunDelegationLoop = async (ctx, allHooks, option
       });
 
       // Notify parent thread
-      await ctx.sendToThread(
-        options.parentThreadId,
-        `Task ${taskId} completed successfully after ${iterations} iteration(s).`
-      );
+      await ctx.sendToThread(options.parentThreadId, `Task ${taskId} completed successfully after ${iterations} iteration(s).`);
 
       return {
         taskId,
         threadId,
-        status: "completed",
+        status: 'completed',
         result: invokeResult.output,
         iterations,
       };
     }
 
     // Task rejected — prepare for re-delegation
-    feedback = outcome.feedback ?? "Task was rejected without specific feedback.";
+    feedback = outcome.feedback ?? 'Task was rejected without specific feedback.';
     ctx.logger.info(`Delegation: task ${taskId} rejected at iteration ${iterations}`, {
       feedback,
     });
@@ -205,35 +169,33 @@ export const runDelegationLoop: RunDelegationLoop = async (ctx, allHooks, option
   // Max iterations exhausted — task failed
   await ctx.db.orchestratorTask.update({
     where: { id: taskId },
-    data: { status: "failed" },
+    data: { status: 'failed' },
   });
 
   await ctx.db.thread.update({
     where: { id: threadId },
-    data: { status: "failed", lastActivity: new Date() },
+    data: { status: 'failed', lastActivity: new Date() },
   });
 
-  const failError = new Error(
-    `Task ${taskId} failed after ${maxIterations} iterations. Last feedback: ${feedback ?? "none"}`
-  );
+  const failError = new Error(`Task ${taskId} failed after ${maxIterations} iterations. Last feedback: ${feedback ?? 'none'}`);
 
   // Fire onTaskFailed hooks
   await runHook(
     allHooks,
-    "onTaskFailed",
+    'onTaskFailed',
     (hooks) => {
       if (hooks.onTaskFailed) {
         return hooks.onTaskFailed(threadId, taskId, failError);
       }
       return undefined;
     },
-    ctx.logger
+    ctx.logger,
   );
 
   ctx.logger.error(`Delegation: task ${taskId} failed after ${maxIterations} iterations`);
 
   // Broadcast failure
-  await ctx.broadcast("task:failed", {
+  await ctx.broadcast('task:failed', {
     taskId,
     threadId,
     parentThreadId: options.parentThreadId,
@@ -242,15 +204,12 @@ export const runDelegationLoop: RunDelegationLoop = async (ctx, allHooks, option
   });
 
   // Notify parent thread
-  await ctx.sendToThread(
-    options.parentThreadId,
-    `Task ${taskId} failed after ${maxIterations} iteration(s). ${feedback ?? ""}`
-  );
+  await ctx.sendToThread(options.parentThreadId, `Task ${taskId} failed after ${maxIterations} iteration(s). ${feedback ?? ''}`);
 
   return {
     taskId,
     threadId,
-    status: "failed",
+    status: 'failed',
     result: null,
     iterations: maxIterations,
   };

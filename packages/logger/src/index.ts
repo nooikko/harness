@@ -10,8 +10,8 @@ export type Logger = {
 type CreateLogger = (prefix: string) => Logger;
 
 export const createLogger: CreateLogger = (prefix) => ({
-  info: (message, meta) => console.log(`[${prefix}] ${message}`, meta ?? ""),
-  warn: (message, meta) => console.warn(`[${prefix}] ${message}`, meta ?? ""),
-  error: (message, meta) => console.error(`[${prefix}] ${message}`, meta ?? ""),
-  debug: (message, meta) => console.debug(`[${prefix}] ${message}`, meta ?? ""),
+  info: (message, meta) => console.log(`[${prefix}] ${message}`, meta ?? ''),
+  warn: (message, meta) => console.warn(`[${prefix}] ${message}`, meta ?? ''),
+  error: (message, meta) => console.error(`[${prefix}] ${message}`, meta ?? ''),
+  debug: (message, meta) => console.debug(`[${prefix}] ${message}`, meta ?? ''),
 });

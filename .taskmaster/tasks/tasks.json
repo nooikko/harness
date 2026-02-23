@@ -86,7 +86,7 @@
         "testStrategy": "Test that base prompt includes thread context and proper structure. Verify output is ready for hook chain consumption. Test with various thread kinds (primary, task, cron, general).",
         "priority": "medium",
         "dependencies": [5],
-        "status": "pending",
+        "status": "done",
         "subtasks": []
       },
       {
@@ -97,7 +97,7 @@
         "testStrategy": "Test parsing of various command formats. Verify multiple commands in one response are handled. Test malformed command blocks are ignored. Ensure regular content is preserved correctly.",
         "priority": "medium",
         "dependencies": [5],
-        "status": "pending",
+        "status": "done",
         "subtasks": []
       },
       {
@@ -163,7 +163,7 @@
         "testStrategy": "Test full delegation flow with mock sub-agent. Verify task lifecycle hooks fire correctly. Test iteration limits are enforced. Ensure task threads link to parent properly.",
         "priority": "high",
         "dependencies": [3, 4, 6],
-        "status": "pending",
+        "status": "done",
         "subtasks": []
       },
       {
@@ -218,7 +218,7 @@
         "testStrategy": "Test boot sequence with various plugin configurations. Verify graceful shutdown on signals. Test error handling during plugin registration. Ensure all plugins get proper lifecycle calls.",
         "priority": "high",
         "dependencies": [4, 5, 11],
-        "status": "pending",
+        "status": "done",
         "subtasks": []
       },
       {
@@ -269,7 +269,7 @@
         "id": 25,
         "title": "Create Dashboard Next.js Application",
         "description": "Repurpose the existing apps/web Next.js 16 application as the dashboard with server-first architecture and App Router",
-        "status": "pending",
+        "status": "done",
         "dependencies": [],
         "priority": "medium",
         "details": "Reconfigure the existing apps/web Next.js 16 application for dashboard use. Update package.json name from 'web' to 'dashboard'. Modify apps/web/src/app/layout.tsx metadata to reflect dashboard branding. Keep existing dependencies on database and ui packages. Maintain transpilePackages configuration in next.config.ts. Preserve the current App Router structure with Inter font. Keep strict TypeScript config. Ensure server components remain default, use 'use client' directive only where necessary. Consider renaming the apps/web directory to apps/dashboard for clarity.",
@@ -279,7 +279,7 @@
             "id": 1,
             "title": "Update package.json name",
             "description": "Change name field in apps/web/package.json from 'web' to 'dashboard'",
-            "status": "pending",
+            "status": "done",
             "dependencies": [],
             "details": "",
             "testStrategy": ""
@@ -288,7 +288,7 @@
             "id": 2,
             "title": "Update application metadata",
             "description": "Modify apps/web/src/app/layout.tsx to update title and description for dashboard branding",
-            "status": "pending",
+            "status": "done",
             "dependencies": [],
             "details": "",
             "testStrategy": ""
@@ -297,7 +297,7 @@
             "id": 3,
             "title": "Rename directory (optional)",
             "description": "Consider renaming apps/web to apps/dashboard for better clarity, updating all references in package.json scripts and turbo.json",
-            "status": "pending",
+            "status": "done",
             "dependencies": [],
             "details": "",
             "testStrategy": ""
@@ -306,7 +306,7 @@
             "id": 4,
             "title": "Verify existing configurations",
             "description": "Ensure all existing Next.js 16, TypeScript, and package dependencies continue to work after reconfiguration",
-            "status": "pending",
+            "status": "done",
             "dependencies": [],
             "details": "",
             "testStrategy": ""
@@ -444,11 +444,108 @@
         "dependencies": [3, 4, 20],
         "priority": "medium",
         "subtasks": []
+      },
+      {
+        "id": 38,
+        "title": "Move shared UI components from apps/web to packages/ui",
+        "description": "Move the shadcn/ui button component from apps/web/src/components/ui/ to packages/ui/ for reuse across apps, updating imports and documentation to reflect the new architecture.",
+        "details": "Currently, the button.tsx component lives in apps/web/src/components/ui/ but needs to be moved to the shared packages/ui/ package for cross-app reusability.\n\n**Implementation steps:**\n\n1. **Create UI components structure in packages/ui:**\n   - Create directory packages/ui/src/components/\n   - Move button.tsx from apps/web/src/components/ui/button.tsx to packages/ui/src/components/button.tsx\n   - Update the import in button.tsx from '@/lib/utils' to '../index' (using the cn utility already exported from packages/ui)\n\n2. **Update packages/ui/src/index.ts exports:**\n   ```typescript\n   // Existing utilities\n   export { cn, type ClassValue } from './utils';\n   \n   // Export components\n   export { Button, buttonVariants, type ButtonProps } from './components/button';\n   ```\n\n3. **Update apps/web to import from ui package:**\n   - Change apps/web/src/app/page.tsx line 1 from:\n     `import { Button } from \"@/components/ui/button\";`\n     to:\n     `import { Button } from \"ui\";`\n   - Remove the now-empty apps/web/src/components/ui/ directory\n\n4. **Remove duplicate dependencies from apps/web/package.json:**\n   Since packages/ui already has these dependencies, remove from apps/web:\n   - @radix-ui/react-slot (line 15)\n   - class-variance-authority (line 16)\n   - clsx (line 17) \n   - lucide-react (line 19)\n   - tailwind-merge (line 23)\n   \n   Keep only the ui package dependency (line 25).\n\n5. **Update components.json configuration:**\n   Change the ui alias from \"@/components/ui\" to direct imports from \"ui\" package:\n   ```json\n   \"aliases\": {\n     \"components\": \"@/components\",\n     \"utils\": \"@/lib/utils\",\n     \"ui\": \"ui\",  // Update to reference the package directly\n     \"lib\": \"@/lib\",\n     \"hooks\": \"@/hooks\"\n   }\n   ```\n\n6. **Update CLAUDE.md documentation (line 67):**\n   Change from:\n   \"shadcn/ui components live in `apps/web/src/components/ui/` (app-local, not in shared package yet)\"\n   to:\n   \"shadcn/ui components live in `packages/ui/src/components/` (shared package for cross-app reuse)\"\n\n**File structure after migration:**\n```\npackages/ui/\n├── src/\n│   ├── components/\n│   │   └── button.tsx\n│   ├── index.ts (exports cn utility + Button component)\n│   └── __tests__/\n│       ├── utils.test.ts (existing)\n│       └── components/\n│           └── button.test.tsx (new tests for Button)\n```\n\n**Benefits:**\n- Components can be reused across all apps (web, future dashboard from Task 25)\n- Single source of truth for UI components\n- Reduced duplication of dependencies\n- Cleaner separation of concerns\n- Aligns with monorepo best practices",
+        "testStrategy": "1. **Build verification:**\n   - Run `pnpm build` to ensure all packages compile successfully\n   - Verify no TypeScript errors with `pnpm typecheck`\n   - Ensure Biome passes with `pnpm lint`\n\n2. **Import resolution tests:**\n   - Verify apps/web/src/app/page.tsx imports Button from 'ui' package correctly\n   - Run `pnpm --filter web dev` and verify the Button components render on the homepage\n   - Check that both default and outline variant buttons display correctly\n\n3. **Package isolation:**\n   - Run `pnpm --filter ui build` to verify the UI package builds independently\n   - Create a simple test in packages/ui/src/components/__tests__/button.test.tsx:\n     ```typescript\n     import { render, screen } from '@testing-library/react';\n     import { Button } from '../button';\n     \n     describe('Button', () => {\n       it('renders with text', () => {\n         render(<Button>Click me</Button>);\n         expect(screen.getByRole('button')).toHaveTextContent('Click me');\n       });\n     });\n     ```\n   - Run `pnpm --filter ui test` to verify component tests pass\n\n4. **Dependency verification:**\n   - Check apps/web no longer has duplicate UI library dependencies\n   - Verify packages/ui has all required dependencies for components\n   - Run `pnpm sherif` to validate no dependency conflicts\n\n5. **Documentation accuracy:**\n   - Grep for any remaining references to '@/components/ui' that need updating\n   - Verify CLAUDE.md accurately describes the new component location\n\n6. **Coverage gate:**\n   - Run `pnpm test:coverage-gate` to ensure no barrel files were created\n   - Verify coverage remains above 80% threshold",
+        "status": "pending",
+        "dependencies": [],
+        "priority": "medium",
+        "subtasks": []
+      },
+      {
+        "id": 39,
+        "title": "Extract shared hook firing utilities from delegation plugin into shared package",
+        "description": "Extract generic hook-iteration-with-error-isolation utilities from both the delegation plugin and orchestrator into the @harness/plugin-contract package, making it the canonical location for hook runtime utilities alongside the PluginHooks type definitions",
+        "status": "done",
+        "dependencies": [15],
+        "priority": "medium",
+        "details": "The delegation plugin at packages/plugins/delegation/src/_helpers/delegation-loop.ts contains three hook-firing functions (fireTaskCreateHooks, fireTaskCompleteHooks, fireTaskFailedHooks) that follow the same pattern as runNotifyHooks, runCommandHooks, and runChainHooks in apps/orchestrator/src/orchestrator/_helpers/. These are generic utilities for iterating over plugin hooks with error isolation that should be centralized in the plugin-contract package.\n\n**Implementation steps:**\n\n1. **Transform plugin-contract from types-only to types + utilities:**\n   - Add packages/plugin-contract/src/_helpers/hook-runner.ts with generic hook execution utilities\n   - Create packages/plugin-contract/vitest.config.ts (copy pattern from packages/plugins/delegation/vitest.config.ts)\n   - Update packages/plugin-contract/package.json to add \"test\" script: \"vitest\"\n   - Add vitest as devDependency to plugin-contract package\n\n2. **Implement generic hook runner utilities:**\n   ```typescript\n   // packages/plugin-contract/src/_helpers/hook-runner.ts\n   \n   // For notification-style hooks (void return)\n   export const runHook = async <T extends any[]>(\n     allHooks: PluginHooks[],\n     hookName: string,\n     hookGetter: (hooks: PluginHooks) => ((...args: T) => Promise<void>) | undefined,\n     args: T,\n     logger: Logger\n   ): Promise<void> => {\n     for (const hooks of allHooks) {\n       const hook = hookGetter(hooks);\n       if (hook) {\n         try {\n           await hook(...args);\n         } catch (err) {\n           logger.error(`Hook \"${hookName}\" threw: ${err instanceof Error ? err.message : String(err)}`);\n         }\n       }\n     }\n   };\n\n   // For command-style hooks (boolean/result return with early termination)\n   export const runHookWithResult = async <T extends any[], R>(\n     allHooks: PluginHooks[],\n     hookName: string,\n     hookGetter: (hooks: PluginHooks) => ((...args: T) => Promise<R>) | undefined,\n     args: T,\n     logger: Logger,\n     defaultResult: R,\n     resultHandler?: (result: R) => boolean\n   ): Promise<R> => {\n     for (const hooks of allHooks) {\n       const hook = hookGetter(hooks);\n       if (hook) {\n         try {\n           const result = await hook(...args);\n           if (resultHandler && resultHandler(result)) {\n             return result;\n           }\n         } catch (err) {\n           logger.error(`Hook \"${hookName}\" threw: ${err instanceof Error ? err.message : String(err)}`);\n         }\n       }\n     }\n     return defaultResult;\n   };\n\n   // For chain-style hooks (sequential prompt modification)\n   export const runChainHook = async <T>(\n     allHooks: PluginHooks[],\n     hookName: string,\n     hookGetter: (hooks: PluginHooks) => ((threadId: string, value: T) => Promise<T>) | undefined,\n     threadId: string,\n     initialValue: T,\n     logger: Logger\n   ): Promise<T> => {\n     let value = initialValue;\n     for (const hooks of allHooks) {\n       const hook = hookGetter(hooks);\n       if (hook) {\n         try {\n           value = await hook(threadId, value);\n         } catch (err) {\n           logger.error(`Hook \"${hookName}\" threw: ${err instanceof Error ? err.message : String(err)}`);\n         }\n       }\n     }\n     return value;\n   };\n   ```\n\n3. **Export utilities from plugin-contract index:**\n   - Update packages/plugin-contract/src/index.ts to export from ./_helpers/hook-runner\n   - Maintain existing type exports alongside the new utility exports\n\n4. **Refactor orchestrator to use shared utilities:**\n   - Update apps/orchestrator/src/orchestrator/_helpers/run-notify-hooks.ts:\n     - Import runHook from @harness/plugin-contract\n     - Replace implementation with call to runHook\n   - Update apps/orchestrator/src/orchestrator/_helpers/run-command-hooks.ts:\n     - Import runHookWithResult from @harness/plugin-contract\n     - Replace implementation with call to runHookWithResult\n   - Update apps/orchestrator/src/orchestrator/_helpers/run-chain-hooks.ts:\n     - Import runChainHook from @harness/plugin-contract\n     - Replace implementation with call to runChainHook\n   - Update apps/orchestrator/src/orchestrator/index.ts imports if needed\n\n5. **Break up delegation-loop.ts into separate helpers:**\n   - Create packages/plugins/delegation/src/_helpers/create-task-thread.ts (lines 93-108)\n   - Create packages/plugins/delegation/src/_helpers/create-task-record.ts (lines 110-128)\n   - Create packages/plugins/delegation/src/_helpers/build-iteration-prompt.ts (lines 130-137)\n   - Create packages/plugins/delegation/src/_helpers/invoke-sub-agent.ts (lines 139-173)\n   - In delegation-loop.ts:\n     - Import the extracted helpers\n     - Replace fireTaskCreateHooks with runHook from @harness/plugin-contract\n     - Replace fireTaskCompleteHooks with custom logic using runHook (since it returns TaskCompleteOutcome)\n     - Replace fireTaskFailedHooks with runHook from @harness/plugin-contract\n     - Keep only runDelegationLoop function as the orchestration logic\n\n6. **Update imports and exports:**\n   - Ensure all new helper files in delegation plugin export their main function\n   - Update any files that import from delegation-loop.ts if they use the extracted functions\n\n7. **Add comprehensive tests:**\n   - Create packages/plugin-contract/src/_helpers/__tests__/hook-runner.test.ts\n   - Test all three hook runner functions with various scenarios\n   - Create tests for each new delegation helper file if not covered by existing tests",
+        "testStrategy": "1. **Unit test hook runners in plugin-contract:**\n   - Create packages/plugin-contract/src/_helpers/__tests__/hook-runner.test.ts\n   - Test runHook with: successful hooks, throwing hooks, missing hooks, multiple hooks\n   - Test runHookWithResult with: early termination, default results, error handling\n   - Test runChainHook with: sequential value transformation, error isolation\n   - Verify logger.error is called for throwing hooks\n\n2. **Integration test refactored orchestrator:**\n   - Run existing tests in apps/orchestrator/src/orchestrator/_helpers/__tests__/\n   - Verify run-notify-hooks.test.ts passes without modification\n   - Verify run-command-hooks.test.ts passes without modification  \n   - Verify run-chain-hooks.test.ts passes without modification\n   - Ensure behavior is identical after refactoring to use @harness/plugin-contract\n\n3. **Test refactored delegation plugin:**\n   - Run existing tests in packages/plugins/delegation/src/_helpers/__tests__/delegation-loop.test.ts\n   - Create unit tests for each new helper:\n     - packages/plugins/delegation/src/_helpers/__tests__/create-task-thread.test.ts\n     - packages/plugins/delegation/src/_helpers/__tests__/create-task-record.test.ts\n     - packages/plugins/delegation/src/_helpers/__tests__/build-iteration-prompt.test.ts\n     - packages/plugins/delegation/src/_helpers/__tests__/invoke-sub-agent.test.ts\n   - Verify delegation flow works end-to-end after refactoring\n\n4. **Build and type checking:**\n   - Run `pnpm build` to ensure all packages compile\n   - Run `pnpm typecheck` to verify no TypeScript errors\n   - Run `pnpm lint` to ensure code style compliance\n   - Run `pnpm test` to execute all tests\n\n5. **Manual testing:**\n   - Test a full delegation flow to ensure hooks fire correctly\n   - Verify error messages from hook failures are properly logged\n   - Confirm plugin loading and hook registration still work\n   - Test that orchestrator message pipeline functions correctly",
+        "subtasks": [
+          {
+            "id": 1,
+            "title": "Add vitest and test script to plugin-contract",
+            "description": "",
+            "status": "done",
+            "dependencies": [],
+            "details": "",
+            "testStrategy": ""
+          },
+          {
+            "id": 2,
+            "title": "Create hook-runner.ts with runHook, runHookWithResult, and runChainHook",
+            "description": "",
+            "status": "done",
+            "dependencies": [],
+            "details": "",
+            "testStrategy": ""
+          },
+          {
+            "id": 3,
+            "title": "Write comprehensive tests for hook-runner utilities",
+            "description": "",
+            "status": "done",
+            "dependencies": [],
+            "details": "",
+            "testStrategy": ""
+          },
+          {
+            "id": 4,
+            "title": "Refactor orchestrator helpers to use plugin-contract utilities",
+            "description": "",
+            "status": "done",
+            "dependencies": [],
+            "details": "",
+            "testStrategy": ""
+          },
+          {
+            "id": 5,
+            "title": "Extract delegation helper functions into separate files",
+            "description": "",
+            "status": "done",
+            "dependencies": [],
+            "details": "",
+            "testStrategy": ""
+          },
+          {
+            "id": 6,
+            "title": "Update delegation-loop.ts to use plugin-contract hook runners",
+            "description": "",
+            "status": "done",
+            "dependencies": [],
+            "details": "",
+            "testStrategy": ""
+          },
+          {
+            "id": 7,
+            "title": "Verify all tests pass and build succeeds",
+            "description": "",
+            "status": "done",
+            "dependencies": [],
+            "details": "",
+            "testStrategy": ""
+          }
+        ]
+      },
+      {
+        "id": 40,
+        "title": "Design dynamic plugin registry to replace static imports",
+        "description": "Replace the hardcoded static plugin imports in apps/orchestrator/src/plugin-registry/index.ts with a dynamic discovery and loading system that can detect plugins at runtime based on configuration, workspace packages, or a manifest file, decoupling the orchestrator from compile-time plugin dependencies",
+        "details": "The current plugin registry at apps/orchestrator/src/plugin-registry/index.ts hardcodes imports for all plugins (context, discord, web, delegation), creating tight coupling and build-time dependencies. This implementation needs to be replaced with a dynamic registry system.\n\n**Current limitations:**\n- Static imports in plugin-registry/index.ts require recompilation when adding/removing plugins\n- Orchestrator package.json must declare all plugins as dependencies\n- No way to conditionally load plugins based on configuration\n- Cannot discover new plugins without modifying orchestrator code\n- Incompatible with the plugin enable/disable system from task 37\n\n**Implementation approach:**\n\n1. **Create plugin manifest system** (apps/orchestrator/src/plugin-registry/_helpers/manifest-loader.ts):\n   - Support JSON manifest file at project root (harness-plugins.json) with plugin metadata\n   - Manifest schema: `{ plugins: [{ name: string, package: string, enabled: boolean, config?: object }] }`\n   - Fallback to auto-discovery if no manifest exists\n   - Validate manifest against available workspace packages\n\n2. **Implement workspace package discovery** (apps/orchestrator/src/plugin-registry/_helpers/workspace-discovery.ts):\n   - Parse pnpm-workspace.yaml to find plugin packages under packages/plugins/*\n   - Read each plugin's package.json to extract name and version\n   - Check for 'harness-plugin' field in package.json as plugin marker\n   - Return array of discovered plugin package names\n\n3. **Build dynamic loader** (apps/orchestrator/src/plugin-registry/_helpers/dynamic-loader.ts):\n   - Use dynamic import() to load plugin modules at runtime\n   - Handle ESM/CJS module format differences\n   - Extract default export or named 'plugin' export\n   - Validate exported PluginDefinition matches contract\n   - Cache loaded modules to avoid re-importing\n\n4. **Create configuration-based registry** (apps/orchestrator/src/plugin-registry/_helpers/config-resolver.ts):\n   - Read plugin configuration from environment variables (ENABLED_PLUGINS, DISABLED_PLUGINS)\n   - Support glob patterns for plugin names (e.g., '@harness/plugin-*')\n   - Merge with manifest configuration if present\n   - Return final list of plugins to load with their configs\n\n5. **Update main registry** (apps/orchestrator/src/plugin-registry/index.ts):\n   - Replace static imports with async getPlugins() that returns Promise<PluginDefinition[]>\n   - Orchestrate manifest loading, workspace discovery, config resolution\n   - Load enabled plugins dynamically using dynamic-loader\n   - Handle errors gracefully, log which plugins loaded/failed\n   - Maintain backwards compatibility by checking for legacy static imports\n\n6. **Integrate with enable/disable system** (relates to task 37):\n   - Store plugin enabled state in database PluginState table\n   - Override manifest/config with database state if present\n   - Expose API to toggle plugin state at runtime\n   - Reload affected plugins when state changes\n\n7. **Update orchestrator bootstrap** (apps/orchestrator/src/index.ts):\n   - Make plugin loading async: `const rawPlugins = await getPlugins();`\n   - Handle dynamic loading errors during boot\n   - Log discovered vs loaded plugin counts\n\n8. **Remove static dependencies** (apps/orchestrator/package.json):\n   - After implementation, remove hardcoded plugin dependencies\n   - Keep only @harness/plugin-contract as required dependency\n   - Update build process to exclude plugin packages from bundle\n\n**Configuration examples:**\n\nManifest file (harness-plugins.json):\n```json\n{\n  \"plugins\": [\n    { \"name\": \"context\", \"package\": \"@harness/plugin-context\", \"enabled\": true },\n    { \"name\": \"discord\", \"package\": \"@harness/plugin-discord\", \"enabled\": false },\n    { \"name\": \"custom\", \"package\": \"./plugins/custom\", \"enabled\": true }\n  ]\n}\n```\n\nEnvironment variables:\n```bash\nENABLED_PLUGINS=context,web,delegation\nDISABLED_PLUGINS=discord\n```\n\n**Error handling:**\n- Plugin fails to load: Log error, continue with other plugins\n- No plugins found: Log warning, orchestrator runs without plugins\n- Invalid manifest: Fall back to auto-discovery\n- Module not found: Skip plugin, log as not installed",
+        "testStrategy": "1. **Unit tests for manifest-loader.ts**:\n   - Test parsing valid manifest with multiple plugins\n   - Verify handling of missing manifest file (returns null)\n   - Test validation of manifest schema\n   - Ensure invalid JSON throws appropriate error\n   - Test merge behavior with duplicate plugin entries\n\n2. **Unit tests for workspace-discovery.ts**:\n   - Mock fs to simulate pnpm-workspace.yaml and package.json files\n   - Test discovery of plugins in packages/plugins/* pattern\n   - Verify filtering by 'harness-plugin' field in package.json\n   - Test handling of missing directories or invalid package.json\n   - Ensure non-plugin packages are excluded\n\n3. **Unit tests for dynamic-loader.ts**:\n   - Mock dynamic import() to test module loading\n   - Test extraction of default export vs named export\n   - Verify PluginDefinition validation\n   - Test error handling for missing modules\n   - Verify module caching prevents duplicate imports\n\n4. **Unit tests for config-resolver.ts**:\n   - Test parsing ENABLED_PLUGINS and DISABLED_PLUGINS env vars\n   - Verify glob pattern matching for plugin names\n   - Test precedence: database > env > manifest > discovery\n   - Ensure disabled plugins are filtered out\n   - Test empty/missing configuration handling\n\n5. **Integration tests for updated registry**:\n   - Create test plugins with valid and invalid exports\n   - Test full flow: discovery → config → loading → validation\n   - Verify async getPlugins() returns correct plugins\n   - Test error recovery when some plugins fail to load\n   - Ensure backwards compatibility with static imports\n\n6. **E2E tests for orchestrator bootstrap**:\n   - Start orchestrator with various plugin configurations\n   - Verify only enabled plugins are loaded and started\n   - Test hot-reload behavior when config changes\n   - Ensure graceful degradation with no plugins\n   - Test plugin lifecycle (register, start, stop) with dynamic loading\n\n7. **Performance tests**:\n   - Measure boot time with dynamic vs static loading\n   - Test memory usage with plugin caching\n   - Verify no memory leaks on plugin reload\n   - Benchmark discovery time with many plugins",
+        "status": "pending",
+        "dependencies": [4, 37],
+        "priority": "medium",
+        "subtasks": []
       }
     ],
     "metadata": {
       "created": "2026-02-23T03:29:17.848Z",
-      "updated": "2026-02-23T17:32:40.648Z",
+      "updated": "2026-02-23T19:03:45.838Z",
       "description": "Tasks for master context"
     }
   }

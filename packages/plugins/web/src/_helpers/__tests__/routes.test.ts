@@ -1,10 +1,10 @@
 // Tests for REST route definitions
 
-import { createServer } from "node:http";
-import type { Logger } from "@harness/logger";
-import type { PluginContext } from "@harness/plugin-contract";
-import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
-import { createApp } from "../routes";
+import { createServer } from 'node:http';
+import type { Logger } from '@harness/logger';
+import type { PluginContext } from '@harness/plugin-contract';
+import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
+import { createApp } from '../routes';
 
 type MockDb = {
   thread: { findMany: ReturnType<typeof vi.fn> };
@@ -36,14 +36,14 @@ const createTestContext = (): TestContext => {
   };
 
   return {
-    baseUrl: "",
+    baseUrl: '',
     mockDb,
     mockLogger,
     onChatMessage: vi.fn(),
   };
 };
 
-describe("routes", () => {
+describe('routes', () => {
   let testCtx: TestContext;
   let server: ReturnType<typeof createServer>;
 
@@ -66,7 +66,7 @@ describe("routes", () => {
     await new Promise<void>((resolve) => {
       server.listen(0, () => {
         const addr = server.address();
-        const port = typeof addr === "object" && addr !== null ? addr.port : 0;
+        const port = typeof addr === 'object' && addr !== null ? addr.port : 0;
         testCtx.baseUrl = `http://127.0.0.1:${port}`;
         resolve();
       });
@@ -83,123 +83,123 @@ describe("routes", () => {
     vi.clearAllMocks();
   });
 
-  describe("GET /api/health", () => {
-    it("returns ok status", async () => {
+  describe('GET /api/health', () => {
+    it('returns ok status', async () => {
       const res = await fetch(`${testCtx.baseUrl}/api/health`);
       const body = (await res.json()) as JsonResponse;
 
       expect(res.status).toBe(200);
-      expect(body.status).toBe("ok");
-      expect(typeof body.timestamp).toBe("number");
+      expect(body.status).toBe('ok');
+      expect(typeof body.timestamp).toBe('number');
     });
   });
 
-  describe("POST /api/chat", () => {
-    it("sends a message and returns success", async () => {
+  describe('POST /api/chat', () => {
+    it('sends a message and returns success', async () => {
       testCtx.onChatMessage.mockResolvedValue(undefined);
 
       const res = await fetch(`${testCtx.baseUrl}/api/chat`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ threadId: "t1", content: "hello" }),
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ threadId: 't1', content: 'hello' }),
       });
       const body = (await res.json()) as JsonResponse;
 
       expect(res.status).toBe(200);
       expect(body.success).toBe(true);
-      expect(body.threadId).toBe("t1");
-      expect(testCtx.onChatMessage).toHaveBeenCalledWith("t1", "hello");
+      expect(body.threadId).toBe('t1');
+      expect(testCtx.onChatMessage).toHaveBeenCalledWith('t1', 'hello');
     });
 
-    it("trims content whitespace", async () => {
+    it('trims content whitespace', async () => {
       testCtx.onChatMessage.mockResolvedValue(undefined);
 
       await fetch(`${testCtx.baseUrl}/api/chat`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ threadId: "t1", content: "  spaced  " }),
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ threadId: 't1', content: '  spaced  ' }),
       });
 
-      expect(testCtx.onChatMessage).toHaveBeenCalledWith("t1", "spaced");
+      expect(testCtx.onChatMessage).toHaveBeenCalledWith('t1', 'spaced');
     });
 
-    it("returns 400 when threadId is missing", async () => {
+    it('returns 400 when threadId is missing', async () => {
       const res = await fetch(`${testCtx.baseUrl}/api/chat`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ content: "hello" }),
-      });
-      const body = (await res.json()) as JsonResponse;
-
-      expect(res.status).toBe(400);
-      expect(body.error).toBe("Missing or invalid threadId");
-    });
-
-    it("returns 400 when content is missing", async () => {
-      const res = await fetch(`${testCtx.baseUrl}/api/chat`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ threadId: "t1" }),
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ content: 'hello' }),
       });
       const body = (await res.json()) as JsonResponse;
 
       expect(res.status).toBe(400);
-      expect(body.error).toBe("Missing or invalid content");
+      expect(body.error).toBe('Missing or invalid threadId');
     });
 
-    it("returns 400 when threadId is not a string", async () => {
+    it('returns 400 when content is missing', async () => {
       const res = await fetch(`${testCtx.baseUrl}/api/chat`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ threadId: 123, content: "hello" }),
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ threadId: 't1' }),
       });
       const body = (await res.json()) as JsonResponse;
 
       expect(res.status).toBe(400);
-      expect(body.error).toBe("Missing or invalid threadId");
+      expect(body.error).toBe('Missing or invalid content');
     });
 
-    it("returns 500 when onChatMessage throws an Error", async () => {
-      testCtx.onChatMessage.mockRejectedValue(new Error("send failed"));
+    it('returns 400 when threadId is not a string', async () => {
+      const res = await fetch(`${testCtx.baseUrl}/api/chat`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ threadId: 123, content: 'hello' }),
+      });
+      const body = (await res.json()) as JsonResponse;
+
+      expect(res.status).toBe(400);
+      expect(body.error).toBe('Missing or invalid threadId');
+    });
+
+    it('returns 500 when onChatMessage throws an Error', async () => {
+      testCtx.onChatMessage.mockRejectedValue(new Error('send failed'));
 
       const res = await fetch(`${testCtx.baseUrl}/api/chat`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ threadId: "t1", content: "hello" }),
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ threadId: 't1', content: 'hello' }),
       });
       const body = (await res.json()) as JsonResponse;
 
       expect(res.status).toBe(500);
-      expect(body.error).toBe("Internal server error");
+      expect(body.error).toBe('Internal server error');
       expect(testCtx.mockLogger.error).toHaveBeenCalled();
     });
 
-    it("returns 500 when onChatMessage throws a non-Error value", async () => {
-      testCtx.onChatMessage.mockRejectedValue("string error");
+    it('returns 500 when onChatMessage throws a non-Error value', async () => {
+      testCtx.onChatMessage.mockRejectedValue('string error');
 
       const res = await fetch(`${testCtx.baseUrl}/api/chat`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ threadId: "t1", content: "hello" }),
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ threadId: 't1', content: 'hello' }),
       });
       const body = (await res.json()) as JsonResponse;
 
       expect(res.status).toBe(500);
-      expect(body.error).toBe("Internal server error");
-      expect(testCtx.mockLogger.error).toHaveBeenCalledWith("Chat endpoint error", { error: "string error" });
+      expect(body.error).toBe('Internal server error');
+      expect(testCtx.mockLogger.error).toHaveBeenCalledWith('Chat endpoint error', { error: 'string error' });
     });
   });
 
-  describe("GET /api/threads", () => {
-    it("returns threads from database", async () => {
+  describe('GET /api/threads', () => {
+    it('returns threads from database', async () => {
       const mockThreads = [
         {
-          id: "t1",
-          source: "web",
-          sourceId: "s1",
-          name: "Test Thread",
-          kind: "general",
-          status: "open",
+          id: 't1',
+          source: 'web',
+          sourceId: 's1',
+          name: 'Test Thread',
+          kind: 'general',
+          status: 'open',
           lastActivity: new Date().toISOString(),
           createdAt: new Date().toISOString(),
         },
@@ -212,7 +212,7 @@ describe("routes", () => {
       expect(res.status).toBe(200);
       expect(body.threads).toEqual(mockThreads);
       expect(testCtx.mockDb.thread.findMany).toHaveBeenCalledWith({
-        orderBy: { lastActivity: "desc" },
+        orderBy: { lastActivity: 'desc' },
         select: {
           id: true,
           source: true,
@@ -226,38 +226,38 @@ describe("routes", () => {
       });
     });
 
-    it("returns 500 when database query fails with Error", async () => {
-      testCtx.mockDb.thread.findMany.mockRejectedValue(new Error("db error"));
+    it('returns 500 when database query fails with Error', async () => {
+      testCtx.mockDb.thread.findMany.mockRejectedValue(new Error('db error'));
 
       const res = await fetch(`${testCtx.baseUrl}/api/threads`);
       const body = (await res.json()) as JsonResponse;
 
       expect(res.status).toBe(500);
-      expect(body.error).toBe("Internal server error");
+      expect(body.error).toBe('Internal server error');
     });
 
-    it("returns 500 when database query fails with non-Error", async () => {
-      testCtx.mockDb.thread.findMany.mockRejectedValue("connection lost");
+    it('returns 500 when database query fails with non-Error', async () => {
+      testCtx.mockDb.thread.findMany.mockRejectedValue('connection lost');
 
       const res = await fetch(`${testCtx.baseUrl}/api/threads`);
       const body = (await res.json()) as JsonResponse;
 
       expect(res.status).toBe(500);
-      expect(body.error).toBe("Internal server error");
+      expect(body.error).toBe('Internal server error');
     });
   });
 
-  describe("GET /api/tasks", () => {
-    it("returns tasks from database", async () => {
+  describe('GET /api/tasks', () => {
+    it('returns tasks from database', async () => {
       const mockTasks = [
         {
-          id: "task1",
-          threadId: "t1",
-          status: "completed",
-          prompt: "do something",
+          id: 'task1',
+          threadId: 't1',
+          status: 'completed',
+          prompt: 'do something',
           currentIteration: 2,
           maxIterations: 3,
-          result: "done",
+          result: 'done',
           createdAt: new Date().toISOString(),
           updatedAt: new Date().toISOString(),
         },
@@ -271,35 +271,35 @@ describe("routes", () => {
       expect(body.tasks).toEqual(mockTasks);
     });
 
-    it("returns 500 when database query fails with Error", async () => {
-      testCtx.mockDb.orchestratorTask.findMany.mockRejectedValue(new Error("db error"));
+    it('returns 500 when database query fails with Error', async () => {
+      testCtx.mockDb.orchestratorTask.findMany.mockRejectedValue(new Error('db error'));
 
       const res = await fetch(`${testCtx.baseUrl}/api/tasks`);
       const body = (await res.json()) as JsonResponse;
 
       expect(res.status).toBe(500);
-      expect(body.error).toBe("Internal server error");
+      expect(body.error).toBe('Internal server error');
     });
 
-    it("returns 500 when database query fails with non-Error", async () => {
+    it('returns 500 when database query fails with non-Error', async () => {
       testCtx.mockDb.orchestratorTask.findMany.mockRejectedValue(42);
 
       const res = await fetch(`${testCtx.baseUrl}/api/tasks`);
       const body = (await res.json()) as JsonResponse;
 
       expect(res.status).toBe(500);
-      expect(body.error).toBe("Internal server error");
+      expect(body.error).toBe('Internal server error');
     });
   });
 
-  describe("GET /api/metrics", () => {
-    it("returns metrics from database", async () => {
+  describe('GET /api/metrics', () => {
+    it('returns metrics from database', async () => {
       const mockMetrics = [
         {
-          id: "m1",
-          name: "invocation",
+          id: 'm1',
+          name: 'invocation',
           value: 1.0,
-          tags: { model: "sonnet" },
+          tags: { model: 'sonnet' },
           createdAt: new Date().toISOString(),
         },
       ];
@@ -311,7 +311,7 @@ describe("routes", () => {
       expect(res.status).toBe(200);
       expect(body.metrics).toEqual(mockMetrics);
       expect(testCtx.mockDb.metric.findMany).toHaveBeenCalledWith({
-        orderBy: { createdAt: "desc" },
+        orderBy: { createdAt: 'desc' },
         take: 100,
         select: {
           id: true,
@@ -323,45 +323,45 @@ describe("routes", () => {
       });
     });
 
-    it("returns 500 when database query fails with Error", async () => {
-      testCtx.mockDb.metric.findMany.mockRejectedValue(new Error("db error"));
+    it('returns 500 when database query fails with Error', async () => {
+      testCtx.mockDb.metric.findMany.mockRejectedValue(new Error('db error'));
 
       const res = await fetch(`${testCtx.baseUrl}/api/metrics`);
       const body = (await res.json()) as JsonResponse;
 
       expect(res.status).toBe(500);
-      expect(body.error).toBe("Internal server error");
+      expect(body.error).toBe('Internal server error');
     });
 
-    it("returns 500 when database query fails with non-Error", async () => {
+    it('returns 500 when database query fails with non-Error', async () => {
       testCtx.mockDb.metric.findMany.mockRejectedValue(null);
 
       const res = await fetch(`${testCtx.baseUrl}/api/metrics`);
       const body = (await res.json()) as JsonResponse;
 
       expect(res.status).toBe(500);
-      expect(body.error).toBe("Internal server error");
+      expect(body.error).toBe('Internal server error');
     });
   });
 
-  describe("CORS headers", () => {
-    it("includes CORS headers on responses", async () => {
+  describe('CORS headers', () => {
+    it('includes CORS headers on responses', async () => {
       const res = await fetch(`${testCtx.baseUrl}/api/health`);
 
-      expect(res.headers.get("access-control-allow-credentials")).toBe("true");
+      expect(res.headers.get('access-control-allow-credentials')).toBe('true');
     });
 
-    it("handles preflight OPTIONS requests", async () => {
+    it('handles preflight OPTIONS requests', async () => {
       const res = await fetch(`${testCtx.baseUrl}/api/chat`, {
-        method: "OPTIONS",
+        method: 'OPTIONS',
         headers: {
-          Origin: "http://localhost:3000",
-          "Access-Control-Request-Method": "POST",
+          Origin: 'http://localhost:3000',
+          'Access-Control-Request-Method': 'POST',
         },
       });
 
       expect(res.status).toBe(204);
-      expect(res.headers.get("access-control-allow-methods")).toBeTruthy();
+      expect(res.headers.get('access-control-allow-methods')).toBeTruthy();
     });
   });
 });

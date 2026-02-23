@@ -1,10 +1,10 @@
 // Web plugin — HTTP REST API + WebSocket real-time broadcasting
 
-import { createServer, type Server as HttpServer } from "node:http";
-import type { Logger } from "@harness/logger";
-import type { PluginContext, PluginDefinition, PluginHooks } from "@harness/plugin-contract";
-import { createApp } from "./_helpers/routes";
-import { createWsBroadcaster, type WsBroadcaster } from "./_helpers/ws-broadcaster";
+import { createServer, type Server as HttpServer } from 'node:http';
+import type { Logger } from '@harness/logger';
+import type { PluginContext, PluginDefinition, PluginHooks } from '@harness/plugin-contract';
+import { createApp } from './_helpers/routes';
+import { createWsBroadcaster, type WsBroadcaster } from './_helpers/ws-broadcaster';
 
 type WebPluginState = {
   server: HttpServer | null;
@@ -16,14 +16,14 @@ const state: WebPluginState = {
   broadcaster: null,
 };
 
-type CreateRegister = () => PluginDefinition["register"];
+type CreateRegister = () => PluginDefinition['register'];
 
 const createRegister: CreateRegister = () => async (ctx: PluginContext) => {
   const logger = ctx.logger;
 
   const onChatMessage = async (threadId: string, content: string) => {
     await ctx.sendToThread(threadId, content);
-    await ctx.broadcast("chat:message", { threadId, content, role: "user" });
+    await ctx.broadcast('chat:message', { threadId, content, role: 'user' });
   };
 
   const app = createApp({ ctx, logger, onChatMessage });
@@ -46,7 +46,7 @@ type StartServer = (server: HttpServer, port: number, logger: Logger) => Promise
 
 const startServer: StartServer = (server, port, logger) =>
   new Promise<void>((resolve, reject) => {
-    server.on("error", reject);
+    server.on('error', reject);
     server.listen(port, () => {
       logger.info(`Web plugin listening on port ${port}`);
       resolve();
@@ -56,7 +56,7 @@ const startServer: StartServer = (server, port, logger) =>
 type StopServer = (server: HttpServer, broadcaster: WsBroadcaster, logger: Logger) => Promise<void>;
 
 const stopServer: StopServer = async (server, broadcaster, logger) => {
-  logger.info("Web plugin shutting down");
+  logger.info('Web plugin shutting down');
 
   await broadcaster.close();
 
@@ -70,19 +70,19 @@ const stopServer: StopServer = async (server, broadcaster, logger) => {
     });
   });
 
-  logger.info("Web plugin stopped");
+  logger.info('Web plugin stopped');
 };
 
 export const plugin: PluginDefinition = {
-  name: "web",
-  version: "1.0.0",
+  name: 'web',
+  version: '1.0.0',
 
   register: createRegister(),
 
   start: async (ctx) => {
     const port = ctx.config.port;
     if (!state.server) {
-      throw new Error("Web plugin register() must be called before start()");
+      throw new Error('Web plugin register() must be called before start()');
     }
     await startServer(state.server, port, ctx.logger);
   },

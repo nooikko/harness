@@ -1,8 +1,8 @@
 // Tests for invoke-sub-agent helper
 
-import type { PluginContext } from "@harness/plugin-contract";
-import { describe, expect, it, vi } from "vitest";
-import { invokeSubAgent } from "../invoke-sub-agent";
+import type { PluginContext } from '@harness/plugin-contract';
+import { describe, expect, it, vi } from 'vitest';
+import { invokeSubAgent } from '../invoke-sub-agent';
 
 type CreateMockContext = () => PluginContext;
 
@@ -18,143 +18,143 @@ const createMockContext: CreateMockContext = () =>
     },
     invoker: {
       invoke: vi.fn().mockResolvedValue({
-        output: "Agent output here",
+        output: 'Agent output here',
         durationMs: 1500,
         exitCode: 0,
       }),
     },
     config: {
-      claudeModel: "claude-sonnet-4-20250514",
+      claudeModel: 'claude-sonnet-4-20250514',
     },
     logger: { info: vi.fn(), warn: vi.fn(), error: vi.fn(), debug: vi.fn() },
   }) as unknown as PluginContext;
 
-describe("invokeSubAgent", () => {
-  it("invokes the agent with the prompt and model", async () => {
+describe('invokeSubAgent', () => {
+  it('invokes the agent with the prompt and model', async () => {
     const ctx = createMockContext();
 
-    await invokeSubAgent(ctx, "Do research", "task-1", "thread-1", "claude-opus-4-20250514");
+    await invokeSubAgent(ctx, 'Do research', 'task-1', 'thread-1', 'claude-opus-4-20250514');
 
-    expect(ctx.invoker.invoke).toHaveBeenCalledWith("Do research", { model: "claude-opus-4-20250514" });
+    expect(ctx.invoker.invoke).toHaveBeenCalledWith('Do research', { model: 'claude-opus-4-20250514' });
   });
 
-  it("invokes with undefined model when not specified", async () => {
+  it('invokes with undefined model when not specified', async () => {
     const ctx = createMockContext();
 
-    await invokeSubAgent(ctx, "Do work", "task-1", "thread-1", undefined);
+    await invokeSubAgent(ctx, 'Do work', 'task-1', 'thread-1', undefined);
 
-    expect(ctx.invoker.invoke).toHaveBeenCalledWith("Do work", { model: undefined });
+    expect(ctx.invoker.invoke).toHaveBeenCalledWith('Do work', { model: undefined });
   });
 
-  it("persists the assistant message in the task thread", async () => {
+  it('persists the assistant message in the task thread', async () => {
     const ctx = createMockContext();
 
-    await invokeSubAgent(ctx, "Do work", "task-1", "thread-1", undefined);
+    await invokeSubAgent(ctx, 'Do work', 'task-1', 'thread-1', undefined);
 
     const messageCreate = (ctx.db as unknown as { message: { create: ReturnType<typeof vi.fn> } }).message.create;
     expect(messageCreate).toHaveBeenCalledWith({
       data: {
-        threadId: "thread-1",
-        role: "assistant",
-        content: "Agent output here",
+        threadId: 'thread-1',
+        role: 'assistant',
+        content: 'Agent output here',
       },
     });
   });
 
-  it("records an agent run with completed status on exit code 0", async () => {
+  it('records an agent run with completed status on exit code 0', async () => {
     const ctx = createMockContext();
 
-    await invokeSubAgent(ctx, "Do work", "task-1", "thread-1", undefined);
+    await invokeSubAgent(ctx, 'Do work', 'task-1', 'thread-1', undefined);
 
     const agentRunCreate = (ctx.db as unknown as { agentRun: { create: ReturnType<typeof vi.fn> } }).agentRun.create;
     expect(agentRunCreate).toHaveBeenCalledWith({
       data: expect.objectContaining({
-        threadId: "thread-1",
-        taskId: "task-1",
-        model: "claude-sonnet-4-20250514",
+        threadId: 'thread-1',
+        taskId: 'task-1',
+        model: 'claude-sonnet-4-20250514',
         durationMs: 1500,
-        status: "completed",
+        status: 'completed',
         error: null,
       }),
     });
   });
 
-  it("records an agent run with failed status on non-zero exit code", async () => {
+  it('records an agent run with failed status on non-zero exit code', async () => {
     const ctx = createMockContext();
     (ctx.invoker.invoke as ReturnType<typeof vi.fn>).mockResolvedValue({
-      output: "",
+      output: '',
       durationMs: 100,
       exitCode: 1,
-      error: "Process crashed",
+      error: 'Process crashed',
     });
 
-    await invokeSubAgent(ctx, "Do work", "task-1", "thread-1", undefined);
+    await invokeSubAgent(ctx, 'Do work', 'task-1', 'thread-1', undefined);
 
     const agentRunCreate = (ctx.db as unknown as { agentRun: { create: ReturnType<typeof vi.fn> } }).agentRun.create;
     expect(agentRunCreate).toHaveBeenCalledWith({
       data: expect.objectContaining({
-        status: "failed",
-        error: "Process crashed",
+        status: 'failed',
+        error: 'Process crashed',
       }),
     });
   });
 
-  it("uses explicit model when provided", async () => {
+  it('uses explicit model when provided', async () => {
     const ctx = createMockContext();
 
-    await invokeSubAgent(ctx, "Do work", "task-1", "thread-1", "claude-opus-4-20250514");
+    await invokeSubAgent(ctx, 'Do work', 'task-1', 'thread-1', 'claude-opus-4-20250514');
 
     const agentRunCreate = (ctx.db as unknown as { agentRun: { create: ReturnType<typeof vi.fn> } }).agentRun.create;
     expect(agentRunCreate).toHaveBeenCalledWith({
       data: expect.objectContaining({
-        model: "claude-opus-4-20250514",
+        model: 'claude-opus-4-20250514',
       }),
     });
   });
 
-  it("falls back to config model when model is undefined", async () => {
+  it('falls back to config model when model is undefined', async () => {
     const ctx = createMockContext();
 
-    await invokeSubAgent(ctx, "Do work", "task-1", "thread-1", undefined);
+    await invokeSubAgent(ctx, 'Do work', 'task-1', 'thread-1', undefined);
 
     const agentRunCreate = (ctx.db as unknown as { agentRun: { create: ReturnType<typeof vi.fn> } }).agentRun.create;
     expect(agentRunCreate).toHaveBeenCalledWith({
       data: expect.objectContaining({
-        model: "claude-sonnet-4-20250514",
+        model: 'claude-sonnet-4-20250514',
       }),
     });
   });
 
-  it("returns the invoke result", async () => {
+  it('returns the invoke result', async () => {
     const ctx = createMockContext();
 
-    const result = await invokeSubAgent(ctx, "Do work", "task-1", "thread-1", undefined);
+    const result = await invokeSubAgent(ctx, 'Do work', 'task-1', 'thread-1', undefined);
 
-    expect(result.output).toBe("Agent output here");
+    expect(result.output).toBe('Agent output here');
     expect(result.durationMs).toBe(1500);
     expect(result.exitCode).toBe(0);
   });
 
-  it("sets completedAt as a Date on the agent run", async () => {
+  it('sets completedAt as a Date on the agent run', async () => {
     const ctx = createMockContext();
 
-    await invokeSubAgent(ctx, "Do work", "task-1", "thread-1", undefined);
+    await invokeSubAgent(ctx, 'Do work', 'task-1', 'thread-1', undefined);
 
     const agentRunCreate = (ctx.db as unknown as { agentRun: { create: ReturnType<typeof vi.fn> } }).agentRun.create;
     const createCall = agentRunCreate.mock.calls[0]?.[0] as { data: { completedAt: unknown } };
     expect(createCall.data.completedAt).toBeInstanceOf(Date);
   });
 
-  it("handles undefined error by setting null", async () => {
+  it('handles undefined error by setting null', async () => {
     const ctx = createMockContext();
     (ctx.invoker.invoke as ReturnType<typeof vi.fn>).mockResolvedValue({
-      output: "ok",
+      output: 'ok',
       durationMs: 100,
       exitCode: 0,
       error: undefined,
     });
 
-    await invokeSubAgent(ctx, "Do work", "task-1", "thread-1", undefined);
+    await invokeSubAgent(ctx, 'Do work', 'task-1', 'thread-1', undefined);
 
     const agentRunCreate = (ctx.db as unknown as { agentRun: { create: ReturnType<typeof vi.fn> } }).agentRun.create;
     expect(agentRunCreate).toHaveBeenCalledWith({

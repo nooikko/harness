@@ -20,11 +20,9 @@ export const parseCommands: ParseCommands = (output) => {
   let match: RegExpExecArray | null = COMMAND_PATTERN.exec(output);
 
   while (match !== null) {
-    const command = match[1];
-    const args = match[2]?.trim() ?? "";
-    if (command) {
-      commands.push({ command, args });
-    }
+    const command = match[1] as string;
+    const args = (match[2] as string).trim();
+    commands.push({ command, args });
     match = COMMAND_PATTERN.exec(output);
   }
 

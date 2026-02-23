@@ -2,14 +2,16 @@
 // Types are inlined here to avoid circular dependencies with the orchestrator
 // Also exports canonical hook runner utilities for iterating over plugin hooks
 
-import type { Logger } from "@harness/logger";
-import type { PrismaClient } from "database";
-import { runChainHook, runHook, runHookWithResult } from "./_helpers/hook-runner";
+import type { Logger } from '@harness/logger';
+import type { PrismaClient } from 'database';
+import { runChainHook } from './_helpers/run-chain-hook';
+import { runHook } from './_helpers/run-hook';
+import { runHookWithResult } from './_helpers/run-hook-with-result';
 
 export { runChainHook, runHook, runHookWithResult };
 
 // Inlined from orchestrator config
-export type LogLevel = "debug" | "info" | "warn" | "error";
+export type LogLevel = 'debug' | 'info' | 'warn' | 'error';
 
 export type OrchestratorConfig = {
   databaseUrl: string;

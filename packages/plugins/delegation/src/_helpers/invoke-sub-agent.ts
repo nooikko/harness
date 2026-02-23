@@ -1,14 +1,8 @@
 // Invokes a sub-agent and persists the output and run record
 
-import type { InvokeResult, PluginContext } from "@harness/plugin-contract";
+import type { InvokeResult, PluginContext } from '@harness/plugin-contract';
 
-type InvokeSubAgent = (
-  ctx: PluginContext,
-  prompt: string,
-  taskId: string,
-  threadId: string,
-  model: string | undefined
-) => Promise<InvokeResult>;
+type InvokeSubAgent = (ctx: PluginContext, prompt: string, taskId: string, threadId: string, model: string | undefined) => Promise<InvokeResult>;
 
 export const invokeSubAgent: InvokeSubAgent = async (ctx, prompt, taskId, threadId, model) => {
   const result = await ctx.invoker.invoke(prompt, { model });
@@ -17,7 +11,7 @@ export const invokeSubAgent: InvokeSubAgent = async (ctx, prompt, taskId, thread
   await ctx.db.message.create({
     data: {
       threadId,
-      role: "assistant",
+      role: 'assistant',
       content: result.output,
     },
   });
@@ -29,7 +23,7 @@ export const invokeSubAgent: InvokeSubAgent = async (ctx, prompt, taskId, thread
       taskId,
       model: model ?? ctx.config.claudeModel,
       durationMs: result.durationMs,
-      status: result.exitCode === 0 ? "completed" : "failed",
+      status: result.exitCode === 0 ? 'completed' : 'failed',
       error: result.error ?? null,
       completedAt: new Date(),
     },

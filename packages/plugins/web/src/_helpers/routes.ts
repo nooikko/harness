@@ -1,9 +1,9 @@
 // REST route definitions for the web plugin
 
-import type { Logger } from "@harness/logger";
-import type { PluginContext } from "@harness/plugin-contract";
-import cors from "cors";
-import express, { type Express, type Request, type Response } from "express";
+import type { Logger } from '@harness/logger';
+import type { PluginContext } from '@harness/plugin-contract';
+import cors from 'cors';
+import express, { type Express, type Request, type Response } from 'express';
 
 export type ChatRequestBody = {
   threadId: string;
@@ -25,27 +25,27 @@ export const createApp: CreateApp = ({ ctx, logger, onChatMessage }) => {
     cors({
       origin: true,
       credentials: true,
-    })
+    }),
   );
 
   app.use(express.json());
 
   // Health check
-  app.get("/api/health", (_req: Request, res: Response) => {
-    res.json({ status: "ok", timestamp: Date.now() });
+  app.get('/api/health', (_req: Request, res: Response) => {
+    res.json({ status: 'ok', timestamp: Date.now() });
   });
 
   // POST /api/chat — send a message to a thread
-  app.post("/api/chat", async (req: Request, res: Response) => {
+  app.post('/api/chat', async (req: Request, res: Response) => {
     const body = req.body as Partial<ChatRequestBody>;
 
-    if (!body.threadId || typeof body.threadId !== "string") {
-      res.status(400).json({ error: "Missing or invalid threadId" });
+    if (!body.threadId || typeof body.threadId !== 'string') {
+      res.status(400).json({ error: 'Missing or invalid threadId' });
       return;
     }
 
-    if (!body.content || typeof body.content !== "string") {
-      res.status(400).json({ error: "Missing or invalid content" });
+    if (!body.content || typeof body.content !== 'string') {
+      res.status(400).json({ error: 'Missing or invalid content' });
       return;
     }
 
@@ -54,16 +54,16 @@ export const createApp: CreateApp = ({ ctx, logger, onChatMessage }) => {
       res.json({ success: true, threadId: body.threadId });
     } catch (err) {
       const message = err instanceof Error ? err.message : String(err);
-      logger.error("Chat endpoint error", { error: message });
-      res.status(500).json({ error: "Internal server error" });
+      logger.error('Chat endpoint error', { error: message });
+      res.status(500).json({ error: 'Internal server error' });
     }
   });
 
   // GET /api/threads — list all threads
-  app.get("/api/threads", async (_req: Request, res: Response) => {
+  app.get('/api/threads', async (_req: Request, res: Response) => {
     try {
       const threads = await ctx.db.thread.findMany({
-        orderBy: { lastActivity: "desc" },
+        orderBy: { lastActivity: 'desc' },
         select: {
           id: true,
           source: true,
@@ -78,16 +78,16 @@ export const createApp: CreateApp = ({ ctx, logger, onChatMessage }) => {
       res.json({ threads });
     } catch (err) {
       const message = err instanceof Error ? err.message : String(err);
-      logger.error("Threads endpoint error", { error: message });
-      res.status(500).json({ error: "Internal server error" });
+      logger.error('Threads endpoint error', { error: message });
+      res.status(500).json({ error: 'Internal server error' });
     }
   });
 
   // GET /api/tasks — list all tasks
-  app.get("/api/tasks", async (_req: Request, res: Response) => {
+  app.get('/api/tasks', async (_req: Request, res: Response) => {
     try {
       const tasks = await ctx.db.orchestratorTask.findMany({
-        orderBy: { createdAt: "desc" },
+        orderBy: { createdAt: 'desc' },
         select: {
           id: true,
           threadId: true,
@@ -103,16 +103,16 @@ export const createApp: CreateApp = ({ ctx, logger, onChatMessage }) => {
       res.json({ tasks });
     } catch (err) {
       const message = err instanceof Error ? err.message : String(err);
-      logger.error("Tasks endpoint error", { error: message });
-      res.status(500).json({ error: "Internal server error" });
+      logger.error('Tasks endpoint error', { error: message });
+      res.status(500).json({ error: 'Internal server error' });
     }
   });
 
   // GET /api/metrics — list recent metrics
-  app.get("/api/metrics", async (_req: Request, res: Response) => {
+  app.get('/api/metrics', async (_req: Request, res: Response) => {
     try {
       const metrics = await ctx.db.metric.findMany({
-        orderBy: { createdAt: "desc" },
+        orderBy: { createdAt: 'desc' },
         take: 100,
         select: {
           id: true,
@@ -125,8 +125,8 @@ export const createApp: CreateApp = ({ ctx, logger, onChatMessage }) => {
       res.json({ metrics });
     } catch (err) {
       const message = err instanceof Error ? err.message : String(err);
-      logger.error("Metrics endpoint error", { error: message });
-      res.status(500).json({ error: "Internal server error" });
+      logger.error('Metrics endpoint error', { error: message });
+      res.status(500).json({ error: 'Internal server error' });
     }
   });
 

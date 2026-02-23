@@ -1,19 +1,12 @@
 // Orchestrator module — plugin lifecycle management and message pipeline
 
-import type { Logger } from "@harness/logger";
-import type {
-  InvokeResult,
-  Invoker,
-  OrchestratorConfig,
-  PluginContext,
-  PluginDefinition,
-  PluginHooks,
-} from "@harness/plugin-contract";
-import type { PrismaClient } from "database";
-import { parseCommands } from "./_helpers/parse-commands";
-import { runChainHooks } from "./_helpers/run-chain-hooks";
-import { runCommandHooks } from "./_helpers/run-command-hooks";
-import { runNotifyHooks } from "./_helpers/run-notify-hooks";
+import type { Logger } from '@harness/logger';
+import type { InvokeResult, Invoker, OrchestratorConfig, PluginContext, PluginDefinition, PluginHooks } from '@harness/plugin-contract';
+import type { PrismaClient } from 'database';
+import { parseCommands } from './_helpers/parse-commands';
+import { runChainHooks } from './_helpers/run-chain-hooks';
+import { runCommandHooks } from './_helpers/run-command-hooks';
+import { runNotifyHooks } from './_helpers/run-notify-hooks';
 
 export type OrchestratorDeps = {
   db: PrismaClient;
@@ -52,7 +45,7 @@ export const createOrchestrator: CreateOrchestrator = (deps) => {
       // TODO: Implement message sending through thread router
     },
     broadcast: async (event: string, data: unknown) => {
-      await runNotifyHooks(allHooks(), "onBroadcast", (h) => h.onBroadcast?.(event, data), deps.logger);
+      await runNotifyHooks(allHooks(), 'onBroadcast', (h) => h.onBroadcast?.(event, data), deps.logger);
     },
   };
 
@@ -68,7 +61,7 @@ export const createOrchestrator: CreateOrchestrator = (deps) => {
           await plugin.definition.start(context);
         }
       }
-      deps.logger.info("Orchestrator started");
+      deps.logger.info('Orchestrator started');
     },
     stop: async () => {
       for (const plugin of plugins) {
@@ -76,7 +69,7 @@ export const createOrchestrator: CreateOrchestrator = (deps) => {
           await plugin.definition.stop(context);
         }
       }
-      deps.logger.info("Orchestrator stopped");
+      deps.logger.info('Orchestrator stopped');
     },
     getPlugins: () => plugins.map((p) => p.definition.name),
     getContext: () => context,
@@ -86,7 +79,7 @@ export const createOrchestrator: CreateOrchestrator = (deps) => {
 
       // Step 1: Fire onMessage hooks (notification — no modification)
       deps.logger.info(`Pipeline: onMessage [thread=${threadId}, role=${role}]`);
-      await runNotifyHooks(hooks, "onMessage", (h) => h.onMessage?.(threadId, role, content), deps.logger);
+      await runNotifyHooks(hooks, 'onMessage', (h) => h.onMessage?.(threadId, role, content), deps.logger);
 
       // Step 2: Run onBeforeInvoke hooks in sequence (each can modify prompt)
       deps.logger.info(`Pipeline: onBeforeInvoke [thread=${threadId}]`);
@@ -96,12 +89,10 @@ export const createOrchestrator: CreateOrchestrator = (deps) => {
       deps.logger.info(`Pipeline: invoking Claude [thread=${threadId}]`);
       const invokeResult = await deps.invoker.invoke(prompt);
 
-      deps.logger.info(
-        `Pipeline: invoke complete [thread=${threadId}, duration=${invokeResult.durationMs}ms, exit=${invokeResult.exitCode}]`
-      );
+      deps.logger.info(`Pipeline: invoke complete [thread=${threadId}, duration=${invokeResult.durationMs}ms, exit=${invokeResult.exitCode}]`);
 
       // Step 4: Fire onAfterInvoke hooks (notification)
-      await runNotifyHooks(hooks, "onAfterInvoke", (h) => h.onAfterInvoke?.(threadId, invokeResult), deps.logger);
+      await runNotifyHooks(hooks, 'onAfterInvoke', (h) => h.onAfterInvoke?.(threadId, invokeResult), deps.logger);
 
       // Step 5: Parse commands from the response
       const commands = parseCommands(invokeResult.output);
@@ -119,7 +110,7 @@ export const createOrchestrator: CreateOrchestrator = (deps) => {
       }
 
       // Step 7: Broadcast pipeline completion event
-      await context.broadcast("pipeline:complete", {
+      await context.broadcast('pipeline:complete', {
         threadId,
         commandsHandled,
         durationMs: invokeResult.durationMs,

@@ -1,6 +1,6 @@
 // Loads recent conversation history from a Thread via Prisma
 
-import type { PrismaClient } from "database";
+import type { PrismaClient } from 'database';
 
 export type HistoryMessage = {
   role: string;
@@ -22,7 +22,7 @@ export const loadHistory: LoadHistory = async (db, threadId, limit) => {
 
   const messages = await db.message.findMany({
     where: { threadId },
-    orderBy: { createdAt: "desc" },
+    orderBy: { createdAt: 'desc' },
     take: effectiveLimit,
     select: {
       role: true,
@@ -35,16 +35,4 @@ export const loadHistory: LoadHistory = async (db, threadId, limit) => {
   const chronological = messages.reverse();
 
   return { messages: chronological, threadId };
-};
-
-type FormatHistorySection = (result: HistoryResult) => string;
-
-export const formatHistorySection: FormatHistorySection = (result) => {
-  if (result.messages.length === 0) {
-    return "";
-  }
-
-  const formatted = result.messages.map((m) => `[${m.role}]: ${m.content}`).join("\n\n");
-
-  return `# Conversation History\n\n${formatted}`;
 };

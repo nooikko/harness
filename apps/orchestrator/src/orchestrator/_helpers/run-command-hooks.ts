@@ -1,16 +1,10 @@
 // Fires onCommand hooks until one handles the command
 
-import type { Logger } from "@harness/logger";
-import type { PluginHooks } from "@harness/plugin-contract";
-import { runHookWithResult } from "@harness/plugin-contract";
+import type { Logger } from '@harness/logger';
+import type { PluginHooks } from '@harness/plugin-contract';
+import { runHookWithResult } from '@harness/plugin-contract';
 
-type RunCommandHooks = (
-  allHooks: PluginHooks[],
-  threadId: string,
-  command: string,
-  args: string,
-  logger: Logger
-) => Promise<boolean>;
+type RunCommandHooks = (allHooks: PluginHooks[], threadId: string, command: string, args: string, logger: Logger) => Promise<boolean>;
 
 export const runCommandHooks: RunCommandHooks = async (allHooks, threadId, command, args, logger) => {
   return runHookWithResult(
@@ -22,6 +16,6 @@ export const runCommandHooks: RunCommandHooks = async (allHooks, threadId, comma
       }
       return undefined;
     },
-    logger
+    logger,
   );
 };

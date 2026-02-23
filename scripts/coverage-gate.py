@@ -29,6 +29,7 @@ EXCLUDED_PATTERNS = [
     r"\.next/",
     r"node_modules/",
     r"dist/",
+    r"packages/database/src/index\.ts$",  # Prisma singleton — no testable logic
 ]
 
 # --- Barrel Detection ---

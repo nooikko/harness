@@ -1,46 +1,46 @@
-import type { Logger } from "@harness/logger";
-import type { OrchestratorConfig, PluginDefinition } from "@harness/plugin-contract";
-import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import type { Logger } from '@harness/logger';
+import type { OrchestratorConfig, PluginDefinition } from '@harness/plugin-contract';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
-vi.mock("@harness/logger", () => ({
+vi.mock('@harness/logger', () => ({
   createLogger: vi.fn(),
 }));
 
-vi.mock("database", () => ({
+vi.mock('database', () => ({
   prisma: {
     $connect: vi.fn().mockResolvedValue(undefined),
     $disconnect: vi.fn().mockResolvedValue(undefined),
   },
 }));
 
-vi.mock("../config", () => ({
+vi.mock('../config', () => ({
   loadConfig: vi.fn(),
 }));
 
-vi.mock("../invoker", () => ({
+vi.mock('../invoker', () => ({
   createInvoker: vi.fn(),
 }));
 
-vi.mock("../plugin-registry", () => ({
+vi.mock('../plugin-registry', () => ({
   getPlugins: vi.fn(),
 }));
 
-vi.mock("../plugin-loader", () => ({
+vi.mock('../plugin-loader', () => ({
   createPluginLoader: vi.fn(),
 }));
 
-vi.mock("../orchestrator", () => ({
+vi.mock('../orchestrator', () => ({
   createOrchestrator: vi.fn(),
 }));
 
-import { createLogger } from "@harness/logger";
-import { prisma } from "database";
-import { loadConfig } from "../config";
-import { boot, main } from "../index";
-import { createInvoker } from "../invoker";
-import { createOrchestrator } from "../orchestrator";
-import { createPluginLoader } from "../plugin-loader";
-import { getPlugins } from "../plugin-registry";
+import { createLogger } from '@harness/logger';
+import { prisma } from 'database';
+import { loadConfig } from '../config';
+import { boot, main } from '../index';
+import { createInvoker } from '../invoker';
+import { createOrchestrator } from '../orchestrator';
+import { createPluginLoader } from '../plugin-loader';
+import { getPlugins } from '../plugin-registry';
 
 const mockCreateLogger = vi.mocked(createLogger);
 const mockPrisma = vi.mocked(prisma);
@@ -58,21 +58,21 @@ const makeLogger = (): Logger => ({
 });
 
 const makeConfig = (overrides?: Partial<OrchestratorConfig>): OrchestratorConfig => ({
-  databaseUrl: "postgres://localhost/test",
-  timezone: "UTC",
+  databaseUrl: 'postgres://localhost/test',
+  timezone: 'UTC',
   maxConcurrentAgents: 3,
-  claudeModel: "sonnet",
+  claudeModel: 'sonnet',
   claudeTimeout: 300000,
   discordToken: undefined,
   discordChannelId: undefined,
   port: 3001,
-  logLevel: "info" as const,
+  logLevel: 'info' as const,
   ...overrides,
 });
 
 const makePluginDefinition = (name: string, overrides?: Partial<PluginDefinition>): PluginDefinition => ({
   name,
-  version: "1.0.0",
+  version: '1.0.0',
   register: vi.fn().mockResolvedValue({}),
   ...overrides,
 });
@@ -140,7 +140,7 @@ const getSignalHandler: GetSignalHandler = (handlers, signal) => {
   return handler;
 };
 
-describe("boot", () => {
+describe('boot', () => {
   let signalHandlers: Map<string, SignalHandler>;
   let originalProcessOn: typeof process.on;
   let originalProcessExit: typeof process.exit;
@@ -169,25 +169,25 @@ describe("boot", () => {
     process.exit = originalProcessExit;
   });
 
-  describe("initialization sequence", () => {
-    it("creates a logger with the harness prefix", async () => {
+  describe('initialization sequence', () => {
+    it('creates a logger with the harness prefix', async () => {
       setupDefaults();
 
       await boot();
 
-      expect(mockCreateLogger).toHaveBeenCalledWith("harness");
+      expect(mockCreateLogger).toHaveBeenCalledWith('harness');
     });
 
-    it("loads config before other initialization", async () => {
+    it('loads config before other initialization', async () => {
       const { logger } = setupDefaults();
 
       await boot();
 
       expect(mockLoadConfig).toHaveBeenCalledTimes(1);
-      expect(logger.info).toHaveBeenCalledWith("Loading configuration");
+      expect(logger.info).toHaveBeenCalledWith('Loading configuration');
     });
 
-    it("connects to the database", async () => {
+    it('connects to the database', async () => {
       setupDefaults();
 
       await boot();
@@ -195,19 +195,19 @@ describe("boot", () => {
       expect(mockPrisma.$connect).toHaveBeenCalledTimes(1);
     });
 
-    it("creates an invoker with config values", async () => {
-      const config = makeConfig({ claudeModel: "opus", claudeTimeout: 60000 });
+    it('creates an invoker with config values', async () => {
+      const config = makeConfig({ claudeModel: 'opus', claudeTimeout: 60000 });
       setupDefaults({ config });
 
       await boot();
 
       expect(mockCreateInvoker).toHaveBeenCalledWith({
-        defaultModel: "opus",
+        defaultModel: 'opus',
         defaultTimeout: 60000,
       });
     });
 
-    it("gets plugins from the static registry", async () => {
+    it('gets plugins from the static registry', async () => {
       setupDefaults();
 
       await boot();
@@ -215,8 +215,8 @@ describe("boot", () => {
       expect(mockGetPlugins).toHaveBeenCalledTimes(1);
     });
 
-    it("validates plugins via the plugin loader", async () => {
-      const plugins = [makePluginDefinition("test-plugin")];
+    it('validates plugins via the plugin loader', async () => {
+      const plugins = [makePluginDefinition('test-plugin')];
       const { logger } = setupDefaults({ plugins });
 
       await boot();
@@ -227,7 +227,7 @@ describe("boot", () => {
       });
     });
 
-    it("creates the orchestrator with correct deps", async () => {
+    it('creates the orchestrator with correct deps', async () => {
       const config = makeConfig();
       const { logger, invoker } = setupDefaults({ config });
 
@@ -242,10 +242,10 @@ describe("boot", () => {
     });
   });
 
-  describe("plugin lifecycle", () => {
-    it("registers all loaded plugins with the orchestrator", async () => {
-      const pluginA = makePluginDefinition("plugin-a");
-      const pluginB = makePluginDefinition("plugin-b");
+  describe('plugin lifecycle', () => {
+    it('registers all loaded plugins with the orchestrator', async () => {
+      const pluginA = makePluginDefinition('plugin-a');
+      const pluginB = makePluginDefinition('plugin-b');
       const { orchestrator } = setupDefaults({ plugins: [pluginA, pluginB] });
 
       await boot();
@@ -255,8 +255,8 @@ describe("boot", () => {
       expect(orchestrator.registerPlugin).toHaveBeenCalledWith(pluginB);
     });
 
-    it("calls orchestrator.start() after registering all plugins", async () => {
-      const plugin = makePluginDefinition("test");
+    it('calls orchestrator.start() after registering all plugins', async () => {
+      const plugin = makePluginDefinition('test');
       const { orchestrator } = setupDefaults({ plugins: [plugin] });
 
       await boot();
@@ -266,7 +266,7 @@ describe("boot", () => {
       expect(registerOrder).toBeLessThan(startOrder);
     });
 
-    it("boots with no plugins loaded", async () => {
+    it('boots with no plugins loaded', async () => {
       const { orchestrator } = setupDefaults({ plugins: [] });
 
       await boot();
@@ -276,31 +276,31 @@ describe("boot", () => {
     });
   });
 
-  describe("signal handlers", () => {
-    it("registers SIGTERM handler", async () => {
+  describe('signal handlers', () => {
+    it('registers SIGTERM handler', async () => {
       setupDefaults();
 
       await boot();
 
-      expect(process.on).toHaveBeenCalledWith("SIGTERM", expect.any(Function));
-      expect(signalHandlers.has("SIGTERM")).toBe(true);
+      expect(process.on).toHaveBeenCalledWith('SIGTERM', expect.any(Function));
+      expect(signalHandlers.has('SIGTERM')).toBe(true);
     });
 
-    it("registers SIGINT handler", async () => {
+    it('registers SIGINT handler', async () => {
       setupDefaults();
 
       await boot();
 
-      expect(process.on).toHaveBeenCalledWith("SIGINT", expect.any(Function));
-      expect(signalHandlers.has("SIGINT")).toBe(true);
+      expect(process.on).toHaveBeenCalledWith('SIGINT', expect.any(Function));
+      expect(signalHandlers.has('SIGINT')).toBe(true);
     });
 
-    it("calls orchestrator.stop() on SIGTERM", async () => {
+    it('calls orchestrator.stop() on SIGTERM', async () => {
       const { orchestrator } = setupDefaults();
 
       await boot();
 
-      const handler = getSignalHandler(signalHandlers, "SIGTERM");
+      const handler = getSignalHandler(signalHandlers, 'SIGTERM');
       handler();
 
       // Wait for the async shutdown to complete
@@ -309,12 +309,12 @@ describe("boot", () => {
       });
     });
 
-    it("disconnects the database on SIGTERM", async () => {
+    it('disconnects the database on SIGTERM', async () => {
       setupDefaults();
 
       await boot();
 
-      const handler = getSignalHandler(signalHandlers, "SIGTERM");
+      const handler = getSignalHandler(signalHandlers, 'SIGTERM');
       handler();
 
       await vi.waitFor(() => {
@@ -322,12 +322,12 @@ describe("boot", () => {
       });
     });
 
-    it("calls process.exit(0) after successful shutdown", async () => {
+    it('calls process.exit(0) after successful shutdown', async () => {
       setupDefaults();
 
       await boot();
 
-      const handler = getSignalHandler(signalHandlers, "SIGINT");
+      const handler = getSignalHandler(signalHandlers, 'SIGINT');
       handler();
 
       await vi.waitFor(() => {
@@ -335,7 +335,7 @@ describe("boot", () => {
       });
     });
 
-    it("calls process.exit(1) when shutdown throws unexpectedly", async () => {
+    it('calls process.exit(1) when shutdown throws unexpectedly', async () => {
       const { logger } = setupDefaults();
 
       await boot();
@@ -343,10 +343,10 @@ describe("boot", () => {
       // Make logger.info throw on the next call (during shutdown) to trigger
       // the catch block in the signal handler
       (logger.info as ReturnType<typeof vi.fn>).mockImplementation(() => {
-        throw new Error("unexpected logger failure");
+        throw new Error('unexpected logger failure');
       });
 
-      const handler = getSignalHandler(signalHandlers, "SIGTERM");
+      const handler = getSignalHandler(signalHandlers, 'SIGTERM');
       handler();
 
       await vi.waitFor(() => {
@@ -354,17 +354,17 @@ describe("boot", () => {
       });
     });
 
-    it("handles non-Error thrown during signal shutdown", async () => {
+    it('handles non-Error thrown during signal shutdown', async () => {
       const { logger } = setupDefaults();
 
       await boot();
 
       // Throw a non-Error to cover the String(err) branch in signal handler catch
       (logger.info as ReturnType<typeof vi.fn>).mockImplementation(() => {
-        throw "raw string thrown";
+        throw 'raw string thrown';
       });
 
-      const handler = getSignalHandler(signalHandlers, "SIGINT");
+      const handler = getSignalHandler(signalHandlers, 'SIGINT');
       handler();
 
       await vi.waitFor(() => {
@@ -372,7 +372,7 @@ describe("boot", () => {
       });
     });
 
-    it("only shuts down once even if signal fires twice", async () => {
+    it('only shuts down once even if signal fires twice', async () => {
       const { orchestrator } = setupDefaults();
 
       const result = await boot();
@@ -385,16 +385,16 @@ describe("boot", () => {
     });
   });
 
-  describe("graceful shutdown", () => {
-    it("returns a shutdown function", async () => {
+  describe('graceful shutdown', () => {
+    it('returns a shutdown function', async () => {
       setupDefaults();
 
       const result = await boot();
 
-      expect(typeof result.shutdown).toBe("function");
+      expect(typeof result.shutdown).toBe('function');
     });
 
-    it("stops plugins during shutdown", async () => {
+    it('stops plugins during shutdown', async () => {
       const { orchestrator } = setupDefaults();
 
       const result = await boot();
@@ -403,7 +403,7 @@ describe("boot", () => {
       expect(orchestrator.stop).toHaveBeenCalledTimes(1);
     });
 
-    it("disconnects database during shutdown", async () => {
+    it('disconnects database during shutdown', async () => {
       setupDefaults();
 
       const result = await boot();
@@ -412,145 +412,145 @@ describe("boot", () => {
       expect(mockPrisma.$disconnect).toHaveBeenCalledTimes(1);
     });
 
-    it("logs shutdown progress", async () => {
+    it('logs shutdown progress', async () => {
       const { logger } = setupDefaults();
 
       const result = await boot();
       await result.shutdown();
 
-      expect(logger.info).toHaveBeenCalledWith("Graceful shutdown initiated");
-      expect(logger.info).toHaveBeenCalledWith("Stopping plugins");
-      expect(logger.info).toHaveBeenCalledWith("Disconnecting database");
-      expect(logger.info).toHaveBeenCalledWith("Shutdown complete");
+      expect(logger.info).toHaveBeenCalledWith('Graceful shutdown initiated');
+      expect(logger.info).toHaveBeenCalledWith('Stopping plugins');
+      expect(logger.info).toHaveBeenCalledWith('Disconnecting database');
+      expect(logger.info).toHaveBeenCalledWith('Shutdown complete');
     });
 
-    it("continues shutdown even if orchestrator.stop() throws", async () => {
+    it('continues shutdown even if orchestrator.stop() throws', async () => {
       const orchestrator = makeOrchestrator();
-      orchestrator.stop.mockRejectedValue(new Error("stop failed"));
+      orchestrator.stop.mockRejectedValue(new Error('stop failed'));
       const { logger } = setupDefaults({ orchestrator });
 
       const result = await boot();
       await result.shutdown();
 
-      expect(logger.error).toHaveBeenCalledWith("Error stopping plugins", {
-        error: "stop failed",
+      expect(logger.error).toHaveBeenCalledWith('Error stopping plugins', {
+        error: 'stop failed',
       });
       expect(mockPrisma.$disconnect).toHaveBeenCalledTimes(1);
-      expect(logger.info).toHaveBeenCalledWith("Shutdown complete");
+      expect(logger.info).toHaveBeenCalledWith('Shutdown complete');
     });
 
-    it("continues shutdown even if database disconnect throws", async () => {
+    it('continues shutdown even if database disconnect throws', async () => {
       const { logger } = setupDefaults();
-      mockPrisma.$disconnect.mockRejectedValue(new Error("disconnect failed"));
+      mockPrisma.$disconnect.mockRejectedValue(new Error('disconnect failed'));
 
       const result = await boot();
       await result.shutdown();
 
-      expect(logger.error).toHaveBeenCalledWith("Error disconnecting database", {
-        error: "disconnect failed",
+      expect(logger.error).toHaveBeenCalledWith('Error disconnecting database', {
+        error: 'disconnect failed',
       });
-      expect(logger.info).toHaveBeenCalledWith("Shutdown complete");
+      expect(logger.info).toHaveBeenCalledWith('Shutdown complete');
     });
 
-    it("handles non-Error objects thrown during plugin stop", async () => {
+    it('handles non-Error objects thrown during plugin stop', async () => {
       const orchestrator = makeOrchestrator();
-      orchestrator.stop.mockRejectedValue("string error");
+      orchestrator.stop.mockRejectedValue('string error');
       const { logger } = setupDefaults({ orchestrator });
 
       const result = await boot();
       await result.shutdown();
 
-      expect(logger.error).toHaveBeenCalledWith("Error stopping plugins", {
-        error: "string error",
+      expect(logger.error).toHaveBeenCalledWith('Error stopping plugins', {
+        error: 'string error',
       });
     });
 
-    it("handles non-Error objects thrown during database disconnect", async () => {
+    it('handles non-Error objects thrown during database disconnect', async () => {
       const { logger } = setupDefaults();
-      mockPrisma.$disconnect.mockRejectedValue("db string error");
+      mockPrisma.$disconnect.mockRejectedValue('db string error');
 
       const result = await boot();
       await result.shutdown();
 
-      expect(logger.error).toHaveBeenCalledWith("Error disconnecting database", {
-        error: "db string error",
+      expect(logger.error).toHaveBeenCalledWith('Error disconnecting database', {
+        error: 'db string error',
       });
     });
   });
 
-  describe("error handling during boot", () => {
-    it("throws when loadConfig fails", async () => {
+  describe('error handling during boot', () => {
+    it('throws when loadConfig fails', async () => {
       const logger = makeLogger();
       mockCreateLogger.mockReturnValue(logger);
       mockLoadConfig.mockImplementation(() => {
-        throw new Error("Missing DATABASE_URL");
+        throw new Error('Missing DATABASE_URL');
       });
 
-      await expect(boot()).rejects.toThrow("Missing DATABASE_URL");
+      await expect(boot()).rejects.toThrow('Missing DATABASE_URL');
     });
 
-    it("throws when database connection fails", async () => {
+    it('throws when database connection fails', async () => {
       const logger = makeLogger();
       mockCreateLogger.mockReturnValue(logger);
       mockLoadConfig.mockReturnValue(makeConfig());
-      mockPrisma.$connect.mockRejectedValue(new Error("connection refused"));
+      mockPrisma.$connect.mockRejectedValue(new Error('connection refused'));
 
-      await expect(boot()).rejects.toThrow("connection refused");
+      await expect(boot()).rejects.toThrow('connection refused');
     });
 
-    it("throws when plugin registration fails", async () => {
+    it('throws when plugin registration fails', async () => {
       const orchestrator = makeOrchestrator();
-      orchestrator.registerPlugin.mockRejectedValue(new Error("register failed"));
-      const plugins = [makePluginDefinition("broken")];
+      orchestrator.registerPlugin.mockRejectedValue(new Error('register failed'));
+      const plugins = [makePluginDefinition('broken')];
       setupDefaults({ plugins, orchestrator });
 
-      await expect(boot()).rejects.toThrow("register failed");
+      await expect(boot()).rejects.toThrow('register failed');
     });
 
-    it("throws when orchestrator.start() fails", async () => {
+    it('throws when orchestrator.start() fails', async () => {
       const orchestrator = makeOrchestrator();
-      orchestrator.start.mockRejectedValue(new Error("start failed"));
+      orchestrator.start.mockRejectedValue(new Error('start failed'));
       setupDefaults({ orchestrator });
 
-      await expect(boot()).rejects.toThrow("start failed");
+      await expect(boot()).rejects.toThrow('start failed');
     });
   });
 
-  describe("logging", () => {
-    it("logs orchestrator ready with plugin names and port", async () => {
-      const pluginA = makePluginDefinition("context");
-      const pluginB = makePluginDefinition("discord");
+  describe('logging', () => {
+    it('logs orchestrator ready with plugin names and port', async () => {
+      const pluginA = makePluginDefinition('context');
+      const pluginB = makePluginDefinition('discord');
       const config = makeConfig({ port: 8080 });
       const { logger } = setupDefaults({ plugins: [pluginA, pluginB], config });
 
       await boot();
 
-      expect(logger.info).toHaveBeenCalledWith("Orchestrator ready", {
-        plugins: ["context", "discord"],
+      expect(logger.info).toHaveBeenCalledWith('Orchestrator ready', {
+        plugins: ['context', 'discord'],
         port: 8080,
       });
     });
 
-    it("logs each stage of the boot process", async () => {
+    it('logs each stage of the boot process', async () => {
       const { logger } = setupDefaults();
 
       await boot();
 
       const logCalls = (logger.info as ReturnType<typeof vi.fn>).mock.calls.map((c: unknown[]) => c[0]);
-      expect(logCalls).toContain("Loading configuration");
-      expect(logCalls).toContain("Initializing database connection");
-      expect(logCalls).toContain("Creating invoker");
-      expect(logCalls).toContain("Loading plugins from registry");
-      expect(logCalls).toContain("Validating plugins");
-      expect(logCalls).toContain("Creating orchestrator");
-      expect(logCalls).toContain("Registering plugins");
-      expect(logCalls).toContain("Starting plugins");
-      expect(logCalls).toContain("Orchestrator ready");
+      expect(logCalls).toContain('Loading configuration');
+      expect(logCalls).toContain('Initializing database connection');
+      expect(logCalls).toContain('Creating invoker');
+      expect(logCalls).toContain('Loading plugins from registry');
+      expect(logCalls).toContain('Validating plugins');
+      expect(logCalls).toContain('Creating orchestrator');
+      expect(logCalls).toContain('Registering plugins');
+      expect(logCalls).toContain('Starting plugins');
+      expect(logCalls).toContain('Orchestrator ready');
     });
   });
 });
 
-describe("main", () => {
+describe('main', () => {
   let originalProcessExit: typeof process.exit;
 
   beforeEach(() => {
@@ -568,11 +568,11 @@ describe("main", () => {
     process.exit = originalProcessExit;
   });
 
-  it("calls process.exit(1) when boot throws", async () => {
+  it('calls process.exit(1) when boot throws', async () => {
     const logger = makeLogger();
     mockCreateLogger.mockReturnValue(logger);
     mockLoadConfig.mockImplementation(() => {
-      throw new Error("config broken");
+      throw new Error('config broken');
     });
 
     await main();
@@ -580,36 +580,36 @@ describe("main", () => {
     expect(process.exit).toHaveBeenCalledWith(1);
   });
 
-  it("logs fatal error when boot throws", async () => {
+  it('logs fatal error when boot throws', async () => {
     const logger = makeLogger();
     mockCreateLogger.mockReturnValue(logger);
     mockLoadConfig.mockImplementation(() => {
-      throw new Error("config broken");
+      throw new Error('config broken');
     });
 
     await main();
 
-    expect(logger.error).toHaveBeenCalledWith("Fatal error during boot", {
-      error: "config broken",
+    expect(logger.error).toHaveBeenCalledWith('Fatal error during boot', {
+      error: 'config broken',
     });
   });
 
-  it("handles non-Error thrown during boot", async () => {
+  it('handles non-Error thrown during boot', async () => {
     const logger = makeLogger();
     mockCreateLogger.mockReturnValue(logger);
     mockLoadConfig.mockImplementation(() => {
-      throw "raw string boot error";
+      throw 'raw string boot error';
     });
 
     await main();
 
     expect(process.exit).toHaveBeenCalledWith(1);
-    expect(logger.error).toHaveBeenCalledWith("Fatal error during boot", {
-      error: "raw string boot error",
+    expect(logger.error).toHaveBeenCalledWith('Fatal error during boot', {
+      error: 'raw string boot error',
     });
   });
 
-  it("does not call process.exit on successful boot", async () => {
+  it('does not call process.exit on successful boot', async () => {
     const logger = makeLogger();
     const orchestrator = makeOrchestrator();
     const invoker = makeInvoker();

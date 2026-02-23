@@ -1,6 +1,6 @@
 // Channel resolver — maps Discord channels/threads to sourceIds for pipeline routing
 
-import type { Channel, ThreadChannel } from "discord.js";
+import type { Channel, ThreadChannel } from 'discord.js';
 
 export type ResolvedChannel = {
   sourceId: string;
@@ -26,23 +26,8 @@ export const resolveChannel: ResolveChannel = (channel) => {
 
   return {
     sourceId: `discord:${channel.id}`,
-    channelName: "name" in channel ? (channel.name as string) : channel.id,
+    channelName: 'name' in channel ? (channel.name as string) : channel.id,
     isThread: false,
     parentChannelId: null,
   };
-};
-
-type BuildSourceId = (channelId: string) => string;
-
-export const buildSourceId: BuildSourceId = (channelId) => {
-  return `discord:${channelId}`;
-};
-
-type ExtractChannelId = (sourceId: string) => string | null;
-
-export const extractChannelId: ExtractChannelId = (sourceId) => {
-  if (!sourceId.startsWith("discord:")) {
-    return null;
-  }
-  return sourceId.slice("discord:".length);
 };

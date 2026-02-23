@@ -77,6 +77,7 @@ You are implementing a task for the Harness project.
 - Read existing code in the modules you'll touch to match patterns
 - Tests go in __tests__/ folders (e.g., src/__tests__/index.test.ts, src/_helpers/__tests__/helper.test.ts) — never alongside source files
 - Plugins are independent workspace packages at packages/plugins/{name}/ — they import from @harness/plugin-contract, not from the orchestrator
+- One export per helper file: each _helpers/ file exports exactly one function matching its kebab-case filename (e.g., run-hook.ts → runHook). If you need a second export, create a second file. Each helper gets a 1:1 test in __tests__/.
 - Hooks enforce conventions automatically — focus on the implementation
 - When done, commit your changes with message: "feat(task-{id}): {short description}"
 - The pre-commit hook will validate typecheck/lint/build/coverage — fix any failures it reports

@@ -1,8 +1,8 @@
 // WebSocket broadcaster — manages connected clients and emits events
 
-import type { Server as HttpServer } from "node:http";
-import type { Logger } from "@harness/logger";
-import { type WebSocket, WebSocketServer } from "ws";
+import type { Server as HttpServer } from 'node:http';
+import type { Logger } from '@harness/logger';
+import { type WebSocket, WebSocketServer } from 'ws';
 
 export type WsBroadcasterDeps = {
   server: HttpServer;
@@ -18,20 +18,20 @@ export type WsBroadcaster = {
 type CreateWsBroadcaster = (deps: WsBroadcasterDeps) => WsBroadcaster;
 
 export const createWsBroadcaster: CreateWsBroadcaster = ({ server, logger }) => {
-  const wss = new WebSocketServer({ server, path: "/ws" });
+  const wss = new WebSocketServer({ server, path: '/ws' });
   const clients = new Set<WebSocket>();
 
-  wss.on("connection", (ws) => {
+  wss.on('connection', (ws) => {
     clients.add(ws);
-    logger.info("WebSocket client connected", { total: clients.size });
+    logger.info('WebSocket client connected', { total: clients.size });
 
-    ws.on("close", () => {
+    ws.on('close', () => {
       clients.delete(ws);
-      logger.info("WebSocket client disconnected", { total: clients.size });
+      logger.info('WebSocket client disconnected', { total: clients.size });
     });
 
-    ws.on("error", (err: Error) => {
-      logger.error("WebSocket client error", { error: err.message });
+    ws.on('error', (err: Error) => {
+      logger.error('WebSocket client error', { error: err.message });
       clients.delete(ws);
     });
   });
@@ -45,7 +45,7 @@ export const createWsBroadcaster: CreateWsBroadcaster = ({ server, logger }) => 
         client.send(payload);
       }
 
-      logger.debug("Broadcast sent", {
+      logger.debug('Broadcast sent', {
         event,
         clientsSent: openClients.length,
       });

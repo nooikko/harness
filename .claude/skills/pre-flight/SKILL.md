@@ -25,6 +25,8 @@ Before creating any new file, module, or helper, answer ALL of these:
 
 8. **Am I importing from the orchestrator inside a plugin?** Plugins are independent workspace packages at `packages/plugins/{name}/`. They import types from `@harness/plugin-contract` and data access from `database` — never from the orchestrator's internal modules.
 
+9. **Does my helper file export more than one function?** Each file in `_helpers/` exports exactly one function, named to match the kebab-case filename. `run-hook.ts` → `export const runHook`. If you need a second export, create a second file. Each helper gets a 1:1 test file in `__tests__/` (e.g., `_helpers/__tests__/run-hook.test.ts`). The only exception is `index.ts` which orchestrates by importing and re-exporting from multiple helpers.
+
 ## Red Flags
 
 If you catch yourself thinking any of these, stop:
@@ -39,6 +41,7 @@ If you catch yourself thinking any of these, stop:
 | "I'll re-export these helpers from index.ts" | Import each helper directly by name. No barrel exports. |
 | "I'll put the test next to the source file" | Tests go in `__tests__/` folders. Always. |
 | "I'll import from the orchestrator inside my plugin" | Plugins use `@harness/plugin-contract` and `database`. Never orchestrator internals. |
+| "I'll put both helpers in one file" | One export per file. Split it. Each gets its own test file. |
 
 ## Two-Layer Command Model
 

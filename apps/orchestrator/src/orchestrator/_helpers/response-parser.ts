@@ -31,7 +31,7 @@ type StringAt = (arr: RegExpExecArray, idx: number) => string;
  * Returns empty string for undefined entries.
  */
 const stringAt: StringAt = (arr, idx) => {
-  return String(arr[idx] || "");
+  return String(arr[idx] || '');
 };
 
 type ExtractParams = (attrString: string) => Record<string, string>;
@@ -64,7 +64,7 @@ export const parseResponse: ParseResponse = (raw) => {
     const content = stringAt(match, 2).trim();
 
     const params = extractParams(attrString);
-    const type = String(params.type || "");
+    const type = String(params.type || '');
 
     // Only include commands that have a type — malformed blocks without type are ignored
     if (type) {
@@ -74,11 +74,11 @@ export const parseResponse: ParseResponse = (raw) => {
     }
 
     // Remove the command block from the message content
-    message = message.replace(fullMatch, "");
+    message = message.replace(fullMatch, '');
   }
 
   // Clean up excessive whitespace left by removed blocks, but preserve structure
-  message = message.replace(/\n{3,}/g, "\n\n").trim();
+  message = message.replace(/\n{3,}/g, '\n\n').trim();
 
   return { commands, message };
 };

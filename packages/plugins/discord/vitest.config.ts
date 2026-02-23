@@ -1,11 +1,11 @@
-import { defineConfig } from "vitest/config";
+import { defineConfig } from 'vitest/config';
 
 export default defineConfig({
   test: {
-    name: "plugin-discord",
-    environment: "node",
+    name: 'plugin-discord',
+    environment: 'node',
     coverage: {
-      provider: "v8",
+      provider: 'v8',
     },
   },
 });

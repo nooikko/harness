@@ -1,10 +1,10 @@
 // Invoker module — manages Claude CLI process invocations
 
-import { spawn } from "node:child_process";
-import type { InvokeOptions, InvokeResult } from "@harness/plugin-contract";
-import { buildArgs } from "./_helpers/build-args";
+import { spawn } from 'node:child_process';
+import type { InvokeOptions, InvokeResult } from '@harness/plugin-contract';
+import { buildArgs } from './_helpers/build-args';
 
-export type { InvokeOptions, InvokeResult } from "@harness/plugin-contract";
+export type { InvokeOptions, InvokeResult } from '@harness/plugin-contract';
 
 export type InvokerConfig = {
   defaultModel: string;
@@ -26,35 +26,35 @@ export const createInvoker: CreateInvoker = (config) => {
     const timeout = options?.timeout ?? config.defaultTimeout;
 
     return new Promise<InvokeResult>((resolve) => {
-      const child = spawn("claude", args, {
-        stdio: ["pipe", "pipe", "pipe"],
+      const child = spawn('claude', args, {
+        stdio: ['pipe', 'pipe', 'pipe'],
         env: { ...process.env },
       });
 
-      let stdout = "";
-      let stderr = "";
+      let stdout = '';
+      let stderr = '';
       let killed = false;
 
       const timer = setTimeout(() => {
         killed = true;
-        child.kill("SIGTERM");
+        child.kill('SIGTERM');
         // Give it a moment to clean up, then force kill
         setTimeout(() => {
           if (!child.killed) {
-            child.kill("SIGKILL");
+            child.kill('SIGKILL');
           }
         }, 5000);
       }, timeout);
 
-      child.stdout?.on("data", (chunk: Buffer) => {
+      child.stdout?.on('data', (chunk: Buffer) => {
         stdout += chunk.toString();
       });
 
-      child.stderr?.on("data", (chunk: Buffer) => {
+      child.stderr?.on('data', (chunk: Buffer) => {
         stderr += chunk.toString();
       });
 
-      child.on("close", (code) => {
+      child.on('close', (code) => {
         clearTimeout(timer);
         const durationMs = Date.now() - startTime;
         resolve({
@@ -65,11 +65,11 @@ export const createInvoker: CreateInvoker = (config) => {
         });
       });
 
-      child.on("error", (err) => {
+      child.on('error', (err) => {
         clearTimeout(timer);
         const durationMs = Date.now() - startTime;
         resolve({
-          output: "",
+          output: '',
           error: `Failed to spawn claude: ${err.message}`,
           durationMs,
           exitCode: null,

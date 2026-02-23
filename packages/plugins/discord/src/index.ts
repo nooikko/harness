@@ -1,9 +1,11 @@
 // Discord plugin — registers as a message source and reply sink via Discord.js
 
-import type { PluginContext, PluginDefinition, PluginHooks } from "@harness/plugin-contract";
-import { Client, Events, GatewayIntentBits, type TextChannel } from "discord.js";
-import { extractChannelId } from "./_helpers/channel-resolver";
-import { shouldProcessMessage, stripMentions, toPipelineMessage } from "./_helpers/message-adapter";
+import type { PluginContext, PluginDefinition, PluginHooks } from '@harness/plugin-contract';
+import { Client, Events, GatewayIntentBits, type TextChannel } from 'discord.js';
+import { extractChannelId } from './_helpers/extract-channel-id';
+import { toPipelineMessage } from './_helpers/message-adapter';
+import { shouldProcessMessage } from './_helpers/should-process-message';
+import { stripMentions } from './_helpers/strip-mentions';
 
 export type DiscordPluginState = {
   client: Client | null;
@@ -13,12 +15,7 @@ export type DiscordPluginState = {
 type CreateClient = (ctx: PluginContext) => Client;
 
 const createClient: CreateClient = (ctx) => {
-  const intents = [
-    GatewayIntentBits.Guilds,
-    GatewayIntentBits.GuildMessages,
-    GatewayIntentBits.MessageContent,
-    GatewayIntentBits.DirectMessages,
-  ];
+  const intents = [GatewayIntentBits.Guilds, GatewayIntentBits.GuildMessages, GatewayIntentBits.MessageContent, GatewayIntentBits.DirectMessages];
 
   const client = new Client({ intents });
 
@@ -79,11 +76,11 @@ export const splitMessage: SplitMessage = (content) => {
     }
 
     // Try to split at a newline before the limit
-    let splitIndex = remaining.lastIndexOf("\n", DISCORD_MAX_LENGTH);
+    let splitIndex = remaining.lastIndexOf('\n', DISCORD_MAX_LENGTH);
 
     // If no newline found, try splitting at a space
     if (splitIndex === -1 || splitIndex === 0) {
-      splitIndex = remaining.lastIndexOf(" ", DISCORD_MAX_LENGTH);
+      splitIndex = remaining.lastIndexOf(' ', DISCORD_MAX_LENGTH);
     }
 
     // If still no good split point, hard split at the limit
@@ -98,19 +95,19 @@ export const splitMessage: SplitMessage = (content) => {
   return chunks;
 };
 
-type RegisterDiscordPlugin = PluginDefinition["register"];
+type RegisterDiscordPlugin = PluginDefinition['register'];
 
 const register: RegisterDiscordPlugin = async (_ctx) => {
   const hooks: PluginHooks = {};
   return hooks;
 };
 
-type StartDiscordPlugin = NonNullable<PluginDefinition["start"]>;
+type StartDiscordPlugin = NonNullable<PluginDefinition['start']>;
 
 const start: StartDiscordPlugin = async (ctx) => {
   const token = ctx.config.discordToken;
   if (!token) {
-    ctx.logger.warn("Discord plugin: DISCORD_TOKEN not set, skipping Discord connection");
+    ctx.logger.warn('Discord plugin: DISCORD_TOKEN not set, skipping Discord connection');
     state.connected = false;
     return;
   }
@@ -125,16 +122,16 @@ const start: StartDiscordPlugin = async (ctx) => {
 
   client.on(Events.ShardDisconnect, () => {
     state.connected = false;
-    ctx.logger.warn("Discord plugin: disconnected from gateway");
+    ctx.logger.warn('Discord plugin: disconnected from gateway');
   });
 
   client.on(Events.ShardReconnecting, () => {
-    ctx.logger.info("Discord plugin: reconnecting to gateway...");
+    ctx.logger.info('Discord plugin: reconnecting to gateway...');
   });
 
   client.on(Events.ShardResume, () => {
     state.connected = true;
-    ctx.logger.info("Discord plugin: reconnected to gateway");
+    ctx.logger.info('Discord plugin: reconnected to gateway');
   });
 
   // Register message listener
@@ -162,17 +159,17 @@ const start: StartDiscordPlugin = async (ctx) => {
       const thread = await ctx.db.thread.upsert({
         where: {
           source_sourceId: {
-            source: "discord",
+            source: 'discord',
             sourceId: pipelineMsg.sourceId,
           },
         },
         update: { lastActivity: new Date() },
         create: {
-          source: "discord",
+          source: 'discord',
           sourceId: pipelineMsg.sourceId,
           name: pipelineMsg.channelName,
-          kind: "general",
-          status: "active",
+          kind: 'general',
+          status: 'active',
           lastActivity: new Date(),
         },
       });
@@ -183,22 +180,20 @@ const start: StartDiscordPlugin = async (ctx) => {
       await ctx.db.message.create({
         data: {
           threadId: thread.id,
-          role: "user",
+          role: 'user',
           content: pipelineMsg.content,
         },
       });
 
       // Feed into pipeline via broadcast
-      await ctx.broadcast("discord:message", {
+      await ctx.broadcast('discord:message', {
         threadId: thread.id,
         sourceId: pipelineMsg.sourceId,
         content: pipelineMsg.content,
         authorName: pipelineMsg.authorName,
       });
     } catch (err) {
-      ctx.logger.error(
-        `Discord plugin: failed to process message: ${err instanceof Error ? err.message : String(err)}`
-      );
+      ctx.logger.error(`Discord plugin: failed to process message: ${err instanceof Error ? err.message : String(err)}`);
     }
   });
 
@@ -210,15 +205,15 @@ const start: StartDiscordPlugin = async (ctx) => {
   }
 };
 
-type StopDiscordPlugin = NonNullable<PluginDefinition["stop"]>;
+type StopDiscordPlugin = NonNullable<PluginDefinition['stop']>;
 
 const stop: StopDiscordPlugin = async (ctx) => {
   if (state.client) {
-    ctx.logger.info("Discord plugin: disconnecting...");
+    ctx.logger.info('Discord plugin: disconnecting...');
     await state.client.destroy();
     state.client = null;
     state.connected = false;
-    ctx.logger.info("Discord plugin: disconnected");
+    ctx.logger.info('Discord plugin: disconnected');
   }
 };
 
@@ -227,15 +222,12 @@ const state: DiscordPluginState = {
   connected: false,
 };
 
-type GetSendMessage = (
-  pluginState: DiscordPluginState,
-  ctx: PluginContext
-) => (sourceId: string, content: string) => Promise<void>;
+type GetSendMessage = (pluginState: DiscordPluginState, ctx: PluginContext) => (sourceId: string, content: string) => Promise<void>;
 
 export const getSendMessage: GetSendMessage = (pluginState, ctx) => {
   return async (sourceId: string, content: string) => {
     if (!pluginState.client || !pluginState.connected) {
-      ctx.logger.warn("Discord plugin: cannot send message, client not connected");
+      ctx.logger.warn('Discord plugin: cannot send message, client not connected');
       return;
     }
     await sendDiscordMessage(pluginState.client, sourceId, content, ctx);
@@ -243,8 +235,8 @@ export const getSendMessage: GetSendMessage = (pluginState, ctx) => {
 };
 
 export const plugin: PluginDefinition = {
-  name: "discord",
-  version: "1.0.0",
+  name: 'discord',
+  version: '1.0.0',
   register,
   start,
   stop,

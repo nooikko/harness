@@ -1,13 +1,13 @@
 // Bootstrap and lifecycle manager — orchestrator entry point
 
-import { createLogger } from "@harness/logger";
-import type { PluginDefinition } from "@harness/plugin-contract";
-import { prisma } from "database";
-import { loadConfig } from "./config";
-import { createInvoker } from "./invoker";
-import { createOrchestrator } from "./orchestrator";
-import { createPluginLoader } from "./plugin-loader";
-import { getPlugins } from "./plugin-registry";
+import { createLogger } from '@harness/logger';
+import type { PluginDefinition } from '@harness/plugin-contract';
+import { prisma } from 'database';
+import { loadConfig } from './config';
+import { createInvoker } from './invoker';
+import { createOrchestrator } from './orchestrator';
+import { createPluginLoader } from './plugin-loader';
+import { getPlugins } from './plugin-registry';
 
 type ShutdownState = {
   isShuttingDown: boolean;
@@ -20,15 +20,15 @@ type BootResult = {
 type Boot = () => Promise<BootResult>;
 
 export const boot: Boot = async () => {
-  const logger = createLogger("harness");
+  const logger = createLogger('harness');
 
-  logger.info("Loading configuration");
+  logger.info('Loading configuration');
   const config = loadConfig();
 
-  logger.info("Initializing database connection");
+  logger.info('Initializing database connection');
   await prisma.$connect();
 
-  logger.info("Creating invoker", {
+  logger.info('Creating invoker', {
     model: config.claudeModel,
     timeout: config.claudeTimeout,
   });
@@ -37,17 +37,17 @@ export const boot: Boot = async () => {
     defaultTimeout: config.claudeTimeout,
   });
 
-  logger.info("Loading plugins from registry");
+  logger.info('Loading plugins from registry');
   const rawPlugins = getPlugins();
 
-  logger.info("Validating plugins");
+  logger.info('Validating plugins');
   const loader = createPluginLoader({
     plugins: rawPlugins,
     logger,
   });
   const { loaded } = loader.loadAll();
 
-  logger.info("Creating orchestrator");
+  logger.info('Creating orchestrator');
   const orchestrator = createOrchestrator({
     db: prisma,
     invoker,
@@ -55,12 +55,12 @@ export const boot: Boot = async () => {
     logger,
   });
 
-  logger.info("Registering plugins");
+  logger.info('Registering plugins');
   for (const plugin of loaded) {
     await orchestrator.registerPlugin(plugin);
   }
 
-  logger.info("Starting plugins");
+  logger.info('Starting plugins');
   await orchestrator.start();
 
   const state: ShutdownState = { isShuttingDown: false };
@@ -71,27 +71,27 @@ export const boot: Boot = async () => {
     }
     state.isShuttingDown = true;
 
-    logger.info("Graceful shutdown initiated");
+    logger.info('Graceful shutdown initiated');
 
     try {
-      logger.info("Stopping plugins");
+      logger.info('Stopping plugins');
       await orchestrator.stop();
     } catch (err) {
-      logger.error("Error stopping plugins", {
+      logger.error('Error stopping plugins', {
         error: err instanceof Error ? err.message : String(err),
       });
     }
 
     try {
-      logger.info("Disconnecting database");
+      logger.info('Disconnecting database');
       await prisma.$disconnect();
     } catch (err) {
-      logger.error("Error disconnecting database", {
+      logger.error('Error disconnecting database', {
         error: err instanceof Error ? err.message : String(err),
       });
     }
 
-    logger.info("Shutdown complete");
+    logger.info('Shutdown complete');
   };
 
   const onSignal = (): void => {
@@ -100,18 +100,18 @@ export const boot: Boot = async () => {
         process.exit(0);
       })
       .catch((err: unknown) => {
-        logger.error("Fatal error during shutdown", {
+        logger.error('Fatal error during shutdown', {
           error: err instanceof Error ? err.message : String(err),
         });
         process.exit(1);
       });
   };
 
-  process.on("SIGTERM", onSignal);
-  process.on("SIGINT", onSignal);
+  process.on('SIGTERM', onSignal);
+  process.on('SIGINT', onSignal);
 
   const pluginNames = loaded.map((p: PluginDefinition) => p.name);
-  logger.info("Orchestrator ready", {
+  logger.info('Orchestrator ready', {
     plugins: pluginNames,
     port: config.port,
   });
@@ -123,8 +123,8 @@ export const main = async (): Promise<void> => {
   try {
     await boot();
   } catch (err) {
-    const logger = createLogger("harness");
-    logger.error("Fatal error during boot", {
+    const logger = createLogger('harness');
+    logger.error('Fatal error during boot', {
       error: err instanceof Error ? err.message : String(err),
     });
     process.exit(1);
@@ -132,6 +132,6 @@ export const main = async (): Promise<void> => {
 };
 
 /* v8 ignore next 3 -- entry-point guard, only runs in production */
-if (process.env.NODE_ENV !== "test" && !process.env.VITEST) {
+if (process.env.NODE_ENV !== 'test' && !process.env.VITEST) {
   main();
 }
