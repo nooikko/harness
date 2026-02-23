@@ -1,34 +1,12 @@
-// Orchestrator module — coordinates thread routing, plugin loading, and invocation
+// Orchestrator module — plugin contract and lifecycle management
 
 import type { PrismaClient } from "database";
 import type { OrchestratorConfig } from "../config";
-
-// Types for the invoker result (used by PluginContext)
-export type InvokeResult = {
-  output: string;
-  error?: string;
-  durationMs: number;
-  inputTokens: number;
-  outputTokens: number;
-};
-
-// Types for the invoker (passed to plugins via context)
-export type InvokeOptions = {
-  model?: string;
-  timeout?: number;
-  allowedTools?: string[];
-};
+import type { InvokeOptions, InvokeResult } from "../invoker";
+import type { Logger } from "../logger";
 
 export type Invoker = {
   invoke: (prompt: string, options?: InvokeOptions) => Promise<InvokeResult>;
-};
-
-// Logger interface for plugins
-export type Logger = {
-  info: (message: string, meta?: Record<string, unknown>) => void;
-  warn: (message: string, meta?: Record<string, unknown>) => void;
-  error: (message: string, meta?: Record<string, unknown>) => void;
-  debug: (message: string, meta?: Record<string, unknown>) => void;
 };
 
 // The object passed to every plugin, giving it access to the system
@@ -82,7 +60,6 @@ export type PluginDefinition = {
   stop?: StopFn;
 };
 
-// Dependencies required to create an orchestrator
 export type OrchestratorDeps = {
   db: PrismaClient;
   invoker: Invoker;
