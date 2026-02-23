@@ -5,8 +5,9 @@ import "./globals.css";
 const inter = Inter({ subsets: ["latin"] });
 
 export const metadata: Metadata = {
-  title: "One Stack",
-  description: "A modern full-stack monorepo template",
+  title: "Harness",
+  description:
+    "Claude Orchestrator with persistent conversation threads and sub-agent delegation",
 };
 
 export default function RootLayout({

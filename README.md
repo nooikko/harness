@@ -1,6 +1,6 @@
-# One Stack
+# Harness
 
-A modern, production-ready full-stack monorepo template with best-in-class developer experience and tooling.
+Claude Orchestrator — a thin orchestration layer that keeps Claude Code CLI as the agent runtime, with persistent conversation threads, sub-agent delegation, cron-scheduled invocations, and interface adapters.
 
 ## Tech Stack
 
@@ -29,7 +29,7 @@ A modern, production-ready full-stack monorepo template with best-in-class devel
 ## Project Structure
 
 ```
-one-stack/
+harness/
 ├── apps/
 │   └── web/              # Next.js application
 │       ├── src/
@@ -64,8 +64,9 @@ one-stack/
 
 ### Prerequisites
 
-- **Node.js** 20 or higher
-- **pnpm** 10.22.0 (installed automatically via `packageManager` field)
+- **Node.js** 22 or higher
+- **pnpm** 10.x (installed automatically via `packageManager` field)
+- **PostgreSQL** for the database layer
 
 ### Installation
 
@@ -74,8 +75,12 @@ one-stack/
 pnpm install
 
 # Set up environment variables
+cp .env.example .env
 cp packages/database/.env.example packages/database/.env
 # Edit packages/database/.env with your database URL
+
+# Generate Prisma client
+pnpm db:generate
 ```
 
 ### Development
@@ -134,7 +139,7 @@ Shared UI component library with:
 ### `packages/database`
 Prisma database layer with:
 - Type-safe database client
-- PostgreSQL schema (User & Post models)
+- PostgreSQL schema
 - Automatic Prisma Client generation
 - Database migrations support
 
@@ -169,38 +174,6 @@ Every push and pull request triggers the CI pipeline:
 3. Run type checking
 4. Run linting
 5. Build all packages
-
-## Adding New Packages
-
-### Add a New App
-
-```bash
-# Create new app directory
-mkdir -p apps/my-app
-cd apps/my-app
-
-# Initialize package.json
-pnpm init
-
-# Install from workspace root
-cd ../..
-pnpm install
-```
-
-### Add a New Package
-
-```bash
-# Create new package directory
-mkdir -p packages/my-package
-cd packages/my-package
-
-# Initialize package.json
-pnpm init
-
-# Install from workspace root
-cd ../..
-pnpm install
-```
 
 ## Environment Variables
 
@@ -244,18 +217,6 @@ rm -rf apps/web/.next
 pnpm prepare
 ```
 
-## Contributing
-
-1. Fork the repository
-2. Create your feature branch
-3. Commit your changes (follow conventional commits)
-4. Push to the branch
-5. Open a Pull Request
-
 ## License
 
 MIT
-
----
-
-Built with ❤️ using modern web technologies

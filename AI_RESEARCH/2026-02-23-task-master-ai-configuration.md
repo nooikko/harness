@@ -342,7 +342,7 @@ Located at `/mnt/ramdisk/harness/.taskmaster/config.json`:
     }
   },
   "global": {
-    "projectName": "one-stack",
+    "projectName": "harness",
     "defaultTag": "master"
   }
 }
