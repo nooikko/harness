@@ -42,7 +42,7 @@ export type PluginHooks = {
   onTaskFailed?: (
     threadId: string,
     taskId: string,
-    error: string
+    error: Error
   ) => Promise<void>;
   onBroadcast?: (event: string, data: unknown) => Promise<void>;
 };
