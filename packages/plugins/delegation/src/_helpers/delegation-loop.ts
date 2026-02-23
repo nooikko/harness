@@ -9,6 +9,7 @@ import { createTaskRecord } from './create-task-record';
 import { createTaskThread } from './create-task-thread';
 import { fireTaskCompleteHooks } from './fire-task-complete-hooks';
 import { invokeSubAgent } from './invoke-sub-agent';
+import { sendThreadNotification } from './send-thread-notification';
 
 export type DelegationOptions = {
   prompt: string;
@@ -147,8 +148,15 @@ export const runDelegationLoop: RunDelegationLoop = async (ctx, allHooks, option
         iterations,
       });
 
-      // Notify parent thread
-      await ctx.sendToThread(options.parentThreadId, `Task ${taskId} completed successfully after ${iterations} iteration(s).`);
+      // Notify parent thread with structured cross-thread notification
+      await sendThreadNotification(ctx, {
+        parentThreadId: options.parentThreadId,
+        taskThreadId: threadId,
+        taskId,
+        status: 'completed',
+        summary: invokeResult.output.slice(0, 200),
+        iterations,
+      });
 
       return {
         taskId,
@@ -203,8 +211,15 @@ export const runDelegationLoop: RunDelegationLoop = async (ctx, allHooks, option
     error: failError.message,
   });
 
-  // Notify parent thread
-  await ctx.sendToThread(options.parentThreadId, `Task ${taskId} failed after ${maxIterations} iteration(s). ${feedback ?? ''}`);
+  // Notify parent thread with structured cross-thread notification
+  await sendThreadNotification(ctx, {
+    parentThreadId: options.parentThreadId,
+    taskThreadId: threadId,
+    taskId,
+    status: 'failed',
+    summary: feedback ?? 'Max iterations exhausted',
+    iterations: maxIterations,
+  });
 
   return {
     taskId,

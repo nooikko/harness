@@ -1,6 +1,8 @@
 import type { Message } from 'database';
 import { Bot, Info, User } from 'lucide-react';
 import { cn } from 'ui';
+import { isCrossThreadNotification } from '../_helpers/is-cross-thread-notification';
+import { NotificationMessage } from './notification-message';
 
 type MessageItemProps = {
   message: Message;
@@ -20,8 +22,13 @@ const ROLE_CONFIG: Record<string, RoleConfig> = {
 
 /**
  * Renders a single message with role-appropriate styling.
+ * Cross-thread notifications are rendered as info banners with a "View thread" link.
  */
 export const MessageItem: MessageItemComponent = ({ message }) => {
+  if (isCrossThreadNotification(message)) {
+    return <NotificationMessage message={message} />;
+  }
+
   const config = ROLE_CONFIG[message.role] ?? SYSTEM_CONFIG;
   const Icon = config.icon;
 

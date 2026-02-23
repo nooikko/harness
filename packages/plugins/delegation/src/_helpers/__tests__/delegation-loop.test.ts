@@ -404,7 +404,7 @@ describe('runDelegationLoop', () => {
     expect(events).toContain('task:failed');
   });
 
-  it('notifies parent thread on successful completion', async () => {
+  it('notifies parent thread on successful completion via cross-thread notification', async () => {
     const hooks: PluginHooks[] = [];
 
     await runDelegationLoop(mockCtx, hooks, {
@@ -412,10 +412,20 @@ describe('runDelegationLoop', () => {
       parentThreadId: 'parent-1',
     });
 
-    expect(mockCtx.sendToThread).toHaveBeenCalledWith('parent-1', expect.stringContaining('completed successfully'));
+    // sendThreadNotification creates a system message in the parent thread
+    const messageCalls = mockDb.message.create.mock.calls;
+    const notificationCall = messageCalls.find(
+      (call) => (call[0] as { data: { metadata?: { type?: string } } }).data.metadata?.type === 'cross-thread-notification',
+    );
+    expect(notificationCall).toBeDefined();
+
+    const notificationData = (notificationCall?.[0] as { data: { threadId: string; role: string; metadata: { status: string } } }).data;
+    expect(notificationData.threadId).toBe('parent-1');
+    expect(notificationData.role).toBe('system');
+    expect(notificationData.metadata.status).toBe('completed');
   });
 
-  it('notifies parent thread on failure', async () => {
+  it('notifies parent thread on failure via cross-thread notification', async () => {
     const onTaskComplete = vi.fn().mockRejectedValue(new Error('Nope'));
     const hooks: PluginHooks[] = [{ onTaskComplete }];
 
@@ -425,7 +435,16 @@ describe('runDelegationLoop', () => {
       maxIterations: 1,
     });
 
-    expect(mockCtx.sendToThread).toHaveBeenCalledWith('parent-1', expect.stringContaining('failed'));
+    // sendThreadNotification creates a system message in the parent thread
+    const messageCalls = mockDb.message.create.mock.calls;
+    const notificationCall = messageCalls.find(
+      (call) => (call[0] as { data: { metadata?: { type?: string } } }).data.metadata?.type === 'cross-thread-notification',
+    );
+    expect(notificationCall).toBeDefined();
+
+    const notificationData = (notificationCall?.[0] as { data: { threadId: string; metadata: { status: string } } }).data;
+    expect(notificationData.threadId).toBe('parent-1');
+    expect(notificationData.metadata.status).toBe('failed');
   });
 
   it('updates task status through the lifecycle', async () => {
@@ -734,8 +753,14 @@ describe('runDelegationLoop', () => {
     expect(result.iterations).toBe(0);
     expect(mockCtx.invoker.invoke).not.toHaveBeenCalled();
 
-    // feedback is undefined, so failError message contains "none"
-    expect(mockCtx.sendToThread).toHaveBeenCalledWith('parent-1', expect.stringContaining('failed'));
+    // sendThreadNotification creates a cross-thread notification in the parent thread
+    const messageCalls = mockDb.message.create.mock.calls;
+    const notificationCall = messageCalls.find(
+      (call) => (call[0] as { data: { metadata?: { type?: string } } }).data.metadata?.type === 'cross-thread-notification',
+    );
+    expect(notificationCall).toBeDefined();
+    const notificationData = (notificationCall?.[0] as { data: { metadata: { status: string } } }).data;
+    expect(notificationData.metadata.status).toBe('failed');
   });
 
   it('includes feedback in failure notification when sub-agent had non-zero exit', async () => {
@@ -745,7 +770,7 @@ describe('runDelegationLoop', () => {
       exitCode: 1,
     });
 
-    const { ctx } = createMockContext();
+    const { ctx, db } = createMockContext();
     (ctx as unknown as { invoker: { invoke: ReturnType<typeof vi.fn> } }).invoker.invoke = invokeFail;
 
     const hooks: PluginHooks[] = [];
@@ -757,6 +782,15 @@ describe('runDelegationLoop', () => {
     });
 
     expect(result.status).toBe('failed');
-    expect(ctx.sendToThread).toHaveBeenCalledWith('parent-1', expect.stringContaining('failed'));
+
+    // sendThreadNotification creates a cross-thread notification in the parent thread
+    const messageCalls = db.message.create.mock.calls;
+    const notificationCall = messageCalls.find(
+      (call) => (call[0] as { data: { metadata?: { type?: string } } }).data.metadata?.type === 'cross-thread-notification',
+    );
+    expect(notificationCall).toBeDefined();
+    const notificationData = (notificationCall?.[0] as { data: { content: string; metadata: { status: string } } }).data;
+    expect(notificationData.metadata.status).toBe('failed');
+    expect(notificationData.content).toContain('failed');
   });
 });
