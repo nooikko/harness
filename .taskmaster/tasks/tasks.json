@@ -108,7 +108,7 @@
         "testStrategy": "Test routing to correct handlers by type. Verify unknown command types are handled gracefully. Test async command handlers. Ensure handler errors don't crash pipeline.",
         "priority": "medium",
         "dependencies": [9],
-        "status": "pending",
+        "status": "done",
         "subtasks": []
       },
       {
@@ -174,7 +174,7 @@
         "testStrategy": "Test startDelegation creates both Task and Thread records with correct relationships. Verify AgentRun records link to tasks properly. Test that thread parentThreadId is set correctly.",
         "priority": "medium",
         "dependencies": [1, 15],
-        "status": "pending",
+        "status": "done",
         "subtasks": []
       },
       {
@@ -207,7 +207,7 @@
         "testStrategy": "Test cron job scheduling with mock timers. Verify CRUD commands modify database correctly. Test synthetic message creation. Ensure jobs reload after modifications.",
         "priority": "medium",
         "dependencies": [3, 4, 1],
-        "status": "pending",
+        "status": "done",
         "subtasks": []
       },
       {
@@ -229,7 +229,7 @@
         "testStrategy": "Run seed script and verify records are created in database. Check cron expressions are valid. Test that seeded jobs are picked up by cron plugin on start.",
         "priority": "low",
         "dependencies": [1, 19],
-        "status": "pending",
+        "status": "done",
         "subtasks": []
       },
       {
@@ -251,7 +251,7 @@
         "testStrategy": "Verify files are created at correct paths. Ensure context plugin can read files. Test that missing files don't crash the system.",
         "priority": "low",
         "dependencies": [],
-        "status": "pending",
+        "status": "done",
         "subtasks": []
       },
       {
@@ -262,7 +262,7 @@
         "testStrategy": "Review instructions for completeness. Test that following the instructions produces expected behavior. Verify command examples are syntactically correct.",
         "priority": "medium",
         "dependencies": [],
-        "status": "pending",
+        "status": "done",
         "subtasks": []
       },
       {
@@ -321,7 +321,7 @@
         "testStrategy": "Test thread list renders correctly. Verify primary thread is always pinned. Test navigation between threads updates URL. Ensure server rendering works without JavaScript.",
         "priority": "medium",
         "dependencies": [25, 1],
-        "status": "pending",
+        "status": "done",
         "subtasks": []
       },
       {
@@ -332,7 +332,7 @@
         "testStrategy": "Test WebSocket connection and reconnection. Verify messages appear in real-time. Test task status updates are reflected. Ensure works with server components.",
         "priority": "medium",
         "dependencies": [26, 14],
-        "status": "pending",
+        "status": "done",
         "subtasks": []
       },
       {
@@ -343,7 +343,7 @@
         "testStrategy": "Verify each page loads with correct data. Test Server Actions update database. Ensure pages work without JavaScript. Test data revalidation after mutations.",
         "priority": "low",
         "dependencies": [25, 1],
-        "status": "pending",
+        "status": "done",
         "subtasks": []
       },
       {
@@ -354,7 +354,7 @@
         "testStrategy": "Test task completion sends notification to parent. Verify notification appears in parent thread UI. Test clicking notification navigates to task thread. Ensure message persistence works.",
         "priority": "low",
         "dependencies": [15, 26],
-        "status": "pending",
+        "status": "done",
         "subtasks": []
       },
       {
@@ -365,7 +365,7 @@
         "testStrategy": "Test pm2 starts both services correctly. Verify systemd service file is valid. Test health endpoint responds. Ensure logs rotate properly. Verify graceful reload works.",
         "priority": "low",
         "dependencies": [20],
-        "status": "pending",
+        "status": "done",
         "subtasks": []
       },
       {
@@ -376,7 +376,7 @@
         "testStrategy": "Verify token counts are reasonable estimates. Test cost calculations match pricing. Ensure metrics are recorded correctly. Test dashboard charts render properly.",
         "priority": "low",
         "dependencies": [16, 28],
-        "status": "pending",
+        "status": "done",
         "subtasks": []
       },
       {
@@ -387,7 +387,7 @@
         "testStrategy": "Follow documentation to create a test plugin. Verify all code examples compile. Test that following the guide produces working plugin. Ensure documentation is clear and complete.",
         "priority": "low",
         "dependencies": [3, 4],
-        "status": "pending",
+        "status": "done",
         "subtasks": []
       },
       {
@@ -407,7 +407,7 @@
         "description": "Review the web plugin's implementation and document its intended purpose, verifying alignment with project requirements",
         "details": "Analyze packages/plugins/web/ to determine its actual role in the architecture. Based on analysis:\n\n1. Document findings in a structured review:\n   - Current implementation: Express server (port 3001) with REST API endpoints (/api/chat, /api/threads, /api/tasks, /api/metrics) and WebSocket broadcasting on /ws\n   - Actual functionality: Acts as HTTP/WebSocket bridge for the orchestrator, enabling web-based interfaces to interact with the pipeline\n   - Not a chat interface itself, but provides the API layer that a separate dashboard app would consume\n\n2. Compare against PRD specifications:\n   - PRD states: 'Web plugin provides REST API endpoints for the dashboard' and 'apps/dashboard talks to these endpoints'\n   - Current state aligns with design: plugin exposes APIs, dashboard (not yet built) will consume them\n   - WebSocket broadcasts pipeline events for real-time updates\n\n3. Identify scope clarifications needed:\n   - Plugin is correctly scoped as an API provider, not a UI component\n   - Missing dashboard app (apps/dashboard) that was specified in PRD\n   - Consider if plugin needs authentication/authorization for production use\n\n4. Create documentation at packages/plugins/web/README.md:\n   - Purpose statement: HTTP/WebSocket bridge enabling web clients to interact with orchestrator\n   - API endpoint documentation with request/response formats\n   - WebSocket event types and payloads\n   - Integration guide for dashboard developers\n   - Configuration options (port, CORS settings)\n\n5. Recommend next steps:\n   - Plugin implementation matches intended design as API layer\n   - Dashboard app (apps/dashboard) needs to be created as separate Next.js app\n   - Consider adding OpenAPI/Swagger documentation for REST endpoints\n   - May need rate limiting and auth middleware for production",
         "testStrategy": "Verify review completeness:\n1. Check that README.md is created with clear purpose statement\n2. Confirm API documentation covers all endpoints with examples\n3. Validate that scope boundaries are explicitly documented\n4. Test that recommendations align with PRD architecture\n5. Ensure distinction between plugin (API) and dashboard (UI) is clear",
-        "status": "pending",
+        "status": "done",
         "dependencies": [14],
         "priority": "medium",
         "subtasks": []
@@ -418,7 +418,7 @@
         "description": "Redesign the context plugin's file reader to dynamically discover and read relevant files based on patterns and configurations instead of using a hardcoded static list",
         "details": "The context plugin currently uses a hardcoded `CONTEXT_FILES` array in `packages/plugins/context/src/_helpers/file-reader.ts` that only reads four specific markdown files (memory.md, world-state.md, thread-summaries.md, inbox.md). This implementation needs to be redesigned for flexibility and extensibility.\n\n**Current limitations:**\n- Static array `CONTEXT_FILES` hardcoded to only 4 specific filenames\n- No support for subdirectories within context/\n- Cannot read additional context files without code changes\n- No support for file patterns or glob matching\n- Cannot exclude certain files or directories\n\n**Implementation approach:**\n\n1. **Create file discovery module** (`_helpers/file-discovery.ts`):\n   - Implement `discoverContextFiles` function using Node's `readdirSync` with recursive option\n   - Support include/exclude patterns (e.g., `*.md`, `!*.draft.md`)\n   - Allow configuration of max depth for directory traversal\n   - Return discovered file paths relative to context directory\n\n2. **Create configuration types** (in `index.ts`):\n   ```typescript\n   export type FileDiscoveryConfig = {\n     includePatterns?: string[]; // Default: ['*.md']\n     excludePatterns?: string[]; // Default: ['*.draft.md', '.*']\n     maxDepth?: number; // Default: 3\n     followSymlinks?: boolean; // Default: false\n   };\n   ```\n\n3. **Refactor file-reader.ts**:\n   - Remove hardcoded `CONTEXT_FILES` constant\n   - Accept discovered files from file-discovery module\n   - Maintain backward compatibility by including default files if they exist\n   - Add file metadata (size, path, last modified) to ContextFile type\n   - Implement smart truncation for large files (e.g., only read first 10KB)\n\n4. **Update plugin options** (`ContextPluginOptions`):\n   ```typescript\n   export type ContextPluginOptions = {\n     contextDir?: string;\n     historyLimit?: number;\n     fileDiscovery?: FileDiscoveryConfig;\n     maxFileSize?: number; // bytes, default 50KB\n     priorityFiles?: string[]; // files to always include if present\n   };\n   ```\n\n5. **Implement pattern matching**:\n   - Use simple glob-like patterns without external dependencies\n   - Support `*` (match any characters), `**` (match any depth), `?` (single char)\n   - Implement using regex conversion of patterns\n\n6. **Add caching layer** (`_helpers/file-cache.ts`):\n   - Cache file contents with TTL (e.g., 5 seconds)\n   - Use file mtime to invalidate cache\n   - Reduce file system operations on frequent invocations\n\n7. **Enhance error handling**:\n   - Group errors by type (permissions, not found, too large)\n   - Provide helpful error messages for common issues\n   - Log warnings for skipped files (too large, binary, etc.)\n\n8. **Support for .contextignore file**:\n   - Check for .contextignore in context directory\n   - Parse gitignore-style patterns\n   - Apply exclusions during file discovery\n\n**File structure after refactoring:**\n```\npackages/plugins/context/src/\n├── index.ts (enhanced options)\n├── _helpers/\n│   ├── file-reader.ts (refactored)\n│   ├── file-discovery.ts (new)\n│   ├── file-cache.ts (new)\n│   ├── pattern-matcher.ts (new)\n│   └── history-loader.ts (unchanged)\n```",
         "testStrategy": "1. **Unit tests for file-discovery.ts**:\n   - Test pattern matching with various glob patterns\n   - Verify exclude patterns work correctly\n   - Test max depth limiting\n   - Verify symlink handling based on configuration\n   - Test with nested directory structures\n\n2. **Unit tests for pattern-matcher.ts**:\n   - Test glob-to-regex conversion\n   - Verify `*`, `**`, `?` wildcards work as expected\n   - Test complex patterns like `docs/**/*.md`\n   - Verify exclusion patterns (starting with `!`)\n\n3. **Integration tests for file-reader.ts**:\n   - Test reading discovered files instead of static list\n   - Verify large file truncation\n   - Test with various file encodings\n   - Ensure backward compatibility with default files\n\n4. **Cache tests**:\n   - Verify TTL expiration\n   - Test mtime-based invalidation  \n   - Measure performance improvement with caching\n\n5. **End-to-end plugin tests**:\n   - Create test context directory with various file types\n   - Verify only matching files are included in prompts\n   - Test .contextignore file parsing and application\n   - Verify memory usage stays reasonable with many files\n   - Test error recovery when some files are unreadable\n\n6. **Performance benchmarks**:\n   - Measure time to discover and read 100+ files\n   - Compare cached vs uncached performance\n   - Verify no memory leaks with repeated invocations",
-        "status": "pending",
+        "status": "done",
         "dependencies": [12],
         "priority": "medium",
         "subtasks": []
@@ -429,7 +429,7 @@
         "description": "Analyze the discord plugin's helper file decomposition to determine if the current granular structure adds value or should be consolidated for better maintainability",
         "details": "The discord plugin at packages/plugins/discord/ currently has multiple fine-grained helper files that may represent over-engineering:\n\n**Current structure to review:**\n- `_helpers/channel-resolver.ts` - Maps Discord channels to sourceIds\n- `_helpers/message-adapter.ts` - Converts Discord messages to pipeline format\n- Potentially other helper files following similar patterns\n\n**Analysis approach:**\n1. **Measure actual complexity:** Review each helper file to determine lines of code, number of functions, and cyclomatic complexity\n2. **Evaluate separation of concerns:** Assess whether the current separation provides clear boundaries or creates artificial divisions\n3. **Check reusability:** Determine if helpers are used by multiple consumers or only by the main plugin\n4. **Compare with other plugins:** Look at context plugin (Task 12) and web plugin (Task 14) helper structures for consistency\n\n**Consolidation criteria:**\n- If helpers are < 50 LOC and single-purpose, consider merging\n- If helpers have high cohesion (operate on same data types), combine them\n- If helpers are only used once, inline them or merge with parent\n\n**Potential refactoring outcomes:**\n1. **Keep current structure:** If each helper has sufficient complexity and clear responsibility\n2. **Partial consolidation:** Merge highly-related helpers (e.g., all Discord-specific adapters)\n3. **Full consolidation:** Move all helper logic into main index.ts if total complexity is low\n\n**Documentation requirements:**\n- Document the decision rationale in a code comment\n- Update any existing plugin documentation to reflect new structure\n- Ensure consistency with project's module organization principles (co-location, isolation, orchestration)",
         "testStrategy": "1. **Pre-refactoring verification:**\n   - Run existing discord plugin tests to establish baseline\n   - Verify current functionality with `pnpm test --filter @harness/plugin-discord`\n   - Check test coverage to ensure no functionality is lost\n\n2. **Static analysis:**\n   - Use complexity analysis tools to measure each helper's metrics\n   - Count imports/exports to understand coupling\n   - Review git history to understand evolution of structure\n\n3. **Post-refactoring validation:**\n   - All existing tests must pass without modification\n   - Type checking must pass: `pnpm typecheck`\n   - Linting must pass: `pnpm lint`\n   - No regression in functionality when integrated with orchestrator\n\n4. **Integration testing:**\n   - Test Discord message flow end-to-end if refactored\n   - Verify channel resolution still works correctly\n   - Ensure message adaptation maintains same format\n\n5. **Code review checklist:**\n   - Confirm refactoring follows project's arrow function conventions\n   - Verify no barrel files are created\n   - Check that any new structure maintains `_helpers/` convention if kept\n   - Ensure consistency with other plugin structures",
-        "status": "pending",
+        "status": "done",
         "dependencies": [13],
         "priority": "medium",
         "subtasks": []
@@ -440,7 +440,7 @@
         "description": "Create a comprehensive plugin management system that allows users to enable/disable plugins, with automatic metadata discovery and configuration persistence in the database",
         "details": "Create a new PluginConfig model in packages/database/prisma/schema.prisma with fields: id (cuid), pluginName (unique string), enabled (boolean default true), metadata (Json for frontmatter), settings (Json for user configuration), createdAt, updatedAt. Add database migration. Create packages/plugin-contract/src/metadata.ts defining PluginMetadata type with required fields: name, version, description, author, requirements (optional dependencies/env vars), capabilities (hooks it registers), configSchema (JSON schema for settings). Update PluginDefinition in packages/plugin-contract/src/index.ts to include metadata: PluginMetadata field. Create apps/orchestrator/src/plugin-loader/_helpers/metadata-extractor.ts implementing extractMetadata function that reads plugin source files looking for frontmatter-style metadata comments (/* --- metadata --- */) or exported metadata object, parsing YAML/JSON metadata, validating against PluginMetadata schema. Update apps/orchestrator/src/plugin-loader/_helpers/validate-plugin.ts to validate metadata field is present and conforms to schema. Create apps/orchestrator/src/plugin-registry/_helpers/config-manager.ts with functions: loadPluginConfigs (reads from database), isPluginEnabled (checks enabled status), updatePluginConfig (persists changes), syncPluginRegistry (ensures all discovered plugins have config records). Update apps/orchestrator/src/plugin-registry/index.ts to filter plugins based on enabled status before returning, calling config-manager to check each plugin. Modify apps/orchestrator/src/orchestrator/index.ts registerPlugin method to skip registration if plugin is disabled, logging 'Plugin {name} is disabled, skipping registration'. Update each plugin in packages/plugins/*/src/index.ts to export metadata object with proper frontmatter. Create apps/orchestrator/src/plugins/admin/index.ts implementing admin commands: /plugins list (shows all with enabled status), /plugin enable {name}, /plugin disable {name}, /plugin config {name} {settings}. In web dashboard at apps/web/src/app/plugins/page.tsx, create server component that fetches plugin configs from database, displays table with name, description, enabled toggle, settings button, uses Server Actions for enable/disable operations. Update apps/orchestrator/src/index.ts bootstrap to call syncPluginRegistry before loading plugins, ensuring all plugins have database records. Add to PRD at .taskmaster/docs/prd.md under Design Concerns section about plugin lifecycle and configuration management.",
         "testStrategy": "Test metadata extraction with various formats (YAML frontmatter, JSON export, missing metadata). Verify plugin validation rejects plugins without metadata. Test config-manager correctly persists and retrieves enabled states. Ensure disabled plugins are not registered in orchestrator. Test plugin-registry filters based on enabled status. Verify admin commands correctly enable/disable plugins and changes persist. Test web dashboard displays correct plugin states and toggle operations work. Ensure syncPluginRegistry creates config records for new plugins. Test that plugin settings are properly validated against configSchema. Verify bootstrap process respects enabled/disabled states on startup.",
-        "status": "pending",
+        "status": "done",
         "dependencies": [3, 4, 20],
         "priority": "medium",
         "subtasks": []
@@ -451,7 +451,7 @@
         "description": "Move the shadcn/ui button component from apps/web/src/components/ui/ to packages/ui/ for reuse across apps, updating imports and documentation to reflect the new architecture.",
         "details": "Currently, the button.tsx component lives in apps/web/src/components/ui/ but needs to be moved to the shared packages/ui/ package for cross-app reusability.\n\n**Implementation steps:**\n\n1. **Create UI components structure in packages/ui:**\n   - Create directory packages/ui/src/components/\n   - Move button.tsx from apps/web/src/components/ui/button.tsx to packages/ui/src/components/button.tsx\n   - Update the import in button.tsx from '@/lib/utils' to '../index' (using the cn utility already exported from packages/ui)\n\n2. **Update packages/ui/src/index.ts exports:**\n   ```typescript\n   // Existing utilities\n   export { cn, type ClassValue } from './utils';\n   \n   // Export components\n   export { Button, buttonVariants, type ButtonProps } from './components/button';\n   ```\n\n3. **Update apps/web to import from ui package:**\n   - Change apps/web/src/app/page.tsx line 1 from:\n     `import { Button } from \"@/components/ui/button\";`\n     to:\n     `import { Button } from \"ui\";`\n   - Remove the now-empty apps/web/src/components/ui/ directory\n\n4. **Remove duplicate dependencies from apps/web/package.json:**\n   Since packages/ui already has these dependencies, remove from apps/web:\n   - @radix-ui/react-slot (line 15)\n   - class-variance-authority (line 16)\n   - clsx (line 17) \n   - lucide-react (line 19)\n   - tailwind-merge (line 23)\n   \n   Keep only the ui package dependency (line 25).\n\n5. **Update components.json configuration:**\n   Change the ui alias from \"@/components/ui\" to direct imports from \"ui\" package:\n   ```json\n   \"aliases\": {\n     \"components\": \"@/components\",\n     \"utils\": \"@/lib/utils\",\n     \"ui\": \"ui\",  // Update to reference the package directly\n     \"lib\": \"@/lib\",\n     \"hooks\": \"@/hooks\"\n   }\n   ```\n\n6. **Update CLAUDE.md documentation (line 67):**\n   Change from:\n   \"shadcn/ui components live in `apps/web/src/components/ui/` (app-local, not in shared package yet)\"\n   to:\n   \"shadcn/ui components live in `packages/ui/src/components/` (shared package for cross-app reuse)\"\n\n**File structure after migration:**\n```\npackages/ui/\n├── src/\n│   ├── components/\n│   │   └── button.tsx\n│   ├── index.ts (exports cn utility + Button component)\n│   └── __tests__/\n│       ├── utils.test.ts (existing)\n│       └── components/\n│           └── button.test.tsx (new tests for Button)\n```\n\n**Benefits:**\n- Components can be reused across all apps (web, future dashboard from Task 25)\n- Single source of truth for UI components\n- Reduced duplication of dependencies\n- Cleaner separation of concerns\n- Aligns with monorepo best practices",
         "testStrategy": "1. **Build verification:**\n   - Run `pnpm build` to ensure all packages compile successfully\n   - Verify no TypeScript errors with `pnpm typecheck`\n   - Ensure Biome passes with `pnpm lint`\n\n2. **Import resolution tests:**\n   - Verify apps/web/src/app/page.tsx imports Button from 'ui' package correctly\n   - Run `pnpm --filter web dev` and verify the Button components render on the homepage\n   - Check that both default and outline variant buttons display correctly\n\n3. **Package isolation:**\n   - Run `pnpm --filter ui build` to verify the UI package builds independently\n   - Create a simple test in packages/ui/src/components/__tests__/button.test.tsx:\n     ```typescript\n     import { render, screen } from '@testing-library/react';\n     import { Button } from '../button';\n     \n     describe('Button', () => {\n       it('renders with text', () => {\n         render(<Button>Click me</Button>);\n         expect(screen.getByRole('button')).toHaveTextContent('Click me');\n       });\n     });\n     ```\n   - Run `pnpm --filter ui test` to verify component tests pass\n\n4. **Dependency verification:**\n   - Check apps/web no longer has duplicate UI library dependencies\n   - Verify packages/ui has all required dependencies for components\n   - Run `pnpm sherif` to validate no dependency conflicts\n\n5. **Documentation accuracy:**\n   - Grep for any remaining references to '@/components/ui' that need updating\n   - Verify CLAUDE.md accurately describes the new component location\n\n6. **Coverage gate:**\n   - Run `pnpm test:coverage-gate` to ensure no barrel files were created\n   - Verify coverage remains above 80% threshold",
-        "status": "pending",
+        "status": "done",
         "dependencies": [],
         "priority": "medium",
         "subtasks": []
@@ -537,15 +537,26 @@
         "description": "Replace the hardcoded static plugin imports in apps/orchestrator/src/plugin-registry/index.ts with a dynamic discovery and loading system that can detect plugins at runtime based on configuration, workspace packages, or a manifest file, decoupling the orchestrator from compile-time plugin dependencies",
         "details": "The current plugin registry at apps/orchestrator/src/plugin-registry/index.ts hardcodes imports for all plugins (context, discord, web, delegation), creating tight coupling and build-time dependencies. This implementation needs to be replaced with a dynamic registry system.\n\n**Current limitations:**\n- Static imports in plugin-registry/index.ts require recompilation when adding/removing plugins\n- Orchestrator package.json must declare all plugins as dependencies\n- No way to conditionally load plugins based on configuration\n- Cannot discover new plugins without modifying orchestrator code\n- Incompatible with the plugin enable/disable system from task 37\n\n**Implementation approach:**\n\n1. **Create plugin manifest system** (apps/orchestrator/src/plugin-registry/_helpers/manifest-loader.ts):\n   - Support JSON manifest file at project root (harness-plugins.json) with plugin metadata\n   - Manifest schema: `{ plugins: [{ name: string, package: string, enabled: boolean, config?: object }] }`\n   - Fallback to auto-discovery if no manifest exists\n   - Validate manifest against available workspace packages\n\n2. **Implement workspace package discovery** (apps/orchestrator/src/plugin-registry/_helpers/workspace-discovery.ts):\n   - Parse pnpm-workspace.yaml to find plugin packages under packages/plugins/*\n   - Read each plugin's package.json to extract name and version\n   - Check for 'harness-plugin' field in package.json as plugin marker\n   - Return array of discovered plugin package names\n\n3. **Build dynamic loader** (apps/orchestrator/src/plugin-registry/_helpers/dynamic-loader.ts):\n   - Use dynamic import() to load plugin modules at runtime\n   - Handle ESM/CJS module format differences\n   - Extract default export or named 'plugin' export\n   - Validate exported PluginDefinition matches contract\n   - Cache loaded modules to avoid re-importing\n\n4. **Create configuration-based registry** (apps/orchestrator/src/plugin-registry/_helpers/config-resolver.ts):\n   - Read plugin configuration from environment variables (ENABLED_PLUGINS, DISABLED_PLUGINS)\n   - Support glob patterns for plugin names (e.g., '@harness/plugin-*')\n   - Merge with manifest configuration if present\n   - Return final list of plugins to load with their configs\n\n5. **Update main registry** (apps/orchestrator/src/plugin-registry/index.ts):\n   - Replace static imports with async getPlugins() that returns Promise<PluginDefinition[]>\n   - Orchestrate manifest loading, workspace discovery, config resolution\n   - Load enabled plugins dynamically using dynamic-loader\n   - Handle errors gracefully, log which plugins loaded/failed\n   - Maintain backwards compatibility by checking for legacy static imports\n\n6. **Integrate with enable/disable system** (relates to task 37):\n   - Store plugin enabled state in database PluginState table\n   - Override manifest/config with database state if present\n   - Expose API to toggle plugin state at runtime\n   - Reload affected plugins when state changes\n\n7. **Update orchestrator bootstrap** (apps/orchestrator/src/index.ts):\n   - Make plugin loading async: `const rawPlugins = await getPlugins();`\n   - Handle dynamic loading errors during boot\n   - Log discovered vs loaded plugin counts\n\n8. **Remove static dependencies** (apps/orchestrator/package.json):\n   - After implementation, remove hardcoded plugin dependencies\n   - Keep only @harness/plugin-contract as required dependency\n   - Update build process to exclude plugin packages from bundle\n\n**Configuration examples:**\n\nManifest file (harness-plugins.json):\n```json\n{\n  \"plugins\": [\n    { \"name\": \"context\", \"package\": \"@harness/plugin-context\", \"enabled\": true },\n    { \"name\": \"discord\", \"package\": \"@harness/plugin-discord\", \"enabled\": false },\n    { \"name\": \"custom\", \"package\": \"./plugins/custom\", \"enabled\": true }\n  ]\n}\n```\n\nEnvironment variables:\n```bash\nENABLED_PLUGINS=context,web,delegation\nDISABLED_PLUGINS=discord\n```\n\n**Error handling:**\n- Plugin fails to load: Log error, continue with other plugins\n- No plugins found: Log warning, orchestrator runs without plugins\n- Invalid manifest: Fall back to auto-discovery\n- Module not found: Skip plugin, log as not installed",
         "testStrategy": "1. **Unit tests for manifest-loader.ts**:\n   - Test parsing valid manifest with multiple plugins\n   - Verify handling of missing manifest file (returns null)\n   - Test validation of manifest schema\n   - Ensure invalid JSON throws appropriate error\n   - Test merge behavior with duplicate plugin entries\n\n2. **Unit tests for workspace-discovery.ts**:\n   - Mock fs to simulate pnpm-workspace.yaml and package.json files\n   - Test discovery of plugins in packages/plugins/* pattern\n   - Verify filtering by 'harness-plugin' field in package.json\n   - Test handling of missing directories or invalid package.json\n   - Ensure non-plugin packages are excluded\n\n3. **Unit tests for dynamic-loader.ts**:\n   - Mock dynamic import() to test module loading\n   - Test extraction of default export vs named export\n   - Verify PluginDefinition validation\n   - Test error handling for missing modules\n   - Verify module caching prevents duplicate imports\n\n4. **Unit tests for config-resolver.ts**:\n   - Test parsing ENABLED_PLUGINS and DISABLED_PLUGINS env vars\n   - Verify glob pattern matching for plugin names\n   - Test precedence: database > env > manifest > discovery\n   - Ensure disabled plugins are filtered out\n   - Test empty/missing configuration handling\n\n5. **Integration tests for updated registry**:\n   - Create test plugins with valid and invalid exports\n   - Test full flow: discovery → config → loading → validation\n   - Verify async getPlugins() returns correct plugins\n   - Test error recovery when some plugins fail to load\n   - Ensure backwards compatibility with static imports\n\n6. **E2E tests for orchestrator bootstrap**:\n   - Start orchestrator with various plugin configurations\n   - Verify only enabled plugins are loaded and started\n   - Test hot-reload behavior when config changes\n   - Ensure graceful degradation with no plugins\n   - Test plugin lifecycle (register, start, stop) with dynamic loading\n\n7. **Performance tests**:\n   - Measure boot time with dynamic vs static loading\n   - Test memory usage with plugin caching\n   - Verify no memory leaks on plugin reload\n   - Benchmark discovery time with many plugins",
-        "status": "pending",
+        "status": "done",
         "dependencies": [4, 37],
         "priority": "medium",
+        "subtasks": []
+      },
+      {
+        "id": 41,
+        "title": "Replace env-var plugin enable/disable with database-driven approach",
+        "description": "Replace the environment variable-based plugin enable/disable system with a database-driven approach using a new PluginConfig Prisma model to persist plugin state",
+        "details": "This task replaces the current environment variable-based plugin configuration (DISABLED_PLUGINS env var and disabledPlugins array in apps/orchestrator/src/config.ts) with a database-driven approach. The implementation requires:\n\n**1. Database Schema Changes:**\n- Add PluginConfig model to packages/database/prisma/schema.prisma with fields:\n  - id: String @id @default(cuid())\n  - pluginName: String @unique\n  - enabled: Boolean @default(true)\n  - metadata: Json? (optional, for future plugin metadata)\n  - settings: Json? (optional, for user-configurable settings)\n  - createdAt: DateTime @default(now())\n  - updatedAt: DateTime @updatedAt\n  - Add index on pluginName for query performance\n- Generate migration with `pnpm --filter database db:migrate`\n- Regenerate Prisma client with `pnpm db:generate`\n\n**2. Remove Environment Variable Configuration:**\n- Remove `disabledPlugins` field from OrchestratorConfig type in packages/plugin-contract/src/index.ts:26\n- Remove `disabledPlugins: parseDisabledPlugins(process.env.DISABLED_PLUGINS)` from apps/orchestrator/src/config.ts:53\n- Remove the `parseDisabledPlugins` function (lines 29-38) from apps/orchestrator/src/config.ts\n- Remove DISABLED_PLUGINS from any .env.example files\n\n**3. Replace filter-disabled-plugins.ts:**\n- Rewrite apps/orchestrator/src/plugin-registry/_helpers/filter-disabled-plugins.ts to:\n  - Accept PrismaClient instead of config\n  - Query PluginConfig table: `await db.pluginConfig.findMany({ where: { enabled: false } })`\n  - Filter plugins based on database records instead of config array\n  - Keep the same logging behavior for disabled plugins\n  - Handle case where plugin in database doesn't exist in registry (warn and continue)\n\n**4. Add syncPluginConfigs Startup Function:**\n- Create apps/orchestrator/src/plugin-registry/_helpers/sync-plugin-configs.ts\n- Implement `syncPluginConfigs(plugins: PluginDefinition[], db: PrismaClient, logger: Logger)` that:\n  - Gets all known plugin names from the registry\n  - Upserts PluginConfig records for each plugin (create if missing, preserve existing enabled state)\n  - Logs which plugins are being added to database for first time\n  - Removes stale PluginConfig records for plugins no longer in registry\n  - Returns the synchronized plugin list\n\n**5. Update Plugin Registry:**\n- Modify apps/orchestrator/src/plugin-registry/index.ts getPlugins function to:\n  - Accept PrismaClient instead of config\n  - Call syncPluginConfigs before filterDisabledPlugins\n  - Pass db to filterDisabledPlugins instead of config\n\n**6. Update Bootstrap:**\n- Modify apps/orchestrator/src/index.ts to pass prisma to getPlugins instead of config (line 41)\n- Remove disabledPlugins from logger output at line 116\n\n**7. Update Tests:**\n- Rewrite filter-disabled-plugins.test.ts to:\n  - Mock PrismaClient.pluginConfig.findMany instead of config\n  - Test database query scenarios\n  - Test filtering based on database records\n- Add new test file sync-plugin-configs.test.ts to test:\n  - Initial sync creates all plugin records\n  - Subsequent sync preserves enabled states\n  - Stale plugins are removed\n  - Database errors are handled gracefully\n- Update plugin-registry/index.test.ts for new signature\n\n**8. Migration Strategy:**\n- On first boot after deployment, syncPluginConfigs will create PluginConfig records for all plugins (enabled by default)\n- Admin users can then disable plugins via database updates or future admin UI\n- Database becomes single source of truth for plugin state",
+        "testStrategy": "1. **Database Migration Verification:**\n   - Run `pnpm --filter database db:migrate` to create migration\n   - Verify migration creates PluginConfig table with correct schema\n   - Run `pnpm db:generate` and verify Prisma client includes new model\n   - Test database operations with `pnpm db:studio`\n\n2. **Unit Test Suite:**\n   - Run updated filter-disabled-plugins.test.ts:\n     - Mock db.pluginConfig.findMany to return disabled plugins\n     - Verify correct plugins are filtered\n     - Test warning for unknown plugins in database\n   - Run new sync-plugin-configs.test.ts:\n     - Test initial sync creates all records\n     - Test re-sync preserves enabled states\n     - Test removal of stale plugin configs\n     - Test error handling for database failures\n\n3. **Integration Testing:**\n   - Start orchestrator with clean database\n   - Verify all plugins are created in PluginConfig table\n   - Manually disable a plugin in database (UPDATE PluginConfig SET enabled = false WHERE pluginName = 'discord')\n   - Restart orchestrator and verify plugin is not loaded\n   - Check logs for \"Plugin disabled by config: discord\" message\n\n4. **Regression Testing:**\n   - Verify DISABLED_PLUGINS env var no longer affects plugin loading\n   - Test that missing PluginConfig records default to enabled\n   - Ensure plugin lifecycle (register, start, stop) still works correctly\n   - Run full test suite: `pnpm test`\n\n5. **Performance Testing:**\n   - Verify database queries are optimized (check EXPLAIN output)\n   - Test startup time with many plugin configs\n   - Monitor memory usage during sync operation",
+        "status": "done",
+        "dependencies": [37, 20, 3],
+        "priority": "high",
         "subtasks": []
       }
     ],
     "metadata": {
       "created": "2026-02-23T03:29:17.848Z",
-      "updated": "2026-02-23T19:03:45.838Z",
+      "updated": "2026-02-23T22:00:13.373Z",
       "description": "Tasks for master context"
     }
   }
