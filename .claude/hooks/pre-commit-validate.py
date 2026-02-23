@@ -39,6 +39,7 @@ checks = [
     ("typecheck", ["pnpm", "typecheck"]),
     ("lint", ["pnpm", "lint"]),
     ("build", ["pnpm", "build"]),
+    ("coverage-gate", ["pnpm", "test:coverage-gate"]),
 ]
 
 failed = []

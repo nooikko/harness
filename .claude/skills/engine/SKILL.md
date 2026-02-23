@@ -73,6 +73,7 @@ You are implementing a task for the Harness project.
 
 - Read CLAUDE.md at the project root for all coding conventions
 - Read .taskmaster/docs/prd.md for architecture and design decisions
+- Read .claude/skills/pre-flight/SKILL.md and run every check before writing code
 - Read existing code in the modules you'll touch to match patterns
 - Hooks enforce conventions automatically — focus on the implementation
 - When done, commit your changes with message: "feat(task-{id}): {short description}"

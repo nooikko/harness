@@ -194,7 +194,8 @@ apps/
         index.ts                   → Spawn `claude -p`, manage timeout, capture output
         _helpers/
           tool-filter.ts           → Builds --allowedTools flags per invocation context
-      thread-router.ts             → Maps (source, sourceId) → Thread records
+      plugin-contract/             → Plugin API surface types (PluginContext, PluginHooks, PluginDefinition)
+        index.ts                   → Contract definitions all plugins code against
       plugin-loader/               → Plugin discovery and lifecycle
         index.ts                   → Discover, validate, register, start, stop
         _helpers/
@@ -271,7 +272,7 @@ The `PluginContext` is the API surface plugins use to interact with the core. It
 - **`sendToThread(threadId, content, role)`** — Write a message directly to any thread (used for cross-thread notifications). The delegation plugin uses this to notify the parent thread when a task completes. The message is persisted to Postgres and broadcast to connected clients.
 - **`onBeforeInvoke(hook)`** — Modify the assembled prompt before `claude -p` is called. Used by the context plugin to inject memory/world-state, or by any plugin that needs to add context.
 - **`onAfterInvoke(hook)`** — Process the raw agent response before it's parsed. Used for logging, metrics, or response transformation.
-- **`onCommand(type, handler)`** — Register a handler for a specific `[COMMAND]` type. The delegation plugin registers "delegate" and "re-delegate". The cron plugin registers "cron_create", "cron_update", etc. Any plugin can add new command types without touching the core.
+- **`onCommand(type, handler)`** — Register a handler for a specific `[COMMAND]` type parsed from agent output. The delegation plugin registers "delegate" and "re-delegate". The cron plugin registers "cron_create", "cron_update", etc. Any plugin can add new command types without touching the core. See **Two-Layer Command Model** below for the distinction between user-facing slash commands and agent-emitted `[COMMAND]` blocks.
 - **`onTaskCreate(handler)`** — Fires when a delegation task is created, before the sub-agent is invoked. The handler receives the Task record and can modify context (e.g., the worktree plugin sets the working directory). Handlers can return enriched context that's passed to the sub-agent.
 - **`onTaskComplete(handler)`** — Fires when a sub-agent reports work as done, BEFORE the task is marked as accepted. This is the validation gate. The handler can return `{ accepted: true }` to proceed or `{ accepted: false, feedback: "..." }` to re-delegate. Multiple handlers run in sequence — ALL must accept for the task to pass.
 - **`onTaskValidated(handler)`** — Fires after all `onTaskComplete` handlers accept. The task is now truly done. The worktree plugin merges the branch. The delegation plugin sends the cross-thread notification.
@@ -282,6 +283,26 @@ The `PluginContext` is the API surface plugins use to interact with the core. It
 - **`invoker`** — Access to the Claude CLI invoker for plugins that need to spawn sub-agents (delegation plugin).
 - **`config`** — Resolved configuration object.
 - **`logger`** — Scoped logger instance (prefixed with plugin name).
+
+### Two-Layer Command Model
+
+Commands operate at two distinct layers in the pipeline:
+
+**Layer 1: User-facing slash commands.** Users type `/delegate research X` or `/cron create ...` in Discord or the web chat. These are parsed by the input plugin (Discord, web) before entering the pipeline. Simple admin commands (cron CRUD, thread management) may be handled directly by the plugin without invoking Claude at all. The slash command format is for human ergonomics.
+
+**Layer 2: Agent-emitted `[COMMAND]` blocks.** When Claude responds to a pipeline invocation, it may include structured command blocks in its output:
+
+```
+Here's what I'll do.
+
+[COMMAND type="delegate" model="sonnet"]
+Research X thoroughly and write a report summarizing the findings.
+[/COMMAND]
+```
+
+The response parser (`response-parser.ts`) extracts these blocks after invocation. The command router dispatches each block to the handler registered via `onCommand(type, handler)`. This format supports structured parameters (type, model, etc.) and multi-line content naturally.
+
+**Key distinction:** Slash commands are user input parsed by plugins. `[COMMAND]` blocks are agent output parsed by the core pipeline. They are different parsers at different points in the flow. A user typing `/delegate` in Discord and the agent emitting `[COMMAND type="delegate"]` both end up dispatched to the delegation plugin's handler, but they enter through different paths.
 
 ### Plugin Lifecycle
 
@@ -363,7 +384,7 @@ A Node.js service (NOT Next.js) that runs as a long-lived process. The core is i
 - `src/config.ts` — Environment variables and defaults. Exported for plugins to consume.
 - `src/orchestrator/` — THE message pipeline. `index.ts` orchestrates the flow: receive → onBeforeInvoke hooks → invoke → onAfterInvoke hooks → parse → route commands → respond → broadcast. Exports the `PluginContext` interface. Internal `_helpers/` handle prompt assembly, response parsing, and command routing as separate concerns.
 - `src/invoker/` — Claude CLI subprocess management. `index.ts` spawns `claude -p <prompt> --model <model> --output-format text`. Internal `_helpers/` handle `--allowedTools` flag construction per invocation context. Handles timeout, stdout/stderr capture.
-- `src/thread-router.ts` — Maps `(source, sourceId)` pairs to Thread records in Postgres. Small enough to be a single file.
+- `src/plugin-contract/` — Defines the `PluginContext`, `PluginHooks`, and `PluginDefinition` types that all plugins code against. Isolated as its own concern — the contract is the API surface, separate from the pipeline that uses it.
 - `src/plugin-loader/` — Plugin discovery and lifecycle management. `index.ts` discovers plugin directories, validates exports against the contract, manages register → start → stop. Internal `_helpers/` handle export validation.
 
 **No `types.ts`.** The `PluginContext` interface is exported from `orchestrator/index.ts`. Prisma types come from `"database"`. Each plugin exports its own types from its own `index.ts`.
@@ -627,7 +648,6 @@ These are stored as CronJob records in Postgres, managed by the cron plugin:
 - Build the plugin loader (discovery, validation, lifecycle: register → start → stop)
 - Build the orchestrator message pipeline with ALL hook points (onBeforeInvoke, onAfterInvoke, onCommand, onBroadcast, onTaskCreate, onTaskComplete, onTaskValidated, onTaskFailed)
 - Build the invoker (Claude CLI subprocess wrapper with --allowedTools support)
-- Build the thread router (with multi-thread and cross-thread support)
 - Build the context plugin (reads context files, injects into prompt, loads conversation history)
 - Create context directory with starter files
 - Write agent CLAUDE.md

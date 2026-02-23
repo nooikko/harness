@@ -23,6 +23,11 @@ pnpm db:push                # Push schema to database (no migration)
 pnpm db:studio              # Open Prisma Studio GUI
 pnpm --filter database db:migrate  # Create migration files
 
+# Testing
+pnpm test                   # Run all tests (Vitest via Turbo)
+pnpm test:watch             # Run tests in watch mode
+pnpm test:coverage-gate     # Pre-commit coverage check + barrel detection
+
 # CI pipeline (what GitHub Actions runs)
 pnpm ci                     # sherif → typecheck → lint → build
 
@@ -53,7 +58,7 @@ packages/ui/            → Shared UI library (shadcn/ui components, cn utility)
 
 ### UI Package
 
-- Exports `cn()` utility (clsx + tailwind-merge) from `packages/ui/src/utils.ts`
+- Exports `cn()` utility (clsx + tailwind-merge) from `packages/ui/src/index.ts`
 - shadcn/ui components live in `apps/web/src/components/ui/` (app-local, not in shared package yet)
 - Uses Radix UI primitives, Class Variance Authority for variants, Lucide for icons
 
@@ -89,6 +94,7 @@ packages/ui/            → Shared UI library (shadcn/ui components, cn utility)
 Pre-commit (via Husky + lint-staged):
 - Biome check on staged `.js/.jsx/.ts/.tsx/.json/.css` files
 - Sherif dependency validation
+- Coverage gate (`pnpm test:coverage-gate`)
 
 Pre-push:
 - Full typecheck (`pnpm typecheck`)
@@ -96,10 +102,21 @@ Pre-push:
 
 The `--no-verify` flag is blocked by a Claude Code hook. Fix issues instead of bypassing hooks.
 
+### Coverage Gate
+
+Pre-commit runs `pnpm test:coverage-gate` which enforces:
+- **No barrel files** — files that only contain re-exports (`export * from`) are rejected
+- **80% line + branch coverage** — on staged `.ts/.tsx` files and their dependencies
+
+Excluded from coverage: `*.config.ts`, `*.setup.ts`, `*.d.ts`, `*.test.ts`, `*.spec.ts`, generated files.
+
+To run manually: `pnpm test:coverage-gate`
+To skip coverage and only check barrels: `pnpm test:coverage-gate --skip-coverage`
+
 ## Claude Code Hooks
 
 - **block-no-verify** (PreToolUse → Bash): Prevents `git --no-verify`
-- **pre-commit-validate** (PreToolUse → Bash): Blocks `git commit` until typecheck, lint, and build all pass (5min timeout)
+- **pre-commit-validate** (PreToolUse → Bash): Blocks `git commit` until typecheck, lint, build, and coverage-gate all pass (5min timeout)
 - **enforce-kebab-case** (PreToolUse → Write|Edit): Blocks non-kebab-case filenames
 - **biome-check** (PostToolUse → Write|Edit): Auto-runs `npx biome check --write` after file changes
 - **enforce-arrow-functions** (PostToolUse → Write|Edit): Warns when `function` keyword declarations are used in TS/JS files

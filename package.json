@@ -14,6 +14,9 @@
     "format": "biome format --write .",
     "check": "biome check --write .",
     "sherif": "sherif",
+    "test": "turbo test",
+    "test:watch": "turbo test:watch",
+    "test:coverage-gate": "python3 scripts/coverage-gate.py",
     "ci": "pnpm sherif && pnpm typecheck && pnpm lint && pnpm build",
     "db:generate": "turbo db:generate",
     "db:push": "turbo db:push",
@@ -22,11 +25,13 @@
   },
   "devDependencies": {
     "@biomejs/biome": "^2.4.4",
+    "@vitest/coverage-v8": "^4.0.18",
     "husky": "^9.1.7",
     "lint-staged": "^16.2.7",
     "sherif": "^1.10.0",
     "turbo": "^2.8.10",
-    "typescript": "^5.9.3"
+    "typescript": "^5.9.3",
+    "vitest": "^4.0.18"
   },
   "packageManager": "pnpm@10.26.2+sha512.0e308ff2005fc7410366f154f625f6631ab2b16b1d2e70238444dd6ae9d630a8482d92a451144debc492416896ed16f7b114a86ec68b8404b2443869e68ffda6",
   "engines": {
