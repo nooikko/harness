@@ -1,33 +1,24 @@
 {
-  "name": "orchestrator",
+  "name": "@harness/plugin-delegation",
   "version": "0.1.0",
   "private": true,
   "type": "module",
   "main": "./src/index.ts",
+  "types": "./src/index.ts",
   "scripts": {
-    "dev": "tsx watch src/index.ts",
-    "build": "tsc",
-    "start": "node dist/index.js",
     "lint": "biome check .",
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
     "test:watch": "vitest"
   },
   "dependencies": {
-    "@harness/logger": "workspace:*",
-    "@harness/plugin-context": "workspace:*",
     "@harness/plugin-contract": "workspace:*",
-    "@harness/plugin-delegation": "workspace:*",
-    "@harness/plugin-discord": "workspace:*",
-    "@harness/plugin-web": "workspace:*",
     "database": "workspace:*"
   },
   "devDependencies": {
     "@types/node": "^22.19.11",
     "@vitest/coverage-v8": "^4.0.18",
-    "tsx": "^4.19.4",
     "typescript": "^5.9.3",
-    "vite-tsconfig-paths": "^6.1.1",
     "vitest": "^4.0.18"
   }
 }

@@ -10,6 +10,7 @@ export default defineConfig({
       "packages/plugins/context",
       "packages/plugins/discord",
       "packages/plugins/web",
+      "packages/plugins/delegation",
     ],
     coverage: {
       provider: "v8",
