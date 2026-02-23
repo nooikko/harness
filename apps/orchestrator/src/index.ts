@@ -4,6 +4,7 @@ import { createLogger } from '@harness/logger';
 import type { PluginDefinition } from '@harness/plugin-contract';
 import { prisma } from 'database';
 import { loadConfig } from './config';
+import { createHealthCheck } from './health-check';
 import { createInvoker } from './invoker';
 import { createOrchestrator } from './orchestrator';
 import { createPluginLoader } from './plugin-loader';
@@ -63,6 +64,16 @@ export const boot: Boot = async () => {
   logger.info('Starting plugins');
   await orchestrator.start();
 
+  const healthPort = Number(process.env.HEALTH_PORT ?? '3002');
+  const healthCheck = createHealthCheck({
+    port: healthPort,
+    logger,
+    version: process.env.npm_package_version ?? '0.1.0',
+  });
+
+  logger.info('Starting health check server', { port: healthPort });
+  await healthCheck.start();
+
   const state: ShutdownState = { isShuttingDown: false };
 
   const shutdown = async (): Promise<void> => {
@@ -72,6 +83,16 @@ export const boot: Boot = async () => {
     state.isShuttingDown = true;
 
     logger.info('Graceful shutdown initiated');
+    healthCheck.setShuttingDown();
+
+    try {
+      logger.info('Stopping health check server');
+      await healthCheck.stop();
+    } catch (err) {
+      logger.error('Error stopping health check server', {
+        error: err instanceof Error ? err.message : String(err),
+      });
+    }
 
     try {
       logger.info('Stopping plugins');
