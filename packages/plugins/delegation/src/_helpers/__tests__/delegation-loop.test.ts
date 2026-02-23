@@ -17,6 +17,9 @@ type MockDb = {
   agentRun: {
     create: ReturnType<typeof vi.fn>;
   };
+  metric: {
+    createMany: ReturnType<typeof vi.fn>;
+  };
 };
 
 type CreateMockContext = (overrides?: { invokeResult?: Partial<InvokeResult> }) => {
@@ -38,7 +41,10 @@ const createMockContext: CreateMockContext = (overrides) => {
       create: vi.fn().mockResolvedValue({}),
     },
     agentRun: {
-      create: vi.fn().mockResolvedValue({}),
+      create: vi.fn().mockResolvedValue({ id: 'run-123' }),
+    },
+    metric: {
+      createMany: vi.fn().mockResolvedValue({ count: 4 }),
     },
   };
 

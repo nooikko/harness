@@ -13,7 +13,10 @@ const createMockContext: CreateMockContext = () =>
         create: vi.fn().mockResolvedValue({}),
       },
       agentRun: {
-        create: vi.fn().mockResolvedValue({}),
+        create: vi.fn().mockResolvedValue({ id: 'run-123' }),
+      },
+      metric: {
+        createMany: vi.fn().mockResolvedValue({ count: 4 }),
       },
     },
     invoker: {
@@ -135,14 +138,28 @@ describe('invokeSubAgent', () => {
     expect(result.exitCode).toBe(0);
   });
 
-  it('sets completedAt as a Date on the agent run', async () => {
+  it('records token usage metrics', async () => {
+    const ctx = createMockContext();
+
+    await invokeSubAgent(ctx, 'Do work', 'task-1', 'thread-1', undefined);
+
+    const metricCreateMany = (ctx.db as unknown as { metric: { createMany: ReturnType<typeof vi.fn> } }).metric.createMany;
+    expect(metricCreateMany).toHaveBeenCalledOnce();
+  });
+
+  it('includes input tokens and cost estimate in the agent run', async () => {
     const ctx = createMockContext();
 
     await invokeSubAgent(ctx, 'Do work', 'task-1', 'thread-1', undefined);
 
     const agentRunCreate = (ctx.db as unknown as { agentRun: { create: ReturnType<typeof vi.fn> } }).agentRun.create;
-    const createCall = agentRunCreate.mock.calls[0]?.[0] as { data: { completedAt: unknown } };
-    expect(createCall.data.completedAt).toBeInstanceOf(Date);
+    expect(agentRunCreate).toHaveBeenCalledWith({
+      data: expect.objectContaining({
+        inputTokens: expect.any(Number),
+        outputTokens: expect.any(Number),
+        costEstimate: expect.any(Number),
+      }),
+    });
   });
 
   it('handles undefined error by setting null', async () => {

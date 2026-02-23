@@ -12,6 +12,9 @@ const createMockContext: CreateMockContext = () =>
       agentRun: {
         create: vi.fn().mockResolvedValue({ id: 'run-abc-123' }),
       },
+      metric: {
+        createMany: vi.fn().mockResolvedValue({ count: 4 }),
+      },
     },
     config: {
       claudeModel: 'claude-sonnet-4-20250514',
@@ -36,6 +39,7 @@ describe('recordAgentRun', () => {
       taskId: 'task-1',
       threadId: 'thread-1',
       model: 'claude-opus-4-20250514',
+      prompt: 'Do the thing',
       invokeResult: createInvokeResult(),
     });
 
@@ -50,6 +54,7 @@ describe('recordAgentRun', () => {
       taskId: 'task-42',
       threadId: 'thread-1',
       model: undefined,
+      prompt: 'Do the thing',
       invokeResult: createInvokeResult(),
     });
 
@@ -68,6 +73,7 @@ describe('recordAgentRun', () => {
       taskId: 'task-1',
       threadId: 'thread-99',
       model: undefined,
+      prompt: 'Do the thing',
       invokeResult: createInvokeResult(),
     });
 
@@ -86,6 +92,7 @@ describe('recordAgentRun', () => {
       taskId: 'task-1',
       threadId: 'thread-1',
       model: 'claude-opus-4-20250514',
+      prompt: 'Do the thing',
       invokeResult: createInvokeResult(),
     });
 
@@ -104,6 +111,7 @@ describe('recordAgentRun', () => {
       taskId: 'task-1',
       threadId: 'thread-1',
       model: undefined,
+      prompt: 'Do the thing',
       invokeResult: createInvokeResult(),
     });
 
@@ -124,6 +132,7 @@ describe('recordAgentRun', () => {
       taskId: 'task-1',
       threadId: 'thread-1',
       model: undefined,
+      prompt: 'Do the thing',
       invokeResult: createInvokeResult({ output }),
     });
 
@@ -131,6 +140,46 @@ describe('recordAgentRun', () => {
     expect(agentRunCreate).toHaveBeenCalledWith({
       data: expect.objectContaining({
         outputTokens: 10,
+      }),
+    });
+  });
+
+  it('estimates input tokens from the prompt text', async () => {
+    const ctx = createMockContext();
+    // 20 characters / 4 chars per token = 5 tokens
+    const prompt = 'B'.repeat(20);
+
+    await recordAgentRun(ctx, {
+      taskId: 'task-1',
+      threadId: 'thread-1',
+      model: undefined,
+      prompt,
+      invokeResult: createInvokeResult(),
+    });
+
+    const agentRunCreate = (ctx.db as unknown as { agentRun: { create: ReturnType<typeof vi.fn> } }).agentRun.create;
+    expect(agentRunCreate).toHaveBeenCalledWith({
+      data: expect.objectContaining({
+        inputTokens: 5,
+      }),
+    });
+  });
+
+  it('includes costEstimate in the agent run record', async () => {
+    const ctx = createMockContext();
+
+    await recordAgentRun(ctx, {
+      taskId: 'task-1',
+      threadId: 'thread-1',
+      model: undefined,
+      prompt: 'Do the thing',
+      invokeResult: createInvokeResult(),
+    });
+
+    const agentRunCreate = (ctx.db as unknown as { agentRun: { create: ReturnType<typeof vi.fn> } }).agentRun.create;
+    expect(agentRunCreate).toHaveBeenCalledWith({
+      data: expect.objectContaining({
+        costEstimate: expect.any(Number),
       }),
     });
   });
@@ -144,6 +193,7 @@ describe('recordAgentRun', () => {
       taskId: 'task-1',
       threadId: 'thread-1',
       model: undefined,
+      prompt: 'Do the thing',
       invokeResult: createInvokeResult({ output }),
     });
 
@@ -162,6 +212,7 @@ describe('recordAgentRun', () => {
       taskId: 'task-1',
       threadId: 'thread-1',
       model: undefined,
+      prompt: 'Do the thing',
       invokeResult: createInvokeResult({ output: '' }),
     });
 
@@ -180,6 +231,7 @@ describe('recordAgentRun', () => {
       taskId: 'task-1',
       threadId: 'thread-1',
       model: undefined,
+      prompt: 'Do the thing',
       invokeResult: createInvokeResult({ durationMs: 5000 }),
     });
 
@@ -198,6 +250,7 @@ describe('recordAgentRun', () => {
       taskId: 'task-1',
       threadId: 'thread-1',
       model: undefined,
+      prompt: 'Do the thing',
       invokeResult: createInvokeResult({ exitCode: 0 }),
     });
 
@@ -216,6 +269,7 @@ describe('recordAgentRun', () => {
       taskId: 'task-1',
       threadId: 'thread-1',
       model: undefined,
+      prompt: 'Do the thing',
       invokeResult: createInvokeResult({ exitCode: 1, error: 'Process crashed' }),
     });
 
@@ -235,6 +289,7 @@ describe('recordAgentRun', () => {
       taskId: 'task-1',
       threadId: 'thread-1',
       model: undefined,
+      prompt: 'Do the thing',
       invokeResult: createInvokeResult({ error: undefined }),
     });
 
@@ -253,6 +308,7 @@ describe('recordAgentRun', () => {
       taskId: 'task-1',
       threadId: 'thread-1',
       model: undefined,
+      prompt: 'Do the thing',
       invokeResult: createInvokeResult(),
     });
 
@@ -270,9 +326,49 @@ describe('recordAgentRun', () => {
       taskId: 'task-1',
       threadId: 'thread-1',
       model: undefined,
+      prompt: 'Do the thing',
       invokeResult: createInvokeResult(),
     });
 
     expect(result.agentRunId).toBe('run-abc-123');
+  });
+
+  it('returns token counts and cost estimate', async () => {
+    const ctx = createMockContext();
+
+    const result = await recordAgentRun(ctx, {
+      taskId: 'task-1',
+      threadId: 'thread-1',
+      model: undefined,
+      prompt: 'A'.repeat(40), // 10 tokens
+      invokeResult: createInvokeResult({ output: 'B'.repeat(20) }), // 5 tokens
+    });
+
+    expect(result.inputTokens).toBe(10);
+    expect(result.outputTokens).toBe(5);
+    expect(result.costEstimate).toBeGreaterThan(0);
+  });
+
+  it('records usage metrics for dashboard aggregation', async () => {
+    const ctx = createMockContext();
+
+    await recordAgentRun(ctx, {
+      taskId: 'task-1',
+      threadId: 'thread-1',
+      model: undefined,
+      prompt: 'Do the thing',
+      invokeResult: createInvokeResult(),
+    });
+
+    const metricCreateMany = (ctx.db as unknown as { metric: { createMany: ReturnType<typeof vi.fn> } }).metric.createMany;
+    expect(metricCreateMany).toHaveBeenCalledOnce();
+    const call = metricCreateMany.mock.calls[0]?.[0] as { data: Array<{ name: string }> };
+    expect(call.data).toHaveLength(4);
+
+    const names = call.data.map((m: { name: string }) => m.name);
+    expect(names).toContain('token.input');
+    expect(names).toContain('token.output');
+    expect(names).toContain('token.total');
+    expect(names).toContain('token.cost');
   });
 });
