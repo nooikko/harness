@@ -33,9 +33,14 @@ vi.mock('../orchestrator', () => ({
   createOrchestrator: vi.fn(),
 }));
 
+vi.mock('../health-check', () => ({
+  createHealthCheck: vi.fn(),
+}));
+
 import { createLogger } from '@harness/logger';
 import { prisma } from 'database';
 import { loadConfig } from '../config';
+import { createHealthCheck } from '../health-check';
 import { boot, main } from '../index';
 import { createInvoker } from '../invoker';
 import { createOrchestrator } from '../orchestrator';
@@ -45,6 +50,7 @@ import { getPlugins } from '../plugin-registry';
 const mockCreateLogger = vi.mocked(createLogger);
 const mockPrisma = vi.mocked(prisma);
 const mockLoadConfig = vi.mocked(loadConfig);
+const mockCreateHealthCheck = vi.mocked(createHealthCheck);
 const mockCreateInvoker = vi.mocked(createInvoker);
 const mockGetPlugins = vi.mocked(getPlugins);
 const mockCreatePluginLoader = vi.mocked(createPluginLoader);
@@ -124,6 +130,11 @@ const setupDefaults = (options?: {
     loadAll: vi.fn().mockReturnValue({ loaded: plugins, results: [] }),
   });
   mockCreateOrchestrator.mockReturnValue(orchestrator as ReturnType<typeof createOrchestrator>);
+  mockCreateHealthCheck.mockReturnValue({
+    start: vi.fn().mockResolvedValue(undefined),
+    stop: vi.fn().mockResolvedValue(undefined),
+    setShuttingDown: vi.fn(),
+  });
 
   return { logger, orchestrator, invoker };
 };
@@ -419,6 +430,7 @@ describe('boot', () => {
       await result.shutdown();
 
       expect(logger.info).toHaveBeenCalledWith('Graceful shutdown initiated');
+      expect(logger.info).toHaveBeenCalledWith('Stopping health check server');
       expect(logger.info).toHaveBeenCalledWith('Stopping plugins');
       expect(logger.info).toHaveBeenCalledWith('Disconnecting database');
       expect(logger.info).toHaveBeenCalledWith('Shutdown complete');
@@ -474,6 +486,41 @@ describe('boot', () => {
 
       expect(logger.error).toHaveBeenCalledWith('Error disconnecting database', {
         error: 'db string error',
+      });
+    });
+
+    it('continues shutdown even if health check stop throws', async () => {
+      const { logger, orchestrator } = setupDefaults();
+      mockCreateHealthCheck.mockReturnValue({
+        start: vi.fn().mockResolvedValue(undefined),
+        stop: vi.fn().mockRejectedValue(new Error('health stop failed')),
+        setShuttingDown: vi.fn(),
+      });
+
+      const result = await boot();
+      await result.shutdown();
+
+      expect(logger.error).toHaveBeenCalledWith('Error stopping health check server', {
+        error: 'health stop failed',
+      });
+      expect(orchestrator.stop).toHaveBeenCalledTimes(1);
+      expect(mockPrisma.$disconnect).toHaveBeenCalledTimes(1);
+      expect(logger.info).toHaveBeenCalledWith('Shutdown complete');
+    });
+
+    it('handles non-Error objects thrown during health check stop', async () => {
+      const { logger } = setupDefaults();
+      mockCreateHealthCheck.mockReturnValue({
+        start: vi.fn().mockResolvedValue(undefined),
+        stop: vi.fn().mockRejectedValue('health string error'),
+        setShuttingDown: vi.fn(),
+      });
+
+      const result = await boot();
+      await result.shutdown();
+
+      expect(logger.error).toHaveBeenCalledWith('Error stopping health check server', {
+        error: 'health string error',
       });
     });
   });
@@ -545,6 +592,7 @@ describe('boot', () => {
       expect(logCalls).toContain('Creating orchestrator');
       expect(logCalls).toContain('Registering plugins');
       expect(logCalls).toContain('Starting plugins');
+      expect(logCalls).toContain('Starting health check server');
       expect(logCalls).toContain('Orchestrator ready');
     });
   });
@@ -623,6 +671,11 @@ describe('main', () => {
       loadAll: vi.fn().mockReturnValue({ loaded: [], results: [] }),
     });
     mockCreateOrchestrator.mockReturnValue(orchestrator as ReturnType<typeof createOrchestrator>);
+    mockCreateHealthCheck.mockReturnValue({
+      start: vi.fn().mockResolvedValue(undefined),
+      stop: vi.fn().mockResolvedValue(undefined),
+      setShuttingDown: vi.fn(),
+    });
 
     await main();
 

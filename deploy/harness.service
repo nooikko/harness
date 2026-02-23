@@ -1,0 +1,51 @@
+# Harness Orchestrator — systemd service file
+# Install: sudo cp deploy/harness.service /etc/systemd/system/harness.service
+# Enable:  sudo systemctl enable harness
+# Start:   sudo systemctl start harness
+# Status:  sudo systemctl status harness
+# Logs:    journalctl -u harness -f
+
+[Unit]
+Description=Harness Claude Orchestrator (pm2)
+Documentation=https://github.com/your-org/harness
+After=network.target postgresql.service
+Wants=postgresql.service
+
+[Service]
+Type=forking
+User=harness
+Group=harness
+WorkingDirectory=/opt/harness
+Environment=NODE_ENV=production
+Environment=PM2_HOME=/opt/harness/.pm2
+EnvironmentFile=-/opt/harness/.env
+
+# Start pm2 with the ecosystem config
+ExecStart=/usr/bin/pm2 start /opt/harness/ecosystem.config.cjs --env production
+ExecReload=/usr/bin/pm2 reload ecosystem.config.cjs --env production
+ExecStop=/usr/bin/pm2 stop ecosystem.config.cjs
+
+# Graceful shutdown — give pm2 time to stop processes
+TimeoutStopSec=30
+KillMode=mixed
+KillSignal=SIGTERM
+
+# Restart policy
+Restart=on-failure
+RestartSec=10
+StartLimitInterval=300
+StartLimitBurst=5
+
+# Security hardening
+NoNewPrivileges=true
+ProtectSystem=strict
+ProtectHome=true
+ReadWritePaths=/opt/harness/logs /opt/harness/.pm2
+PrivateTmp=true
+
+# Resource limits
+LimitNOFILE=65536
+MemoryMax=2G
+
+[Install]
+WantedBy=multi-user.target
