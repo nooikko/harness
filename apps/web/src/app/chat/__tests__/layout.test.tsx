@@ -1,17 +1,5 @@
-import { renderToStaticMarkup } from 'react-dom/server';
-import { describe, expect, it, vi } from 'vitest';
-
-vi.mock('database', () => ({
-  prisma: {
-    thread: {
-      findMany: () => Promise.resolve([]),
-    },
-  },
-}));
-
-vi.mock('next/navigation', () => ({
-  usePathname: () => '/chat',
-}));
+import { render, screen } from '@testing-library/react';
+import { describe, expect, it } from 'vitest';
 
 const { default: ChatLayout, metadata } = await import('../layout');
 
@@ -24,25 +12,33 @@ describe('ChatLayout', () => {
     expect(metadata.description).toBe('Multi-thread chat interface for the Harness orchestrator');
   });
 
-  it('renders children within the layout structure', async () => {
-    const element = await ChatLayout({ children: <p>Test child</p> });
-    const html = renderToStaticMarkup(element as React.ReactElement);
-
-    expect(html).toContain('<p>Test child</p>');
+  it('renders children within the layout structure', () => {
+    render(
+      <ChatLayout>
+        <p>Test child</p>
+      </ChatLayout>,
+    );
+    expect(screen.getByText('Test child')).toBeInTheDocument();
   });
 
-  it('renders the thread sidebar', async () => {
-    const element = await ChatLayout({ children: <p>Content</p> });
-    const html = renderToStaticMarkup(element as React.ReactElement);
-
-    expect(html).toContain('Threads');
+  it('renders a main content area', () => {
+    render(
+      <ChatLayout>
+        <p>Main content</p>
+      </ChatLayout>,
+    );
+    const main = screen.getByRole('main');
+    expect(main).toBeInTheDocument();
+    expect(main).toHaveTextContent('Main content');
   });
 
-  it('renders a main content area', async () => {
-    const element = await ChatLayout({ children: <p>Main content</p> });
-    const html = renderToStaticMarkup(element as React.ReactElement);
-
-    expect(html).toContain('<main');
-    expect(html).toContain('Main content');
+  it('renders sidebar skeleton as Suspense fallback', () => {
+    const { container } = render(
+      <ChatLayout>
+        <p>Content</p>
+      </ChatLayout>,
+    );
+    const skeletons = container.querySelectorAll('[data-slot="skeleton"]');
+    expect(skeletons.length).toBeGreaterThan(0);
   });
 });

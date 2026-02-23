@@ -1,6 +1,6 @@
 import type { Metadata } from 'next';
-import { ThreadSidebar } from './_components/thread-sidebar';
-import { fetchThreads } from './_helpers/fetch-threads';
+import { Suspense } from 'react';
+import { ThreadSidebarSection, ThreadSidebarSkeleton } from './_components/thread-sidebar-section';
 
 export const metadata: Metadata = {
   title: 'Chat | Harness Dashboard',
@@ -11,18 +11,18 @@ type ChatLayoutProps = {
   children: React.ReactNode;
 };
 
-type ChatLayoutComponent = (props: ChatLayoutProps) => Promise<React.ReactNode>;
+type ChatLayoutComponent = (props: ChatLayoutProps) => React.ReactNode;
 
 /**
  * Chat layout: sidebar with thread list + main content area.
- * Server Component that fetches threads from Prisma.
+ * Sidebar streams in via Suspense; main content renders immediately.
  */
-const ChatLayout: ChatLayoutComponent = async ({ children }) => {
-  const threads = await fetchThreads();
-
+const ChatLayout: ChatLayoutComponent = ({ children }) => {
   return (
     <div className='flex h-screen'>
-      <ThreadSidebar threads={threads} />
+      <Suspense fallback={<ThreadSidebarSkeleton />}>
+        <ThreadSidebarSection />
+      </Suspense>
       <main className='flex flex-1 flex-col overflow-hidden'>{children}</main>
     </div>
   );
