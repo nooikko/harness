@@ -63,25 +63,27 @@ def is_barrel(content: str) -> bool:
     return has_export
 
 
-def get_staged_files() -> list[str]:
+def get_staged_files(project_dir: str) -> list[str]:
     """Get list of staged .ts/.tsx files."""
     result = subprocess.run(
         ["git", "diff", "--cached", "--name-only", "--diff-filter=ACMR", "--", "*.ts", "*.tsx"],
         capture_output=True,
         text=True,
+        cwd=project_dir,
     )
     if result.returncode != 0:
         return []
     return [f.strip() for f in result.stdout.strip().split("\n") if f.strip()]
 
 
-def check_barrels(staged_files: list[str]) -> list[str]:
+def check_barrels(staged_files: list[str], project_dir: str) -> list[str]:
     """Check staged files for barrel patterns. Returns list of barrel file paths."""
     barrels = []
     for filepath in staged_files:
-        if not os.path.isfile(filepath):
+        abs_path = os.path.join(project_dir, filepath)
+        if not os.path.isfile(abs_path):
             continue
-        with open(filepath, "r") as f:
+        with open(abs_path, "r") as f:
             content = f.read()
         if is_barrel(content):
             barrels.append(filepath)
@@ -103,35 +105,73 @@ def get_testable_files(staged_files: list[str]) -> list[str]:
     return [f for f in staged_files if f.endswith((".ts", ".tsx")) and not is_excluded(f)]
 
 
+MAX_RETRIES = 3  # Node.js ESM race condition is non-deterministic; retry on failure
+
+
 def run_coverage(testable_files: list[str], project_dir: str) -> dict | None:
-    """Run vitest with coverage on files related to the testable files."""
+    """Run vitest with coverage on files related to the testable files.
+
+    First attempts 'vitest related' to only run relevant tests.
+    Falls back to 'vitest --run --coverage' if 'related' mode fails.
+
+    Retries up to MAX_RETRIES times because Node.js ESM loading in
+    multi-project vitest workspaces has a non-deterministic race condition
+    with vite-tsconfig-paths that causes sporadic startup failures.
+    """
+    coverage_path = os.path.join(project_dir, "coverage", "coverage-final.json")
+
+    # Remove stale coverage data
+    if os.path.isfile(coverage_path):
+        os.remove(coverage_path)
+
+    # Try vitest related first (faster, only runs relevant tests)
     cmd = [
         "pnpm", "vitest", "related",
         *testable_files,
         "--run",
         "--coverage",
-        "--reporter=json",
         "--coverage.reporter=json",
     ]
 
-    result = subprocess.run(
+    subprocess.run(
         cmd,
-        capture_output=True,
-        text=True,
         timeout=300,
         cwd=project_dir,
     )
 
-    # Find coverage JSON file
-    coverage_path = os.path.join(project_dir, "coverage", "coverage-final.json")
-    if not os.path.isfile(coverage_path):
-        print(f"Warning: coverage file not found at {coverage_path}", file=sys.stderr)
-        print(f"vitest stdout: {result.stdout[:500]}", file=sys.stderr)
-        print(f"vitest stderr: {result.stderr[:500]}", file=sys.stderr)
-        return None
+    if os.path.isfile(coverage_path):
+        with open(coverage_path, "r") as f:
+            return json.load(f)
 
-    with open(coverage_path, "r") as f:
-        return json.load(f)
+    # Fallback: run full vitest with coverage, with retries for ESM race condition
+    fallback_cmd = [
+        "pnpm", "vitest",
+        "--run",
+        "--coverage",
+        "--coverage.reporter=json",
+    ]
+
+    for attempt in range(1, MAX_RETRIES + 1):
+        print(f"Running full test suite (attempt {attempt}/{MAX_RETRIES})...", file=sys.stderr)
+
+        if os.path.isfile(coverage_path):
+            os.remove(coverage_path)
+
+        subprocess.run(
+            fallback_cmd,
+            timeout=300,
+            cwd=project_dir,
+        )
+
+        if os.path.isfile(coverage_path):
+            with open(coverage_path, "r") as f:
+                return json.load(f)
+
+        if attempt < MAX_RETRIES:
+            print("ESM race condition detected, retrying...", file=sys.stderr)
+
+    print(f"Warning: coverage file not found after {MAX_RETRIES} attempts at {coverage_path}", file=sys.stderr)
+    return None
 
 
 def check_coverage(coverage_data: dict, testable_files: list[str], project_dir: str) -> list[dict]:
@@ -186,16 +226,20 @@ def check_coverage(coverage_data: dict, testable_files: list[str], project_dir: 
 def main() -> int:
     skip_coverage = "--skip-coverage" in sys.argv
     project_dir = os.environ.get("CLAUDE_PROJECT_DIR", os.getcwd())
-    os.chdir(project_dir)
+
+    # NOTE: We intentionally do NOT os.chdir(project_dir) here.
+    # Node.js ESM loading in multi-project vitest workspaces triggers race
+    # conditions when the Python process cwd matches the project root.
+    # Instead, we pass project_dir explicitly to functions that need it.
 
     # Get staged files
-    staged_files = get_staged_files()
+    staged_files = get_staged_files(project_dir)
     if not staged_files:
         print("No staged .ts/.tsx files found. Skipping coverage gate.")
         return 0
 
     # --- Check 1: Barrel detection ---
-    barrels = check_barrels(staged_files)
+    barrels = check_barrels(staged_files, project_dir)
     if barrels:
         print("Barrel file detected (re-export only):\n", file=sys.stderr)
         for b in barrels:

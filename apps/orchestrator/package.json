@@ -15,7 +15,8 @@
   },
   "dependencies": {
     "@harness/logger": "workspace:*",
-    "database": "workspace:*"
+    "database": "workspace:*",
+    "discord.js": "^14.25.1"
   },
   "devDependencies": {
     "@types/node": "^22.19.11",
