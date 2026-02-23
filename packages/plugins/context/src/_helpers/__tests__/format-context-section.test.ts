@@ -1,12 +1,19 @@
 import { describe, expect, it } from 'vitest';
+import type { ContextFile } from '../file-reader';
 import { formatContextSection } from '../format-context-section';
+
+type CreateContextFile = (overrides: Pick<ContextFile, 'name' | 'content'>) => ContextFile;
+
+const createContextFile: CreateContextFile = (overrides) => ({
+  size: overrides.content.length,
+  relativePath: overrides.name,
+  lastModified: new Date(),
+  ...overrides,
+});
 
 describe('formatContextSection', () => {
   it('formats multiple context files into markdown', () => {
-    const files = [
-      { name: 'memory.md', content: 'Memory data' },
-      { name: 'inbox.md', content: 'Inbox data' },
-    ];
+    const files = [createContextFile({ name: 'memory.md', content: 'Memory data' }), createContextFile({ name: 'inbox.md', content: 'Inbox data' })];
 
     const result = formatContextSection(files);
 
@@ -23,7 +30,7 @@ describe('formatContextSection', () => {
   });
 
   it('formats single file without separator', () => {
-    const files = [{ name: 'memory.md', content: 'Single file' }];
+    const files = [createContextFile({ name: 'memory.md', content: 'Single file' })];
 
     const result = formatContextSection(files);
 
