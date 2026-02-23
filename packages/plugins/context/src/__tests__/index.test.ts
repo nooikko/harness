@@ -1,4 +1,4 @@
-import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
+import { chmodSync, mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { resolve } from 'node:path';
 import type { PluginContext } from '@harness/plugin-contract';
@@ -191,21 +191,6 @@ describe('context plugin', () => {
     });
   });
 
-  it('logs debug when context files are missing', async () => {
-    const plugin = createContextPlugin({ contextDir: CONTEXT_DIR });
-    const ctx = createMockContext();
-    const hooks = await plugin.register(ctx);
-
-    await hooks.onBeforeInvoke?.('thread-1', 'prompt');
-
-    expect(ctx.logger.debug).toHaveBeenCalledWith(
-      'Some context files not found',
-      expect.objectContaining({
-        missing: expect.arrayContaining(['memory.md']),
-      }),
-    );
-  });
-
   it('passes correct threadId to database query', async () => {
     const findMany = vi.fn().mockResolvedValue([]);
 
@@ -250,7 +235,7 @@ describe('context plugin', () => {
     expect(result).toContain('test prompt');
   });
 
-  it('exports contextPlugin definition with correct structure', async () => {
+  it('exports contextPlugin definition with correct structure', () => {
     expect(contextPlugin.name).toBe('context');
     expect(contextPlugin.version).toBe('1.0.0');
     expect(typeof contextPlugin.register).toBe('function');
@@ -279,5 +264,108 @@ describe('context plugin', () => {
     const text = result ?? '';
     const dividerCount = (text.match(/\n\n---\n\n/g) ?? []).length;
     expect(dividerCount).toBeGreaterThanOrEqual(2);
+  });
+
+  it('discovers dynamically added context files', async () => {
+    writeFileSync(resolve(CONTEXT_DIR, 'memory.md'), 'Memory');
+    writeFileSync(resolve(CONTEXT_DIR, 'custom-notes.md'), 'Custom notes');
+
+    const plugin = createContextPlugin({ contextDir: CONTEXT_DIR });
+    const ctx = createMockContext();
+    const hooks = await plugin.register(ctx);
+
+    const result = await hooks.onBeforeInvoke?.('thread-1', 'prompt');
+
+    expect(result).toContain('Memory');
+    expect(result).toContain('Custom notes');
+  });
+
+  it('discovers context files in subdirectories', async () => {
+    mkdirSync(resolve(CONTEXT_DIR, 'projects'), { recursive: true });
+    writeFileSync(resolve(CONTEXT_DIR, 'projects', 'status.md'), 'Project status');
+
+    const plugin = createContextPlugin({ contextDir: CONTEXT_DIR });
+    const ctx = createMockContext();
+    const hooks = await plugin.register(ctx);
+
+    const result = await hooks.onBeforeInvoke?.('thread-1', 'prompt');
+
+    expect(result).toContain('Project status');
+  });
+
+  it('respects custom file discovery config', async () => {
+    writeFileSync(resolve(CONTEXT_DIR, 'notes.md'), 'Notes');
+    writeFileSync(resolve(CONTEXT_DIR, 'data.txt'), 'Data');
+
+    const plugin = createContextPlugin({
+      contextDir: CONTEXT_DIR,
+      fileDiscovery: { includePatterns: ['*.txt'] },
+    });
+    const ctx = createMockContext();
+    const hooks = await plugin.register(ctx);
+
+    const result = await hooks.onBeforeInvoke?.('thread-1', 'prompt');
+
+    expect(result).toContain('Data');
+    expect(result).not.toContain('Notes');
+  });
+
+  it('respects maxFileSize option', async () => {
+    const largeContent = 'x'.repeat(500);
+    writeFileSync(resolve(CONTEXT_DIR, 'large.md'), largeContent);
+
+    const plugin = createContextPlugin({
+      contextDir: CONTEXT_DIR,
+      maxFileSize: 100,
+    });
+    const ctx = createMockContext();
+    const hooks = await plugin.register(ctx);
+
+    const result = await hooks.onBeforeInvoke?.('thread-1', 'prompt');
+
+    expect(result).toContain('[... truncated at 100 bytes]');
+  });
+
+  it('logs debug when context files have read errors', async () => {
+    writeFileSync(resolve(CONTEXT_DIR, 'readable.md'), 'Readable');
+    writeFileSync(resolve(CONTEXT_DIR, 'unreadable.md'), 'Unreadable');
+    // Remove read permission to trigger error path
+    chmodSync(resolve(CONTEXT_DIR, 'unreadable.md'), 0o000);
+
+    const plugin = createContextPlugin({ contextDir: CONTEXT_DIR });
+    const ctx = createMockContext();
+    const hooks = await plugin.register(ctx);
+
+    await hooks.onBeforeInvoke?.('thread-1', 'prompt');
+
+    // Restore permissions for cleanup
+    chmodSync(resolve(CONTEXT_DIR, 'unreadable.md'), 0o644);
+
+    expect(ctx.logger.debug).toHaveBeenCalledWith(
+      'Some context files not found',
+      expect.objectContaining({
+        missing: expect.arrayContaining(['unreadable.md']),
+      }),
+    );
+  });
+
+  it('respects priorityFiles option', async () => {
+    writeFileSync(resolve(CONTEXT_DIR, 'alpha.md'), 'Alpha');
+    writeFileSync(resolve(CONTEXT_DIR, 'beta.md'), 'Beta');
+
+    const plugin = createContextPlugin({
+      contextDir: CONTEXT_DIR,
+      priorityFiles: ['beta.md'],
+    });
+    const ctx = createMockContext();
+    const hooks = await plugin.register(ctx);
+
+    const result = await hooks.onBeforeInvoke?.('thread-1', 'prompt');
+    const text = result ?? '';
+
+    // Beta should appear before Alpha due to priority
+    const betaIdx = text.indexOf('Beta');
+    const alphaIdx = text.indexOf('Alpha');
+    expect(betaIdx).toBeLessThan(alphaIdx);
   });
 });

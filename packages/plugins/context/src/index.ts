@@ -3,6 +3,9 @@
 
 import { resolve } from 'node:path';
 import type { PluginContext, PluginDefinition, PluginHooks } from '@harness/plugin-contract';
+import { createFileCache } from './_helpers/file-cache';
+import type { FileDiscoveryConfig } from './_helpers/file-discovery';
+import type { ReadContextFilesOptions } from './_helpers/file-reader';
 import { readContextFiles } from './_helpers/file-reader';
 import { formatContextSection } from './_helpers/format-context-section';
 import { formatHistorySection } from './_helpers/format-history-section';
@@ -11,6 +14,9 @@ import { loadHistory } from './_helpers/history-loader';
 export type ContextPluginOptions = {
   contextDir?: string;
   historyLimit?: number;
+  fileDiscovery?: Partial<FileDiscoveryConfig>;
+  maxFileSize?: number;
+  priorityFiles?: string[];
 };
 
 type BuildPrompt = (parts: string[]) => string;
@@ -27,12 +33,22 @@ const createRegister: CreateRegister = (options) => {
     const contextDir = options?.contextDir ?? resolve(process.cwd(), 'context');
     const historyLimit = options?.historyLimit;
 
+    // Create a shared cache instance for the lifetime of the plugin registration
+    const cache = createFileCache();
+
+    const readerOptions: ReadContextFilesOptions = {
+      fileDiscovery: options?.fileDiscovery,
+      maxFileSize: options?.maxFileSize,
+      priorityFiles: options?.priorityFiles,
+      cache,
+    };
+
     ctx.logger.info('Context plugin registered', { contextDir });
 
     return {
       onBeforeInvoke: async (threadId, prompt) => {
-        // Read context files from disk
-        const contextResult = readContextFiles(contextDir);
+        // Read context files from disk using dynamic discovery
+        const contextResult = readContextFiles(contextDir, readerOptions);
 
         if (contextResult.errors.length > 0) {
           ctx.logger.debug('Some context files not found', {
