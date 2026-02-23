@@ -1,4 +1,7 @@
-// Plugin registry — exports built-in plugin definitions
-// Plugins will be added as separate tasks (Discord, Web, Cron, etc.)
+// Plugin registry — re-exports plugin types for external consumers
 
-export const builtinPlugins: string[] = [];
+export type {
+  PluginContext,
+  PluginDefinition,
+  PluginHooks,
+} from "../orchestrator";
