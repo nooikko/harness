@@ -103,8 +103,33 @@ def get_testable_files(staged_files: list[str]) -> list[str]:
     return [f for f in staged_files if f.endswith((".ts", ".tsx")) and not is_excluded(f)]
 
 
+def detect_projects(testable_files: list[str]) -> list[str]:
+    """Detect which vitest projects contain the staged files to scope coverage runs."""
+    # Map directory prefixes to vitest project names (from vitest.config.ts)
+    project_map = {
+        "apps/web/": "web",
+        "apps/orchestrator/": "orchestrator",
+        "packages/ui/": "ui",
+        "packages/logger/": "logger",
+    }
+    projects: set[str] = set()
+    for filepath in testable_files:
+        for prefix, project_name in project_map.items():
+            if filepath.startswith(prefix):
+                projects.add(project_name)
+                break
+    return sorted(projects)
+
+
 def run_coverage(testable_files: list[str], project_dir: str) -> dict | None:
     """Run vitest with coverage on files related to the testable files."""
+    # Scope to only the projects that contain staged files to avoid loading
+    # unrelated project configs that may fail in worktree environments
+    projects = detect_projects(testable_files)
+    project_args = []
+    for project in projects:
+        project_args.extend(["--project", project])
+
     cmd = [
         "pnpm", "vitest", "related",
         *testable_files,
@@ -112,6 +137,7 @@ def run_coverage(testable_files: list[str], project_dir: str) -> dict | None:
         "--coverage",
         "--reporter=json",
         "--coverage.reporter=json",
+        *project_args,
     ]
 
     result = subprocess.run(
