@@ -106,7 +106,7 @@ def get_testable_files(staged_files: list[str]) -> list[str]:
     return [f for f in staged_files if f.endswith((".ts", ".tsx")) and not is_excluded(f)]
 
 
-MAX_RETRIES = 3  # Node.js ESM race condition is non-deterministic; retry on failure
+MAX_RETRIES = 5  # Node.js ESM race condition is non-deterministic; retry on failure
 
 
 def detect_projects(testable_files: list[str]) -> list[str]:
@@ -120,6 +120,7 @@ def detect_projects(testable_files: list[str]) -> list[str]:
         "packages/plugins/context/": "plugin-context",
         "packages/plugins/discord/": "plugin-discord",
         "packages/plugins/web/": "plugin-web",
+        "packages/plugins/delegation/": "plugin-delegation",
     }
     projects: set[str] = set()
     for filepath in testable_files:
