@@ -38,7 +38,7 @@ export const boot: Boot = async () => {
   });
 
   logger.info('Loading plugins from registry');
-  const rawPlugins = getPlugins(config, logger);
+  const rawPlugins = await getPlugins(prisma, logger);
 
   logger.info('Validating plugins');
   const loader = createPluginLoader({

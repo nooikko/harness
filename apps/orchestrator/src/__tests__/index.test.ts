@@ -67,7 +67,6 @@ const makeConfig = (overrides?: Partial<OrchestratorConfig>): OrchestratorConfig
   discordChannelId: undefined,
   port: 3001,
   logLevel: 'info' as const,
-  disabledPlugins: [],
   ...overrides,
 });
 
@@ -120,7 +119,7 @@ const setupDefaults = (options?: {
   mockCreateLogger.mockReturnValue(logger);
   mockLoadConfig.mockReturnValue(config);
   mockCreateInvoker.mockReturnValue(invoker as ReturnType<typeof createInvoker>);
-  mockGetPlugins.mockReturnValue(plugins);
+  mockGetPlugins.mockResolvedValue(plugins);
   mockCreatePluginLoader.mockReturnValue({
     loadAll: vi.fn().mockReturnValue({ loaded: plugins, results: [] }),
   });
@@ -619,7 +618,7 @@ describe('main', () => {
     mockCreateLogger.mockReturnValue(logger);
     mockLoadConfig.mockReturnValue(config);
     mockCreateInvoker.mockReturnValue(invoker as ReturnType<typeof createInvoker>);
-    mockGetPlugins.mockReturnValue([]);
+    mockGetPlugins.mockResolvedValue([]);
     mockCreatePluginLoader.mockReturnValue({
       loadAll: vi.fn().mockReturnValue({ loaded: [], results: [] }),
     });

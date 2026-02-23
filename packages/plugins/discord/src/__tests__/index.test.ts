@@ -82,7 +82,6 @@ const createMockContext = (overrides: Partial<PluginContext['config']> = {}): Pl
     discordChannelId: undefined,
     port: 3001,
     logLevel: 'info',
-    disabledPlugins: [],
     ...overrides,
   },
   logger: {

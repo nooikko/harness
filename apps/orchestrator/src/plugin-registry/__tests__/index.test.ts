@@ -1,7 +1,22 @@
 import type { Logger } from '@harness/logger';
-import type { OrchestratorConfig } from '@harness/plugin-contract';
-import { describe, expect, it, vi } from 'vitest';
+import type { PluginDefinition } from '@harness/plugin-contract';
+import type { PrismaClient } from 'database';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
+
+vi.mock('../_helpers/sync-plugin-configs', () => ({
+  syncPluginConfigs: vi.fn().mockResolvedValue(undefined),
+}));
+
+vi.mock('../_helpers/filter-disabled-plugins', () => ({
+  filterDisabledPlugins: vi.fn().mockImplementation((plugins: PluginDefinition[]) => Promise.resolve(plugins)),
+}));
+
+import { filterDisabledPlugins } from '../_helpers/filter-disabled-plugins';
+import { syncPluginConfigs } from '../_helpers/sync-plugin-configs';
 import { getPlugins } from '../index';
+
+const mockSyncPluginConfigs = vi.mocked(syncPluginConfigs);
+const mockFilterDisabledPlugins = vi.mocked(filterDisabledPlugins);
 
 const makeLogger = (): Logger => ({
   info: vi.fn(),
@@ -10,30 +25,23 @@ const makeLogger = (): Logger => ({
   debug: vi.fn(),
 });
 
-const makeConfig = (overrides?: Partial<OrchestratorConfig>): OrchestratorConfig => ({
-  databaseUrl: 'postgres://test',
-  timezone: 'UTC',
-  maxConcurrentAgents: 3,
-  claudeModel: 'sonnet',
-  claudeTimeout: 300000,
-  discordToken: undefined,
-  discordChannelId: undefined,
-  port: 3001,
-  logLevel: 'info' as const,
-  disabledPlugins: [],
-  ...overrides,
-});
+const makeDb = (): PrismaClient => ({}) as unknown as PrismaClient;
 
 describe('getPlugins', () => {
-  it('returns an array of plugin definitions when none are disabled', () => {
-    const plugins = getPlugins(makeConfig(), makeLogger());
+  beforeEach(() => {
+    vi.clearAllMocks();
+    mockFilterDisabledPlugins.mockImplementation((plugins: PluginDefinition[]) => Promise.resolve(plugins));
+  });
+
+  it('returns an array of plugin definitions', async () => {
+    const plugins = await getPlugins(makeDb(), makeLogger());
 
     expect(Array.isArray(plugins)).toBe(true);
     expect(plugins.length).toBeGreaterThan(0);
   });
 
-  it('returns plugins with required fields', () => {
-    const plugins = getPlugins(makeConfig(), makeLogger());
+  it('returns plugins with required fields', async () => {
+    const plugins = await getPlugins(makeDb(), makeLogger());
 
     for (const plugin of plugins) {
       expect(typeof plugin.name).toBe('string');
@@ -43,53 +51,56 @@ describe('getPlugins', () => {
     }
   });
 
-  it('includes the context plugin', () => {
-    const plugins = getPlugins(makeConfig(), makeLogger());
+  it('includes the context plugin', async () => {
+    const plugins = await getPlugins(makeDb(), makeLogger());
     const names = plugins.map((p) => p.name);
 
     expect(names).toContain('context');
   });
 
-  it('includes the discord plugin', () => {
-    const plugins = getPlugins(makeConfig(), makeLogger());
+  it('includes the discord plugin', async () => {
+    const plugins = await getPlugins(makeDb(), makeLogger());
     const names = plugins.map((p) => p.name);
 
     expect(names).toContain('discord');
   });
 
-  it('includes the web plugin', () => {
-    const plugins = getPlugins(makeConfig(), makeLogger());
+  it('includes the web plugin', async () => {
+    const plugins = await getPlugins(makeDb(), makeLogger());
     const names = plugins.map((p) => p.name);
 
     expect(names).toContain('web');
   });
 
-  it('excludes plugins listed in disabledPlugins', () => {
-    const config = makeConfig({ disabledPlugins: ['discord'] });
-    const plugins = getPlugins(config, makeLogger());
-    const names = plugins.map((p) => p.name);
-
-    expect(names).not.toContain('discord');
-    expect(names).toContain('context');
-    expect(names).toContain('web');
-  });
-
-  it('excludes multiple disabled plugins', () => {
-    const config = makeConfig({ disabledPlugins: ['discord', 'web'] });
-    const plugins = getPlugins(config, makeLogger());
-    const names = plugins.map((p) => p.name);
-
-    expect(names).not.toContain('discord');
-    expect(names).not.toContain('web');
-    expect(names).toContain('context');
-  });
-
-  it('logs when a plugin is disabled', () => {
-    const config = makeConfig({ disabledPlugins: ['discord'] });
+  it('calls syncPluginConfigs before filterDisabledPlugins', async () => {
+    const db = makeDb();
     const logger = makeLogger();
 
-    getPlugins(config, logger);
+    await getPlugins(db, logger);
 
-    expect(logger.info).toHaveBeenCalledWith('Plugin disabled by config: discord');
+    expect(mockSyncPluginConfigs).toHaveBeenCalledTimes(1);
+    expect(mockFilterDisabledPlugins).toHaveBeenCalledTimes(1);
+
+    const syncOrder = mockSyncPluginConfigs.mock.invocationCallOrder[0] ?? 0;
+    const filterOrder = mockFilterDisabledPlugins.mock.invocationCallOrder[0] ?? 0;
+    expect(syncOrder).toBeLessThan(filterOrder);
+  });
+
+  it('passes db and logger to syncPluginConfigs', async () => {
+    const db = makeDb();
+    const logger = makeLogger();
+
+    await getPlugins(db, logger);
+
+    expect(mockSyncPluginConfigs).toHaveBeenCalledWith(expect.any(Array), db, logger);
+  });
+
+  it('passes db and logger to filterDisabledPlugins', async () => {
+    const db = makeDb();
+    const logger = makeLogger();
+
+    await getPlugins(db, logger);
+
+    expect(mockFilterDisabledPlugins).toHaveBeenCalledWith(expect.any(Array), db, logger);
   });
 });

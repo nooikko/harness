@@ -26,7 +26,6 @@ const createMockContext: CreateMockContext = (portOverride) => ({
     discordToken: undefined,
     discordChannelId: undefined,
     logLevel: 'info' as const,
-    disabledPlugins: [],
   },
   logger: {
     info: vi.fn(),
