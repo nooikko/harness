@@ -1,5 +1,6 @@
 // Usage by model table — displays per-model token and cost breakdown
 
+import { Card, CardContent, CardHeader, CardTitle, Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from 'ui';
 import type { ModelUsage } from '../_helpers/fetch-usage-by-model';
 import { formatCost, formatTokenCount } from '../_helpers/format-cost';
 
@@ -12,40 +13,46 @@ type UsageByModelTableComponent = (props: UsageByModelTableProps) => React.React
 export const UsageByModelTable: UsageByModelTableComponent = ({ models }) => {
   if (models.length === 0) {
     return (
-      <div className='rounded-lg border bg-card p-6'>
-        <h3 className='text-lg font-semibold'>Usage by Model</h3>
-        <p className='mt-2 text-sm text-muted-foreground'>No usage data available yet.</p>
-      </div>
+      <Card>
+        <CardHeader>
+          <CardTitle>Usage by Model</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <p className='text-sm text-muted-foreground'>No usage data available yet.</p>
+        </CardContent>
+      </Card>
     );
   }
 
   return (
-    <div className='rounded-lg border bg-card p-6'>
-      <h3 className='text-lg font-semibold'>Usage by Model</h3>
-      <div className='mt-4 overflow-x-auto'>
-        <table className='w-full text-sm'>
-          <thead>
-            <tr className='border-b text-left text-muted-foreground'>
-              <th className='pb-2 font-medium'>Model</th>
-              <th className='pb-2 text-right font-medium'>Runs</th>
-              <th className='pb-2 text-right font-medium'>Input Tokens</th>
-              <th className='pb-2 text-right font-medium'>Output Tokens</th>
-              <th className='pb-2 text-right font-medium'>Cost</th>
-            </tr>
-          </thead>
-          <tbody>
+    <Card>
+      <CardHeader>
+        <CardTitle>Usage by Model</CardTitle>
+      </CardHeader>
+      <CardContent>
+        <Table>
+          <TableHeader>
+            <TableRow>
+              <TableHead>Model</TableHead>
+              <TableHead className='text-right'>Runs</TableHead>
+              <TableHead className='text-right'>Input Tokens</TableHead>
+              <TableHead className='text-right'>Output Tokens</TableHead>
+              <TableHead className='text-right'>Cost</TableHead>
+            </TableRow>
+          </TableHeader>
+          <TableBody>
             {models.map((model) => (
-              <tr key={model.model} className='border-b last:border-0'>
-                <td className='py-3 font-mono text-xs'>{model.model}</td>
-                <td className='py-3 text-right'>{model.runCount}</td>
-                <td className='py-3 text-right'>{formatTokenCount(model.totalInputTokens)}</td>
-                <td className='py-3 text-right'>{formatTokenCount(model.totalOutputTokens)}</td>
-                <td className='py-3 text-right font-medium'>{formatCost(model.totalCost)}</td>
-              </tr>
+              <TableRow key={model.model}>
+                <TableCell className='font-mono text-xs'>{model.model}</TableCell>
+                <TableCell className='text-right'>{model.runCount}</TableCell>
+                <TableCell className='text-right'>{formatTokenCount(model.totalInputTokens)}</TableCell>
+                <TableCell className='text-right'>{formatTokenCount(model.totalOutputTokens)}</TableCell>
+                <TableCell className='text-right font-medium'>{formatCost(model.totalCost)}</TableCell>
+              </TableRow>
             ))}
-          </tbody>
-        </table>
-      </div>
-    </div>
+          </TableBody>
+        </Table>
+      </CardContent>
+    </Card>
   );
 };
