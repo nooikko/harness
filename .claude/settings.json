@@ -12,6 +12,10 @@
             "type": "command",
             "command": "$CLAUDE_PROJECT_DIR/.claude/hooks/pre-commit-validate.py",
             "timeout": 300
+          },
+          {
+            "type": "command",
+            "command": "$CLAUDE_PROJECT_DIR/.claude/hooks/enforce-commit-message.py"
           }
         ]
       },
@@ -26,6 +30,16 @@
       }
     ],
     "PostToolUse": [
+      {
+        "matcher": "Bash",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "$CLAUDE_PROJECT_DIR/.claude/hooks/post-merge-validate.py",
+            "timeout": 300
+          }
+        ]
+      },
       {
         "matcher": "Write|Edit",
         "hooks": [
@@ -95,7 +109,12 @@
       "Bash(node:*)",
       "Bash(which:*)",
       "Bash(pwd)",
-      "Bash(ls:*)"
+      "Bash(ls:*)",
+      "Bash(npx task-master:*)",
+      "Bash(pnpm db:*)",
+      "Bash(pnpm --filter:*)",
+      "Bash(mkdir:*)",
+      "Bash(chmod:*)"
     ]
   }
 }
