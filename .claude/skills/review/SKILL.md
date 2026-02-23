@@ -1,3 +1,9 @@
+---
+name: review
+description: Fresh Eyes Code Review Command
+disable-model-invocation: true
+---
+
 # Fresh Eyes Code Review Command
 
 **Mission**: Perform an adversarial blind code review with NO context from the implementation. You are a skeptical reviewer looking for problems, not praising code.

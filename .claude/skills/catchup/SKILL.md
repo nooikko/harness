@@ -1,3 +1,9 @@
+---
+name: catchup
+description: Session Catchup Command
+disable-model-invocation: true
+---
+
 # Session Catchup Command
 
 Resume work by loading relevant context from persistent memory and recent activity.

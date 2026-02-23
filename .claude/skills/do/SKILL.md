@@ -1,3 +1,9 @@
+---
+name: do
+description: Smart Orchestrator Command
+disable-model-invocation: true
+---
+
 # Smart Orchestrator Command
 
 You are the orchestrator for this development workflow. Your job is to automatically coordinate agents, run parallel tasks, and ensure quality at every step.

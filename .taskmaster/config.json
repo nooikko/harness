@@ -1,0 +1,31 @@
+{
+  "models": {
+    "main": {
+      "provider": "claude-code",
+      "modelId": "opus"
+    },
+    "research": {
+      "provider": "claude-code",
+      "modelId": "sonnet"
+    },
+    "fallback": {
+      "provider": "claude-code",
+      "modelId": "sonnet"
+    }
+  },
+  "global": {
+    "logLevel": "info",
+    "debug": false,
+    "defaultNumTasks": 0,
+    "defaultSubtasks": 0,
+    "defaultPriority": "medium",
+    "projectName": "harness",
+    "ollamaBaseURL": "http://localhost:11434/api",
+    "bedrockBaseURL": "https://bedrock.us-east-1.amazonaws.com",
+    "responseLanguage": "English",
+    "enableCodebaseAnalysis": true,
+    "defaultTag": "master",
+    "userId": "1234567890"
+  },
+  "claudeCode": {}
+}

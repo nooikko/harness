@@ -1,3 +1,9 @@
+---
+name: handoff
+description: Session Handoff Command
+disable-model-invocation: true
+---
+
 # Session Handoff Command
 
 Prepare for session end by documenting progress and saving important context to persistent memory.
