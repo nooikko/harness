@@ -11,11 +11,9 @@ import type {
   PluginHooks,
 } from "@/plugin-contract";
 import { parseCommands } from "./_helpers/parse-commands";
-import {
-  runChainHooks,
-  runCommandHooks,
-  runNotifyHooks,
-} from "./_helpers/run-hooks";
+import { runChainHooks } from "./_helpers/run-chain-hooks";
+import { runCommandHooks } from "./_helpers/run-command-hooks";
+import { runNotifyHooks } from "./_helpers/run-notify-hooks";
 
 export type OrchestratorDeps = {
   db: PrismaClient;
@@ -62,7 +60,7 @@ export const createOrchestrator: CreateOrchestrator = (deps) => {
       await runNotifyHooks(
         allHooks(),
         "onBroadcast",
-        [event, data],
+        (h) => h.onBroadcast?.(event, data),
         deps.logger
       );
     },
@@ -109,7 +107,7 @@ export const createOrchestrator: CreateOrchestrator = (deps) => {
       await runNotifyHooks(
         hooks,
         "onMessage",
-        [threadId, role, content],
+        (h) => h.onMessage?.(threadId, role, content),
         deps.logger
       );
 
@@ -129,7 +127,7 @@ export const createOrchestrator: CreateOrchestrator = (deps) => {
       await runNotifyHooks(
         hooks,
         "onAfterInvoke",
-        [threadId, invokeResult],
+        (h) => h.onAfterInvoke?.(threadId, invokeResult),
         deps.logger
       );
 

@@ -2,7 +2,8 @@
 
 import type { Logger } from "@harness/logger";
 import type { PluginDefinition } from "@/plugin-contract";
-import { discoverPlugins, validatePluginExport } from "./_helpers";
+import { discoverPlugins } from "./_helpers/discover-plugins";
+import { validatePluginExport } from "./_helpers/validate-plugin";
 
 export type PluginLoadSuccess = {
   status: "loaded";
