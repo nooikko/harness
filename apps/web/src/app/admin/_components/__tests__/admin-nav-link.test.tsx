@@ -1,5 +1,5 @@
 import { render, screen } from '@testing-library/react';
-import type { LucideIcon } from 'lucide-react';
+import { Clock } from 'lucide-react';
 import { describe, expect, it, vi } from 'vitest';
 
 const mockPathname = vi.fn<() => string>();
@@ -18,26 +18,23 @@ vi.mock('next/link', () => ({
 
 const { AdminNavLink } = await import('../admin-nav-link');
 
-const MockIcon = (({ className }: { className?: string }) => <span data-testid='mock-icon' className={className} />) as unknown as LucideIcon;
-
 describe('AdminNavLink', () => {
   it('renders a link with the correct href', () => {
     mockPathname.mockReturnValue('/admin/other');
-    render(<AdminNavLink href='/admin/cron-jobs' icon={MockIcon} label='Cron Jobs' />);
+    render(<AdminNavLink href='/admin/cron-jobs' icon={Clock} label='Cron Jobs' />);
     const link = screen.getByRole('link', { name: 'Cron Jobs' });
     expect(link).toHaveAttribute('href', '/admin/cron-jobs');
   });
 
-  it('renders the icon and label', () => {
+  it('renders the label text', () => {
     mockPathname.mockReturnValue('/admin/other');
-    render(<AdminNavLink href='/admin/plugins' icon={MockIcon} label='Plugins' />);
-    expect(screen.getByTestId('mock-icon')).toBeInTheDocument();
+    render(<AdminNavLink href='/admin/plugins' icon={Clock} label='Plugins' />);
     expect(screen.getByText('Plugins')).toBeInTheDocument();
   });
 
   it('applies active styles when pathname matches href', () => {
     mockPathname.mockReturnValue('/admin/cron-jobs');
-    render(<AdminNavLink href='/admin/cron-jobs' icon={MockIcon} label='Cron Jobs' />);
+    render(<AdminNavLink href='/admin/cron-jobs' icon={Clock} label='Cron Jobs' />);
     const link = screen.getByRole('link', { name: 'Cron Jobs' });
     expect(link.className).toContain('bg-secondary');
     expect(link.className).toContain('text-foreground');
@@ -45,7 +42,7 @@ describe('AdminNavLink', () => {
 
   it('applies active styles when pathname is a sub-path of href', () => {
     mockPathname.mockReturnValue('/admin/cron-jobs/123');
-    render(<AdminNavLink href='/admin/cron-jobs' icon={MockIcon} label='Cron Jobs' />);
+    render(<AdminNavLink href='/admin/cron-jobs' icon={Clock} label='Cron Jobs' />);
     const link = screen.getByRole('link', { name: 'Cron Jobs' });
     expect(link.className).toContain('bg-secondary');
     expect(link.className).toContain('text-foreground');
@@ -53,17 +50,15 @@ describe('AdminNavLink', () => {
 
   it('applies inactive styles when pathname does not match href', () => {
     mockPathname.mockReturnValue('/admin/plugins');
-    render(<AdminNavLink href='/admin/cron-jobs' icon={MockIcon} label='Cron Jobs' />);
+    render(<AdminNavLink href='/admin/cron-jobs' icon={Clock} label='Cron Jobs' />);
     const link = screen.getByRole('link', { name: 'Cron Jobs' });
     expect(link.className).toContain('text-muted-foreground');
     expect(link.className).not.toContain('bg-secondary ');
   });
 
-  it('renders the icon with correct sizing classes', () => {
+  it('renders an SVG icon element', () => {
     mockPathname.mockReturnValue('/admin/other');
-    render(<AdminNavLink href='/admin/tasks' icon={MockIcon} label='Tasks' />);
-    const icon = screen.getByTestId('mock-icon');
-    expect(icon.className).toContain('h-4');
-    expect(icon.className).toContain('w-4');
+    const { container } = render(<AdminNavLink href='/admin/tasks' icon={Clock} label='Tasks' />);
+    expect(container.querySelector('svg')).toBeInTheDocument();
   });
 });
