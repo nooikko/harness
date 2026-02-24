@@ -21,10 +21,10 @@ type UsagePageComponent = () => React.ReactNode;
  */
 const UsagePage: UsagePageComponent = () => {
   return (
-    <div className='mx-auto max-w-6xl space-y-6 p-6'>
+    <div className='mx-auto max-w-6xl flex-1 space-y-6 overflow-auto p-6'>
       <div>
-        <h1 className='text-3xl font-bold'>Token Usage</h1>
-        <p className='mt-1 text-muted-foreground'>Monitor token consumption, costs, and usage patterns across agent runs.</p>
+        <h1 className='text-2xl font-semibold'>Token Usage</h1>
+        <p className='mt-1 text-sm text-muted-foreground'>Monitor token consumption, costs, and usage patterns across agent runs.</p>
       </div>
 
       <UsageSummarySection />
