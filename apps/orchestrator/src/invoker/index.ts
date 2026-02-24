@@ -29,6 +29,9 @@ export const createInvoker: CreateInvoker = (config) => {
       const env = { ...process.env };
       // Remove Claude Code's nested-session guard so the CLI can be spawned as a child process
       delete env.CLAUDECODE;
+      // Remove API key so the CLI uses its own stored OAuth session instead of
+      // an inherited (possibly expired) key from the parent environment
+      delete env.ANTHROPIC_API_KEY;
 
       const child = spawn('claude', args, {
         stdio: ['pipe', 'pipe', 'pipe'],
