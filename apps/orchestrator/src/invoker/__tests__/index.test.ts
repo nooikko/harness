@@ -245,6 +245,23 @@ describe('createInvoker', () => {
     vi.useRealTimers();
   });
 
+  it('removes CLAUDECODE from the child process env', async () => {
+    // Simulate running inside a Claude Code session
+    process.env.CLAUDECODE = '1';
+
+    const invoker = createInvoker(defaultConfig);
+    const resultPromise = invoker.invoke('prompt');
+
+    mockChild.emit('close', 0);
+    await resultPromise;
+
+    const spawnOptions = mockSpawn.mock.calls[0]![2] as { env: Record<string, string | undefined> };
+    expect(spawnOptions.env.CLAUDECODE).toBeUndefined();
+    expect('CLAUDECODE' in spawnOptions.env).toBe(false);
+
+    delete process.env.CLAUDECODE;
+  });
+
   it('does not report timeout error when process finishes before deadline', async () => {
     vi.useFakeTimers();
 

@@ -26,9 +26,13 @@ export const createInvoker: CreateInvoker = (config) => {
     const timeout = options?.timeout ?? config.defaultTimeout;
 
     return new Promise<InvokeResult>((resolve) => {
+      const env = { ...process.env };
+      // Remove Claude Code's nested-session guard so the CLI can be spawned as a child process
+      delete env.CLAUDECODE;
+
       const child = spawn('claude', args, {
         stdio: ['pipe', 'pipe', 'pipe'],
-        env: { ...process.env, CLAUDECODE: undefined },
+        env,
       });
 
       let stdout = '';
