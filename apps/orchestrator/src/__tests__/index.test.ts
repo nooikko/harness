@@ -71,7 +71,7 @@ const makeConfig = (overrides?: Partial<OrchestratorConfig>): OrchestratorConfig
   claudeTimeout: 300000,
   discordToken: undefined,
   discordChannelId: undefined,
-  port: 3001,
+  port: 4001,
   logLevel: 'info' as const,
   ...overrides,
 });

@@ -64,7 +64,7 @@ export const boot: Boot = async () => {
   logger.info('Starting plugins');
   await orchestrator.start();
 
-  const healthPort = Number(process.env.HEALTH_PORT ?? '3002');
+  const healthPort = Number(process.env.HEALTH_PORT ?? '4002');
   const healthCheck = createHealthCheck({
     port: healthPort,
     logger,

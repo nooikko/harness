@@ -36,7 +36,7 @@ export const loadConfig: LoadConfig = () => {
     claudeTimeout: Number(process.env.CLAUDE_TIMEOUT ?? '300000'),
     discordToken: process.env.DISCORD_TOKEN,
     discordChannelId: process.env.DISCORD_CHANNEL_ID,
-    port: Number(process.env.PORT ?? '3001'),
+    port: Number(process.env.PORT ?? '4001'),
     logLevel: parseLogLevel(process.env.LOG_LEVEL),
   };
 

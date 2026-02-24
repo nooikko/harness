@@ -15,8 +15,8 @@ module.exports = {
       max_memory_restart: "512M",
       env: {
         NODE_ENV: "production",
-        PORT: "3001",
-        HEALTH_PORT: "3002",
+        PORT: "4001",
+        HEALTH_PORT: "4002",
       },
       env_file: ".env",
       kill_timeout: 10000,
@@ -48,7 +48,7 @@ module.exports = {
       max_memory_restart: "512M",
       env: {
         NODE_ENV: "production",
-        PORT: "3000",
+        PORT: "4000",
       },
       env_file: ".env",
       kill_timeout: 10000,

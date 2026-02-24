@@ -45,10 +45,10 @@ describe('createHealthCheck', () => {
     const server = makeServer();
     mockCreateHealthServer.mockReturnValue(server as ReturnType<typeof createHealthServer>);
 
-    createHealthCheck({ port: 3002, logger, version: '1.0.0' });
+    createHealthCheck({ port: 4002, logger, version: '1.0.0' });
 
     expect(mockCreateHealthServer).toHaveBeenCalledWith({
-      port: 3002,
+      port: 4002,
       logger,
       getStatus: expect.any(Function),
     });
@@ -59,7 +59,7 @@ describe('createHealthCheck', () => {
     mockCreateHealthServer.mockReturnValue(server as ReturnType<typeof createHealthServer>);
 
     const healthCheck = createHealthCheck({
-      port: 3002,
+      port: 4002,
       logger,
       version: '1.0.0',
     });
@@ -73,7 +73,7 @@ describe('createHealthCheck', () => {
     mockCreateHealthServer.mockReturnValue(server as ReturnType<typeof createHealthServer>);
 
     const healthCheck = createHealthCheck({
-      port: 3002,
+      port: 4002,
       logger,
       version: '1.0.0',
     });
@@ -90,7 +90,7 @@ describe('createHealthCheck', () => {
       return makeServer() as ReturnType<typeof createHealthServer>;
     });
 
-    createHealthCheck({ port: 3002, logger, version: '2.0.0' });
+    createHealthCheck({ port: 4002, logger, version: '2.0.0' });
 
     // Advance time by 5 seconds
     vi.advanceTimersByTime(5000);
@@ -115,7 +115,7 @@ describe('createHealthCheck', () => {
     });
 
     const healthCheck = createHealthCheck({
-      port: 3002,
+      port: 4002,
       logger,
       version: '1.0.0',
     });
@@ -136,7 +136,7 @@ describe('createHealthCheck', () => {
       return makeServer() as ReturnType<typeof createHealthServer>;
     });
 
-    createHealthCheck({ port: 3002, logger, version: '1.0.0' });
+    createHealthCheck({ port: 4002, logger, version: '1.0.0' });
 
     // Advance by 3.7 seconds — should floor to 3
     vi.advanceTimersByTime(3700);
@@ -155,7 +155,7 @@ describe('createHealthCheck', () => {
       return makeServer() as ReturnType<typeof createHealthServer>;
     });
 
-    createHealthCheck({ port: 3002, logger, version: '1.0.0' });
+    createHealthCheck({ port: 4002, logger, version: '1.0.0' });
 
     expect(capturedGetStatus).not.toBeNull();
     const status = capturedGetStatus!() as { timestamp: string };

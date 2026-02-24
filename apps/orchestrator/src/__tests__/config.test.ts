@@ -33,7 +33,7 @@ describe('loadConfig', () => {
       expect(config.claudeTimeout).toBe(300000);
       expect(config.discordToken).toBeUndefined();
       expect(config.discordChannelId).toBeUndefined();
-      expect(config.port).toBe(3001);
+      expect(config.port).toBe(4001);
       expect(config.logLevel).toBe('info');
     });
   });
