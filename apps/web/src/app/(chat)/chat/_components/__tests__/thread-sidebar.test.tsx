@@ -14,6 +14,14 @@ vi.mock('database', () => ({
 
 vi.mock('next/navigation', () => ({
   usePathname: () => '/chat',
+  useRouter: () => ({
+    push: vi.fn(),
+    replace: vi.fn(),
+    prefetch: vi.fn(),
+    back: vi.fn(),
+    forward: vi.fn(),
+    refresh: vi.fn(),
+  }),
 }));
 
 const { ThreadSidebar, ThreadSidebarInternal } = await import('../thread-sidebar');

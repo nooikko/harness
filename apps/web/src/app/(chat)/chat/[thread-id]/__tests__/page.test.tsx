@@ -22,6 +22,10 @@ vi.mock('next/navigation', () => ({
   },
 }));
 
+vi.mock('../../_components/chat-input', () => ({
+  ChatInput: () => null,
+}));
+
 const { default: ThreadPage } = await import('../page');
 
 type MakeThread = (overrides?: Partial<Thread>) => Thread;
