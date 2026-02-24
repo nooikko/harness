@@ -50,9 +50,11 @@ export const createOrchestrator: CreateOrchestrator = (deps) => {
         throw new Error('Orchestrator not fully initialized');
       }
 
+      deps.logger.info(`sendToThread: starting [thread=${threadId}, contentLength=${content.length}]`);
       const result = await pipeline.handleMessage(threadId, 'user', content);
 
       if (result.invokeResult.output) {
+        deps.logger.info(`sendToThread: persisting assistant response [thread=${threadId}, outputLength=${result.invokeResult.output.length}]`);
         await deps.db.message.create({
           data: { threadId, role: 'assistant', content: result.invokeResult.output },
         });
@@ -60,6 +62,10 @@ export const createOrchestrator: CreateOrchestrator = (deps) => {
           where: { id: threadId },
           data: { lastActivity: new Date() },
         });
+      } else {
+        deps.logger.warn(
+          `sendToThread: no output from pipeline [thread=${threadId}, error=${result.invokeResult.error ?? 'none'}, exit=${result.invokeResult.exitCode}]`,
+        );
       }
     },
     broadcast: async (event: string, data: unknown) => {
@@ -79,10 +85,15 @@ export const createOrchestrator: CreateOrchestrator = (deps) => {
     const prompt = await runChainHooks(hooks, threadId, content, deps.logger);
 
     // Step 3: Invoke Claude via the invoker
-    deps.logger.info(`Pipeline: invoking Claude [thread=${threadId}]`);
+    deps.logger.info(`Pipeline: invoking Claude [thread=${threadId}, promptLength=${prompt.length}]`);
     const invokeResult = await deps.invoker.invoke(prompt);
 
-    deps.logger.info(`Pipeline: invoke complete [thread=${threadId}, duration=${invokeResult.durationMs}ms, exit=${invokeResult.exitCode}]`);
+    deps.logger.info(
+      `Pipeline: invoke complete [thread=${threadId}, duration=${invokeResult.durationMs}ms, exit=${invokeResult.exitCode}, outputLength=${invokeResult.output.length}]`,
+    );
+    if (invokeResult.error) {
+      deps.logger.warn(`Pipeline: invoke error [thread=${threadId}]: ${invokeResult.error}`);
+    }
 
     // Step 4: Fire onAfterInvoke hooks (notification)
     await runNotifyHooks(hooks, 'onAfterInvoke', (h) => h.onAfterInvoke?.(threadId, invokeResult), deps.logger);
