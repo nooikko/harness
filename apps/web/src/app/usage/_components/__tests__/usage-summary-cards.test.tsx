@@ -1,7 +1,7 @@
 import { render, screen } from '@testing-library/react';
 import { describe, expect, it } from 'vitest';
-import type { UsageSummary } from '../../_helpers/fetch-usage-summary';
 import { UsageSummaryCards } from '../usage-summary-cards';
+import type { UsageSummary } from '../usage-summary-section';
 
 type MakeSummary = (overrides?: Partial<UsageSummary>) => UsageSummary;
 

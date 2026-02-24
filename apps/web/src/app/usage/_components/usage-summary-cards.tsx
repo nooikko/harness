@@ -2,8 +2,8 @@
 
 import { Activity, Coins, FileInput, FileOutput } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from 'ui';
-import type { UsageSummary } from '../_helpers/fetch-usage-summary';
 import { formatCost, formatTokenCount } from '../_helpers/format-cost';
+import type { UsageSummary } from './usage-summary-section';
 
 type UsageSummaryCardsProps = {
   summary: UsageSummary;

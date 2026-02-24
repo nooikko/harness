@@ -1,21 +1,22 @@
-import type { Thread } from 'database';
+import { prisma } from 'database';
 import { MessageSquarePlus } from 'lucide-react';
-import { ScrollArea } from 'ui';
+import { Suspense } from 'react';
+import { ScrollArea, Skeleton } from 'ui';
 import { sortThreads } from '../_helpers/sort-threads';
 import { ThreadListItem } from './thread-list-item';
 
-type ThreadSidebarProps = {
-  threads: Thread[];
-};
-
-type ThreadSidebarComponent = (props: ThreadSidebarProps) => React.ReactNode;
-
 /**
- * Sidebar displaying all threads with primary pinned to top.
- * Server Component - receives pre-fetched thread data.
- * Each ThreadListItem is a Client Component for active-state highlighting.
+ * Async server component that fetches threads and renders the sidebar.
+ * Primary thread is pinned to top. Each ThreadListItem is a Client Component
+ * for active-state highlighting.
+ * Not exported — use ThreadSidebar which wraps this in Suspense.
  */
-export const ThreadSidebar: ThreadSidebarComponent = ({ threads }) => {
+/** @internal Exported for testing only — consumers should use ThreadSidebar. */
+export const ThreadSidebarInternal = async () => {
+  const threads = await prisma.thread.findMany({
+    where: { status: { not: 'archived' } },
+    orderBy: { lastActivity: 'desc' },
+  });
   const sorted = sortThreads(threads);
 
   return (
@@ -44,3 +45,27 @@ export const ThreadSidebar: ThreadSidebarComponent = ({ threads }) => {
     </aside>
   );
 };
+
+const ThreadSidebarSkeleton = () => (
+  <aside className='flex h-full w-72 flex-col border-r border-border bg-card'>
+    <div className='flex items-center justify-between border-b border-border px-4 py-3'>
+      <Skeleton className='h-4 w-16' />
+      <Skeleton className='h-4 w-4' />
+    </div>
+    <div className='flex flex-col gap-1 p-2'>
+      {Array.from({ length: 6 }, (_, i) => (
+        <Skeleton key={`sidebar-skeleton-${i}`} className='h-12 w-full rounded-md' />
+      ))}
+    </div>
+  </aside>
+);
+
+/**
+ * Drop-in thread sidebar with built-in Suspense boundary.
+ * Streams the async sidebar as soon as data is ready; shows a skeleton until then.
+ */
+export const ThreadSidebar = () => (
+  <Suspense fallback={<ThreadSidebarSkeleton />}>
+    <ThreadSidebarInternal />
+  </Suspense>
+);

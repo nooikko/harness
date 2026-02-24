@@ -1,16 +1,39 @@
 // Usage by model table — displays per-model token and cost breakdown
 
-import { Card, CardContent, CardHeader, CardTitle, Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from 'ui';
-import type { ModelUsage } from '../_helpers/fetch-usage-by-model';
+import { prisma } from 'database';
+import { Suspense } from 'react';
+import { Card, CardContent, CardHeader, CardTitle, Skeleton, Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from 'ui';
 import { formatCost, formatTokenCount } from '../_helpers/format-cost';
 
-type UsageByModelTableProps = {
-  models: ModelUsage[];
-};
+/**
+ * Async server component that fetches per-model usage and renders a table.
+ * Not exported — use UsageByModelTable which wraps this in Suspense.
+ */
+/** @internal Exported for testing only — consumers should use UsageByModelTable. */
+export const UsageByModelTableInternal = async () => {
+  const results = await prisma.agentRun.groupBy({
+    by: ['model'],
+    _sum: {
+      inputTokens: true,
+      outputTokens: true,
+      costEstimate: true,
+    },
+    _count: true,
+    orderBy: {
+      _sum: {
+        costEstimate: 'desc',
+      },
+    },
+  });
 
-type UsageByModelTableComponent = (props: UsageByModelTableProps) => React.ReactNode;
+  const models = results.map((row) => ({
+    model: row.model,
+    totalInputTokens: row._sum.inputTokens ?? 0,
+    totalOutputTokens: row._sum.outputTokens ?? 0,
+    totalCost: row._sum.costEstimate ?? 0,
+    runCount: row._count,
+  }));
 
-export const UsageByModelTable: UsageByModelTableComponent = ({ models }) => {
   if (models.length === 0) {
     return (
       <Card>
@@ -56,3 +79,15 @@ export const UsageByModelTable: UsageByModelTableComponent = ({ models }) => {
     </Card>
   );
 };
+
+const UsageByModelTableSkeleton = () => <Skeleton className='h-80 w-full' />;
+
+/**
+ * Drop-in model usage table with built-in Suspense boundary.
+ * Streams the table as soon as data is ready; shows a skeleton until then.
+ */
+export const UsageByModelTable = () => (
+  <Suspense fallback={<UsageByModelTableSkeleton />}>
+    <UsageByModelTableInternal />
+  </Suspense>
+);

@@ -1,18 +1,53 @@
 // Async server component that fetches usage summary and renders budget + cards
 
+import { prisma } from 'database';
+import { Suspense } from 'react';
 import { Skeleton } from 'ui';
-import { fetchUsageSummary } from '../_helpers/fetch-usage-summary';
 import { BudgetWarning } from './budget-warning';
 import { UsageSummaryCards } from './usage-summary-cards';
 
-type UsageSummarySectionComponent = () => Promise<React.ReactNode>;
+export type UsageSummary = {
+  totalInputTokens: number;
+  totalOutputTokens: number;
+  totalTokens: number;
+  totalCost: number;
+  totalRuns: number;
+};
 
 /**
  * Async server component: fetches usage summary, renders BudgetWarning + UsageSummaryCards.
- * Meant to be wrapped in a Suspense boundary by the parent page.
+ * Not exported — use UsageSummarySection which wraps this in Suspense.
  */
-export const UsageSummarySection: UsageSummarySectionComponent = async () => {
-  const summary = await fetchUsageSummary();
+/** @internal Exported for testing only — consumers should use UsageSummarySection. */
+export const UsageSummarySectionInternal = async () => {
+  const [inputResult, outputResult, costResult, runCount] = await Promise.all([
+    prisma.metric.aggregate({
+      where: { name: 'token.input' },
+      _sum: { value: true },
+    }),
+    prisma.metric.aggregate({
+      where: { name: 'token.output' },
+      _sum: { value: true },
+    }),
+    prisma.metric.aggregate({
+      where: { name: 'token.cost' },
+      _sum: { value: true },
+    }),
+    prisma.metric.count({
+      where: { name: 'token.total' },
+    }),
+  ]);
+
+  const totalInputTokens = inputResult._sum.value ?? 0;
+  const totalOutputTokens = outputResult._sum.value ?? 0;
+
+  const summary: UsageSummary = {
+    totalInputTokens,
+    totalOutputTokens,
+    totalTokens: totalInputTokens + totalOutputTokens,
+    totalCost: costResult._sum.value ?? 0,
+    totalRuns: runCount,
+  };
 
   const budgetEnv = process.env.NEXT_PUBLIC_TOKEN_BUDGET_USD;
   const budgetUsd = budgetEnv ? Number(budgetEnv) : undefined;
@@ -25,9 +60,7 @@ export const UsageSummarySection: UsageSummarySectionComponent = async () => {
   );
 };
 
-type UsageSummarySkeletonComponent = () => React.ReactNode;
-
-export const UsageSummarySkeleton: UsageSummarySkeletonComponent = () => (
+const UsageSummarySkeleton = () => (
   <div className='space-y-6'>
     <Skeleton className='h-24 w-full' />
     <div className='grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4'>
@@ -36,4 +69,14 @@ export const UsageSummarySkeleton: UsageSummarySkeletonComponent = () => (
       ))}
     </div>
   </div>
+);
+
+/**
+ * Drop-in usage summary with built-in Suspense boundary.
+ * Streams budget warning + metric cards as soon as data is ready; shows a skeleton until then.
+ */
+export const UsageSummarySection = () => (
+  <Suspense fallback={<UsageSummarySkeleton />}>
+    <UsageSummarySectionInternal />
+  </Suspense>
 );

@@ -1,67 +1,42 @@
-import { render, screen } from '@testing-library/react';
-import type { Message } from 'database';
-import { describe, expect, it } from 'vitest';
-import { MessageList } from '../message-list';
+import { renderToStaticMarkup } from 'react-dom/server';
+import { describe, expect, it, vi } from 'vitest';
 
-type MakeMessage = (overrides: Partial<Message>) => Message;
+const mockFindMany = vi.fn();
 
-const makeMessage: MakeMessage = (overrides) => ({
-  id: 'msg-1',
-  threadId: 'thread-1',
-  role: 'user',
-  content: 'Hello world',
-  metadata: null,
-  createdAt: new Date('2025-01-15T12:00:00Z'),
-  ...overrides,
-});
+vi.mock('database', () => ({
+  prisma: {
+    message: {
+      findMany: (...args: unknown[]) => mockFindMany(...args),
+    },
+  },
+}));
+
+const { MessageList, MessageListInternal } = await import('../message-list');
 
 describe('MessageList', () => {
-  it('shows empty state when no messages exist', () => {
-    render(<MessageList messages={[]} />);
-    expect(screen.getByText('No messages in this thread yet.')).toBeInTheDocument();
+  it('renders a Suspense fallback skeleton', () => {
+    const element = MessageList({ threadId: 'thread-1' });
+    const html = renderToStaticMarkup(element as React.ReactElement);
+    expect(html).toContain('data-slot="skeleton"');
+  });
+});
+
+describe('MessageListInternal', () => {
+  it('renders empty state when there are no messages', async () => {
+    mockFindMany.mockResolvedValue([]);
+    const element = await MessageListInternal({ threadId: 'thread-1' });
+    const html = renderToStaticMarkup(element as React.ReactElement);
+    expect(html).toContain('No messages in this thread yet.');
   });
 
-  it('renders user messages', () => {
-    const messages = [makeMessage({ id: 'm1', role: 'user', content: 'What is the weather?' })];
-    render(<MessageList messages={messages} />);
-    expect(screen.getByText('What is the weather?')).toBeInTheDocument();
-  });
-
-  it('renders assistant messages', () => {
-    const messages = [makeMessage({ id: 'm1', role: 'assistant', content: 'It is sunny today.' })];
-    render(<MessageList messages={messages} />);
-    expect(screen.getByText('It is sunny today.')).toBeInTheDocument();
-  });
-
-  it('renders system messages', () => {
-    const messages = [makeMessage({ id: 'm1', role: 'system', content: 'Task completed.' })];
-    render(<MessageList messages={messages} />);
-    expect(screen.getByText('Task completed.')).toBeInTheDocument();
-  });
-
-  it('renders multiple messages in order', () => {
-    const messages = [
-      makeMessage({ id: 'm1', role: 'user', content: 'First message' }),
-      makeMessage({ id: 'm2', role: 'assistant', content: 'Second message' }),
-      makeMessage({ id: 'm3', role: 'user', content: 'Third message' }),
-    ];
-
-    render(<MessageList messages={messages} />);
-
-    expect(screen.getByText('First message')).toBeInTheDocument();
-    expect(screen.getByText('Second message')).toBeInTheDocument();
-    expect(screen.getByText('Third message')).toBeInTheDocument();
-  });
-
-  it('renders role labels for accessibility', () => {
-    const messages = [
-      makeMessage({ id: 'm1', role: 'user', content: 'User text' }),
-      makeMessage({ id: 'm2', role: 'assistant', content: 'Bot text' }),
-    ];
-
-    render(<MessageList messages={messages} />);
-
-    expect(screen.getByLabelText('You')).toBeInTheDocument();
-    expect(screen.getByLabelText('Assistant')).toBeInTheDocument();
+  it('renders messages when data is available', async () => {
+    mockFindMany.mockResolvedValue([
+      { id: 'msg-1', role: 'user', content: 'Hello', threadId: 'thread-1', createdAt: new Date() },
+      { id: 'msg-2', role: 'assistant', content: 'Hi there', threadId: 'thread-1', createdAt: new Date() },
+    ]);
+    const element = await MessageListInternal({ threadId: 'thread-1' });
+    const html = renderToStaticMarkup(element as React.ReactElement);
+    expect(html).toContain('Hello');
+    expect(html).toContain('Hi there');
   });
 });

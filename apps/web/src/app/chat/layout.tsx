@@ -1,6 +1,5 @@
 import type { Metadata } from 'next';
-import { Suspense } from 'react';
-import { ThreadSidebarSection, ThreadSidebarSkeleton } from './_components/thread-sidebar-section';
+import { ThreadSidebar } from './_components/thread-sidebar';
 
 export const metadata: Metadata = {
   title: 'Chat | Harness Dashboard',
@@ -20,9 +19,7 @@ type ChatLayoutComponent = (props: ChatLayoutProps) => React.ReactNode;
 const ChatLayout: ChatLayoutComponent = ({ children }) => {
   return (
     <div className='flex h-screen'>
-      <Suspense fallback={<ThreadSidebarSkeleton />}>
-        <ThreadSidebarSection />
-      </Suspense>
+      <ThreadSidebar />
       <main className='flex flex-1 flex-col overflow-hidden'>{children}</main>
     </div>
   );

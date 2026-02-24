@@ -1,4 +1,4 @@
-import { render, screen } from '@testing-library/react';
+import { renderToStaticMarkup } from 'react-dom/server';
 import { describe, expect, it } from 'vitest';
 
 const { default: ChatLayout, metadata } = await import('../layout');
@@ -13,32 +13,30 @@ describe('ChatLayout', () => {
   });
 
   it('renders children within the layout structure', () => {
-    render(
+    const html = renderToStaticMarkup(
       <ChatLayout>
         <p>Test child</p>
       </ChatLayout>,
     );
-    expect(screen.getByText('Test child')).toBeInTheDocument();
+    expect(html).toContain('Test child');
   });
 
   it('renders a main content area', () => {
-    render(
+    const html = renderToStaticMarkup(
       <ChatLayout>
         <p>Main content</p>
       </ChatLayout>,
     );
-    const main = screen.getByRole('main');
-    expect(main).toBeInTheDocument();
-    expect(main).toHaveTextContent('Main content');
+    expect(html).toContain('<main');
+    expect(html).toContain('Main content');
   });
 
   it('renders sidebar skeleton as Suspense fallback', () => {
-    const { container } = render(
+    const html = renderToStaticMarkup(
       <ChatLayout>
         <p>Content</p>
       </ChatLayout>,
     );
-    const skeletons = container.querySelectorAll('[data-slot="skeleton"]');
-    expect(skeletons.length).toBeGreaterThan(0);
+    expect(html).toContain('data-slot="skeleton"');
   });
 });

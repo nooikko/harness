@@ -1,18 +1,23 @@
-import type { Message } from 'database';
-import { ScrollArea } from 'ui';
+import { prisma } from 'database';
+import { Suspense } from 'react';
+import { ScrollArea, Skeleton } from 'ui';
 import { MessageItem } from './message-item';
 
 type MessageListProps = {
-  messages: Message[];
+  threadId: string;
 };
 
-type MessageListComponent = (props: MessageListProps) => React.ReactNode;
-
 /**
- * Renders the full message history for a thread.
- * Server Component - receives pre-fetched message data.
+ * Async server component that fetches messages for a thread and renders them.
+ * Not exported — use MessageList which wraps this in Suspense.
  */
-export const MessageList: MessageListComponent = ({ messages }) => {
+/** @internal Exported for testing only — consumers should use MessageList. */
+export const MessageListInternal = async ({ threadId }: MessageListProps) => {
+  const messages = await prisma.message.findMany({
+    where: { threadId },
+    orderBy: { createdAt: 'asc' },
+  });
+
   if (messages.length === 0) {
     return (
       <div className='flex flex-1 items-center justify-center'>
@@ -31,3 +36,21 @@ export const MessageList: MessageListComponent = ({ messages }) => {
     </ScrollArea>
   );
 };
+
+const MessageListSkeleton = () => (
+  <div className='flex flex-1 flex-col gap-4 p-4'>
+    <Skeleton className='h-16 w-3/4' />
+    <Skeleton className='ml-auto h-16 w-3/4' />
+    <Skeleton className='h-16 w-3/4' />
+  </div>
+);
+
+/**
+ * Drop-in message list with built-in Suspense boundary.
+ * Streams messages as soon as data is ready; shows a skeleton until then.
+ */
+export const MessageList = ({ threadId }: MessageListProps) => (
+  <Suspense fallback={<MessageListSkeleton />}>
+    <MessageListInternal threadId={threadId} />
+  </Suspense>
+);
