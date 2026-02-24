@@ -28,7 +28,7 @@ export const createInvoker: CreateInvoker = (config) => {
     return new Promise<InvokeResult>((resolve) => {
       const child = spawn('claude', args, {
         stdio: ['pipe', 'pipe', 'pipe'],
-        env: { ...process.env },
+        env: { ...process.env, CLAUDECODE: undefined },
       });
 
       let stdout = '';
