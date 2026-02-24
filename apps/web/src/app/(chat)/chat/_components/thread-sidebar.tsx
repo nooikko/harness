@@ -1,8 +1,8 @@
 import { prisma } from 'database';
-import { MessageSquarePlus } from 'lucide-react';
 import { Suspense } from 'react';
 import { ScrollArea, Skeleton } from 'ui';
 import { sortThreads } from '../_helpers/sort-threads';
+import { NewThreadButton } from './new-thread-button';
 import { ThreadListItem } from './thread-list-item';
 
 /**
@@ -23,9 +23,7 @@ export const ThreadSidebarInternal = async () => {
     <aside className='flex h-full w-72 flex-col border-r border-border bg-card'>
       <div className='flex items-center justify-between border-b border-border px-4 py-3'>
         <h2 className='text-sm font-semibold'>Threads</h2>
-        <span role='img' title='New chat' aria-label='New chat'>
-          <MessageSquarePlus className='h-4 w-4 text-muted-foreground' />
-        </span>
+        <NewThreadButton />
       </div>
       <ScrollArea className='flex-1'>
         <nav className='p-2' aria-label='Thread list'>

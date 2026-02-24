@@ -1,5 +1,6 @@
 import { prisma } from 'database';
 import { notFound } from 'next/navigation';
+import { ChatInput } from '../_components/chat-input';
 import { MessageList } from '../_components/message-list';
 import { ThreadKindIcon } from '../_components/thread-kind-icon';
 
@@ -39,6 +40,7 @@ const ThreadPage: ThreadPageComponent = async ({ params }) => {
         </div>
       </header>
       <MessageList threadId={threadId} />
+      <ChatInput threadId={threadId} />
     </div>
   );
 };
