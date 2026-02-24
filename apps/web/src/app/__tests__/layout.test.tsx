@@ -5,7 +5,19 @@ vi.mock('next/font/google', () => ({
   Inter: () => ({ className: 'inter-mock' }),
 }));
 
-// Import after mock is set up
+vi.mock('next/navigation', () => ({
+  usePathname: () => '/',
+}));
+
+vi.mock('next/link', () => ({
+  default: ({ href, children, className }: { href: string; children: React.ReactNode; className?: string }) => (
+    <a href={href} className={className}>
+      {children}
+    </a>
+  ),
+}));
+
+// Import after mocks are set up
 const { default: RootLayout, metadata } = await import('../layout');
 
 describe('RootLayout', () => {
@@ -36,6 +48,39 @@ describe('RootLayout', () => {
       </RootLayout>,
     );
 
-    expect(html).toContain('class="inter-mock"');
+    expect(html).toContain('inter-mock');
+  });
+
+  it('wraps children in a flex container', () => {
+    const html = renderToStaticMarkup(
+      <RootLayout>
+        <span>content</span>
+      </RootLayout>,
+    );
+
+    expect(html).toContain('flex min-h-0 flex-1');
+  });
+
+  it('applies flex column layout to the body', () => {
+    const html = renderToStaticMarkup(
+      <RootLayout>
+        <span>content</span>
+      </RootLayout>,
+    );
+
+    expect(html).toContain('flex h-screen flex-col');
+  });
+
+  it('renders the TopBar with navigation links', () => {
+    const html = renderToStaticMarkup(
+      <RootLayout>
+        <span>content</span>
+      </RootLayout>,
+    );
+
+    expect(html).toContain('Harness');
+    expect(html).toContain('Chat');
+    expect(html).toContain('Usage');
+    expect(html).toContain('Admin');
   });
 });
