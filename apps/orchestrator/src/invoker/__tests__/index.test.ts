@@ -30,6 +30,17 @@ const createMockChild = (): MockChild => {
   return child;
 };
 
+type JsonResponse = {
+  result: string;
+  session_id?: string;
+  model?: string;
+  usage?: { input_tokens?: number; output_tokens?: number };
+};
+
+const emitJson = (child: MockChild, response: JsonResponse) => {
+  child.stdout.emit('data', Buffer.from(JSON.stringify(response)));
+};
+
 const defaultConfig: InvokerConfig = {
   defaultModel: 'claude-sonnet-4-6',
   defaultTimeout: 30000,
@@ -44,29 +55,29 @@ describe('createInvoker', () => {
     mockSpawn.mockReturnValue(mockChild as unknown as ChildProcess);
   });
 
-  it('spawns claude with correct args for the given prompt', async () => {
+  it('spawns claude with correct args including JSON output format', async () => {
     const invoker = createInvoker(defaultConfig);
 
     const resultPromise = invoker.invoke('hello world');
 
-    mockChild.stdout.emit('data', Buffer.from(''));
+    emitJson(mockChild, { result: '' });
     mockChild.emit('close', 0);
 
     await resultPromise;
 
     expect(mockSpawn).toHaveBeenCalledWith(
       'claude',
-      expect.arrayContaining(['-p', 'hello world', '--model', 'claude-sonnet-4-6', '--output-format', 'text']),
+      expect.arrayContaining(['-p', 'hello world', '--model', 'claude-sonnet-4-6', '--output-format', 'json']),
       expect.objectContaining({ stdio: ['pipe', 'pipe', 'pipe'] }),
     );
   });
 
-  it('returns trimmed stdout output on success', async () => {
+  it('extracts result from JSON response', async () => {
     const invoker = createInvoker(defaultConfig);
 
     const resultPromise = invoker.invoke('test prompt');
 
-    mockChild.stdout.emit('data', Buffer.from('  result text  '));
+    emitJson(mockChild, { result: 'result text' });
     mockChild.emit('close', 0);
 
     const result = await resultPromise;
@@ -76,18 +87,55 @@ describe('createInvoker', () => {
     expect(result.error).toBeUndefined();
   });
 
-  it('concatenates multiple stdout chunks', async () => {
+  it('extracts session_id and model from JSON response', async () => {
     const invoker = createInvoker(defaultConfig);
 
     const resultPromise = invoker.invoke('test prompt');
 
-    mockChild.stdout.emit('data', Buffer.from('part one '));
-    mockChild.stdout.emit('data', Buffer.from('part two'));
+    emitJson(mockChild, {
+      result: 'hello',
+      session_id: 'sess-abc',
+      model: 'claude-haiku-4-5-20251001',
+      usage: { input_tokens: 100, output_tokens: 50 },
+    });
     mockChild.emit('close', 0);
 
     const result = await resultPromise;
 
-    expect(result.output).toBe('part one part two');
+    expect(result.sessionId).toBe('sess-abc');
+    expect(result.model).toBe('claude-haiku-4-5-20251001');
+    expect(result.inputTokens).toBe(100);
+    expect(result.outputTokens).toBe(50);
+  });
+
+  it('falls back to raw stdout when JSON parsing fails', async () => {
+    const invoker = createInvoker(defaultConfig);
+
+    const resultPromise = invoker.invoke('test prompt');
+
+    mockChild.stdout.emit('data', Buffer.from('  raw text output  '));
+    mockChild.emit('close', 0);
+
+    const result = await resultPromise;
+
+    expect(result.output).toBe('raw text output');
+    expect(result.sessionId).toBeUndefined();
+  });
+
+  it('concatenates multiple stdout chunks before parsing JSON', async () => {
+    const invoker = createInvoker(defaultConfig);
+
+    const resultPromise = invoker.invoke('test prompt');
+
+    const json = JSON.stringify({ result: 'combined' });
+    const mid = Math.floor(json.length / 2);
+    mockChild.stdout.emit('data', Buffer.from(json.slice(0, mid)));
+    mockChild.stdout.emit('data', Buffer.from(json.slice(mid)));
+    mockChild.emit('close', 0);
+
+    const result = await resultPromise;
+
+    expect(result.output).toBe('combined');
   });
 
   it('returns stderr as error when process exits with non-zero code', async () => {
@@ -158,6 +206,22 @@ describe('createInvoker', () => {
     const spawnArgs = mockSpawn.mock.calls[0]![1] as string[];
     const modelIndex = spawnArgs.indexOf('--model');
     expect(spawnArgs[modelIndex + 1]).toBe('claude-haiku-4-6');
+  });
+
+  it('passes sessionId as --resume arg alongside -p when provided', async () => {
+    const invoker = createInvoker(defaultConfig);
+
+    const resultPromise = invoker.invoke('prompt', { sessionId: 'sess-xyz' });
+
+    mockChild.emit('close', 0);
+
+    await resultPromise;
+
+    const spawnArgs = mockSpawn.mock.calls[0]![1] as string[];
+    expect(spawnArgs).toContain('--resume');
+    expect(spawnArgs).toContain('sess-xyz');
+    expect(spawnArgs).toContain('-p');
+    expect(spawnArgs).toContain('prompt');
   });
 
   it('includes durationMs in the result', async () => {
@@ -272,7 +336,7 @@ describe('createInvoker', () => {
 
     const resultPromise = invoker.invoke('fast prompt');
 
-    mockChild.stdout.emit('data', Buffer.from('done'));
+    emitJson(mockChild, { result: 'done' });
     mockChild.emit('close', 0);
 
     await vi.advanceTimersByTimeAsync(5000);

@@ -35,6 +35,8 @@ const makeThread: MakeThread = (overrides) => ({
   name: 'Test Thread',
   kind: 'general',
   status: 'open',
+  sessionId: null,
+  model: null,
   parentThreadId: null,
   lastActivity: new Date('2025-01-15T12:00:00Z'),
   createdAt: new Date('2025-01-10T10:00:00Z'),

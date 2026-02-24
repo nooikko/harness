@@ -33,6 +33,7 @@ describe('createThread', () => {
         sourceId: expect.any(String),
         kind: 'general',
         status: 'open',
+        model: undefined,
       },
     });
   });
@@ -51,5 +52,21 @@ describe('createThread', () => {
     await createThread();
 
     expect(mockRevalidatePath).toHaveBeenCalledWith('/');
+  });
+
+  it('passes model when provided in options', async () => {
+    mockCreate.mockResolvedValue({ id: 'new-thread-2' });
+
+    await createThread({ model: 'claude-opus-4-6' });
+
+    expect(mockCreate).toHaveBeenCalledWith({
+      data: {
+        source: 'web',
+        sourceId: expect.any(String),
+        kind: 'general',
+        status: 'open',
+        model: 'claude-opus-4-6',
+      },
+    });
   });
 });

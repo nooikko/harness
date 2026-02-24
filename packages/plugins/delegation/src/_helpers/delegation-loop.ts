@@ -2,7 +2,7 @@
 // Creates task records, fires lifecycle hooks, invokes sub-agents,
 // and handles accept/reject validation with re-delegation support
 
-import type { PluginContext, PluginHooks } from '@harness/plugin-contract';
+import type { InvokeStreamEvent, PluginContext, PluginHooks } from '@harness/plugin-contract';
 import { runHook } from '@harness/plugin-contract';
 import { buildIterationPrompt } from './build-iteration-prompt';
 import { createTaskRecord } from './create-task-record';
@@ -92,8 +92,19 @@ export const runDelegationLoop: RunDelegationLoop = async (ctx, allHooks, option
       },
     });
 
-    // Invoke the sub-agent
-    const invokeResult = await invokeSubAgent(ctx, iterationPrompt, taskId, threadId, options.model);
+    // Invoke the sub-agent with streaming callback
+    const onMessage = (event: InvokeStreamEvent) => {
+      ctx
+        .broadcast('task:stream', {
+          taskId,
+          threadId,
+          parentThreadId: options.parentThreadId,
+          iteration: iterations,
+          event,
+        })
+        .catch(() => {});
+    };
+    const invokeResult = await invokeSubAgent(ctx, iterationPrompt, taskId, threadId, options.model, onMessage);
 
     // Check for invocation failure
     if (invokeResult.exitCode !== 0 && invokeResult.exitCode !== null) {
@@ -170,6 +181,17 @@ export const runDelegationLoop: RunDelegationLoop = async (ctx, allHooks, option
     // Task rejected — prepare for re-delegation
     feedback = outcome.feedback ?? 'Task was rejected without specific feedback.';
     ctx.logger.info(`Delegation: task ${taskId} rejected at iteration ${iterations}`, {
+      feedback,
+    });
+
+    // Broadcast iteration progress
+    await ctx.broadcast('task:progress', {
+      taskId,
+      threadId,
+      parentThreadId: options.parentThreadId,
+      iteration: iterations,
+      maxIterations,
+      status: 'rejected',
       feedback,
     });
   }

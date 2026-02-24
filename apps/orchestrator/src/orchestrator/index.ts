@@ -56,7 +56,7 @@ export const createOrchestrator: CreateOrchestrator = (deps) => {
       if (result.invokeResult.output) {
         deps.logger.info(`sendToThread: persisting assistant response [thread=${threadId}, outputLength=${result.invokeResult.output.length}]`);
         await deps.db.message.create({
-          data: { threadId, role: 'assistant', content: result.invokeResult.output },
+          data: { threadId, role: 'assistant', content: result.invokeResult.output, model: result.invokeResult.model },
         });
         await deps.db.thread.update({
           where: { id: threadId },
@@ -76,6 +76,12 @@ export const createOrchestrator: CreateOrchestrator = (deps) => {
   const handleMessage = async (threadId: string, role: string, content: string): Promise<HandleMessageResult> => {
     const hooks = allHooks();
 
+    // Step 0: Look up thread for session resumption and model override
+    const thread = await deps.db.thread.findUnique({
+      where: { id: threadId },
+      select: { sessionId: true, model: true },
+    });
+
     // Step 1: Fire onMessage hooks (notification — no modification)
     deps.logger.info(`Pipeline: onMessage [thread=${threadId}, role=${role}]`);
     await runNotifyHooks(hooks, 'onMessage', (h) => h.onMessage?.(threadId, role, content), deps.logger);
@@ -84,15 +90,27 @@ export const createOrchestrator: CreateOrchestrator = (deps) => {
     deps.logger.info(`Pipeline: onBeforeInvoke [thread=${threadId}]`);
     const prompt = await runChainHooks(hooks, threadId, content, deps.logger);
 
-    // Step 3: Invoke Claude via the invoker
-    deps.logger.info(`Pipeline: invoking Claude [thread=${threadId}, promptLength=${prompt.length}]`);
-    const invokeResult = await deps.invoker.invoke(prompt);
+    // Step 3: Invoke Claude via the invoker with session resumption and model override
+    const model = thread?.model ?? undefined;
+    const sessionId = thread?.sessionId ?? undefined;
+    deps.logger.info(
+      `Pipeline: invoking Claude [thread=${threadId}, promptLength=${prompt.length}, model=${model ?? 'default'}, sessionId=${sessionId ?? 'none'}]`,
+    );
+    const invokeResult = await deps.invoker.invoke(prompt, { model, sessionId });
 
     deps.logger.info(
-      `Pipeline: invoke complete [thread=${threadId}, duration=${invokeResult.durationMs}ms, exit=${invokeResult.exitCode}, outputLength=${invokeResult.output.length}]`,
+      `Pipeline: invoke complete [thread=${threadId}, duration=${invokeResult.durationMs}ms, exit=${invokeResult.exitCode}, outputLength=${invokeResult.output.length}, model=${invokeResult.model ?? 'unknown'}, sessionId=${invokeResult.sessionId ?? 'none'}]`,
     );
     if (invokeResult.error) {
       deps.logger.warn(`Pipeline: invoke error [thread=${threadId}]: ${invokeResult.error}`);
+    }
+
+    // Step 3b: Persist sessionId on thread if changed
+    if (invokeResult.sessionId && invokeResult.sessionId !== thread?.sessionId) {
+      await deps.db.thread.update({
+        where: { id: threadId },
+        data: { sessionId: invokeResult.sessionId },
+      });
     }
 
     // Step 4: Fire onAfterInvoke hooks (notification)

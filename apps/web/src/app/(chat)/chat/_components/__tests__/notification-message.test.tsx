@@ -17,6 +17,7 @@ const makeNotification: MakeNotification = (overrides) => {
     threadId: 'parent-thread-1',
     role: 'system',
     content: 'Task completed after 2 iteration(s): All tests pass.',
+    model: null,
     createdAt: new Date('2025-01-15T12:00:00Z'),
     ...rest,
     metadata: {

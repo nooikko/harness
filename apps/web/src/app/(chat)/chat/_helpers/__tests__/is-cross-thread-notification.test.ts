@@ -9,6 +9,7 @@ const makeMessage: MakeMessage = (overrides) => ({
   threadId: 'thread-1',
   role: 'user',
   content: 'Hello',
+  model: null,
   metadata: null,
   createdAt: new Date('2025-01-15T12:00:00Z'),
   ...overrides,

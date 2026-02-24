@@ -2,10 +2,14 @@
 
 import { SendHorizontal } from 'lucide-react';
 import { useRouter } from 'next/navigation';
-import { useEffect, useRef, useState, useTransition } from 'react';
+import { useCallback, useEffect, useRef, useState, useTransition } from 'react';
 import { Button } from 'ui';
+import { checkForResponse } from '../_actions/check-for-response';
 import { sendMessage } from '../_actions/send-message';
 import { useWs } from './ws-provider';
+
+const POLL_INTERVAL_MS = 3000;
+const POLL_TIMEOUT_MS = 120_000;
 
 type ChatInputProps = {
   threadId: string;
@@ -19,18 +23,51 @@ export const ChatInput: ChatInputComponent = ({ threadId }) => {
   const [isThinking, setIsThinking] = useState(false);
   const [isPending, startTransition] = useTransition();
   const textareaRef = useRef<HTMLTextAreaElement>(null);
+  const sentAtRef = useRef<Date | null>(null);
   const router = useRouter();
-  const { lastEvent } = useWs('pipeline:complete');
+  const { lastEvent, isConnected } = useWs('pipeline:complete');
 
+  const onResponseReceived = useCallback(() => {
+    setIsThinking(false);
+    router.refresh();
+  }, [router]);
+
+  // WebSocket-based refresh
   useEffect(() => {
     if (lastEvent && typeof lastEvent === 'object' && 'threadId' in lastEvent) {
       const event = lastEvent as { threadId: string };
       if (event.threadId === threadId) {
-        setIsThinking(false);
-        router.refresh();
+        onResponseReceived();
       }
     }
-  }, [lastEvent, threadId, router]);
+  }, [lastEvent, threadId, onResponseReceived]);
+
+  // Polling fallback when WebSocket is unavailable
+  useEffect(() => {
+    if (!isThinking || isConnected) {
+      return;
+    }
+
+    const startTime = Date.now();
+
+    const interval = setInterval(async () => {
+      if (Date.now() - startTime > POLL_TIMEOUT_MS) {
+        setIsThinking(false);
+        clearInterval(interval);
+        return;
+      }
+
+      if (sentAtRef.current) {
+        const hasResponse = await checkForResponse(threadId, sentAtRef.current);
+        if (hasResponse) {
+          clearInterval(interval);
+          onResponseReceived();
+        }
+      }
+    }, POLL_INTERVAL_MS);
+
+    return () => clearInterval(interval);
+  }, [isThinking, isConnected, threadId, onResponseReceived]);
 
   const handleSubmit = () => {
     const trimmed = value.trim();
@@ -40,6 +77,7 @@ export const ChatInput: ChatInputComponent = ({ threadId }) => {
 
     setError(null);
     setIsThinking(true);
+    sentAtRef.current = new Date();
     setValue('');
 
     startTransition(async () => {

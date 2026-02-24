@@ -7,11 +7,15 @@ export type Logger = {
   debug: (message: string, meta?: Record<string, unknown>) => void;
 };
 
+type Timestamp = () => string;
+
+const timestamp: Timestamp = () => new Date().toISOString();
+
 type CreateLogger = (prefix: string) => Logger;
 
 export const createLogger: CreateLogger = (prefix) => ({
-  info: (message, meta) => console.log(`[${prefix}] ${message}`, meta ?? ''),
-  warn: (message, meta) => console.warn(`[${prefix}] ${message}`, meta ?? ''),
-  error: (message, meta) => console.error(`[${prefix}] ${message}`, meta ?? ''),
-  debug: (message, meta) => console.debug(`[${prefix}] ${message}`, meta ?? ''),
+  info: (message, meta) => console.log(`${timestamp()} [${prefix}] ${message}`, meta ?? ''),
+  warn: (message, meta) => console.warn(`${timestamp()} [${prefix}] ${message}`, meta ?? ''),
+  error: (message, meta) => console.error(`${timestamp()} [${prefix}] ${message}`, meta ?? ''),
+  debug: (message, meta) => console.debug(`${timestamp()} [${prefix}] ${message}`, meta ?? ''),
 });

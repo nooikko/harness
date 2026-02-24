@@ -32,7 +32,7 @@ export const loadConfig: LoadConfig = () => {
     databaseUrl: process.env.DATABASE_URL ?? '',
     timezone: process.env.TZ ?? 'America/Phoenix',
     maxConcurrentAgents: Number(process.env.MAX_CONCURRENT_AGENTS ?? '3'),
-    claudeModel: process.env.CLAUDE_MODEL_DEFAULT ?? 'sonnet',
+    claudeModel: process.env.CLAUDE_MODEL_DEFAULT ?? 'haiku',
     claudeTimeout: Number(process.env.CLAUDE_TIMEOUT ?? '300000'),
     discordToken: process.env.DISCORD_TOKEN,
     discordChannelId: process.env.DISCORD_CHANNEL_ID,

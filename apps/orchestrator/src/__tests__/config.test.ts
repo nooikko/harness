@@ -29,7 +29,7 @@ describe('loadConfig', () => {
       expect(config.databaseUrl).toBe('postgres://localhost/test');
       expect(config.timezone).toBe('America/Phoenix');
       expect(config.maxConcurrentAgents).toBe(3);
-      expect(config.claudeModel).toBe('sonnet');
+      expect(config.claudeModel).toBe('haiku');
       expect(config.claudeTimeout).toBe(300000);
       expect(config.discordToken).toBeUndefined();
       expect(config.discordChannelId).toBeUndefined();

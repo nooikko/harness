@@ -5,7 +5,7 @@ import type { PluginDefinition } from '@harness/plugin-contract';
 import { prisma } from 'database';
 import { loadConfig } from './config';
 import { createHealthCheck } from './health-check';
-import { createInvoker } from './invoker';
+import { createSdkInvoker } from './invoker-sdk';
 import { createOrchestrator } from './orchestrator';
 import { createPluginLoader } from './plugin-loader';
 import { getPlugins } from './plugin-registry';
@@ -29,11 +29,11 @@ export const boot: Boot = async () => {
   logger.info('Initializing database connection');
   await prisma.$connect();
 
-  logger.info('Creating invoker', {
+  logger.info('Creating SDK invoker', {
     model: config.claudeModel,
     timeout: config.claudeTimeout,
   });
-  const invoker = createInvoker({
+  const invoker = createSdkInvoker({
     defaultModel: config.claudeModel,
     defaultTimeout: config.claudeTimeout,
   });
@@ -99,6 +99,15 @@ export const boot: Boot = async () => {
       await orchestrator.stop();
     } catch (err) {
       logger.error('Error stopping plugins', {
+        error: err instanceof Error ? err.message : String(err),
+      });
+    }
+
+    try {
+      logger.info('Closing warm sessions');
+      invoker.stop();
+    } catch (err) {
+      logger.error('Error closing warm sessions', {
         error: err instanceof Error ? err.message : String(err),
       });
     }

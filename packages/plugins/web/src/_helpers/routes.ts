@@ -59,6 +59,39 @@ export const createApp: CreateApp = ({ ctx, logger, onChatMessage }) => {
     }
   });
 
+  // POST /api/prewarm — pre-warm a session for a thread
+  app.post('/api/prewarm', async (req: Request, res: Response) => {
+    const body = req.body as Partial<{ threadId: string }>;
+
+    if (!body.threadId || typeof body.threadId !== 'string') {
+      res.status(400).json({ error: 'Missing or invalid threadId' });
+      return;
+    }
+
+    try {
+      const thread = await ctx.db.thread.findUnique({
+        where: { id: body.threadId },
+        select: { model: true },
+      });
+
+      if (!thread) {
+        res.status(404).json({ error: 'Thread not found' });
+        return;
+      }
+
+      if (ctx.invoker.prewarm) {
+        const model = thread.model ?? ctx.config.claudeModel;
+        ctx.invoker.prewarm({ sessionId: body.threadId, model });
+      }
+
+      res.json({ success: true, threadId: body.threadId });
+    } catch (err) {
+      const message = err instanceof Error ? err.message : String(err);
+      logger.error('Prewarm endpoint error', { error: message });
+      res.status(500).json({ error: 'Internal server error' });
+    }
+  });
+
   // GET /api/threads — list all threads
   app.get('/api/threads', async (_req: Request, res: Response) => {
     try {

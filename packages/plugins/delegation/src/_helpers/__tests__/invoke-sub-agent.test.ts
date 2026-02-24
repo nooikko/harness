@@ -38,7 +38,7 @@ describe('invokeSubAgent', () => {
 
     await invokeSubAgent(ctx, 'Do research', 'task-1', 'thread-1', 'claude-opus-4-20250514');
 
-    expect(ctx.invoker.invoke).toHaveBeenCalledWith('Do research', { model: 'claude-opus-4-20250514' });
+    expect(ctx.invoker.invoke).toHaveBeenCalledWith('Do research', { model: 'claude-opus-4-20250514', onMessage: undefined });
   });
 
   it('invokes with undefined model when not specified', async () => {
@@ -46,7 +46,7 @@ describe('invokeSubAgent', () => {
 
     await invokeSubAgent(ctx, 'Do work', 'task-1', 'thread-1', undefined);
 
-    expect(ctx.invoker.invoke).toHaveBeenCalledWith('Do work', { model: undefined });
+    expect(ctx.invoker.invoke).toHaveBeenCalledWith('Do work', { model: undefined, onMessage: undefined });
   });
 
   it('persists the assistant message in the task thread', async () => {
@@ -160,6 +160,15 @@ describe('invokeSubAgent', () => {
         costEstimate: expect.any(Number),
       }),
     });
+  });
+
+  it('passes onMessage callback to invoke', async () => {
+    const ctx = createMockContext();
+    const onMessage = vi.fn();
+
+    await invokeSubAgent(ctx, 'Do work', 'task-1', 'thread-1', undefined, onMessage);
+
+    expect(ctx.invoker.invoke).toHaveBeenCalledWith('Do work', { model: undefined, onMessage });
   });
 
   it('handles undefined error by setting null', async () => {

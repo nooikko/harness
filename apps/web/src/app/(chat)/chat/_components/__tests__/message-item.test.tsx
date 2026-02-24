@@ -10,6 +10,10 @@ vi.mock('../notification-message', () => ({
   NotificationMessage: ({ message }: { message: Message }) => <div data-testid='notification'>{message.content}</div>,
 }));
 
+vi.mock('../../_helpers/format-model-name', () => ({
+  formatModelName: (model: string) => model.replace('claude-', '').split('-')[0],
+}));
+
 import { MessageItem } from '../message-item';
 
 const makeMessage = (overrides: Partial<Message> = {}): Message => ({
@@ -17,6 +21,7 @@ const makeMessage = (overrides: Partial<Message> = {}): Message => ({
   threadId: 'thread-1',
   role: 'user',
   content: 'Hello',
+  model: null,
   metadata: null,
   createdAt: new Date('2026-02-23T10:00:00Z'),
   ...overrides,
@@ -57,5 +62,45 @@ describe('MessageItem', () => {
     );
     expect(screen.getByTestId('notification')).toBeInTheDocument();
     expect(screen.getByText('Task done')).toBeInTheDocument();
+  });
+
+  it('shows model badge on assistant messages when model is set', () => {
+    render(
+      <MessageItem
+        message={makeMessage({
+          role: 'assistant',
+          content: 'Response',
+          model: 'claude-sonnet-4-6',
+        })}
+      />,
+    );
+    expect(screen.getByText('sonnet')).toBeInTheDocument();
+  });
+
+  it('does not show model badge on user messages', () => {
+    render(
+      <MessageItem
+        message={makeMessage({
+          role: 'user',
+          content: 'Hi',
+          model: 'claude-sonnet-4-6',
+        })}
+      />,
+    );
+    expect(screen.queryByText('sonnet')).not.toBeInTheDocument();
+  });
+
+  it('does not show model badge when model is null', () => {
+    render(
+      <MessageItem
+        message={makeMessage({
+          role: 'assistant',
+          content: 'Response',
+          model: null,
+        })}
+      />,
+    );
+    const badges = document.querySelectorAll('.text-\\[10px\\]');
+    expect(badges.length).toBe(0);
   });
 });

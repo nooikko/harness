@@ -58,11 +58,21 @@ const createRegister: CreateRegister = (options) => {
 
         const contextSection = formatContextSection(contextResult.files);
 
-        // Load conversation history from Prisma
-        const historyResult = await loadHistory(ctx.db, threadId, historyLimit);
-        const historySection = formatHistorySection(historyResult);
+        // Check if thread has an active session — if so, Claude already has history via --resume
+        const thread = await ctx.db.thread.findUnique({
+          where: { id: threadId },
+          select: { sessionId: true },
+        });
 
-        // Concatenate: context + history + original prompt
+        let historySection = '';
+        if (thread?.sessionId) {
+          ctx.logger.info(`Skipping history injection for resumed session [thread=${threadId}]`);
+        } else {
+          const historyResult = await loadHistory(ctx.db, threadId, historyLimit);
+          historySection = formatHistorySection(historyResult);
+        }
+
+        // Concatenate: context + history (if not resuming) + original prompt
         return buildPrompt([contextSection, historySection, prompt]);
       },
     };

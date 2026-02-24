@@ -7,23 +7,29 @@ import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from 'vites
 import { createApp } from '../routes';
 
 type MockDb = {
-  thread: { findMany: ReturnType<typeof vi.fn> };
+  thread: { findMany: ReturnType<typeof vi.fn>; findUnique: ReturnType<typeof vi.fn> };
   orchestratorTask: { findMany: ReturnType<typeof vi.fn> };
   metric: { findMany: ReturnType<typeof vi.fn> };
 };
 
 type JsonResponse = Record<string, unknown>;
 
+type MockInvoker = {
+  invoke: ReturnType<typeof vi.fn>;
+  prewarm: ReturnType<typeof vi.fn>;
+};
+
 type TestContext = {
   baseUrl: string;
   mockDb: MockDb;
   mockLogger: Logger;
+  mockInvoker: MockInvoker;
   onChatMessage: ReturnType<typeof vi.fn>;
 };
 
 const createTestContext = (): TestContext => {
   const mockDb: MockDb = {
-    thread: { findMany: vi.fn() },
+    thread: { findMany: vi.fn(), findUnique: vi.fn() },
     orchestratorTask: { findMany: vi.fn() },
     metric: { findMany: vi.fn() },
   };
@@ -35,10 +41,16 @@ const createTestContext = (): TestContext => {
     debug: vi.fn(),
   };
 
+  const mockInvoker: MockInvoker = {
+    invoke: vi.fn(),
+    prewarm: vi.fn(),
+  };
+
   return {
     baseUrl: '',
     mockDb,
     mockLogger,
+    mockInvoker,
     onChatMessage: vi.fn(),
   };
 };
@@ -52,6 +64,8 @@ describe('routes', () => {
 
     const mockPluginContext = {
       db: testCtx.mockDb,
+      invoker: testCtx.mockInvoker,
+      config: { claudeModel: 'claude-haiku-4-5-20251001' },
       logger: testCtx.mockLogger,
     } as unknown as PluginContext;
 
@@ -341,6 +355,93 @@ describe('routes', () => {
 
       expect(res.status).toBe(500);
       expect(body.error).toBe('Internal server error');
+    });
+  });
+
+  describe('POST /api/prewarm', () => {
+    it('calls invoker.prewarm with thread model', async () => {
+      testCtx.mockDb.thread.findUnique.mockResolvedValue({ model: 'claude-sonnet-4-6' });
+
+      const res = await fetch(`${testCtx.baseUrl}/api/prewarm`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ threadId: 't1' }),
+      });
+      const body = (await res.json()) as JsonResponse;
+
+      expect(res.status).toBe(200);
+      expect(body.success).toBe(true);
+      expect(testCtx.mockInvoker.prewarm).toHaveBeenCalledWith({
+        sessionId: 't1',
+        model: 'claude-sonnet-4-6',
+      });
+    });
+
+    it('falls back to config model when thread has no model', async () => {
+      testCtx.mockDb.thread.findUnique.mockResolvedValue({ model: null });
+
+      await fetch(`${testCtx.baseUrl}/api/prewarm`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ threadId: 't1' }),
+      });
+
+      expect(testCtx.mockInvoker.prewarm).toHaveBeenCalledWith({
+        sessionId: 't1',
+        model: 'claude-haiku-4-5-20251001',
+      });
+    });
+
+    it('returns 400 when threadId is missing', async () => {
+      const res = await fetch(`${testCtx.baseUrl}/api/prewarm`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({}),
+      });
+      const body = (await res.json()) as JsonResponse;
+
+      expect(res.status).toBe(400);
+      expect(body.error).toBe('Missing or invalid threadId');
+    });
+
+    it('returns 404 when thread is not found', async () => {
+      testCtx.mockDb.thread.findUnique.mockResolvedValue(null);
+
+      const res = await fetch(`${testCtx.baseUrl}/api/prewarm`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ threadId: 'nonexistent' }),
+      });
+      const body = (await res.json()) as JsonResponse;
+
+      expect(res.status).toBe(404);
+      expect(body.error).toBe('Thread not found');
+    });
+
+    it('returns 500 when database query throws', async () => {
+      testCtx.mockDb.thread.findUnique.mockRejectedValue(new Error('db error'));
+
+      const res = await fetch(`${testCtx.baseUrl}/api/prewarm`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ threadId: 't1' }),
+      });
+      const body = (await res.json()) as JsonResponse;
+
+      expect(res.status).toBe(500);
+      expect(body.error).toBe('Internal server error');
+    });
+
+    it('returns 500 when database query throws non-Error', async () => {
+      testCtx.mockDb.thread.findUnique.mockRejectedValue('connection lost');
+
+      const res = await fetch(`${testCtx.baseUrl}/api/prewarm`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ threadId: 't1' }),
+      });
+      expect(res.status).toBe(500);
+      expect(testCtx.mockLogger.error).toHaveBeenCalledWith('Prewarm endpoint error', { error: 'connection lost' });
     });
   });
 

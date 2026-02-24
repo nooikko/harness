@@ -17,8 +17,8 @@ vi.mock('../config', () => ({
   loadConfig: vi.fn(),
 }));
 
-vi.mock('../invoker', () => ({
-  createInvoker: vi.fn(),
+vi.mock('../invoker-sdk', () => ({
+  createSdkInvoker: vi.fn(),
 }));
 
 vi.mock('../plugin-registry', () => ({
@@ -42,7 +42,7 @@ import { prisma } from 'database';
 import { loadConfig } from '../config';
 import { createHealthCheck } from '../health-check';
 import { boot, main } from '../index';
-import { createInvoker } from '../invoker';
+import { createSdkInvoker } from '../invoker-sdk';
 import { createOrchestrator } from '../orchestrator';
 import { createPluginLoader } from '../plugin-loader';
 import { getPlugins } from '../plugin-registry';
@@ -51,7 +51,7 @@ const mockCreateLogger = vi.mocked(createLogger);
 const mockPrisma = vi.mocked(prisma);
 const mockLoadConfig = vi.mocked(loadConfig);
 const mockCreateHealthCheck = vi.mocked(createHealthCheck);
-const mockCreateInvoker = vi.mocked(createInvoker);
+const mockCreateSdkInvoker = vi.mocked(createSdkInvoker);
 const mockGetPlugins = vi.mocked(getPlugins);
 const mockCreatePluginLoader = vi.mocked(createPluginLoader);
 const mockCreateOrchestrator = vi.mocked(createOrchestrator);
@@ -105,10 +105,14 @@ const makeOrchestrator = (): MockOrchestrator => ({
 
 type MockInvoker = {
   invoke: ReturnType<typeof vi.fn>;
+  prewarm: ReturnType<typeof vi.fn>;
+  stop: ReturnType<typeof vi.fn>;
 };
 
 const makeInvoker = (): MockInvoker => ({
   invoke: vi.fn(),
+  prewarm: vi.fn(),
+  stop: vi.fn(),
 });
 
 const setupDefaults = (options?: {
@@ -124,7 +128,7 @@ const setupDefaults = (options?: {
 
   mockCreateLogger.mockReturnValue(logger);
   mockLoadConfig.mockReturnValue(config);
-  mockCreateInvoker.mockReturnValue(invoker as ReturnType<typeof createInvoker>);
+  mockCreateSdkInvoker.mockReturnValue(invoker as ReturnType<typeof createSdkInvoker>);
   mockGetPlugins.mockResolvedValue(plugins);
   mockCreatePluginLoader.mockReturnValue({
     loadAll: vi.fn().mockReturnValue({ loaded: plugins, results: [] }),
@@ -206,13 +210,13 @@ describe('boot', () => {
       expect(mockPrisma.$connect).toHaveBeenCalledTimes(1);
     });
 
-    it('creates an invoker with config values', async () => {
+    it('creates an SDK invoker with config values', async () => {
       const config = makeConfig({ claudeModel: 'opus', claudeTimeout: 60000 });
       setupDefaults({ config });
 
       await boot();
 
-      expect(mockCreateInvoker).toHaveBeenCalledWith({
+      expect(mockCreateSdkInvoker).toHaveBeenCalledWith({
         defaultModel: 'opus',
         defaultTimeout: 60000,
       });
@@ -432,6 +436,7 @@ describe('boot', () => {
       expect(logger.info).toHaveBeenCalledWith('Graceful shutdown initiated');
       expect(logger.info).toHaveBeenCalledWith('Stopping health check server');
       expect(logger.info).toHaveBeenCalledWith('Stopping plugins');
+      expect(logger.info).toHaveBeenCalledWith('Closing warm sessions');
       expect(logger.info).toHaveBeenCalledWith('Disconnecting database');
       expect(logger.info).toHaveBeenCalledWith('Shutdown complete');
     });
@@ -523,6 +528,36 @@ describe('boot', () => {
         error: 'health string error',
       });
     });
+
+    it('continues shutdown even if invoker.stop() throws an Error', async () => {
+      const { logger, invoker } = setupDefaults();
+      invoker.stop.mockImplementation(() => {
+        throw new Error('invoker stop failed');
+      });
+
+      const result = await boot();
+      await result.shutdown();
+
+      expect(logger.error).toHaveBeenCalledWith('Error closing warm sessions', {
+        error: 'invoker stop failed',
+      });
+      expect(mockPrisma.$disconnect).toHaveBeenCalledTimes(1);
+      expect(logger.info).toHaveBeenCalledWith('Shutdown complete');
+    });
+
+    it('handles non-Error objects thrown during invoker.stop()', async () => {
+      const { logger, invoker } = setupDefaults();
+      invoker.stop.mockImplementation(() => {
+        throw 'invoker string error';
+      });
+
+      const result = await boot();
+      await result.shutdown();
+
+      expect(logger.error).toHaveBeenCalledWith('Error closing warm sessions', {
+        error: 'invoker string error',
+      });
+    });
   });
 
   describe('error handling during boot', () => {
@@ -586,7 +621,7 @@ describe('boot', () => {
       const logCalls = (logger.info as ReturnType<typeof vi.fn>).mock.calls.map((c: unknown[]) => c[0]);
       expect(logCalls).toContain('Loading configuration');
       expect(logCalls).toContain('Initializing database connection');
-      expect(logCalls).toContain('Creating invoker');
+      expect(logCalls).toContain('Creating SDK invoker');
       expect(logCalls).toContain('Loading plugins from registry');
       expect(logCalls).toContain('Validating plugins');
       expect(logCalls).toContain('Creating orchestrator');
@@ -665,7 +700,7 @@ describe('main', () => {
 
     mockCreateLogger.mockReturnValue(logger);
     mockLoadConfig.mockReturnValue(config);
-    mockCreateInvoker.mockReturnValue(invoker as ReturnType<typeof createInvoker>);
+    mockCreateSdkInvoker.mockReturnValue(invoker as ReturnType<typeof createSdkInvoker>);
     mockGetPlugins.mockResolvedValue([]);
     mockCreatePluginLoader.mockReturnValue({
       loadAll: vi.fn().mockReturnValue({ loaded: [], results: [] }),

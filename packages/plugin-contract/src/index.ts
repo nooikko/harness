@@ -26,11 +26,21 @@ export type OrchestratorConfig = {
 };
 
 // Inlined from orchestrator invoker
+export type InvokeStreamEvent = {
+  type: string;
+  content?: string;
+  toolName?: string;
+  timestamp: number;
+  raw?: unknown;
+};
+
 export type InvokeOptions = {
   model?: string;
   timeout?: number;
   allowedTools?: string[];
   maxTokens?: number;
+  sessionId?: string;
+  onMessage?: (event: InvokeStreamEvent) => void;
 };
 
 export type InvokeResult = {
@@ -38,10 +48,15 @@ export type InvokeResult = {
   error?: string;
   durationMs: number;
   exitCode: number | null;
+  sessionId?: string;
+  model?: string;
+  inputTokens?: number;
+  outputTokens?: number;
 };
 
 export type Invoker = {
   invoke: (prompt: string, options?: InvokeOptions) => Promise<InvokeResult>;
+  prewarm?: (options: { sessionId: string; model?: string }) => void;
 };
 
 export type PluginContext = {

@@ -26,6 +26,14 @@ vi.mock('../../_components/chat-input', () => ({
   ChatInput: () => null,
 }));
 
+vi.mock('../../_components/model-selector', () => ({
+  ModelSelector: ({ currentModel }: { currentModel: string | null }) => <div data-testid='model-selector'>{currentModel ?? 'default'}</div>,
+}));
+
+vi.mock('../../_components/prewarm-trigger', () => ({
+  PrewarmTrigger: () => null,
+}));
+
 const { default: ThreadPage } = await import('../page');
 
 type MakeThread = (overrides?: Partial<Thread>) => Thread;
@@ -37,6 +45,8 @@ const makeThread: MakeThread = (overrides) => ({
   name: 'My Thread',
   kind: 'general',
   status: 'open',
+  sessionId: null,
+  model: null,
   parentThreadId: null,
   lastActivity: new Date('2025-01-15T12:00:00Z'),
   createdAt: new Date('2025-01-10T10:00:00Z'),
@@ -101,5 +111,18 @@ describe('ThreadPage', () => {
     const html = renderToStaticMarkup(element as React.ReactElement);
 
     expect(html).toContain('discord/ch-456');
+  });
+
+  it('renders the model selector in the header', async () => {
+    mockFindUnique.mockResolvedValue(makeThread({ model: 'claude-opus-4-6' }));
+    mockFindMany.mockResolvedValue([]);
+
+    const element = await ThreadPage({
+      params: makeParams('thread-abc'),
+    });
+    const html = renderToStaticMarkup(element as React.ReactElement);
+
+    expect(html).toContain('model-selector');
+    expect(html).toContain('claude-opus-4-6');
   });
 });

@@ -4,6 +4,7 @@
 
 import type { PluginContext, PluginDefinition, PluginHooks } from '@harness/plugin-contract';
 import { type DelegationOptions, type DelegationResult, runDelegationLoop } from './_helpers/delegation-loop';
+import { handleCheckin } from './_helpers/handle-checkin';
 
 export type { DelegationOptions, DelegationResult };
 
@@ -55,18 +56,19 @@ const handleDelegateCommand: HandleDelegateCommand = async (ctx, allHooks, threa
     maxIterations,
   };
 
-  try {
-    const result = await runDelegationLoop(ctx, allHooks, options);
-    ctx.logger.info('Delegation: delegate command finished', {
-      taskId: result.taskId,
-      status: result.status,
-      iterations: result.iterations,
+  runDelegationLoop(ctx, allHooks, options)
+    .then((result) => {
+      ctx.logger.info('Delegation: delegate command finished', {
+        taskId: result.taskId,
+        status: result.status,
+        iterations: result.iterations,
+      });
+    })
+    .catch((err) => {
+      ctx.logger.error(`Delegation: delegate command failed: ${err instanceof Error ? err.message : String(err)}`);
     });
-    return true;
-  } catch (err) {
-    ctx.logger.error(`Delegation: delegate command failed: ${err instanceof Error ? err.message : String(err)}`);
-    return false;
-  }
+
+  return true;
 };
 
 type HandleRedelegateCommand = (ctx: PluginContext, allHooks: PluginHooks[], threadId: string, args: string) => Promise<boolean>;
@@ -88,18 +90,19 @@ const handleRedelegateCommand: HandleRedelegateCommand = async (ctx, allHooks, t
     maxIterations,
   };
 
-  try {
-    const result = await runDelegationLoop(ctx, allHooks, options);
-    ctx.logger.info('Delegation: re-delegate command finished', {
-      taskId: result.taskId,
-      status: result.status,
-      iterations: result.iterations,
+  runDelegationLoop(ctx, allHooks, options)
+    .then((result) => {
+      ctx.logger.info('Delegation: re-delegate command finished', {
+        taskId: result.taskId,
+        status: result.status,
+        iterations: result.iterations,
+      });
+    })
+    .catch((err) => {
+      ctx.logger.error(`Delegation: re-delegate command failed: ${err instanceof Error ? err.message : String(err)}`);
     });
-    return true;
-  } catch (err) {
-    ctx.logger.error(`Delegation: re-delegate command failed: ${err instanceof Error ? err.message : String(err)}`);
-    return false;
-  }
+
+  return true;
 };
 
 type CreateRegister = () => PluginDefinition['register'];
@@ -128,6 +131,9 @@ const createRegister: CreateRegister = () => {
         }
         if (command === 're-delegate') {
           return handleRedelegateCommand(ctx, resolvedHooks, threadId, args);
+        }
+        if (command === 'checkin') {
+          return handleCheckin(ctx, threadId, args);
         }
         return false;
       },

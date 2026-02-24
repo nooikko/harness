@@ -3,6 +3,7 @@
 import { spawn } from 'node:child_process';
 import type { InvokeOptions, InvokeResult } from '@harness/plugin-contract';
 import { buildArgs } from './_helpers/build-args';
+import { parseJsonOutput } from './_helpers/parse-json-output';
 
 export type { InvokeOptions, InvokeResult } from '@harness/plugin-contract';
 
@@ -22,6 +23,7 @@ export const createInvoker: CreateInvoker = (config) => {
       model: options?.model ?? config.defaultModel,
       allowedTools: options?.allowedTools,
       maxTokens: options?.maxTokens,
+      sessionId: options?.sessionId,
     });
     const timeout = options?.timeout ?? config.defaultTimeout;
 
@@ -67,11 +69,16 @@ export const createInvoker: CreateInvoker = (config) => {
       child.on('close', (code) => {
         clearTimeout(timer);
         const durationMs = Date.now() - startTime;
+        const parsed = parseJsonOutput(stdout);
         resolve({
-          output: stdout.trim(),
+          output: parsed.result,
           error: killed ? `Timed out after ${timeout}ms` : stderr.trim() || undefined,
           durationMs,
           exitCode: code,
+          sessionId: parsed.sessionId,
+          model: parsed.model,
+          inputTokens: parsed.inputTokens,
+          outputTokens: parsed.outputTokens,
         });
       });
 

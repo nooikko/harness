@@ -1,14 +1,31 @@
+import { prisma } from 'database';
 import { MessageSquare } from 'lucide-react';
+import { redirect } from 'next/navigation';
 
 export const dynamic = 'force-dynamic';
 
-type ChatIndexPageComponent = () => React.ReactNode;
+type ChatIndexPageComponent = () => Promise<React.ReactNode>;
 
-/**
- * Default page when no thread is selected.
- * Prompts the user to select a thread from the sidebar.
- */
-const ChatIndexPage: ChatIndexPageComponent = () => {
+const ChatIndexPage: ChatIndexPageComponent = async () => {
+  const primaryThread = await prisma.thread.findFirst({
+    where: { kind: 'primary', status: { not: 'archived' } },
+    select: { id: true },
+  });
+
+  if (primaryThread) {
+    redirect(`/chat/${primaryThread.id}`);
+  }
+
+  const newestThread = await prisma.thread.findFirst({
+    where: { status: { not: 'archived' } },
+    orderBy: { lastActivity: 'desc' },
+    select: { id: true },
+  });
+
+  if (newestThread) {
+    redirect(`/chat/${newestThread.id}`);
+  }
+
   return (
     <div className='flex flex-1 flex-col items-center justify-center gap-4 text-center'>
       <MessageSquare className='h-12 w-12 text-muted-foreground' />

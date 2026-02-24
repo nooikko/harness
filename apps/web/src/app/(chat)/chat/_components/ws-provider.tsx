@@ -40,7 +40,7 @@ export const WsProvider: WsProviderComponent = ({ children }) => {
   }, []);
 
   useEffect(() => {
-    const wsUrl = process.env.NEXT_PUBLIC_ORCHESTRATOR_WS_URL ?? 'ws://localhost:4001/ws';
+    const wsUrl = process.env.NEXT_PUBLIC_ORCHESTRATOR_WS_URL ?? `ws://${window.location.hostname}:4001/ws`;
     let attempt = 0;
 
     const connect = () => {

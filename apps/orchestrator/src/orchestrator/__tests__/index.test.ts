@@ -61,7 +61,10 @@ const mockConfig: OrchestratorConfig = {
 const makeDeps = (overrides?: Partial<OrchestratorDeps>): OrchestratorDeps => ({
   db: {
     message: { create: vi.fn().mockResolvedValue({}) },
-    thread: { update: vi.fn().mockResolvedValue({}) },
+    thread: {
+      findUnique: vi.fn().mockResolvedValue({ sessionId: null, model: null }),
+      update: vi.fn().mockResolvedValue({}),
+    },
   } as unknown as PrismaClient,
   invoker: { invoke: vi.fn().mockResolvedValue(makeInvokeResult()) } as unknown as Invoker,
   config: mockConfig,
@@ -261,8 +264,8 @@ describe('createOrchestrator', () => {
   });
 
   describe('sendToThread', () => {
-    it('runs the message pipeline and persists the assistant response', async () => {
-      const invokeResult = makeInvokeResult({ output: 'assistant reply', durationMs: 50 });
+    it('runs the message pipeline and persists the assistant response with model', async () => {
+      const invokeResult = makeInvokeResult({ output: 'assistant reply', durationMs: 50, model: 'claude-haiku-4-5-20251001' });
       const deps = makeDeps({
         invoker: { invoke: vi.fn().mockResolvedValue(invokeResult) } as unknown as Invoker,
       });
@@ -273,7 +276,7 @@ describe('createOrchestrator', () => {
 
       expect(deps.invoker.invoke).toHaveBeenCalled();
       expect(deps.db.message.create as ReturnType<typeof vi.fn>).toHaveBeenCalledWith({
-        data: { threadId: 'thread-1', role: 'assistant', content: 'assistant reply' },
+        data: { threadId: 'thread-1', role: 'assistant', content: 'assistant reply', model: 'claude-haiku-4-5-20251001' },
       });
       expect(deps.db.thread.update as ReturnType<typeof vi.fn>).toHaveBeenCalledWith({
         where: { id: 'thread-1' },
@@ -362,20 +365,24 @@ describe('createOrchestrator', () => {
 
       expect(mockRunChainHooks).toHaveBeenCalledWith([], 'thread-1', 'original', deps.logger);
       expect(result.prompt).toBe('augmented prompt');
-      expect(deps.invoker.invoke).toHaveBeenCalledWith('augmented prompt');
+      expect(deps.invoker.invoke).toHaveBeenCalledWith('augmented prompt', { model: undefined, sessionId: undefined });
     });
 
-    it('calls invoker.invoke with the chained prompt', async () => {
+    it('calls invoker.invoke with the chained prompt and thread options', async () => {
       const invokeResult = makeInvokeResult({ output: 'response' });
       const deps = makeDeps({
         invoker: { invoke: vi.fn().mockResolvedValue(invokeResult) } as unknown as Invoker,
+      });
+      (deps.db.thread.findUnique as ReturnType<typeof vi.fn>).mockResolvedValue({
+        sessionId: 'sess-1',
+        model: 'claude-opus-4-6',
       });
       const orchestrator = createOrchestrator(deps);
       mockRunChainHooks.mockResolvedValue('final prompt');
 
       await orchestrator.handleMessage('t', 'user', 'input');
 
-      expect(deps.invoker.invoke).toHaveBeenCalledWith('final prompt');
+      expect(deps.invoker.invoke).toHaveBeenCalledWith('final prompt', { model: 'claude-opus-4-6', sessionId: 'sess-1' });
     });
 
     it('calls runNotifyHooks for onAfterInvoke with the invoke result', async () => {
@@ -473,6 +480,49 @@ describe('createOrchestrator', () => {
 
       expect(mockRunNotifyHooks).toHaveBeenCalledWith([hooks], 'onMessage', expect.any(Function), deps.logger);
       expect(mockRunChainHooks).toHaveBeenCalledWith([hooks], 't', 'hi', deps.logger);
+    });
+
+    it('looks up thread for sessionId and model before invoking', async () => {
+      const deps = makeDeps();
+      const orchestrator = createOrchestrator(deps);
+
+      await orchestrator.handleMessage('thread-123', 'user', 'hi');
+
+      expect(deps.db.thread.findUnique as ReturnType<typeof vi.fn>).toHaveBeenCalledWith({
+        where: { id: 'thread-123' },
+        select: { sessionId: true, model: true },
+      });
+    });
+
+    it('persists new sessionId on thread when invoke returns one', async () => {
+      const invokeResult = makeInvokeResult({ sessionId: 'new-sess-id' });
+      const deps = makeDeps({
+        invoker: { invoke: vi.fn().mockResolvedValue(invokeResult) } as unknown as Invoker,
+      });
+      const orchestrator = createOrchestrator(deps);
+
+      await orchestrator.handleMessage('thread-1', 'user', 'hi');
+
+      expect(deps.db.thread.update as ReturnType<typeof vi.fn>).toHaveBeenCalledWith({
+        where: { id: 'thread-1' },
+        data: { sessionId: 'new-sess-id' },
+      });
+    });
+
+    it('does not persist sessionId when it has not changed', async () => {
+      const invokeResult = makeInvokeResult({ sessionId: 'existing-sess' });
+      const deps = makeDeps({
+        invoker: { invoke: vi.fn().mockResolvedValue(invokeResult) } as unknown as Invoker,
+      });
+      (deps.db.thread.findUnique as ReturnType<typeof vi.fn>).mockResolvedValue({
+        sessionId: 'existing-sess',
+        model: null,
+      });
+      const orchestrator = createOrchestrator(deps);
+
+      await orchestrator.handleMessage('thread-1', 'user', 'hi');
+
+      expect(deps.db.thread.update as ReturnType<typeof vi.fn>).not.toHaveBeenCalled();
     });
   });
 });

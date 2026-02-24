@@ -1,6 +1,7 @@
 import type { Message } from 'database';
 import { Bot, Info, User } from 'lucide-react';
 import { cn } from 'ui';
+import { formatModelName } from '../_helpers/format-model-name';
 import { isCrossThreadNotification } from '../_helpers/is-cross-thread-notification';
 import { NotificationMessage } from './notification-message';
 
@@ -45,7 +46,14 @@ export const MessageItem: MessageItemComponent = ({ message }) => {
         <span role='img' className='mt-0.5 shrink-0' aria-label={config.label}>
           <Icon className='h-4 w-4' />
         </span>
-        <div className='min-w-0 whitespace-pre-wrap break-words text-sm'>{message.content}</div>
+        <div className='min-w-0'>
+          <div className='whitespace-pre-wrap break-words text-sm'>{message.content}</div>
+          {message.role === 'assistant' && message.model && (
+            <span className='mt-1 inline-block rounded bg-accent/50 px-1.5 py-0.5 text-[10px] text-muted-foreground'>
+              {formatModelName(message.model)}
+            </span>
+          )}
+        </div>
       </div>
     </div>
   );

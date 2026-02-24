@@ -187,7 +187,7 @@ describe('runDelegationLoop', () => {
       parentThreadId: 'parent-1',
     });
 
-    expect(mockCtx.invoker.invoke).toHaveBeenCalledWith('Research topic', { model: undefined });
+    expect(mockCtx.invoker.invoke).toHaveBeenCalledWith('Research topic', { model: undefined, onMessage: expect.any(Function) });
   });
 
   it('passes model to sub-agent invocation', async () => {
@@ -201,6 +201,7 @@ describe('runDelegationLoop', () => {
 
     expect(mockCtx.invoker.invoke).toHaveBeenCalledWith('Research topic', {
       model: 'claude-opus-4-20250514',
+      onMessage: expect.any(Function),
     });
   });
 

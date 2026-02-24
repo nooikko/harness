@@ -39,6 +39,8 @@ model Thread {
   name           String?
   kind           String     @default("general")
   status         String     @default("open")
+  sessionId      String?
+  model          String?
   parentThreadId String?
   parentThread   Thread?    @relation("ThreadChildren", fields: [parentThreadId], references: [id])
   children       Thread[]   @relation("ThreadChildren")
@@ -59,6 +61,7 @@ model Message {
   thread    Thread   @relation(fields: [threadId], references: [id], onDelete: Cascade)
   role      String
   content   String   @db.Text
+  model     String?
   metadata  Json?
   createdAt DateTime @default(now())
 

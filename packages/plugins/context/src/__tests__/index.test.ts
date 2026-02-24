@@ -9,9 +9,11 @@ let TEST_DIR: string;
 let CONTEXT_DIR: string;
 
 type MockFindMany = ReturnType<typeof vi.fn>;
+type MockFindUnique = ReturnType<typeof vi.fn>;
 
 type CreateMockContextOptions = {
   findMany?: MockFindMany;
+  threadFindUnique?: MockFindUnique;
 };
 
 type CreateMockContext = (options?: CreateMockContextOptions) => PluginContext;
@@ -20,6 +22,9 @@ const createMockContext: CreateMockContext = (options) => ({
   db: {
     message: {
       findMany: options?.findMany ?? vi.fn().mockResolvedValue([]),
+    },
+    thread: {
+      findUnique: options?.threadFindUnique ?? vi.fn().mockResolvedValue({ sessionId: null }),
     },
   } as never,
   invoker: { invoke: vi.fn() },
