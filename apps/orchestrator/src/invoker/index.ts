@@ -35,6 +35,9 @@ export const createInvoker: CreateInvoker = (config) => {
         env,
       });
 
+      // Close stdin immediately — the prompt is passed via CLI args, not stdin
+      child.stdin?.end();
+
       let stdout = '';
       let stderr = '';
       let killed = false;
