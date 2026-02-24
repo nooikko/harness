@@ -59,7 +59,10 @@ const mockConfig: OrchestratorConfig = {
 };
 
 const makeDeps = (overrides?: Partial<OrchestratorDeps>): OrchestratorDeps => ({
-  db: {} as unknown as PrismaClient,
+  db: {
+    message: { create: vi.fn().mockResolvedValue({}) },
+    thread: { update: vi.fn().mockResolvedValue({}) },
+  } as unknown as PrismaClient,
   invoker: { invoke: vi.fn().mockResolvedValue(makeInvokeResult()) } as unknown as Invoker,
   config: mockConfig,
   logger: makeLogger(),
@@ -254,6 +257,42 @@ describe('createOrchestrator', () => {
       expect(typeof context.broadcast).toBe('function');
       expect(context.sendToThread('t', 'c')).toBeInstanceOf(Promise);
       expect(context.broadcast('e', {})).toBeInstanceOf(Promise);
+    });
+  });
+
+  describe('sendToThread', () => {
+    it('runs the message pipeline and persists the assistant response', async () => {
+      const invokeResult = makeInvokeResult({ output: 'assistant reply', durationMs: 50 });
+      const deps = makeDeps({
+        invoker: { invoke: vi.fn().mockResolvedValue(invokeResult) } as unknown as Invoker,
+      });
+      const orchestrator = createOrchestrator(deps);
+      const context = orchestrator.getContext();
+
+      await context.sendToThread('thread-1', 'hello');
+
+      expect(deps.invoker.invoke).toHaveBeenCalled();
+      expect(deps.db.message.create as ReturnType<typeof vi.fn>).toHaveBeenCalledWith({
+        data: { threadId: 'thread-1', role: 'assistant', content: 'assistant reply' },
+      });
+      expect(deps.db.thread.update as ReturnType<typeof vi.fn>).toHaveBeenCalledWith({
+        where: { id: 'thread-1' },
+        data: { lastActivity: expect.any(Date) },
+      });
+    });
+
+    it('does not persist when invoke returns empty output', async () => {
+      const invokeResult = makeInvokeResult({ output: '' });
+      const deps = makeDeps({
+        invoker: { invoke: vi.fn().mockResolvedValue(invokeResult) } as unknown as Invoker,
+      });
+      const orchestrator = createOrchestrator(deps);
+      const context = orchestrator.getContext();
+
+      await context.sendToThread('thread-1', 'hello');
+
+      expect(deps.db.message.create as ReturnType<typeof vi.fn>).not.toHaveBeenCalled();
+      expect(deps.db.thread.update as ReturnType<typeof vi.fn>).not.toHaveBeenCalled();
     });
   });
 

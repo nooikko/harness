@@ -22,8 +22,14 @@ const createRegister: CreateRegister = () => async (ctx: PluginContext) => {
   const logger = ctx.logger;
 
   const onChatMessage = async (threadId: string, content: string) => {
-    await ctx.sendToThread(threadId, content);
+    // Broadcast the user message immediately so the UI updates
     await ctx.broadcast('chat:message', { threadId, content, role: 'user' });
+
+    // Fire-and-forget: sendToThread runs the full Claude pipeline (takes seconds).
+    // We don't await it so the HTTP response returns immediately.
+    ctx.sendToThread(threadId, content).catch((err: unknown) => {
+      logger.error(`sendToThread failed [thread=${threadId}]: ${err}`);
+    });
   };
 
   const app = createApp({ ctx, logger, onChatMessage });
