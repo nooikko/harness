@@ -4,11 +4,13 @@ import type { InvokeOptions, InvokeResult } from '@harness/plugin-contract';
 import { createSession } from './_helpers/create-session';
 import { extractResult } from './_helpers/extract-result';
 import { mapStreamEvent } from './_helpers/map-stream-event';
+import type { SessionConfig } from './_helpers/session-pool';
 import { createSessionPool } from './_helpers/session-pool';
 
 export type SdkInvokerConfig = {
   defaultModel: string;
   defaultTimeout: number;
+  sessionConfig?: SessionConfig;
 };
 
 type CreateSdkInvoker = (config: SdkInvokerConfig) => {
@@ -45,6 +47,7 @@ export const createSdkInvoker: CreateSdkInvoker = (config) => {
       ttlMs: 8 * 60 * 1000,
     },
     createSession,
+    config.sessionConfig,
   );
 
   const invoke = async (prompt: string, options?: InvokeOptions): Promise<InvokeResult> => {

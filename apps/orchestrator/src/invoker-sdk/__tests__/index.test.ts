@@ -95,7 +95,18 @@ describe('createSdkInvoker', () => {
   it('creates a session pool with correct config', () => {
     createSdkInvoker({ defaultModel: 'haiku', defaultTimeout: 300000 });
 
-    expect(mockCreateSessionPool).toHaveBeenCalledWith({ maxSessions: 5, ttlMs: 480000 }, expect.any(Function));
+    expect(mockCreateSessionPool).toHaveBeenCalledWith({ maxSessions: 5, ttlMs: 480000 }, expect.any(Function), undefined);
+  });
+
+  it('passes sessionConfig to session pool when provided', () => {
+    const sessionConfig = { mcpServers: { harness: { name: 'harness' } } };
+    createSdkInvoker({
+      defaultModel: 'haiku',
+      defaultTimeout: 300000,
+      sessionConfig: sessionConfig as never,
+    });
+
+    expect(mockCreateSessionPool).toHaveBeenCalledWith(expect.any(Object), expect.any(Function), sessionConfig);
   });
 
   it('invokes using the default model from config', async () => {
