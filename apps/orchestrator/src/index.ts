@@ -9,6 +9,7 @@ import { createSdkInvoker } from './invoker-sdk';
 import { createOrchestrator } from './orchestrator';
 import { createPluginLoader } from './plugin-loader';
 import { getPlugins } from './plugin-registry';
+import { collectTools, createToolServer } from './tool-server';
 
 type ShutdownState = {
   isShuttingDown: boolean;
@@ -29,15 +30,6 @@ export const boot: Boot = async () => {
   logger.info('Initializing database connection');
   await prisma.$connect();
 
-  logger.info('Creating SDK invoker', {
-    model: config.claudeModel,
-    timeout: config.claudeTimeout,
-  });
-  const invoker = createSdkInvoker({
-    defaultModel: config.claudeModel,
-    defaultTimeout: config.claudeTimeout,
-  });
-
   logger.info('Loading plugins from registry');
   const rawPlugins = await getPlugins(prisma, logger);
 
@@ -47,6 +39,24 @@ export const boot: Boot = async () => {
     logger,
   });
   const { loaded } = loader.loadAll();
+
+  logger.info('Collecting plugin tools');
+  const allTools = collectTools(loaded);
+  const toolServer = createToolServer(allTools);
+
+  if (toolServer) {
+    logger.info('Tool server created', { toolCount: allTools.length });
+  }
+
+  logger.info('Creating SDK invoker', {
+    model: config.claudeModel,
+    timeout: config.claudeTimeout,
+  });
+  const invoker = createSdkInvoker({
+    defaultModel: config.claudeModel,
+    defaultTimeout: config.claudeTimeout,
+    ...(toolServer ? { sessionConfig: { mcpServers: { harness: toolServer } } } : {}),
+  });
 
   logger.info('Creating orchestrator');
   const orchestrator = createOrchestrator({

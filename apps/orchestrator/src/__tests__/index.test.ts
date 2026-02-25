@@ -37,6 +37,11 @@ vi.mock('../health-check', () => ({
   createHealthCheck: vi.fn(),
 }));
 
+vi.mock('../tool-server', () => ({
+  collectTools: vi.fn(),
+  createToolServer: vi.fn(),
+}));
+
 import { createLogger } from '@harness/logger';
 import { prisma } from 'database';
 import { loadConfig } from '../config';
@@ -46,6 +51,7 @@ import { createSdkInvoker } from '../invoker-sdk';
 import { createOrchestrator } from '../orchestrator';
 import { createPluginLoader } from '../plugin-loader';
 import { getPlugins } from '../plugin-registry';
+import { collectTools, createToolServer } from '../tool-server';
 
 const mockCreateLogger = vi.mocked(createLogger);
 const mockPrisma = vi.mocked(prisma);
@@ -55,6 +61,8 @@ const mockCreateSdkInvoker = vi.mocked(createSdkInvoker);
 const mockGetPlugins = vi.mocked(getPlugins);
 const mockCreatePluginLoader = vi.mocked(createPluginLoader);
 const mockCreateOrchestrator = vi.mocked(createOrchestrator);
+const mockCollectTools = vi.mocked(collectTools);
+const mockCreateToolServer = vi.mocked(createToolServer);
 
 const makeLogger = (): Logger => ({
   info: vi.fn(),
@@ -128,6 +136,8 @@ const setupDefaults = (options?: {
 
   mockCreateLogger.mockReturnValue(logger);
   mockLoadConfig.mockReturnValue(config);
+  mockCollectTools.mockReturnValue([]);
+  mockCreateToolServer.mockReturnValue(null);
   mockCreateSdkInvoker.mockReturnValue(invoker as ReturnType<typeof createSdkInvoker>);
   mockGetPlugins.mockResolvedValue(plugins);
   mockCreatePluginLoader.mockReturnValue({
@@ -240,6 +250,50 @@ describe('boot', () => {
         plugins,
         logger,
       });
+    });
+
+    it('collects plugin tools after loading plugins', async () => {
+      const plugins = [makePluginDefinition('delegation')];
+      setupDefaults({ plugins });
+
+      await boot();
+
+      expect(mockCollectTools).toHaveBeenCalledWith(plugins);
+    });
+
+    it('creates tool server with collected tools', async () => {
+      const mockTools = [{ name: 'test', qualifiedName: 'test__tool', pluginName: 'test' }];
+      setupDefaults();
+      mockCollectTools.mockReturnValue(mockTools as never);
+
+      await boot();
+
+      expect(mockCreateToolServer).toHaveBeenCalledWith(mockTools);
+    });
+
+    it('passes tool server to invoker when tools exist', async () => {
+      const mockServer = { name: 'harness' };
+      setupDefaults();
+      mockCollectTools.mockReturnValue([{ name: 'test' }] as never);
+      mockCreateToolServer.mockReturnValue(mockServer as never);
+
+      await boot();
+
+      expect(mockCreateSdkInvoker).toHaveBeenCalledWith(
+        expect.objectContaining({
+          sessionConfig: { mcpServers: { harness: mockServer } },
+        }),
+      );
+    });
+
+    it('does not pass sessionConfig when no tools exist', async () => {
+      setupDefaults();
+      mockCollectTools.mockReturnValue([]);
+      mockCreateToolServer.mockReturnValue(null);
+
+      await boot();
+
+      expect(mockCreateSdkInvoker).toHaveBeenCalledWith(expect.not.objectContaining({ sessionConfig: expect.anything() }));
     });
 
     it('creates the orchestrator with correct deps', async () => {
@@ -621,9 +675,10 @@ describe('boot', () => {
       const logCalls = (logger.info as ReturnType<typeof vi.fn>).mock.calls.map((c: unknown[]) => c[0]);
       expect(logCalls).toContain('Loading configuration');
       expect(logCalls).toContain('Initializing database connection');
-      expect(logCalls).toContain('Creating SDK invoker');
       expect(logCalls).toContain('Loading plugins from registry');
       expect(logCalls).toContain('Validating plugins');
+      expect(logCalls).toContain('Collecting plugin tools');
+      expect(logCalls).toContain('Creating SDK invoker');
       expect(logCalls).toContain('Creating orchestrator');
       expect(logCalls).toContain('Registering plugins');
       expect(logCalls).toContain('Starting plugins');
