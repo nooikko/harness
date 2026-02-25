@@ -770,6 +770,83 @@ describe('runDelegationLoop', () => {
     expect(notificationData.metadata.status).toBe('failed');
   });
 
+  it('parses commands from sub-agent output and routes through onCommand hooks', async () => {
+    const { ctx } = createMockContext({
+      invokeResult: { output: 'Done.\n/checkin Task completed successfully' },
+    });
+    const onCommand = vi.fn().mockResolvedValue(true);
+    const hooks: PluginHooks[] = [{ onCommand }];
+
+    await runDelegationLoop(ctx, hooks, {
+      prompt: 'Do work',
+      parentThreadId: 'parent-1',
+    });
+
+    expect(onCommand).toHaveBeenCalledWith('thread-task-1', 'checkin', 'Task completed successfully');
+  });
+
+  it('routes multiple commands from sub-agent output', async () => {
+    const { ctx } = createMockContext({
+      invokeResult: {
+        output: '/checkin Step 1 done\nSome output\n/checkin Step 2 done',
+      },
+    });
+    const onCommand = vi.fn().mockResolvedValue(true);
+    const hooks: PluginHooks[] = [{ onCommand }];
+
+    await runDelegationLoop(ctx, hooks, {
+      prompt: 'Do work',
+      parentThreadId: 'parent-1',
+    });
+
+    expect(onCommand).toHaveBeenCalledTimes(2);
+    expect(onCommand).toHaveBeenCalledWith('thread-task-1', 'checkin', 'Step 1 done');
+    expect(onCommand).toHaveBeenCalledWith('thread-task-1', 'checkin', 'Step 2 done');
+  });
+
+  it('does not call onCommand when output has no commands', async () => {
+    const onCommand = vi.fn().mockResolvedValue(true);
+    const hooks: PluginHooks[] = [{ onCommand }];
+
+    await runDelegationLoop(mockCtx, hooks, {
+      prompt: 'Do work',
+      parentThreadId: 'parent-1',
+    });
+
+    // Default output is 'Task completed successfully' — no slash commands
+    expect(onCommand).not.toHaveBeenCalled();
+  });
+
+  it('parses commands even from failed sub-agent output', async () => {
+    let callCount = 0;
+    const invokeMock = vi.fn().mockImplementation(async () => {
+      callCount++;
+      if (callCount === 1) {
+        return {
+          output: '/checkin Partial progress before crash',
+          durationMs: 100,
+          exitCode: 1,
+          error: 'Process crashed',
+        };
+      }
+      return { output: 'Fixed output', durationMs: 500, exitCode: 0 };
+    });
+
+    const { ctx } = createMockContext();
+    (ctx as unknown as { invoker: { invoke: ReturnType<typeof vi.fn> } }).invoker.invoke = invokeMock;
+    const onCommand = vi.fn().mockResolvedValue(true);
+    const hooks: PluginHooks[] = [{ onCommand }];
+
+    await runDelegationLoop(ctx, hooks, {
+      prompt: 'Crash then succeed',
+      parentThreadId: 'parent-1',
+      maxIterations: 3,
+    });
+
+    // onCommand should have been called for the failed iteration's /checkin
+    expect(onCommand).toHaveBeenCalledWith('thread-task-1', 'checkin', 'Partial progress before crash');
+  });
+
   it('includes feedback in failure notification when sub-agent had non-zero exit', async () => {
     const invokeFail = vi.fn().mockResolvedValue({
       output: '',

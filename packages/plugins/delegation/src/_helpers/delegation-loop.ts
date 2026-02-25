@@ -3,12 +3,13 @@
 // and handles accept/reject validation with re-delegation support
 
 import type { InvokeStreamEvent, PluginContext, PluginHooks } from '@harness/plugin-contract';
-import { runHook } from '@harness/plugin-contract';
+import { runHook, runHookWithResult } from '@harness/plugin-contract';
 import { buildIterationPrompt } from './build-iteration-prompt';
 import { createTaskRecord } from './create-task-record';
 import { createTaskThread } from './create-task-thread';
 import { fireTaskCompleteHooks } from './fire-task-complete-hooks';
 import { invokeSubAgent } from './invoke-sub-agent';
+import { parseCommands } from './parse-commands';
 import { sendThreadNotification } from './send-thread-notification';
 
 export type DelegationOptions = {
@@ -105,6 +106,22 @@ export const runDelegationLoop: RunDelegationLoop = async (ctx, allHooks, option
         .catch(() => {});
     };
     const invokeResult = await invokeSubAgent(ctx, iterationPrompt, taskId, threadId, options.model, onMessage);
+
+    // Parse and execute commands from sub-agent output (e.g. /checkin, /delegate)
+    const commands = parseCommands(invokeResult.output);
+    for (const cmd of commands) {
+      await runHookWithResult(
+        allHooks,
+        'onCommand',
+        (hooks) => {
+          if (hooks.onCommand) {
+            return hooks.onCommand(threadId, cmd.command, cmd.args);
+          }
+          return undefined;
+        },
+        ctx.logger,
+      );
+    }
 
     // Check for invocation failure
     if (invokeResult.exitCode !== 0 && invokeResult.exitCode !== null) {
