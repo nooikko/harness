@@ -188,6 +188,132 @@ describe('validatePluginExport', () => {
     });
   });
 
+  describe('tools validation', () => {
+    it('accepts a plugin with no tools array', () => {
+      const plugin = makeValidPlugin();
+      const result = validatePluginExport({ default: plugin }, '/path/to/plugin');
+
+      expect(result.valid).toBe(true);
+    });
+
+    it('accepts a plugin with a valid tools array', () => {
+      const plugin = {
+        ...makeValidPlugin(),
+        tools: [
+          {
+            name: 'my-tool',
+            description: 'Does a thing',
+            schema: { type: 'object', properties: {} },
+            handler: async () => 'result',
+          },
+        ],
+      };
+      const result = validatePluginExport({ default: plugin }, '/path/to/plugin');
+
+      expect(result.valid).toBe(true);
+    });
+
+    it('accepts a plugin with an empty tools array', () => {
+      const plugin = {
+        ...makeValidPlugin(),
+        tools: [],
+      };
+      const result = validatePluginExport({ default: plugin }, '/path/to/plugin');
+
+      expect(result.valid).toBe(true);
+    });
+
+    it('rejects tools that is not an array', () => {
+      const plugin = {
+        ...makeValidPlugin(),
+        tools: 'not-an-array',
+      };
+      const result = validatePluginExport({ default: plugin }, '/path/to/plugin');
+
+      expect(result.valid).toBe(false);
+      if (!result.valid) {
+        expect(result.errors).toContain('/path/to/plugin: Invalid "tools" (expected array or undefined).');
+      }
+    });
+
+    it('rejects a tool missing name', () => {
+      const plugin = {
+        ...makeValidPlugin(),
+        tools: [
+          {
+            description: 'Does a thing',
+            schema: { type: 'object', properties: {} },
+            handler: async () => 'result',
+          },
+        ],
+      };
+      const result = validatePluginExport({ default: plugin }, '/path/to/plugin');
+
+      expect(result.valid).toBe(false);
+      if (!result.valid) {
+        expect(result.errors).toContain('/path/to/plugin: tools[0] missing or invalid "name" (expected non-empty string).');
+      }
+    });
+
+    it('rejects a tool missing description', () => {
+      const plugin = {
+        ...makeValidPlugin(),
+        tools: [
+          {
+            name: 'my-tool',
+            schema: { type: 'object', properties: {} },
+            handler: async () => 'result',
+          },
+        ],
+      };
+      const result = validatePluginExport({ default: plugin }, '/path/to/plugin');
+
+      expect(result.valid).toBe(false);
+      if (!result.valid) {
+        expect(result.errors).toContain('/path/to/plugin: tools[0] missing or invalid "description" (expected non-empty string).');
+      }
+    });
+
+    it('rejects a tool missing handler', () => {
+      const plugin = {
+        ...makeValidPlugin(),
+        tools: [
+          {
+            name: 'my-tool',
+            description: 'Does a thing',
+            schema: { type: 'object', properties: {} },
+          },
+        ],
+      };
+      const result = validatePluginExport({ default: plugin }, '/path/to/plugin');
+
+      expect(result.valid).toBe(false);
+      if (!result.valid) {
+        expect(result.errors).toContain('/path/to/plugin: tools[0] missing or invalid "handler" (expected function).');
+      }
+    });
+
+    it('rejects a tool with non-function handler', () => {
+      const plugin = {
+        ...makeValidPlugin(),
+        tools: [
+          {
+            name: 'my-tool',
+            description: 'Does a thing',
+            schema: { type: 'object', properties: {} },
+            handler: 'not-a-function',
+          },
+        ],
+      };
+      const result = validatePluginExport({ default: plugin }, '/path/to/plugin');
+
+      expect(result.valid).toBe(false);
+      if (!result.valid) {
+        expect(result.errors).toContain('/path/to/plugin: tools[0] missing or invalid "handler" (expected function).');
+      }
+    });
+  });
+
   describe('error accumulation', () => {
     it('collects multiple errors at once for a plugin missing several required fields', () => {
       const plugin = {};

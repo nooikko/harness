@@ -39,6 +39,25 @@ export const validatePluginExport: ValidatePluginExport = (moduleExports, module
     errors.push(`${modulePath}: Invalid "stop" (expected function or undefined).`);
   }
 
+  if (candidate.tools !== undefined) {
+    if (!Array.isArray(candidate.tools)) {
+      errors.push(`${modulePath}: Invalid "tools" (expected array or undefined).`);
+    } else {
+      for (let i = 0; i < candidate.tools.length; i++) {
+        const t = candidate.tools[i] as Record<string, unknown>;
+        if (typeof t.name !== 'string' || t.name.trim() === '') {
+          errors.push(`${modulePath}: tools[${i}] missing or invalid "name" (expected non-empty string).`);
+        }
+        if (typeof t.description !== 'string' || t.description.trim() === '') {
+          errors.push(`${modulePath}: tools[${i}] missing or invalid "description" (expected non-empty string).`);
+        }
+        if (typeof t.handler !== 'function') {
+          errors.push(`${modulePath}: tools[${i}] missing or invalid "handler" (expected function).`);
+        }
+      }
+    }
+  }
+
   if (errors.length > 0) {
     return { valid: false, errors };
   }
