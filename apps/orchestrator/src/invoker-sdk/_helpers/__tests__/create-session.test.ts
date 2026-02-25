@@ -9,9 +9,11 @@ type MockController = {
 
 let activeController: MockController | null = null;
 let activeCloseFn: ReturnType<typeof vi.fn> | null = null;
+let lastQueryOptions: Record<string, unknown> | null = null;
 
 vi.mock('@anthropic-ai/claude-agent-sdk', () => ({
-  query: vi.fn(({ prompt }: { prompt: AsyncIterable<SDKUserMessage> }) => {
+  query: vi.fn(({ prompt, options }: { prompt: AsyncIterable<SDKUserMessage>; options?: Record<string, unknown> }) => {
+    lastQueryOptions = options ?? null;
     let outputResolve: ((value: IteratorResult<SDKMessage>) => void) | null = null;
     let outputReject: ((error: Error) => void) | null = null;
     let outputDone = false;
@@ -310,5 +312,30 @@ describe('createSession', () => {
     await tick();
 
     expect(session.isAlive).toBe(false);
+  });
+
+  it('passes mcpServers to query() options when provided', async () => {
+    const mockMcpServer = { name: 'harness', tools: [] };
+    const session = createSession('sonnet', {
+      mcpServers: { harness: mockMcpServer as never },
+    });
+    await tick();
+
+    expect(lastQueryOptions).toEqual(
+      expect.objectContaining({
+        mcpServers: { harness: mockMcpServer },
+      }),
+    );
+
+    session.close();
+  });
+
+  it('does not include mcpServers in query() options when not provided', async () => {
+    const session = createSession('sonnet');
+    await tick();
+
+    expect(lastQueryOptions).not.toHaveProperty('mcpServers');
+
+    session.close();
   });
 });

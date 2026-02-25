@@ -1,7 +1,7 @@
 // Session pool — manages a Map of warm Agent SDK sessions keyed by thread ID
 // Sessions are proactively evicted after a TTL to avoid stale-session errors
 
-import type { SDKMessage, SDKResultMessage } from '@anthropic-ai/claude-agent-sdk';
+import type { McpServerConfig, SDKMessage, SDKResultMessage } from '@anthropic-ai/claude-agent-sdk';
 
 export type SendOptions = {
   onMessage?: (message: SDKMessage) => void;
@@ -14,7 +14,11 @@ export type Session = {
   lastActivity: number;
 };
 
-export type SessionFactory = (model: string) => Session;
+export type SessionConfig = {
+  mcpServers?: Record<string, McpServerConfig>;
+};
+
+export type SessionFactory = (model: string, config?: SessionConfig) => Session;
 
 export type SessionPoolConfig = {
   maxSessions: number;
@@ -28,9 +32,9 @@ export type SessionPool = {
   size: () => number;
 };
 
-type CreateSessionPool = (config: SessionPoolConfig, factory: SessionFactory) => SessionPool;
+type CreateSessionPool = (config: SessionPoolConfig, factory: SessionFactory, sessionConfig?: SessionConfig) => SessionPool;
 
-export const createSessionPool: CreateSessionPool = (config, factory) => {
+export const createSessionPool: CreateSessionPool = (config, factory, sessionConfig) => {
   const sessions = new Map<string, { session: Session; model: string }>();
   let evictionTimer: ReturnType<typeof setInterval> | null = null;
 
@@ -87,7 +91,7 @@ export const createSessionPool: CreateSessionPool = (config, factory) => {
       evictOldest();
     }
 
-    const session = factory(model);
+    const session = factory(model, sessionConfig);
     sessions.set(threadId, { session, model });
     startEvictionTimer();
     return session;

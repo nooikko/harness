@@ -3,7 +3,7 @@
 
 import type { SDKMessage, SDKResultMessage, SDKUserMessage } from '@anthropic-ai/claude-agent-sdk';
 import { query } from '@anthropic-ai/claude-agent-sdk';
-import type { SendOptions, Session } from './session-pool';
+import type { SendOptions, Session, SessionConfig } from './session-pool';
 
 type PendingRequest = {
   prompt: string;
@@ -12,9 +12,9 @@ type PendingRequest = {
   onMessage?: (message: SDKMessage) => void;
 };
 
-type CreateSession = (model: string) => Session;
+type CreateSession = (model: string, config?: SessionConfig) => Session;
 
-export const createSession: CreateSession = (model) => {
+export const createSession: CreateSession = (model, config) => {
   let alive = true;
   let lastActivity = Date.now();
 
@@ -63,6 +63,7 @@ export const createSession: CreateSession = (model) => {
       permissionMode: 'bypassPermissions',
       allowDangerouslySkipPermissions: true,
       env,
+      ...(config?.mcpServers ? { mcpServers: config.mcpServers } : {}),
     },
   });
 

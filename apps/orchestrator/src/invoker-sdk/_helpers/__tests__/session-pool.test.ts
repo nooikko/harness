@@ -164,4 +164,14 @@ describe('createSessionPool', () => {
     pool.evict('thread-1');
     expect(pool.size()).toBe(1);
   });
+
+  it('passes sessionConfig to factory when creating sessions', () => {
+    const factoryFn = vi.fn().mockReturnValue(createMockSession());
+    const sessionConfig = { mcpServers: { harness: { name: 'harness' } } };
+    const pool = createSessionPool({ maxSessions: 3, ttlMs: 480_000 }, factoryFn as unknown as SessionFactory, sessionConfig as never);
+
+    pool.get('thread-1', 'sonnet');
+
+    expect(factoryFn).toHaveBeenCalledWith('sonnet', sessionConfig);
+  });
 });
