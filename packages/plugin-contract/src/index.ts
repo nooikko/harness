@@ -79,6 +79,20 @@ export type PluginHooks = {
   onBroadcast?: (event: string, data: unknown) => Promise<void>;
 };
 
+export type PluginToolMeta = {
+  threadId: string;
+  taskId?: string;
+};
+
+export type PluginToolHandler = (ctx: PluginContext, input: Record<string, unknown>, meta: PluginToolMeta) => Promise<string>;
+
+export type PluginTool = {
+  name: string;
+  description: string;
+  schema: Record<string, unknown>;
+  handler: PluginToolHandler;
+};
+
 export type RegisterFn = (ctx: PluginContext) => Promise<PluginHooks>;
 export type StartFn = (ctx: PluginContext) => Promise<void>;
 export type StopFn = (ctx: PluginContext) => Promise<void>;
@@ -89,4 +103,5 @@ export type PluginDefinition = {
   register: RegisterFn;
   start?: StartFn;
   stop?: StopFn;
+  tools?: PluginTool[];
 };
