@@ -300,7 +300,19 @@ describe('plugin tools', () => {
 
     const checkinTool = plugin.tools?.find((t) => t.name === 'checkin');
     const result = await checkinTool!.handler(ctx, { message: 'Making progress' }, { threadId: 'thread-1' });
-    expect(typeof result).toBe('string');
+    expect(result).toContain('Check-in sent');
+  });
+
+  it('checkin tool handler returns error when handleCheckin fails', async () => {
+    const ctx = createMockContext();
+
+    // No thread.findUnique mock — handleCheckin will fail to find thread
+    (ctx.db as unknown as { thread: { findUnique: ReturnType<typeof vi.fn> } }).thread.findUnique = vi.fn().mockResolvedValue(null);
+
+    const checkinTool = plugin.tools?.find((t) => t.name === 'checkin');
+    const result = await checkinTool!.handler(ctx, { message: 'Progress' }, { threadId: 'thread-orphan' });
+    expect(result).toContain('Error');
+    expect(result).toContain('failed');
   });
 
   it('delegate tool handler returns error for empty prompt', async () => {

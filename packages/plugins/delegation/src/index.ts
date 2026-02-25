@@ -210,7 +210,10 @@ const delegateTools: PluginTool[] = [
     },
     handler: async (ctx, input, meta) => {
       const message = input.message as string;
-      await handleCheckin(ctx, meta.threadId, message);
+      const ok = await handleCheckin(ctx, meta.threadId, message);
+      if (!ok) {
+        return 'Error: check-in failed (empty message or no parent thread).';
+      }
       return 'Check-in sent to parent thread.';
     },
   },
