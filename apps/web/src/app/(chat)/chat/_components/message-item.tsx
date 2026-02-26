@@ -5,6 +5,12 @@ import { isCrossThreadNotification } from '../_helpers/is-cross-thread-notificat
 import { ActivityChips } from './activity-chips';
 import { MarkdownContent } from './markdown-content';
 import { NotificationMessage } from './notification-message';
+import type { ActivityMessageProps } from './pipeline-step';
+import { PipelineStep } from './pipeline-step';
+import { StatusLine } from './status-line';
+import { ThinkingBlock } from './thinking-block';
+import { ToolCallBlock } from './tool-call-block';
+import { ToolResultBlock } from './tool-result-block';
 
 type AgentRunData = {
   model: string;
@@ -23,6 +29,24 @@ type MessageItemComponent = (props: MessageItemProps) => React.ReactNode;
 export const MessageItem: MessageItemComponent = ({ message, agentRun }) => {
   if (isCrossThreadNotification(message)) {
     return <NotificationMessage message={message} />;
+  }
+
+  // Kind-based routing — handled before role-based rendering
+  const kind = message.kind ?? 'text';
+  const metadata = message.metadata as Record<string, unknown> | null;
+
+  switch (kind) {
+    case 'thinking':
+      return <ThinkingBlock content={message.content} />;
+    case 'tool_call':
+      return <ToolCallBlock content={message.content} metadata={metadata} />;
+    case 'tool_result':
+      return <ToolResultBlock content={message.content} metadata={metadata} />;
+    case 'pipeline_step':
+      return <PipelineStep message={message as ActivityMessageProps['message']} />;
+    case 'status':
+      return <StatusLine content={message.content} metadata={metadata} />;
+    // 'text' and unknown kinds fall through to existing role-based rendering
   }
 
   if (message.role === 'user') {

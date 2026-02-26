@@ -40,6 +40,26 @@ vi.mock('../activity-chips', () => ({
   ),
 }));
 
+vi.mock('../thinking-block', () => ({
+  ThinkingBlock: ({ content }: { content: string }) => <div data-testid='thinking-block'>{content}</div>,
+}));
+
+vi.mock('../tool-call-block', () => ({
+  ToolCallBlock: ({ content }: { content: string }) => <div data-testid='tool-call-block'>{content}</div>,
+}));
+
+vi.mock('../tool-result-block', () => ({
+  ToolResultBlock: ({ content }: { content: string }) => <div data-testid='tool-result-block'>{content}</div>,
+}));
+
+vi.mock('../pipeline-step', () => ({
+  PipelineStep: () => <div data-testid='pipeline-step' />,
+}));
+
+vi.mock('../status-line', () => ({
+  StatusLine: ({ content }: { content: string }) => <div data-testid='status-line'>{content}</div>,
+}));
+
 import type { MessageItemProps } from '../message-item';
 import { MessageItem } from '../message-item';
 
@@ -47,6 +67,8 @@ const makeMessage = (overrides: Partial<Message> = {}): Message => ({
   id: 'msg-1',
   threadId: 'thread-1',
   role: 'user',
+  kind: 'text',
+  source: 'builtin',
   content: 'Hello',
   model: null,
   metadata: null,
@@ -186,5 +208,44 @@ describe('MessageItem', () => {
   it('does not render ActivityChips when agentRun is undefined', () => {
     render(<MessageItem message={makeMessage({ role: 'assistant', content: 'Hi' })} />);
     expect(screen.queryByTestId('activity-chips')).not.toBeInTheDocument();
+  });
+
+  it('renders ThinkingBlock for kind=thinking', () => {
+    render(<MessageItem message={makeMessage({ role: 'assistant', kind: 'thinking', content: 'Analyzing...' })} />);
+    expect(screen.getByTestId('thinking-block')).toBeInTheDocument();
+  });
+
+  it('renders ToolCallBlock for kind=tool_call', () => {
+    render(<MessageItem message={makeMessage({ role: 'assistant', kind: 'tool_call', content: 'Read', metadata: { toolName: 'Read' } })} />);
+    expect(screen.getByTestId('tool-call-block')).toBeInTheDocument();
+  });
+
+  it('renders ToolResultBlock for kind=tool_result', () => {
+    render(<MessageItem message={makeMessage({ role: 'assistant', kind: 'tool_result', content: 'file contents' })} />);
+    expect(screen.getByTestId('tool-result-block')).toBeInTheDocument();
+  });
+
+  it('renders PipelineStep for kind=pipeline_step', () => {
+    render(
+      <MessageItem
+        message={makeMessage({ role: 'system', kind: 'pipeline_step', content: 'Processing message', metadata: { step: 'onMessage' } })}
+      />,
+    );
+    expect(screen.getByTestId('pipeline-step')).toBeInTheDocument();
+  });
+
+  it('renders StatusLine for kind=status', () => {
+    render(<MessageItem message={makeMessage({ role: 'system', kind: 'status', content: 'Pipeline completed' })} />);
+    expect(screen.getByTestId('status-line')).toBeInTheDocument();
+  });
+
+  it('falls back to existing text rendering for kind=text', () => {
+    render(<MessageItem message={makeMessage({ role: 'assistant', kind: 'text', content: 'response' })} />);
+    expect(screen.getByTestId('markdown-content')).toBeInTheDocument();
+  });
+
+  it('preserves article role for assistant text messages', () => {
+    render(<MessageItem message={makeMessage({ role: 'assistant', kind: 'text' })} />);
+    expect(screen.getByRole('article')).toBeInTheDocument();
   });
 });
