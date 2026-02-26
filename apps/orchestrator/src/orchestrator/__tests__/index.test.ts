@@ -355,7 +355,17 @@ describe('createOrchestrator', () => {
 
       await orchestrator.handleMessage('thread-1', 'user', 'hi');
 
-      expect(callOrder).toEqual(['onMessage', 'onBeforeInvoke', 'invoke', 'onAfterInvoke', 'onBroadcast']);
+      expect(callOrder).toEqual([
+        'onMessage',
+        'onBroadcast',
+        'onBeforeInvoke',
+        'onBroadcast',
+        'onBroadcast',
+        'invoke',
+        'onAfterInvoke',
+        'onBroadcast',
+        'onBroadcast',
+      ]);
     });
 
     it('calls runNotifyHooks for onMessage with correct arguments', async () => {
@@ -483,6 +493,33 @@ describe('createOrchestrator', () => {
       expect(result.commandsHandled).toEqual([]);
     });
 
+    it('calls setActiveThread with threadId before invoking', async () => {
+      const setActiveThread = vi.fn();
+      const deps = makeDeps({ setActiveThread });
+      const orchestrator = createOrchestrator(deps);
+
+      const callOrder: string[] = [];
+      setActiveThread.mockImplementation(() => {
+        callOrder.push('setActiveThread');
+      });
+      (deps.invoker.invoke as ReturnType<typeof vi.fn>).mockImplementation(() => {
+        callOrder.push('invoke');
+        return Promise.resolve(makeInvokeResult());
+      });
+
+      await orchestrator.handleMessage('thread-99', 'user', 'hi');
+
+      expect(setActiveThread).toHaveBeenCalledWith('thread-99');
+      expect(callOrder).toEqual(['setActiveThread', 'invoke']);
+    });
+
+    it('works without setActiveThread callback', async () => {
+      const deps = makeDeps();
+      const orchestrator = createOrchestrator(deps);
+
+      await expect(orchestrator.handleMessage('t', 'user', 'hi')).resolves.toBeDefined();
+    });
+
     it('calls assemblePrompt with message and thread metadata before onBeforeInvoke', async () => {
       const deps = makeDeps();
       vi.mocked(deps.db.thread.findUnique).mockResolvedValue({
@@ -561,6 +598,23 @@ describe('createOrchestrator', () => {
         where: { id: 'thread-1' },
         data: { sessionId: 'new-sess-id' },
       });
+    });
+
+    it('broadcasts pipeline:step events at each stage', async () => {
+      const invokeResult = makeInvokeResult({ durationMs: 100, model: 'claude-sonnet-4-6' });
+      const deps = makeDeps({
+        invoker: { invoke: vi.fn().mockResolvedValue(invokeResult) } as unknown as Invoker,
+      });
+      const orchestrator = createOrchestrator(deps);
+
+      await orchestrator.handleMessage('thread-1', 'user', 'hello');
+
+      // Collect all onBroadcast calls
+      const broadcastCalls = mockRunNotifyHooks.mock.calls.filter((c) => c[1] === 'onBroadcast');
+
+      // Should have pipeline:step calls plus the final pipeline:complete
+      // At minimum: onMessage step, onBeforeInvoke step, invoking step, onAfterInvoke step, pipeline:complete
+      expect(broadcastCalls.length).toBeGreaterThanOrEqual(5);
     });
 
     it('does not persist sessionId when it has not changed', async () => {

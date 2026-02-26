@@ -14,6 +14,7 @@ export type OrchestratorDeps = {
   invoker: Invoker;
   config: OrchestratorConfig;
   logger: Logger;
+  setActiveThread?: (threadId: string) => void;
 };
 
 export type HandleMessageResult = {
@@ -86,6 +87,7 @@ export const createOrchestrator: CreateOrchestrator = (deps) => {
     // Step 1: Fire onMessage hooks (notification — no modification)
     deps.logger.info(`Pipeline: onMessage [thread=${threadId}, role=${role}]`);
     await runNotifyHooks(hooks, 'onMessage', (h) => h.onMessage?.(threadId, role, content), deps.logger);
+    await context.broadcast('pipeline:step', { threadId, step: 'onMessage', timestamp: Date.now() });
 
     // Step 2: Build baseline prompt from thread context
     const threadMeta = {
@@ -98,13 +100,16 @@ export const createOrchestrator: CreateOrchestrator = (deps) => {
     // Step 3: Run onBeforeInvoke hooks in sequence (each can modify prompt)
     deps.logger.info(`Pipeline: onBeforeInvoke [thread=${threadId}]`);
     const prompt = await runChainHooks(hooks, threadId, basePrompt, deps.logger);
+    await context.broadcast('pipeline:step', { threadId, step: 'onBeforeInvoke', detail: 'Context assembled', timestamp: Date.now() });
 
     // Step 4: Invoke Claude via the invoker with session resumption and model override
+    deps.setActiveThread?.(threadId);
     const model = thread?.model ?? undefined;
     const sessionId = thread?.sessionId ?? undefined;
     deps.logger.info(
       `Pipeline: invoking Claude [thread=${threadId}, promptLength=${prompt.length}, model=${model ?? 'default'}, sessionId=${sessionId ?? 'none'}]`,
     );
+    await context.broadcast('pipeline:step', { threadId, step: 'invoking', detail: model ?? 'default', timestamp: Date.now() });
     const invokeResult = await deps.invoker.invoke(prompt, { model, sessionId });
 
     deps.logger.info(
@@ -124,6 +129,12 @@ export const createOrchestrator: CreateOrchestrator = (deps) => {
 
     // Step 5: Fire onAfterInvoke hooks (notification)
     await runNotifyHooks(hooks, 'onAfterInvoke', (h) => h.onAfterInvoke?.(threadId, invokeResult), deps.logger);
+    await context.broadcast('pipeline:step', {
+      threadId,
+      step: 'onAfterInvoke',
+      detail: `${(invokeResult.inputTokens ?? 0) + (invokeResult.outputTokens ?? 0)} tokens, ${invokeResult.durationMs}ms`,
+      timestamp: Date.now(),
+    });
 
     // Step 6: Parse commands from the response
     const commands = parseCommands(invokeResult.output);
