@@ -2,6 +2,7 @@
 
 import { ChevronDown, ChevronRight, Loader2 } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
+import { LivePipelineStep, STEP_LABELS } from './pipeline-step';
 import { useWs } from './ws-provider';
 
 type PipelineStep = {
@@ -20,22 +21,6 @@ type PipelineActivityProps = {
 };
 
 type PipelineActivityComponent = (props: PipelineActivityProps) => React.ReactNode;
-
-const STEP_LABELS: Record<string, string> = {
-  onMessage: 'Processing message',
-  onBeforeInvoke: 'Assembling context',
-  invoking: 'Calling Claude',
-  onAfterInvoke: 'Processing response',
-  commands: 'Running commands',
-};
-
-const STEP_DETAILS: Record<string, string> = {
-  onMessage: 'Notifying plugins about the incoming message',
-  onBeforeInvoke: 'Running onBeforeInvoke hooks to build the prompt with context files and conversation history',
-  invoking: 'Sending the assembled prompt to Claude for processing',
-  onAfterInvoke: 'Running onAfterInvoke hooks for logging and metrics',
-  commands: 'Parsing and executing any slash commands from the response',
-};
 
 type ElapsedTimerProps = {
   startMs: number;
@@ -104,24 +89,8 @@ export const PipelineActivity: PipelineActivityComponent = ({ threadId, isActive
       {isExpanded && steps.length > 0 && (
         <div className='border-t border-border/40 px-3 py-2'>
           {steps.map((s, i) => {
-            const label = STEP_LABELS[s.step] ?? s.step;
-            const description = s.detail ?? STEP_DETAILS[s.step];
             const isLatest = i === steps.length - 1;
-
-            return (
-              <div
-                key={`${s.step}-${s.timestamp}-${i}`}
-                className={`flex items-start gap-2 py-1 text-xs animate-in fade-in slide-in-from-bottom-1 duration-200 ${isLatest ? 'text-foreground/80' : 'text-muted-foreground/60'}`}
-              >
-                <span className='mt-0.5 shrink-0'>
-                  {isLatest ? <Loader2 className='h-3 w-3 animate-spin' /> : <span className='inline-block h-3 w-3 text-center leading-3'>✓</span>}
-                </span>
-                <div className='min-w-0'>
-                  <span className='font-medium'>{label}</span>
-                  {description && <span className='ml-1.5 text-muted-foreground/50'>{description}</span>}
-                </div>
-              </div>
-            );
+            return <LivePipelineStep key={`${s.step}-${s.timestamp}-${i}`} stepData={s} isLatest={isLatest} />;
           })}
         </div>
       )}
