@@ -40,32 +40,32 @@
 @source "../../../../packages/ui/src/**/*.{js,ts,jsx,tsx,mdx}";
 
 :root {
-  --background: 0 0% 100%;
-  --foreground: 220 20% 14%;
-  --card: 0 0% 100%;
-  --card-foreground: 220 20% 14%;
-  --popover: 0 0% 100%;
-  --popover-foreground: 220 20% 14%;
-  --primary: 215 50% 40%;
+  --background: 40 20% 99%;
+  --foreground: 30 15% 15%;
+  --card: 40 15% 99%;
+  --card-foreground: 30 15% 15%;
+  --popover: 40 15% 99%;
+  --popover-foreground: 30 15% 15%;
+  --primary: 210 40% 42%;
   --primary-foreground: 210 40% 98%;
-  --secondary: 214 32% 96%;
-  --secondary-foreground: 220 20% 14%;
-  --muted: 214 32% 96%;
-  --muted-foreground: 215 16% 47%;
-  --accent: 214 32% 96%;
-  --accent-foreground: 220 20% 14%;
+  --secondary: 35 15% 95%;
+  --secondary-foreground: 30 15% 15%;
+  --muted: 35 20% 95%;
+  --muted-foreground: 30 10% 45%;
+  --accent: 35 20% 95%;
+  --accent-foreground: 30 15% 15%;
   --destructive: 0 72% 51%;
   --destructive-foreground: 210 40% 98%;
-  --border: 214 20% 90%;
-  --input: 214 20% 90%;
-  --ring: 215 50% 40%;
-  --chart-1: 215 50% 40%;
+  --border: 35 15% 88%;
+  --input: 35 15% 88%;
+  --ring: 210 40% 42%;
+  --chart-1: 210 40% 42%;
   --chart-2: 173 58% 39%;
   --chart-3: 32 95% 52%;
   --chart-4: 142 71% 45%;
   --chart-5: 0 72% 51%;
   --radius: 0.5rem;
-  --sidebar: 220 14% 97%;
+  --sidebar: 35 15% 97%;
 }
 
 .dark {
