@@ -30,6 +30,8 @@ export type InvokeStreamEvent = {
   type: string;
   content?: string;
   toolName?: string;
+  toolUseId?: string;
+  toolInput?: unknown;
   timestamp: number;
   raw?: unknown;
 };

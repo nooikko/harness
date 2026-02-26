@@ -59,7 +59,13 @@ export const createSdkInvoker: CreateSdkInvoker = (config) => {
     const session = pool.get(threadId, model);
 
     const sendOptions = options?.onMessage
-      ? { onMessage: (sdkMessage: Parameters<typeof mapStreamEvent>[0]) => options.onMessage!(mapStreamEvent(sdkMessage)) }
+      ? {
+          onMessage: (sdkMessage: Parameters<typeof mapStreamEvent>[0]) => {
+            for (const event of mapStreamEvent(sdkMessage)) {
+              options.onMessage!(event);
+            }
+          },
+        }
       : undefined;
 
     try {
