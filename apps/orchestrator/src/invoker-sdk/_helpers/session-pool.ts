@@ -15,7 +15,7 @@ export type Session = {
 };
 
 export type SessionConfig = {
-  mcpServers?: Record<string, McpServerConfig>;
+  mcpServerFactory?: () => Record<string, McpServerConfig>;
 };
 
 export type SessionFactory = (model: string, config?: SessionConfig) => Session;

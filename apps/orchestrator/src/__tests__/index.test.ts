@@ -281,7 +281,7 @@ describe('boot', () => {
 
       expect(mockCreateSdkInvoker).toHaveBeenCalledWith(
         expect.objectContaining({
-          sessionConfig: { mcpServers: { harness: mockServer } },
+          sessionConfig: { mcpServerFactory: expect.any(Function) },
         }),
       );
     });

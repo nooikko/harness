@@ -99,11 +99,12 @@ describe('createSdkInvoker', () => {
   });
 
   it('passes sessionConfig to session pool when provided', () => {
-    const sessionConfig = { mcpServers: { harness: { name: 'harness' } } };
+    const mockServer = { name: 'harness' };
+    const sessionConfig = { mcpServerFactory: () => ({ harness: mockServer as never }) };
     createSdkInvoker({
       defaultModel: 'haiku',
       defaultTimeout: 300000,
-      sessionConfig: sessionConfig as never,
+      sessionConfig,
     });
 
     expect(mockCreateSessionPool).toHaveBeenCalledWith(expect.any(Object), expect.any(Function), sessionConfig);

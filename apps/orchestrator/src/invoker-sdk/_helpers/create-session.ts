@@ -1,6 +1,7 @@
 // Creates a single Agent SDK streaming session using query() with async iterable input
 // The CLI subprocess stays alive between yields, keeping the session warm
 
+import os from 'node:os';
 import type { SDKMessage, SDKResultMessage, SDKUserMessage } from '@anthropic-ai/claude-agent-sdk';
 import { query } from '@anthropic-ai/claude-agent-sdk';
 import type { SendOptions, Session, SessionConfig } from './session-pool';
@@ -60,10 +61,14 @@ export const createSession: CreateSession = (model, config) => {
     prompt: messageStream(),
     options: {
       model,
+      // Use a neutral cwd outside the project tree so the Claude subprocess does not
+      // auto-load the harness CLAUDE.md, .claude/rules/, or dev-session memory files.
+      // The orchestrator agent's context is delivered via the context plugin instead.
+      cwd: os.tmpdir(),
       permissionMode: 'bypassPermissions',
       allowDangerouslySkipPermissions: true,
       env,
-      ...(config?.mcpServers ? { mcpServers: config.mcpServers } : {}),
+      ...(config?.mcpServerFactory ? { mcpServers: config.mcpServerFactory() } : {}),
     },
   });
 

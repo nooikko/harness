@@ -57,7 +57,7 @@ export const boot: Boot = async () => {
   const invoker = createSdkInvoker({
     defaultModel: config.claudeModel,
     defaultTimeout: config.claudeTimeout,
-    ...(toolServer ? { sessionConfig: { mcpServers: { harness: toolServer } } } : {}),
+    ...(toolServer ? { sessionConfig: { mcpServerFactory: () => ({ harness: createToolServer(allTools, contextRef)! }) } } : {}),
   });
 
   logger.info('Creating orchestrator');

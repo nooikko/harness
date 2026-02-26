@@ -1,3 +1,4 @@
+import os from 'node:os';
 import type { SDKMessage, SDKResultSuccess, SDKUserMessage } from '@anthropic-ai/claude-agent-sdk';
 import { describe, expect, it, vi } from 'vitest';
 
@@ -314,10 +315,10 @@ describe('createSession', () => {
     expect(session.isAlive).toBe(false);
   });
 
-  it('passes mcpServers to query() options when provided', async () => {
+  it('calls mcpServerFactory and passes result to query() options when provided', async () => {
     const mockMcpServer = { name: 'harness', tools: [] };
     const session = createSession('sonnet', {
-      mcpServers: { harness: mockMcpServer as never },
+      mcpServerFactory: () => ({ harness: mockMcpServer as never }),
     });
     await tick();
 
@@ -335,6 +336,19 @@ describe('createSession', () => {
     await tick();
 
     expect(lastQueryOptions).not.toHaveProperty('mcpServers');
+
+    session.close();
+  });
+
+  it('passes cwd: os.tmpdir() to query() to isolate Claude from project memory', async () => {
+    const session = createSession('sonnet');
+    await tick();
+
+    expect(lastQueryOptions).toEqual(
+      expect.objectContaining({
+        cwd: os.tmpdir(),
+      }),
+    );
 
     session.close();
   });
