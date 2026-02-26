@@ -6,6 +6,7 @@ import { useCallback, useEffect, useRef, useState, useTransition } from 'react';
 import { Button } from 'ui';
 import { checkForResponse } from '../_actions/check-for-response';
 import { sendMessage } from '../_actions/send-message';
+import { PipelineActivity } from './pipeline-activity';
 import { useWs } from './ws-provider';
 
 const POLL_INTERVAL_MS = 3000;
@@ -26,6 +27,15 @@ export const ChatInput: ChatInputComponent = ({ threadId }) => {
   const sentAtRef = useRef<Date | null>(null);
   const router = useRouter();
   const { lastEvent, isConnected } = useWs('pipeline:complete');
+
+  useEffect(() => {
+    const el = textareaRef.current;
+    if (!el) {
+      return;
+    }
+    el.style.height = 'auto';
+    el.style.height = `${Math.min(el.scrollHeight, 160)}px`;
+  }, [value]);
 
   const onResponseReceived = useCallback(() => {
     setIsThinking(false);
@@ -79,6 +89,9 @@ export const ChatInput: ChatInputComponent = ({ threadId }) => {
     setIsThinking(true);
     sentAtRef.current = new Date();
     setValue('');
+    if (textareaRef.current) {
+      textareaRef.current.style.height = 'auto';
+    }
 
     startTransition(async () => {
       const result = await sendMessage(threadId, trimmed);
@@ -100,8 +113,8 @@ export const ChatInput: ChatInputComponent = ({ threadId }) => {
   };
 
   return (
-    <div className='border-t border-border px-4 py-3'>
-      {isThinking && <div className='mb-2 animate-pulse text-xs text-muted-foreground'>Thinking...</div>}
+    <div className='border-t border-border bg-card/50 px-4 py-3 shadow-[0_-1px_3px_0_rgb(0,0,0,0.05)]'>
+      <PipelineActivity threadId={threadId} isActive={isThinking} />
       {error && <div className='mb-2 text-xs text-destructive'>{error}</div>}
       <form
         onSubmit={(e) => {
@@ -117,7 +130,7 @@ export const ChatInput: ChatInputComponent = ({ threadId }) => {
           onKeyDown={handleKeyDown}
           placeholder='Send a message...'
           rows={1}
-          className='flex-1 resize-none rounded-md border border-border bg-background px-3 py-2 text-sm placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-ring'
+          className='flex-1 resize-none rounded-lg border border-border bg-background px-3 py-2 text-sm placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring/50 min-h-[40px] max-h-[160px]'
           disabled={isPending}
         />
         <Button type='submit' size='sm' disabled={isPending || !value.trim()} aria-label='Send message'>
