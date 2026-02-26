@@ -1,0 +1,21 @@
+import type { PipelineStep } from '@harness/plugin-contract';
+import type { PrismaClient } from 'database';
+
+type PersistPipelineSteps = (db: PrismaClient, threadId: string, steps: PipelineStep[]) => Promise<void>;
+
+const persistPipelineSteps: PersistPipelineSteps = async (db, threadId, steps) => {
+  for (const step of steps) {
+    await db.message.create({
+      data: {
+        threadId,
+        role: 'system',
+        kind: 'pipeline_step',
+        source: 'pipeline',
+        content: step.step,
+        metadata: { step: step.step, detail: step.detail ?? null },
+      },
+    });
+  }
+};
+
+export { persistPipelineSteps };
