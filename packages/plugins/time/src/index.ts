@@ -21,6 +21,15 @@ const createRegister: CreateRegister = () => {
         COMMAND_PATTERN.lastIndex = 0;
 
         const timeStr = formatTime({ timezone: ctx.config.timezone });
+
+        // Detect if /current-time is the entire User Message section (standalone use).
+        // When standalone, the replacement would leave Claude with no actionable content —
+        // just a timestamp annotation. Rewrite the whole section to include user intent.
+        const userMessageContent = /## User Message\s*\n\n(.+)$/s.exec(prompt)?.[1]?.trim();
+        if (userMessageContent === '/current-time') {
+          return prompt.replace(/## User Message\s*\n\n.+$/s, `## User Message\n\nThe current time is ${timeStr}. Please tell me the current time.`);
+        }
+
         return prompt.replace(COMMAND_PATTERN, `[Current time: ${timeStr}]`);
       },
     };

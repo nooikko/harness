@@ -69,6 +69,18 @@ describe('time plugin', () => {
     expect(result).toBe('Hello, what time is it?');
   });
 
+  it('reframes user message when /current-time is sent standalone', async () => {
+    const ctx = createMockContext();
+    const hooks = await plugin.register(ctx);
+
+    const prompt = '[Thread: t1 | general]\n\nYou are helpful.\n\n## User Message\n\n/current-time';
+    const result = await hooks.onBeforeInvoke?.('t1', prompt);
+
+    expect(result).toContain('The current time is Thursday, February 26, 2026 at 8:30:00 AM MST');
+    expect(result).toContain('Please tell me the current time');
+    expect(result).not.toContain('/current-time');
+  });
+
   it('replaces multiple occurrences of /current-time', async () => {
     const ctx = createMockContext();
     const hooks = await plugin.register(ctx);
