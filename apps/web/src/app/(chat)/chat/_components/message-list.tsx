@@ -2,6 +2,7 @@ import { prisma } from 'database';
 import { Suspense } from 'react';
 import { ScrollArea, Skeleton } from 'ui';
 import { MessageItem } from './message-item';
+import { ScrollAnchor } from './scroll-anchor';
 
 type MessageListProps = {
   threadId: string;
@@ -27,11 +28,12 @@ export const MessageListInternal = async ({ threadId }: MessageListProps) => {
   }
 
   return (
-    <ScrollArea className='flex-1'>
-      <div className='flex flex-col gap-4 p-4'>
+    <ScrollArea className='min-h-0 flex-1'>
+      <div className='flex flex-col gap-6 p-4'>
         {messages.map((message) => (
           <MessageItem key={message.id} message={message} />
         ))}
+        <ScrollAnchor messageCount={messages.length} />
       </div>
     </ScrollArea>
   );
