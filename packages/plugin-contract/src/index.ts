@@ -36,6 +36,12 @@ export type InvokeStreamEvent = {
   raw?: unknown;
 };
 
+export type PipelineStep = {
+  step: string;
+  detail?: string;
+  timestamp: number;
+};
+
 export type InvokeOptions = {
   model?: string;
   timeout?: number;
@@ -79,6 +85,16 @@ export type PluginHooks = {
   onTaskComplete?: (threadId: string, taskId: string, result: string) => Promise<void>;
   onTaskFailed?: (threadId: string, taskId: string, error: Error) => Promise<void>;
   onBroadcast?: (event: string, data: unknown) => Promise<void>;
+  onPipelineStart?: (threadId: string) => Promise<void>;
+  onPipelineComplete?: (
+    threadId: string,
+    result: {
+      invokeResult: InvokeResult;
+      pipelineSteps: PipelineStep[];
+      streamEvents: InvokeStreamEvent[];
+      commandsHandled: string[];
+    },
+  ) => Promise<void>;
 };
 
 export type PluginToolMeta = {
