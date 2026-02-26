@@ -12,6 +12,7 @@ export default defineConfig({
       'packages/plugins/discord',
       'packages/plugins/web',
       'packages/plugins/delegation',
+      'packages/plugins/metrics',
       'packages/database',
     ],
     coverage: {
