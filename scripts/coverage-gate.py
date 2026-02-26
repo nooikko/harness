@@ -124,6 +124,7 @@ def detect_projects(testable_files: list[str]) -> list[str]:
         "packages/plugins/discord/": "plugin-discord",
         "packages/plugins/web/": "plugin-web",
         "packages/plugins/delegation/": "plugin-delegation",
+        "packages/plugins/activity/": "plugin-activity",
         "packages/plugins/metrics/": "plugin-metrics",
         "packages/plugins/time/": "plugin-time",
     }
