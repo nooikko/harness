@@ -1,5 +1,5 @@
-import type { PluginDefinition, PluginTool } from '@harness/plugin-contract';
-import { describe, expect, it, vi } from 'vitest';
+import type { PluginContext, PluginDefinition, PluginTool, PluginToolMeta } from '@harness/plugin-contract';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 vi.mock('@anthropic-ai/claude-agent-sdk', () => ({
   createSdkMcpServer: vi.fn((options: { name: string; tools: unknown[] }) => ({
@@ -9,6 +9,7 @@ vi.mock('@anthropic-ai/claude-agent-sdk', () => ({
 }));
 
 import { createSdkMcpServer } from '@anthropic-ai/claude-agent-sdk';
+import type { ToolContextRef } from '../index';
 import { collectTools, createToolServer } from '../index';
 
 const mockCreateSdkMcpServer = vi.mocked(createSdkMcpServer);
@@ -27,6 +28,12 @@ const makePlugin = (name: string, tools?: PluginTool[]): PluginDefinition => ({
   version: '1.0.0',
   register: vi.fn().mockResolvedValue({}),
   tools,
+});
+
+const makeContextRef = (overrides?: Partial<ToolContextRef>): ToolContextRef => ({
+  ctx: { db: {}, invoker: {}, config: {}, logger: {}, sendToThread: vi.fn(), broadcast: vi.fn() } as unknown as PluginContext,
+  threadId: 'thread-1',
+  ...overrides,
 });
 
 describe('collectTools', () => {
@@ -69,8 +76,12 @@ describe('collectTools', () => {
 });
 
 describe('createToolServer', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
   it('returns null when no tools are collected', () => {
-    const result = createToolServer([]);
+    const result = createToolServer([], makeContextRef());
     expect(result).toBeNull();
     expect(mockCreateSdkMcpServer).not.toHaveBeenCalled();
   });
@@ -85,7 +96,7 @@ describe('createToolServer', () => {
       },
     ];
 
-    createToolServer(collected);
+    createToolServer(collected, makeContextRef());
 
     expect(mockCreateSdkMcpServer).toHaveBeenCalledWith({
       name: 'harness',
@@ -106,7 +117,48 @@ describe('createToolServer', () => {
         qualifiedName: 'delegation__delegate',
       },
     ];
-    const result = createToolServer(collected);
+    const result = createToolServer(collected, makeContextRef());
     expect(result).not.toBeNull();
+  });
+
+  it('handler calls plugin handler with (ctx, input, meta)', async () => {
+    const handler = vi.fn().mockResolvedValue('tool output');
+    const tool: PluginTool = {
+      name: 'test-tool',
+      description: 'A test tool',
+      schema: { type: 'object' },
+      handler,
+    };
+    const collected = [{ ...tool, pluginName: 'test', qualifiedName: 'test__test-tool' }];
+    const contextRef = makeContextRef({ threadId: 'thread-42' });
+
+    createToolServer(collected, contextRef);
+
+    type McpHandler = (input: Record<string, unknown>) => Promise<{ content: Array<{ type: string; text: string }> }>;
+    const mockCallParams = mockCreateSdkMcpServer.mock.calls[0] as unknown as Parameters<typeof createSdkMcpServer>;
+    const mcpTools = mockCallParams[0].tools as unknown as Array<{ handler: McpHandler }>;
+    const mcpTool = mcpTools[0]!;
+
+    const input = { prompt: 'hello' };
+    const result = await mcpTool.handler(input);
+
+    expect(handler).toHaveBeenCalledWith(contextRef.ctx, input, { threadId: 'thread-42' } satisfies PluginToolMeta);
+    expect(result).toEqual({ content: [{ type: 'text', text: 'tool output' }] });
+  });
+
+  it('handler throws when PluginContext is not initialized', async () => {
+    const tool = makeTool('test-tool');
+    const collected = [{ ...tool, pluginName: 'test', qualifiedName: 'test__test-tool' }];
+    const contextRef = makeContextRef({ ctx: null });
+
+    createToolServer(collected, contextRef);
+
+    const mockCallParams = mockCreateSdkMcpServer.mock.calls[0] as unknown as Parameters<typeof createSdkMcpServer>;
+    const mcpTools = mockCallParams[0].tools as unknown as Array<{
+      handler: (input: Record<string, unknown>) => Promise<unknown>;
+    }>;
+    const mcpTool = mcpTools[0]!;
+
+    await expect(mcpTool.handler({})).rejects.toThrow('PluginContext not initialized');
   });
 });
