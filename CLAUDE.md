@@ -134,6 +134,14 @@ To skip coverage and only check barrels: `pnpm test:coverage-gate --skip-coverag
 - **notify-on-complete** (Notification): Desktop notifications via `notify-send`
 - **worktree-setup** (WorktreeCreate): Creates git worktrees at `.claude/worktrees/` with `pnpm install`
 
+## Architectural Rules
+
+Three `.claude/rules/` files document execution paths and constraints for the orchestrator/plugin system. **Read these before recommending changes to the orchestrator or plugin architecture.**
+
+- `.claude/rules/architectural-invariants.md` — innate vs extension principle; decision tree for "where does new behavior go?"; common wrong conclusions
+- `.claude/rules/data-flow.md` — exact execution path from web action → HTTP → sendToThread → handleMessage (8 steps) → WebSocket; all file:line references
+- `.claude/rules/plugin-system.md` — PluginDefinition shape, all hooks, PluginContext API, per-plugin summaries; live plugin contract @imported
+
 ## Skills (formerly Commands)
 
 - `/review` — Adversarial code review (read-only, checklist-based)
