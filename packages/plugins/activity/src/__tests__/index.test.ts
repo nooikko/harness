@@ -34,6 +34,8 @@ describe('activity plugin', () => {
     expect(plugin.version).toBe('1.0.0');
   });
 
+  // NOTE: This test covers the Task 2 skeleton only. Task 8 replaces this entire
+  // test file with the full onPipelineStart/onPipelineComplete hook behavior tests.
   it('registers and returns empty hooks object', async () => {
     const ctx = createMockContext();
     const hooks = await plugin.register(ctx);
