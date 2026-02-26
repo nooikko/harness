@@ -1,5 +1,14 @@
 import type { Logger } from '@harness/logger';
-import type { InvokeResult, Invoker, OrchestratorConfig, PluginContext, PluginDefinition, PluginHooks } from '@harness/plugin-contract';
+import type {
+  InvokeOptions,
+  InvokeResult,
+  Invoker,
+  InvokeStreamEvent,
+  OrchestratorConfig,
+  PluginContext,
+  PluginDefinition,
+  PluginHooks,
+} from '@harness/plugin-contract';
 import type { PrismaClient } from 'database';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import type { OrchestratorDeps } from '../index';
@@ -289,7 +298,14 @@ describe('createOrchestrator', () => {
 
       expect(deps.invoker.invoke).toHaveBeenCalled();
       expect(deps.db.message.create as ReturnType<typeof vi.fn>).toHaveBeenCalledWith({
-        data: { threadId: 'thread-1', role: 'assistant', content: 'assistant reply', model: 'claude-haiku-4-5-20251001' },
+        data: {
+          threadId: 'thread-1',
+          role: 'assistant',
+          kind: 'text',
+          source: 'builtin',
+          content: 'assistant reply',
+          model: 'claude-haiku-4-5-20251001',
+        },
       });
       expect(deps.db.thread.update as ReturnType<typeof vi.fn>).toHaveBeenCalledWith({
         where: { id: 'thread-1' },
@@ -307,8 +323,86 @@ describe('createOrchestrator', () => {
 
       await context.sendToThread('thread-1', 'hello');
 
-      expect(deps.db.message.create as ReturnType<typeof vi.fn>).not.toHaveBeenCalled();
+      // Pipeline status/step messages are always created — but no text message should be created when output is empty
+      const createCalls = (deps.db.message.create as ReturnType<typeof vi.fn>).mock.calls as Array<[{ data: { kind: string } }]>;
+      const textMessages = createCalls.filter((call) => call[0]?.data.kind === 'text');
+      expect(textMessages).toHaveLength(0);
       expect(deps.db.thread.update as ReturnType<typeof vi.fn>).not.toHaveBeenCalled();
+    });
+
+    it('persists thinking stream events as kind:thinking messages', async () => {
+      const thinkingEvent: InvokeStreamEvent = { type: 'thinking', content: 'Hmm, let me think.', timestamp: Date.now() };
+      const invoker: Invoker = {
+        invoke: vi.fn().mockImplementation(async (_prompt: string, opts?: InvokeOptions) => {
+          opts?.onMessage?.(thinkingEvent);
+          return makeInvokeResult({ output: 'result' });
+        }),
+      } as unknown as Invoker;
+      const deps = makeDeps({ invoker });
+      const orchestrator = createOrchestrator(deps);
+
+      await orchestrator.getContext().sendToThread('thread-1', 'hi');
+
+      expect(deps.db.message.create as ReturnType<typeof vi.fn>).toHaveBeenCalledWith({
+        data: { threadId: 'thread-1', role: 'assistant', kind: 'thinking', source: 'builtin', content: 'Hmm, let me think.' },
+      });
+    });
+
+    it('persists tool_call stream events as kind:tool_call messages', async () => {
+      const toolCallEvent: InvokeStreamEvent = {
+        type: 'tool_call',
+        content: 'Bash',
+        toolName: 'Bash',
+        toolUseId: 'tu-1',
+        toolInput: { command: 'ls' },
+        timestamp: Date.now(),
+      };
+      const invoker: Invoker = {
+        invoke: vi.fn().mockImplementation(async (_prompt: string, opts?: InvokeOptions) => {
+          opts?.onMessage?.(toolCallEvent);
+          return makeInvokeResult({ output: 'result' });
+        }),
+      } as unknown as Invoker;
+      const deps = makeDeps({ invoker });
+      const orchestrator = createOrchestrator(deps);
+
+      await orchestrator.getContext().sendToThread('thread-1', 'hi');
+
+      expect(deps.db.message.create as ReturnType<typeof vi.fn>).toHaveBeenCalledWith({
+        data: {
+          threadId: 'thread-1',
+          role: 'assistant',
+          kind: 'tool_call',
+          source: 'builtin',
+          content: 'Bash',
+          metadata: { toolName: 'Bash', toolUseId: 'tu-1', input: { command: 'ls' } },
+        },
+      });
+    });
+
+    it('persists tool_use_summary stream events as kind:tool_result messages', async () => {
+      const summaryEvent: InvokeStreamEvent = { type: 'tool_use_summary', content: 'Listed 5 files', timestamp: Date.now() };
+      const invoker: Invoker = {
+        invoke: vi.fn().mockImplementation(async (_prompt: string, opts?: InvokeOptions) => {
+          opts?.onMessage?.(summaryEvent);
+          return makeInvokeResult({ output: 'result' });
+        }),
+      } as unknown as Invoker;
+      const deps = makeDeps({ invoker });
+      const orchestrator = createOrchestrator(deps);
+
+      await orchestrator.getContext().sendToThread('thread-1', 'hi');
+
+      expect(deps.db.message.create as ReturnType<typeof vi.fn>).toHaveBeenCalledWith({
+        data: {
+          threadId: 'thread-1',
+          role: 'assistant',
+          kind: 'tool_result',
+          source: 'builtin',
+          content: 'Listed 5 files',
+          metadata: { toolUseId: null, success: true },
+        },
+      });
     });
   });
 
@@ -388,7 +482,10 @@ describe('createOrchestrator', () => {
 
       expect(mockRunChainHooks).toHaveBeenCalledWith([], 'thread-1', '[assembled] original', deps.logger);
       expect(result.prompt).toBe('augmented prompt');
-      expect(deps.invoker.invoke).toHaveBeenCalledWith('augmented prompt', { model: undefined, sessionId: undefined });
+      expect(deps.invoker.invoke).toHaveBeenCalledWith(
+        'augmented prompt',
+        expect.objectContaining({ model: undefined, sessionId: undefined, onMessage: expect.any(Function) }),
+      );
     });
 
     it('calls invoker.invoke with the chained prompt and thread options', async () => {
@@ -405,7 +502,10 @@ describe('createOrchestrator', () => {
 
       await orchestrator.handleMessage('t', 'user', 'input');
 
-      expect(deps.invoker.invoke).toHaveBeenCalledWith('final prompt', { model: 'claude-opus-4-6', sessionId: 'sess-1' });
+      expect(deps.invoker.invoke).toHaveBeenCalledWith(
+        'final prompt',
+        expect.objectContaining({ model: 'claude-opus-4-6', sessionId: 'sess-1', onMessage: expect.any(Function) }),
+      );
     });
 
     it('calls runNotifyHooks for onAfterInvoke with the invoke result', async () => {

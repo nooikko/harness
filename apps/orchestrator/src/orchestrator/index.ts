@@ -1,9 +1,18 @@
 // Orchestrator module — plugin lifecycle management and message pipeline
 
 import type { Logger } from '@harness/logger';
-import type { InvokeResult, Invoker, OrchestratorConfig, PluginContext, PluginDefinition, PluginHooks } from '@harness/plugin-contract';
+import type {
+  InvokeResult,
+  Invoker,
+  InvokeStreamEvent,
+  OrchestratorConfig,
+  PluginContext,
+  PluginDefinition,
+  PluginHooks,
+} from '@harness/plugin-contract';
 import type { PrismaClient } from 'database';
 import { parseCommands } from './_helpers/parse-commands';
+import { parsePluginSource } from './_helpers/parse-plugin-source';
 import { assemblePrompt } from './_helpers/prompt-assembler';
 import { runChainHooks } from './_helpers/run-chain-hooks';
 import { runCommandHooks } from './_helpers/run-command-hooks';
@@ -17,10 +26,18 @@ export type OrchestratorDeps = {
   setActiveThread?: (threadId: string) => void;
 };
 
+export type PipelineStep = {
+  step: string;
+  detail?: string;
+  timestamp: number;
+};
+
 export type HandleMessageResult = {
   invokeResult: InvokeResult;
   prompt: string;
   commandsHandled: string[];
+  pipelineSteps: PipelineStep[];
+  streamEvents: InvokeStreamEvent[];
 };
 
 type CreateOrchestrator = (deps: OrchestratorDeps) => {
@@ -53,12 +70,65 @@ export const createOrchestrator: CreateOrchestrator = (deps) => {
       }
 
       deps.logger.info(`sendToThread: starting [thread=${threadId}, contentLength=${content.length}]`);
-      const result = await pipeline.handleMessage(threadId, 'user', content);
 
-      if (result.invokeResult.output) {
-        deps.logger.info(`sendToThread: persisting assistant response [thread=${threadId}, outputLength=${result.invokeResult.output.length}]`);
+      // Persist pipeline_start status before running the pipeline
+      await deps.db.message.create({
+        data: { threadId, role: 'system', kind: 'status', source: 'pipeline', content: 'Pipeline started', metadata: { event: 'pipeline_start' } },
+      });
+
+      const result = await pipeline.handleMessage(threadId, 'user', content);
+      const { invokeResult, pipelineSteps, streamEvents } = result;
+
+      // Persist pipeline steps
+      for (const step of pipelineSteps) {
         await deps.db.message.create({
-          data: { threadId, role: 'assistant', content: result.invokeResult.output, model: result.invokeResult.model },
+          data: {
+            threadId,
+            role: 'system',
+            kind: 'pipeline_step',
+            source: 'pipeline',
+            content: step.step,
+            metadata: { step: step.step, detail: step.detail ?? null },
+          },
+        });
+      }
+
+      // Persist stream events (thinking, tool_call, tool_result)
+      for (const event of streamEvents) {
+        if (event.type === 'thinking' && event.content) {
+          await deps.db.message.create({
+            data: { threadId, role: 'assistant', kind: 'thinking', source: 'builtin', content: event.content },
+          });
+        } else if (event.type === 'tool_call' && event.toolName) {
+          await deps.db.message.create({
+            data: {
+              threadId,
+              role: 'assistant',
+              kind: 'tool_call',
+              source: parsePluginSource(event.toolName),
+              content: event.toolName,
+              metadata: { toolName: event.toolName, toolUseId: event.toolUseId ?? null, input: event.toolInput ?? null },
+            },
+          });
+        } else if (event.type === 'tool_use_summary' && event.content) {
+          await deps.db.message.create({
+            data: {
+              threadId,
+              role: 'assistant',
+              kind: 'tool_result',
+              source: 'builtin',
+              content: event.content,
+              metadata: { toolUseId: event.toolUseId ?? null, success: true },
+            },
+          });
+        }
+      }
+
+      // Persist assistant text reply
+      if (invokeResult.output) {
+        deps.logger.info(`sendToThread: persisting assistant response [thread=${threadId}, outputLength=${invokeResult.output.length}]`);
+        await deps.db.message.create({
+          data: { threadId, role: 'assistant', kind: 'text', source: 'builtin', content: invokeResult.output, model: invokeResult.model },
         });
         await deps.db.thread.update({
           where: { id: threadId },
@@ -66,9 +136,26 @@ export const createOrchestrator: CreateOrchestrator = (deps) => {
         });
       } else {
         deps.logger.warn(
-          `sendToThread: no output from pipeline [thread=${threadId}, error=${result.invokeResult.error ?? 'none'}, exit=${result.invokeResult.exitCode}]`,
+          `sendToThread: no output from pipeline [thread=${threadId}, error=${invokeResult.error ?? 'none'}, exit=${invokeResult.exitCode}]`,
         );
       }
+
+      // Persist pipeline_complete status with metrics
+      await deps.db.message.create({
+        data: {
+          threadId,
+          role: 'system',
+          kind: 'status',
+          source: 'pipeline',
+          content: 'Pipeline completed',
+          metadata: {
+            event: 'pipeline_complete',
+            durationMs: invokeResult.durationMs,
+            inputTokens: invokeResult.inputTokens ?? null,
+            outputTokens: invokeResult.outputTokens ?? null,
+          },
+        },
+      });
     },
     broadcast: async (event: string, data: unknown) => {
       await runNotifyHooks(allHooks(), 'onBroadcast', (h) => h.onBroadcast?.(event, data), deps.logger);
@@ -77,6 +164,8 @@ export const createOrchestrator: CreateOrchestrator = (deps) => {
 
   const handleMessage = async (threadId: string, role: string, content: string): Promise<HandleMessageResult> => {
     const hooks = allHooks();
+    const pipelineSteps: PipelineStep[] = [];
+    const streamEvents: InvokeStreamEvent[] = [];
 
     // Step 0: Look up thread for session resumption and model override
     const thread = await deps.db.thread.findUnique({
@@ -87,6 +176,7 @@ export const createOrchestrator: CreateOrchestrator = (deps) => {
     // Step 1: Fire onMessage hooks (notification — no modification)
     deps.logger.info(`Pipeline: onMessage [thread=${threadId}, role=${role}]`);
     await runNotifyHooks(hooks, 'onMessage', (h) => h.onMessage?.(threadId, role, content), deps.logger);
+    pipelineSteps.push({ step: 'onMessage', timestamp: Date.now() });
     await context.broadcast('pipeline:step', { threadId, step: 'onMessage', timestamp: Date.now() });
 
     // Step 2: Build baseline prompt from thread context
@@ -100,6 +190,7 @@ export const createOrchestrator: CreateOrchestrator = (deps) => {
     // Step 3: Run onBeforeInvoke hooks in sequence (each can modify prompt)
     deps.logger.info(`Pipeline: onBeforeInvoke [thread=${threadId}]`);
     const prompt = await runChainHooks(hooks, threadId, basePrompt, deps.logger);
+    pipelineSteps.push({ step: 'onBeforeInvoke', detail: 'Context assembled', timestamp: Date.now() });
     await context.broadcast('pipeline:step', { threadId, step: 'onBeforeInvoke', detail: 'Context assembled', timestamp: Date.now() });
 
     // Step 4: Invoke Claude via the invoker with session resumption and model override
@@ -109,8 +200,9 @@ export const createOrchestrator: CreateOrchestrator = (deps) => {
     deps.logger.info(
       `Pipeline: invoking Claude [thread=${threadId}, promptLength=${prompt.length}, model=${model ?? 'default'}, sessionId=${sessionId ?? 'none'}]`,
     );
+    pipelineSteps.push({ step: 'invoking', detail: model ?? 'default', timestamp: Date.now() });
     await context.broadcast('pipeline:step', { threadId, step: 'invoking', detail: model ?? 'default', timestamp: Date.now() });
-    const invokeResult = await deps.invoker.invoke(prompt, { model, sessionId });
+    const invokeResult = await deps.invoker.invoke(prompt, { model, sessionId, onMessage: (event) => streamEvents.push(event) });
 
     deps.logger.info(
       `Pipeline: invoke complete [thread=${threadId}, duration=${invokeResult.durationMs}ms, exit=${invokeResult.exitCode}, outputLength=${invokeResult.output.length}, model=${invokeResult.model ?? 'unknown'}, sessionId=${invokeResult.sessionId ?? 'none'}]`,
@@ -129,10 +221,12 @@ export const createOrchestrator: CreateOrchestrator = (deps) => {
 
     // Step 5: Fire onAfterInvoke hooks (notification)
     await runNotifyHooks(hooks, 'onAfterInvoke', (h) => h.onAfterInvoke?.(threadId, invokeResult), deps.logger);
+    const afterDetail = `${(invokeResult.inputTokens ?? 0) + (invokeResult.outputTokens ?? 0)} tokens, ${invokeResult.durationMs}ms`;
+    pipelineSteps.push({ step: 'onAfterInvoke', detail: afterDetail, timestamp: Date.now() });
     await context.broadcast('pipeline:step', {
       threadId,
       step: 'onAfterInvoke',
-      detail: `${(invokeResult.inputTokens ?? 0) + (invokeResult.outputTokens ?? 0)} tokens, ${invokeResult.durationMs}ms`,
+      detail: afterDetail,
       timestamp: Date.now(),
     });
 
@@ -158,7 +252,7 @@ export const createOrchestrator: CreateOrchestrator = (deps) => {
       durationMs: invokeResult.durationMs,
     });
 
-    return { invokeResult, prompt, commandsHandled };
+    return { invokeResult, prompt, commandsHandled, pipelineSteps, streamEvents };
   };
 
   // Wire sendToThread to the pipeline
