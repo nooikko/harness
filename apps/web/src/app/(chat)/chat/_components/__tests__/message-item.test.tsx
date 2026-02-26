@@ -14,6 +14,10 @@ vi.mock('../../_helpers/format-model-name', () => ({
   formatModelName: (model: string) => model.replace('claude-', '').split('-')[0],
 }));
 
+vi.mock('../markdown-content', () => ({
+  MarkdownContent: ({ content }: { content: string }) => <div data-testid='markdown-content'>{content}</div>,
+}));
+
 import { MessageItem } from '../message-item';
 
 const makeMessage = (overrides: Partial<Message> = {}): Message => ({
@@ -30,14 +34,15 @@ const makeMessage = (overrides: Partial<Message> = {}): Message => ({
 describe('MessageItem', () => {
   it('renders user message with user styling', () => {
     render(<MessageItem message={makeMessage({ role: 'user' })} />);
-    expect(screen.getByLabelText('You')).toBeInTheDocument();
+    expect(screen.queryByTestId('markdown-content')).not.toBeInTheDocument();
     expect(screen.getByText('Hello')).toBeInTheDocument();
   });
 
   it('renders assistant message with assistant styling', () => {
     render(<MessageItem message={makeMessage({ role: 'assistant', content: 'Hi there' })} />);
     expect(screen.getByLabelText('Assistant')).toBeInTheDocument();
-    expect(screen.getByText('Hi there')).toBeInTheDocument();
+    expect(screen.getByTestId('markdown-content')).toBeInTheDocument();
+    expect(screen.getByTestId('markdown-content')).toHaveTextContent('Hi there');
   });
 
   it('renders system message with system styling', () => {
@@ -100,7 +105,19 @@ describe('MessageItem', () => {
         })}
       />,
     );
-    const badges = document.querySelectorAll('.text-\\[10px\\]');
-    expect(badges.length).toBe(0);
+    expect(screen.queryByText('sonnet')).not.toBeInTheDocument();
+    expect(screen.queryByText(/model/i)).not.toBeInTheDocument();
+  });
+
+  it('renders assistant messages with MarkdownContent', () => {
+    render(<MessageItem message={makeMessage({ role: 'assistant', content: '**bold** text' })} />);
+    expect(screen.getByTestId('markdown-content')).toBeInTheDocument();
+    expect(screen.getByTestId('markdown-content')).toHaveTextContent('**bold** text');
+  });
+
+  it('renders user messages as plain text without MarkdownContent', () => {
+    render(<MessageItem message={makeMessage({ role: 'user', content: 'Hello' })} />);
+    expect(screen.queryByTestId('markdown-content')).not.toBeInTheDocument();
+    expect(screen.getByText('Hello')).toBeInTheDocument();
   });
 });
