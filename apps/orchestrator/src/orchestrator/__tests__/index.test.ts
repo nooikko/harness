@@ -1,14 +1,5 @@
 import type { Logger } from '@harness/logger';
-import type {
-  InvokeOptions,
-  InvokeResult,
-  Invoker,
-  InvokeStreamEvent,
-  OrchestratorConfig,
-  PluginContext,
-  PluginDefinition,
-  PluginHooks,
-} from '@harness/plugin-contract';
+import type { InvokeResult, Invoker, OrchestratorConfig, PluginContext, PluginDefinition, PluginHooks } from '@harness/plugin-contract';
 import type { PrismaClient } from 'database';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import type { OrchestratorDeps } from '../index';
@@ -319,90 +310,30 @@ describe('createOrchestrator', () => {
         invoker: { invoke: vi.fn().mockResolvedValue(invokeResult) } as unknown as Invoker,
       });
       const orchestrator = createOrchestrator(deps);
-      const context = orchestrator.getContext();
 
-      await context.sendToThread('thread-1', 'hello');
+      await orchestrator.getContext().sendToThread('thread-1', 'hello');
 
-      // Pipeline status/step messages are always created — but no text message should be created when output is empty
-      const createCalls = (deps.db.message.create as ReturnType<typeof vi.fn>).mock.calls as Array<[{ data: { kind: string } }]>;
-      const textMessages = createCalls.filter((call) => call[0]?.data.kind === 'text');
-      expect(textMessages).toHaveLength(0);
+      expect(deps.db.message.create as ReturnType<typeof vi.fn>).not.toHaveBeenCalled();
       expect(deps.db.thread.update as ReturnType<typeof vi.fn>).not.toHaveBeenCalled();
     });
 
-    it('persists thinking stream events as kind:thinking messages', async () => {
-      const thinkingEvent: InvokeStreamEvent = { type: 'thinking', content: 'Hmm, let me think.', timestamp: Date.now() };
-      const invoker: Invoker = {
-        invoke: vi.fn().mockImplementation(async (_prompt: string, opts?: InvokeOptions) => {
-          opts?.onMessage?.(thinkingEvent);
-          return makeInvokeResult({ output: 'result' });
-        }),
-      } as unknown as Invoker;
-      const deps = makeDeps({ invoker });
+    it('calls runNotifyHooks with onPipelineStart', async () => {
+      const deps = makeDeps();
       const orchestrator = createOrchestrator(deps);
 
-      await orchestrator.getContext().sendToThread('thread-1', 'hi');
+      await orchestrator.getContext().sendToThread('thread-1', 'hello');
 
-      expect(deps.db.message.create as ReturnType<typeof vi.fn>).toHaveBeenCalledWith({
-        data: { threadId: 'thread-1', role: 'assistant', kind: 'thinking', source: 'builtin', content: 'Hmm, let me think.' },
-      });
+      // runNotifyHooks is mocked — assert it was called with the correct hookName
+      expect(mockRunNotifyHooks).toHaveBeenCalledWith(expect.any(Array), 'onPipelineStart', expect.any(Function), expect.anything());
     });
 
-    it('persists tool_call stream events as kind:tool_call messages', async () => {
-      const toolCallEvent: InvokeStreamEvent = {
-        type: 'tool_call',
-        content: 'Bash',
-        toolName: 'Bash',
-        toolUseId: 'tu-1',
-        toolInput: { command: 'ls' },
-        timestamp: Date.now(),
-      };
-      const invoker: Invoker = {
-        invoke: vi.fn().mockImplementation(async (_prompt: string, opts?: InvokeOptions) => {
-          opts?.onMessage?.(toolCallEvent);
-          return makeInvokeResult({ output: 'result' });
-        }),
-      } as unknown as Invoker;
-      const deps = makeDeps({ invoker });
+    it('calls runNotifyHooks with onPipelineComplete after the pipeline runs', async () => {
+      const deps = makeDeps();
       const orchestrator = createOrchestrator(deps);
 
-      await orchestrator.getContext().sendToThread('thread-1', 'hi');
+      await orchestrator.getContext().sendToThread('thread-1', 'hello');
 
-      expect(deps.db.message.create as ReturnType<typeof vi.fn>).toHaveBeenCalledWith({
-        data: {
-          threadId: 'thread-1',
-          role: 'assistant',
-          kind: 'tool_call',
-          source: 'builtin',
-          content: 'Bash',
-          metadata: { toolName: 'Bash', toolUseId: 'tu-1', input: { command: 'ls' } },
-        },
-      });
-    });
-
-    it('persists tool_use_summary stream events as kind:tool_result messages', async () => {
-      const summaryEvent: InvokeStreamEvent = { type: 'tool_use_summary', content: 'Listed 5 files', timestamp: Date.now() };
-      const invoker: Invoker = {
-        invoke: vi.fn().mockImplementation(async (_prompt: string, opts?: InvokeOptions) => {
-          opts?.onMessage?.(summaryEvent);
-          return makeInvokeResult({ output: 'result' });
-        }),
-      } as unknown as Invoker;
-      const deps = makeDeps({ invoker });
-      const orchestrator = createOrchestrator(deps);
-
-      await orchestrator.getContext().sendToThread('thread-1', 'hi');
-
-      expect(deps.db.message.create as ReturnType<typeof vi.fn>).toHaveBeenCalledWith({
-        data: {
-          threadId: 'thread-1',
-          role: 'assistant',
-          kind: 'tool_result',
-          source: 'builtin',
-          content: 'Listed 5 files',
-          metadata: { toolUseId: null, success: true },
-        },
-      });
+      expect(mockRunNotifyHooks).toHaveBeenCalledWith(expect.any(Array), 'onPipelineComplete', expect.any(Function), expect.anything());
     });
   });
 

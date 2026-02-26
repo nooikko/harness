@@ -6,13 +6,13 @@ import type {
   Invoker,
   InvokeStreamEvent,
   OrchestratorConfig,
+  PipelineStep,
   PluginContext,
   PluginDefinition,
   PluginHooks,
 } from '@harness/plugin-contract';
 import type { PrismaClient } from 'database';
 import { parseCommands } from './_helpers/parse-commands';
-import { parsePluginSource } from './_helpers/parse-plugin-source';
 import { assemblePrompt } from './_helpers/prompt-assembler';
 import { runChainHooks } from './_helpers/run-chain-hooks';
 import { runCommandHooks } from './_helpers/run-command-hooks';
@@ -24,12 +24,6 @@ export type OrchestratorDeps = {
   config: OrchestratorConfig;
   logger: Logger;
   setActiveThread?: (threadId: string) => void;
-};
-
-export type PipelineStep = {
-  step: string;
-  detail?: string;
-  timestamp: number;
 };
 
 export type HandleMessageResult = {
@@ -71,64 +65,35 @@ export const createOrchestrator: CreateOrchestrator = (deps) => {
 
       deps.logger.info(`sendToThread: starting [thread=${threadId}, contentLength=${content.length}]`);
 
-      // Persist pipeline_start status before running the pipeline
-      await deps.db.message.create({
-        data: { threadId, role: 'system', kind: 'status', source: 'pipeline', content: 'Pipeline started', metadata: { event: 'pipeline_start' } },
-      });
+      // Notify plugins pipeline is starting
+      await runNotifyHooks(allHooks(), 'onPipelineStart', (h) => h.onPipelineStart?.(threadId), deps.logger);
 
       const result = await pipeline.handleMessage(threadId, 'user', content);
-      const { invokeResult, pipelineSteps, streamEvents } = result;
+      const { invokeResult, pipelineSteps, streamEvents, commandsHandled } = result;
 
-      // Persist pipeline steps
-      for (const step of pipelineSteps) {
-        await deps.db.message.create({
-          data: {
-            threadId,
-            role: 'system',
-            kind: 'pipeline_step',
-            source: 'pipeline',
-            content: step.step,
-            metadata: { step: step.step, detail: step.detail ?? null },
-          },
-        });
-      }
+      // Notify plugins pipeline is complete BEFORE innate writes.
+      // This ensures thinking/tool_call/tool_result records get earlier createdAt than
+      // assistant_text — message-list.tsx sorts by createdAt: 'asc', so order matters for UI.
+      await runNotifyHooks(
+        allHooks(),
+        'onPipelineComplete',
+        (h) => h.onPipelineComplete?.(threadId, { invokeResult, pipelineSteps, streamEvents, commandsHandled }),
+        deps.logger,
+      );
 
-      // Persist stream events (thinking, tool_call, tool_result)
-      for (const event of streamEvents) {
-        if (event.type === 'thinking' && event.content) {
-          await deps.db.message.create({
-            data: { threadId, role: 'assistant', kind: 'thinking', source: 'builtin', content: event.content },
-          });
-        } else if (event.type === 'tool_call' && event.toolName) {
-          await deps.db.message.create({
-            data: {
-              threadId,
-              role: 'assistant',
-              kind: 'tool_call',
-              source: parsePluginSource(event.toolName),
-              content: event.toolName,
-              metadata: { toolName: event.toolName, toolUseId: event.toolUseId ?? null, input: event.toolInput ?? null },
-            },
-          });
-        } else if (event.type === 'tool_use_summary' && event.content) {
-          await deps.db.message.create({
-            data: {
-              threadId,
-              role: 'assistant',
-              kind: 'tool_result',
-              source: 'builtin',
-              content: event.content,
-              metadata: { toolUseId: event.toolUseId ?? null, success: true },
-            },
-          });
-        }
-      }
-
-      // Persist assistant text reply
+      // INNATE: Persist assistant text reply and update thread activity (after activity plugin
+      // so the reply appears after thinking/tool records in the sorted message list)
       if (invokeResult.output) {
         deps.logger.info(`sendToThread: persisting assistant response [thread=${threadId}, outputLength=${invokeResult.output.length}]`);
         await deps.db.message.create({
-          data: { threadId, role: 'assistant', kind: 'text', source: 'builtin', content: invokeResult.output, model: invokeResult.model },
+          data: {
+            threadId,
+            role: 'assistant',
+            kind: 'text',
+            source: 'builtin',
+            content: invokeResult.output,
+            model: invokeResult.model,
+          },
         });
         await deps.db.thread.update({
           where: { id: threadId },
@@ -139,23 +104,6 @@ export const createOrchestrator: CreateOrchestrator = (deps) => {
           `sendToThread: no output from pipeline [thread=${threadId}, error=${invokeResult.error ?? 'none'}, exit=${invokeResult.exitCode}]`,
         );
       }
-
-      // Persist pipeline_complete status with metrics
-      await deps.db.message.create({
-        data: {
-          threadId,
-          role: 'system',
-          kind: 'status',
-          source: 'pipeline',
-          content: 'Pipeline completed',
-          metadata: {
-            event: 'pipeline_complete',
-            durationMs: invokeResult.durationMs,
-            inputTokens: invokeResult.inputTokens ?? null,
-            outputTokens: invokeResult.outputTokens ?? null,
-          },
-        },
-      });
     },
     broadcast: async (event: string, data: unknown) => {
       await runNotifyHooks(allHooks(), 'onBroadcast', (h) => h.onBroadcast?.(event, data), deps.logger);
