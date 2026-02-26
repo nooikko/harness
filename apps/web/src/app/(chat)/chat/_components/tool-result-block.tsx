@@ -8,7 +8,7 @@ type ToolResultBlockProps = {
 type ToolResultBlockComponent = (props: ToolResultBlockProps) => React.ReactNode;
 
 export const ToolResultBlock: ToolResultBlockComponent = ({ content, metadata }) => {
-  const durationMs = metadata?.['durationMs'] as number | undefined;
+  const durationMs = metadata?.durationMs as number | undefined;
   const label = `Result${durationMs ? ` (${(durationMs / 1000).toFixed(1)}s)` : ''}`;
 
   return (

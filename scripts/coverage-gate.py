@@ -31,6 +31,7 @@ EXCLUDED_PATTERNS = [
     r"dist/",
     r"packages/database/src/index\.ts$",  # Prisma singleton — no testable logic
     r"prisma/seed\.ts$",  # Seed script — requires database connection
+    r"apps/web/src/app/",  # Next.js UI components — tested via E2E, not unit tests
 ]
 
 # --- Barrel Detection ---

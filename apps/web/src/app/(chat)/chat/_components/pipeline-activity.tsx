@@ -8,6 +8,7 @@ import { useWs } from './ws-provider';
 type PipelineStep = {
   step: string;
   detail?: string;
+  metadata?: Record<string, unknown>;
   timestamp: number;
 };
 
@@ -64,7 +65,7 @@ export const PipelineActivity: PipelineActivityComponent = ({ threadId, isActive
       return;
     }
 
-    setSteps((prev) => [...prev, { step: event.step, detail: event.detail, timestamp: event.timestamp }]);
+    setSteps((prev) => [...prev, { step: event.step, detail: event.detail, metadata: event.metadata, timestamp: event.timestamp }]);
   }, [lastEvent, threadId, isActive]);
 
   if (!isActive) {

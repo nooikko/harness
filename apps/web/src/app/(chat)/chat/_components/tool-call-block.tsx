@@ -15,9 +15,9 @@ const getDisplayName: GetDisplayName = (toolName) => {
 type ToolCallBlockComponent = (props: ToolCallBlockProps) => React.ReactNode;
 
 export const ToolCallBlock: ToolCallBlockComponent = ({ content, metadata }) => {
-  const toolName = (metadata?.['toolName'] as string | undefined) ?? content;
+  const toolName = (metadata?.toolName as string | undefined) ?? content;
   const displayName = getDisplayName(toolName);
-  const input = metadata?.['input'] as Record<string, unknown> | undefined;
+  const input = metadata?.input as Record<string, unknown> | undefined;
   const inputPreview = input ? Object.values(input)[0] : undefined;
 
   return (

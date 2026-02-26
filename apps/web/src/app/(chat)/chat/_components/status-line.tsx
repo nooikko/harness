@@ -6,9 +6,9 @@ type StatusLineProps = {
 type StatusLineComponent = (props: StatusLineProps) => React.ReactNode;
 
 export const StatusLine: StatusLineComponent = ({ content, metadata }) => {
-  const durationMs = metadata?.['durationMs'] as number | undefined;
-  const inputTokens = metadata?.['inputTokens'] as number | undefined;
-  const outputTokens = metadata?.['outputTokens'] as number | undefined;
+  const durationMs = metadata?.durationMs as number | undefined;
+  const inputTokens = metadata?.inputTokens as number | undefined;
+  const outputTokens = metadata?.outputTokens as number | undefined;
   const duration = durationMs ? `${(durationMs / 1000).toFixed(1)}s` : undefined;
   const tokens = inputTokens != null && outputTokens != null ? `${inputTokens + outputTokens} tokens` : undefined;
 

@@ -32,19 +32,44 @@ export const MessageListInternal = async ({ threadId }: MessageListProps) => {
     orderBy: { startedAt: 'asc' },
   });
 
+  // Group consecutive pipeline_step messages so they share tighter internal spacing
+  // rather than inheriting the chat container's gap-6 between each one.
+  type Group = { isPipelineStep: boolean; items: typeof messages };
+  const groups = messages.reduce<Group[]>((acc, message) => {
+    const isPipelineStep = message.kind === 'pipeline_step';
+    const last = acc[acc.length - 1];
+    if (last?.isPipelineStep === isPipelineStep) {
+      last.items.push(message);
+    } else {
+      acc.push({ isPipelineStep, items: [message] });
+    }
+    return acc;
+  }, []);
+
   return (
     <>
-      {messages.map((message) => {
-        const run = message.role === 'assistant' ? matchRunToMessage(message, agentRuns) : undefined;
-        const agentRun = run
-          ? {
-              model: run.model,
-              inputTokens: run.inputTokens,
-              outputTokens: run.outputTokens,
-              durationMs: run.durationMs,
-            }
-          : undefined;
-        return <MessageItem key={message.id} message={message} agentRun={agentRun} />;
+      {groups.map((group) => {
+        if (group.isPipelineStep) {
+          return (
+            <div key={group.items[0]?.id} className='flex flex-col gap-1'>
+              {group.items.map((message) => (
+                <MessageItem key={message.id} message={message} />
+              ))}
+            </div>
+          );
+        }
+        return group.items.map((message) => {
+          const run = message.role === 'assistant' ? matchRunToMessage(message, agentRuns) : undefined;
+          const agentRun = run
+            ? {
+                model: run.model,
+                inputTokens: run.inputTokens,
+                outputTokens: run.outputTokens,
+                durationMs: run.durationMs,
+              }
+            : undefined;
+          return <MessageItem key={message.id} message={message} agentRun={agentRun} />;
+        });
       })}
       <div data-scroll-anchor aria-hidden='true' />
     </>

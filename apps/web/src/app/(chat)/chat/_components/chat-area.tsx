@@ -24,9 +24,11 @@ export const ChatArea: ChatAreaComponent = ({ threadId, children }) => {
   const [error, setError] = useState<string | null>(null);
   const [isThinking, setIsThinking] = useState(false);
   const [isPending, startTransition] = useTransition();
+  const [isRefreshing, startRefreshTransition] = useTransition();
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const sentAtRef = useRef<Date | null>(null);
   const anchorRef = useRef<HTMLDivElement>(null);
+  const hasMountedRef = useRef(false);
   const router = useRouter();
   const { lastEvent, isConnected } = useWs('pipeline:complete');
 
@@ -40,7 +42,18 @@ export const ChatArea: ChatAreaComponent = ({ threadId, children }) => {
     el.style.height = `${Math.min(el.scrollHeight, 160)}px`;
   }, [value]);
 
-  // Scroll to bottom when activity updates
+  // Scroll to bottom on initial mount (instant) and after router.refresh() completes (smooth).
+  // Fires when isRefreshing transitions false→true→false, ensuring new RSC content is rendered first.
+  useEffect(() => {
+    if (isRefreshing) {
+      return;
+    }
+    const behavior = hasMountedRef.current ? 'smooth' : 'instant';
+    hasMountedRef.current = true;
+    anchorRef.current?.scrollIntoView({ behavior, block: 'end' });
+  }, [isRefreshing]);
+
+  // Scroll to bottom when pipeline starts so the activity indicator is visible
   useEffect(() => {
     if (isThinking) {
       anchorRef.current?.scrollIntoView({ behavior: 'smooth', block: 'end' });
@@ -49,7 +62,9 @@ export const ChatArea: ChatAreaComponent = ({ threadId, children }) => {
 
   const onResponseReceived = useCallback(() => {
     setIsThinking(false);
-    router.refresh();
+    startRefreshTransition(() => {
+      router.refresh();
+    });
   }, [router]);
 
   // WebSocket-based refresh
