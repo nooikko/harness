@@ -79,6 +79,13 @@ describe('getPlugins', () => {
     expect(names).toContain('metrics');
   });
 
+  it('includes the time plugin', async () => {
+    const plugins = await getPlugins(makeDb(), makeLogger());
+    const names = plugins.map((p) => p.name);
+
+    expect(names).toContain('time');
+  });
+
   it('calls syncPluginConfigs before filterDisabledPlugins', async () => {
     const db = makeDb();
     const logger = makeLogger();

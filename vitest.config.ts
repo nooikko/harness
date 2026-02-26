@@ -13,6 +13,7 @@ export default defineConfig({
       'packages/plugins/web',
       'packages/plugins/delegation',
       'packages/plugins/metrics',
+      'packages/plugins/time',
       'packages/database',
     ],
     coverage: {

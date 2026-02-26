@@ -21,6 +21,7 @@
     "@harness/plugin-delegation": "workspace:*",
     "@harness/plugin-discord": "workspace:*",
     "@harness/plugin-metrics": "workspace:*",
+    "@harness/plugin-time": "workspace:*",
     "@harness/plugin-web": "workspace:*",
     "database": "workspace:*"
   },
