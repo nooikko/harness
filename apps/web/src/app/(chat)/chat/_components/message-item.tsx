@@ -2,16 +2,25 @@ import type { Message } from 'database';
 import { Bot, Info } from 'lucide-react';
 import { formatModelName } from '../_helpers/format-model-name';
 import { isCrossThreadNotification } from '../_helpers/is-cross-thread-notification';
+import { ActivityChips } from './activity-chips';
 import { MarkdownContent } from './markdown-content';
 import { NotificationMessage } from './notification-message';
 
-type MessageItemProps = {
+type AgentRunData = {
+  model: string;
+  inputTokens: number;
+  outputTokens: number;
+  durationMs: number;
+};
+
+export type MessageItemProps = {
   message: Message;
+  agentRun?: AgentRunData | null;
 };
 
 type MessageItemComponent = (props: MessageItemProps) => React.ReactNode;
 
-export const MessageItem: MessageItemComponent = ({ message }) => {
+export const MessageItem: MessageItemComponent = ({ message, agentRun }) => {
   if (isCrossThreadNotification(message)) {
     return <NotificationMessage message={message} />;
   }
@@ -34,10 +43,19 @@ export const MessageItem: MessageItemComponent = ({ message }) => {
         </span>
         <div className='min-w-0 flex-1'>
           <MarkdownContent content={message.content} />
-          {message.model && (
-            <span className='mt-2 inline-block rounded-md bg-muted px-2 py-0.5 text-[10px] font-medium text-muted-foreground'>
-              {formatModelName(message.model)}
-            </span>
+          {agentRun ? (
+            <ActivityChips
+              model={agentRun.model}
+              inputTokens={agentRun.inputTokens}
+              outputTokens={agentRun.outputTokens}
+              durationMs={agentRun.durationMs}
+            />
+          ) : (
+            message.model && (
+              <span className='mt-2 inline-block rounded-md bg-muted px-2 py-0.5 text-[10px] font-medium text-muted-foreground'>
+                {formatModelName(message.model)}
+              </span>
+            )
           )}
         </div>
       </div>

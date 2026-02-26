@@ -1,6 +1,7 @@
 import { prisma } from 'database';
 import { Suspense } from 'react';
 import { ScrollArea, Skeleton } from 'ui';
+import { matchRunToMessage } from '../_helpers/match-run-to-message';
 import { MessageItem } from './message-item';
 import { ScrollAnchor } from './scroll-anchor';
 
@@ -27,12 +28,26 @@ export const MessageListInternal = async ({ threadId }: MessageListProps) => {
     );
   }
 
+  const agentRuns = await prisma.agentRun.findMany({
+    where: { threadId },
+    orderBy: { startedAt: 'asc' },
+  });
+
   return (
     <ScrollArea className='min-h-0 flex-1'>
       <div className='flex flex-col gap-6 p-4'>
-        {messages.map((message) => (
-          <MessageItem key={message.id} message={message} />
-        ))}
+        {messages.map((message) => {
+          const run = message.role === 'assistant' ? matchRunToMessage(message, agentRuns) : undefined;
+          const agentRun = run
+            ? {
+                model: run.model,
+                inputTokens: run.inputTokens,
+                outputTokens: run.outputTokens,
+                durationMs: run.durationMs,
+              }
+            : undefined;
+          return <MessageItem key={message.id} message={message} agentRun={agentRun} />;
+        })}
         <ScrollAnchor messageCount={messages.length} />
       </div>
     </ScrollArea>
