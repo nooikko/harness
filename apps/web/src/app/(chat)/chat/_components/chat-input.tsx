@@ -129,8 +129,7 @@ export const ChatInput: ChatInputComponent = ({ threadId }) => {
           onKeyDown={handleKeyDown}
           placeholder='Send a message...'
           rows={1}
-          className='flex-1 resize-none rounded-lg border border-border bg-background px-3 py-2 text-sm placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring/50'
-          style={{ minHeight: '40px', maxHeight: '160px' }}
+          className='flex-1 resize-none rounded-lg border border-border bg-background px-3 py-2 text-sm placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring/50 min-h-[40px] max-h-[160px]'
           disabled={isPending}
         />
         <Button type='submit' size='sm' disabled={isPending || !value.trim()} aria-label='Send message'>

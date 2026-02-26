@@ -39,4 +39,11 @@ describe('MessageListInternal', () => {
     expect(html).toContain('Hello');
     expect(html).toContain('Hi there');
   });
+
+  it('renders ScrollAnchor after messages', async () => {
+    mockFindMany.mockResolvedValue([{ id: 'msg-1', role: 'user', content: 'Hello', threadId: 'thread-1', createdAt: new Date() }]);
+    const element = await MessageListInternal({ threadId: 'thread-1' });
+    const html = renderToStaticMarkup(element as React.ReactElement);
+    expect(html).toContain('data-scroll-anchor');
+  });
 });
