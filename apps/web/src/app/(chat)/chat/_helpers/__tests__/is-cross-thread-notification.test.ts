@@ -8,6 +8,8 @@ const makeMessage: MakeMessage = (overrides) => ({
   id: 'msg-1',
   threadId: 'thread-1',
   role: 'user',
+  kind: 'text',
+  source: 'builtin',
   content: 'Hello',
   model: null,
   metadata: null,

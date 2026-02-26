@@ -6,6 +6,8 @@ const makeMessage = (overrides: Partial<Message> = {}): Message => ({
   id: 'msg-1',
   threadId: 'thread-1',
   role: 'assistant',
+  kind: 'text',
+  source: 'builtin',
   content: 'Hello',
   model: null,
   metadata: null,
