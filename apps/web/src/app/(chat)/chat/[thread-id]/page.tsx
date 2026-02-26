@@ -1,6 +1,6 @@
 import { prisma } from 'database';
 import { notFound } from 'next/navigation';
-import { ChatInput } from '../_components/chat-input';
+import { ChatArea } from '../_components/chat-area';
 import { MessageList } from '../_components/message-list';
 import { ModelSelector } from '../_components/model-selector';
 import { PrewarmTrigger } from '../_components/prewarm-trigger';
@@ -43,8 +43,9 @@ const ThreadPage: ThreadPageComponent = async ({ params }) => {
         <ModelSelector threadId={thread.id} currentModel={thread.model} />
       </header>
       <PrewarmTrigger threadId={threadId} />
-      <MessageList threadId={threadId} />
-      <ChatInput threadId={threadId} />
+      <ChatArea threadId={threadId}>
+        <MessageList threadId={threadId} />
+      </ChatArea>
     </div>
   );
 };

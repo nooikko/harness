@@ -39,7 +39,7 @@ const components: Components = {
 };
 
 export const MarkdownContent: MarkdownContentComponent = ({ content }) => (
-  <div className='prose prose-stone max-w-none prose-headings:font-semibold prose-headings:tracking-tight prose-p:leading-relaxed prose-pre:bg-transparent prose-pre:p-0'>
+  <div className='prose prose-sm prose-stone max-w-none prose-p:my-3 prose-p:leading-snug prose-headings:font-semibold prose-headings:tracking-tight prose-headings:mt-5 prose-headings:mb-2 prose-pre:bg-transparent prose-pre:p-0 prose-pre:my-3 prose-li:my-0 prose-li:leading-snug prose-ul:my-2 prose-ol:my-2'>
     <Markdown remarkPlugins={[remarkGfm]} components={components}>
       {content}
     </Markdown>

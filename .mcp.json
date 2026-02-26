@@ -1,8 +1,8 @@
 {
   "mcpServers": {
     "context7": {
-      "command": "npx",
-      "args": ["-y", "@upstash/context7-mcp@latest"],
+      "command": "bash",
+      "args": ["-c", ". ~/.bashrc; exec npx -y @upstash/context7-mcp@latest --api-key $CONTEXT7_API_KEY"],
       "env": {}
     },
     "playwright": {

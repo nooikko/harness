@@ -20,6 +20,9 @@ type CreateRegister = () => PluginDefinition['register'];
 
 const createRegister: CreateRegister = () => async (ctx: PluginContext) => {
   const logger = ctx.logger;
+  const port = ctx.config.port;
+
+  logger.info('Web plugin registered', { port });
 
   const onChatMessage = async (threadId: string, content: string) => {
     // Broadcast the user message immediately so the UI updates

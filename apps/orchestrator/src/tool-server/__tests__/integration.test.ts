@@ -1,4 +1,4 @@
-import type { PluginDefinition } from '@harness/plugin-contract';
+import type { PluginContext, PluginDefinition } from '@harness/plugin-contract';
 import { describe, expect, it, vi } from 'vitest';
 
 vi.mock('@anthropic-ai/claude-agent-sdk', () => {
@@ -9,6 +9,7 @@ vi.mock('@anthropic-ai/claude-agent-sdk', () => {
   };
 });
 
+import type { ToolContextRef } from '../index';
 import { collectTools, createToolServer } from '../index';
 
 type MakePlugin = (name: string, tools?: PluginDefinition['tools']) => PluginDefinition;
@@ -18,6 +19,11 @@ const makePlugin: MakePlugin = (name, tools) => ({
   version: '1.0.0',
   register: vi.fn().mockResolvedValue({}),
   tools,
+});
+
+const makeContextRef = (): ToolContextRef => ({
+  ctx: { db: {}, invoker: {}, config: {}, logger: {}, sendToThread: vi.fn(), broadcast: vi.fn() } as unknown as PluginContext,
+  threadId: 'thread-1',
 });
 
 describe('tool-server integration', () => {
@@ -54,7 +60,7 @@ describe('tool-server integration', () => {
     expect(collected[0]!.qualifiedName).toBe('delegation__delegate');
     expect(collected[1]!.qualifiedName).toBe('delegation__checkin');
 
-    const server = createToolServer(collected);
+    const server = createToolServer(collected, makeContextRef());
     expect(server).not.toBeNull();
     expect((server as { name: string }).name).toBe('harness');
   });
@@ -62,7 +68,7 @@ describe('tool-server integration', () => {
   it('returns null server when no plugins have tools', () => {
     const plugins = [makePlugin('context'), makePlugin('web')];
     const collected = collectTools(plugins);
-    const server = createToolServer(collected);
+    const server = createToolServer(collected, makeContextRef());
     expect(server).toBeNull();
   });
 });

@@ -31,7 +31,7 @@ describe('PipelineActivity', () => {
     });
 
     render(<PipelineActivity threadId='thread-1' isActive={true} />);
-    expect(screen.getByText(/invoking/i)).toBeInTheDocument();
+    expect(screen.getAllByText(/calling claude/i).length).toBeGreaterThan(0);
   });
 
   it('ignores pipeline steps for other threads', () => {

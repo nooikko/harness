@@ -9,6 +9,7 @@ import { createSdkInvoker } from './invoker-sdk';
 import { createOrchestrator } from './orchestrator';
 import { createPluginLoader } from './plugin-loader';
 import { getPlugins } from './plugin-registry';
+import type { ToolContextRef } from './tool-server';
 import { collectTools, createToolServer } from './tool-server';
 
 type ShutdownState = {
@@ -42,7 +43,8 @@ export const boot: Boot = async () => {
 
   logger.info('Collecting plugin tools');
   const allTools = collectTools(loaded);
-  const toolServer = createToolServer(allTools);
+  const contextRef: ToolContextRef = { ctx: null, threadId: '' };
+  const toolServer = createToolServer(allTools, contextRef);
 
   if (toolServer) {
     logger.info('Tool server created', { toolCount: allTools.length });
@@ -64,7 +66,12 @@ export const boot: Boot = async () => {
     invoker,
     config,
     logger,
+    setActiveThread: (threadId: string) => {
+      contextRef.threadId = threadId;
+    },
   });
+
+  contextRef.ctx = orchestrator.getContext();
 
   logger.info('Registering plugins');
   for (const plugin of loaded) {

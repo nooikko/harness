@@ -86,7 +86,7 @@ export const version = '1.0.0';
 
 export const register: PluginDefinition['register'] = createRegister();
 
-export const contextPlugin: PluginDefinition = {
+export const plugin: PluginDefinition = {
   name,
   version,
   register,

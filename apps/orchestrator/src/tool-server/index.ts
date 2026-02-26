@@ -1,10 +1,15 @@
 import type { SdkMcpToolDefinition } from '@anthropic-ai/claude-agent-sdk';
 import { createSdkMcpServer } from '@anthropic-ai/claude-agent-sdk';
-import type { PluginDefinition, PluginTool } from '@harness/plugin-contract';
+import type { PluginContext, PluginDefinition, PluginTool, PluginToolMeta } from '@harness/plugin-contract';
 
 export type CollectedTool = PluginTool & {
   pluginName: string;
   qualifiedName: string;
+};
+
+export type ToolContextRef = {
+  ctx: PluginContext | null;
+  threadId: string;
 };
 
 type CollectTools = (plugins: PluginDefinition[]) => CollectedTool[];
@@ -19,9 +24,9 @@ export const collectTools: CollectTools = (plugins) => {
   );
 };
 
-type CreateToolServer = (tools: CollectedTool[]) => ReturnType<typeof createSdkMcpServer> | null;
+type CreateToolServer = (tools: CollectedTool[], contextRef: ToolContextRef) => ReturnType<typeof createSdkMcpServer> | null;
 
-export const createToolServer: CreateToolServer = (tools) => {
+export const createToolServer: CreateToolServer = (tools, contextRef) => {
   if (tools.length === 0) {
     return null;
   }
@@ -35,7 +40,11 @@ export const createToolServer: CreateToolServer = (tools) => {
     description: t.description,
     inputSchema: t.schema as Record<string, never>,
     handler: async (input: Record<string, unknown>) => {
-      const result = await (t.handler as (input: Record<string, unknown>) => Promise<string>)(input);
+      if (!contextRef.ctx) {
+        throw new Error('PluginContext not initialized');
+      }
+      const meta: PluginToolMeta = { threadId: contextRef.threadId };
+      const result = await t.handler(contextRef.ctx, input, meta);
       return { content: [{ type: 'text' as const, text: result }] };
     },
   }));

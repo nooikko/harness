@@ -1,7 +1,7 @@
 // Plugin registry — static imports of all known plugins, filtered by database config
 
 import type { Logger } from '@harness/logger';
-import { contextPlugin } from '@harness/plugin-context';
+import { plugin as contextPlugin } from '@harness/plugin-context';
 import type { PluginDefinition } from '@harness/plugin-contract';
 import { plugin as delegationPlugin } from '@harness/plugin-delegation';
 import { plugin as discordPlugin } from '@harness/plugin-discord';

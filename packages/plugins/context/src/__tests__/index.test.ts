@@ -3,7 +3,7 @@ import { tmpdir } from 'node:os';
 import { resolve } from 'node:path';
 import type { PluginContext } from '@harness/plugin-contract';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { contextPlugin, createContextPlugin } from '../index';
+import { createContextPlugin, plugin } from '../index';
 
 let TEST_DIR: string;
 let CONTEXT_DIR: string;
@@ -240,10 +240,10 @@ describe('context plugin', () => {
     expect(result).toContain('test prompt');
   });
 
-  it('exports contextPlugin definition with correct structure', () => {
-    expect(contextPlugin.name).toBe('context');
-    expect(contextPlugin.version).toBe('1.0.0');
-    expect(typeof contextPlugin.register).toBe('function');
+  it('exports plugin definition with correct structure', () => {
+    expect(plugin.name).toBe('context');
+    expect(plugin.version).toBe('1.0.0');
+    expect(typeof plugin.register).toBe('function');
   });
 
   it('separates sections with dividers', async () => {

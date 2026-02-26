@@ -95,11 +95,17 @@ export const splitMessage: SplitMessage = (content) => {
   return chunks;
 };
 
-type RegisterDiscordPlugin = PluginDefinition['register'];
+type CreateRegister = () => PluginDefinition['register'];
 
-const register: RegisterDiscordPlugin = async (_ctx) => {
-  const hooks: PluginHooks = {};
-  return hooks;
+const createRegister: CreateRegister = () => {
+  const register = async (ctx: PluginContext): Promise<PluginHooks> => {
+    ctx.logger.info('Discord plugin registered');
+
+    const hooks: PluginHooks = {};
+    return hooks;
+  };
+
+  return register;
 };
 
 type StartDiscordPlugin = NonNullable<PluginDefinition['start']>;
@@ -237,7 +243,7 @@ export const getSendMessage: GetSendMessage = (pluginState, ctx) => {
 export const plugin: PluginDefinition = {
   name: 'discord',
   version: '1.0.0',
-  register,
+  register: createRegister(),
   start,
   stop,
 };

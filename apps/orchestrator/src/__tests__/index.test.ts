@@ -261,14 +261,14 @@ describe('boot', () => {
       expect(mockCollectTools).toHaveBeenCalledWith(plugins);
     });
 
-    it('creates tool server with collected tools', async () => {
+    it('creates tool server with collected tools and context ref', async () => {
       const mockTools = [{ name: 'test', qualifiedName: 'test__tool', pluginName: 'test' }];
       setupDefaults();
       mockCollectTools.mockReturnValue(mockTools as never);
 
       await boot();
 
-      expect(mockCreateToolServer).toHaveBeenCalledWith(mockTools);
+      expect(mockCreateToolServer).toHaveBeenCalledWith(mockTools, expect.objectContaining({ threadId: '' }));
     });
 
     it('passes tool server to invoker when tools exist', async () => {
@@ -296,7 +296,7 @@ describe('boot', () => {
       expect(mockCreateSdkInvoker).toHaveBeenCalledWith(expect.not.objectContaining({ sessionConfig: expect.anything() }));
     });
 
-    it('creates the orchestrator with correct deps', async () => {
+    it('creates the orchestrator with correct deps including setActiveThread', async () => {
       const config = makeConfig();
       const { logger, invoker } = setupDefaults({ config });
 
@@ -307,7 +307,23 @@ describe('boot', () => {
         invoker,
         config,
         logger,
+        setActiveThread: expect.any(Function),
       });
+    });
+
+    it('late-binds orchestrator context to the tool context ref', async () => {
+      const mockContext = { db: {}, invoker: {} };
+      const orchestrator = makeOrchestrator();
+      orchestrator.getContext.mockReturnValue(mockContext);
+      setupDefaults({ orchestrator });
+
+      await boot();
+
+      // getContext is called once to populate the context ref after orchestrator creation
+      expect(orchestrator.getContext).toHaveBeenCalledTimes(1);
+      // The mutable ref passed to createToolServer now has the context from getContext()
+      const passedRef = mockCreateToolServer.mock.calls[0]![1];
+      expect(passedRef).toEqual({ ctx: mockContext, threadId: '' });
     });
   });
 

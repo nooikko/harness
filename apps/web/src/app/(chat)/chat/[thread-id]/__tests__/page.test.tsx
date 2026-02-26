@@ -22,6 +22,10 @@ vi.mock('next/navigation', () => ({
   },
 }));
 
+vi.mock('../../_components/chat-area', () => ({
+  ChatArea: ({ children }: { children: React.ReactNode }) => <>{children}</>,
+}));
+
 vi.mock('../../_components/chat-input', () => ({
   ChatInput: () => null,
 }));

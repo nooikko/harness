@@ -1,6 +1,6 @@
 @import "tailwindcss";
 @import "tw-animate-css";
-@plugin "@tailwindcss/typography";
+@plugin "../tailwind-typography";
 
 @theme {
   /* Colors mapped from CSS variables */

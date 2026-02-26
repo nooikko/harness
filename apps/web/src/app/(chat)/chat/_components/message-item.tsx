@@ -1,5 +1,5 @@
 import type { Message } from 'database';
-import { Bot, Info } from 'lucide-react';
+import { Info } from 'lucide-react';
 import { formatModelName } from '../_helpers/format-model-name';
 import { isCrossThreadNotification } from '../_helpers/is-cross-thread-notification';
 import { ActivityChips } from './activity-chips';
@@ -37,40 +37,33 @@ export const MessageItem: MessageItemComponent = ({ message, agentRun }) => {
 
   if (message.role === 'assistant') {
     return (
-      <div className='flex w-full gap-3'>
-        <span role='img' className='mt-1 shrink-0' aria-label='Assistant'>
-          <Bot className='h-4 w-4 text-muted-foreground' />
-        </span>
-        <div className='min-w-0 flex-1'>
-          <MarkdownContent content={message.content} />
-          {agentRun ? (
-            <ActivityChips
-              model={agentRun.model}
-              inputTokens={agentRun.inputTokens}
-              outputTokens={agentRun.outputTokens}
-              durationMs={agentRun.durationMs}
-            />
-          ) : (
-            message.model && (
-              <span className='mt-2 inline-block rounded-md bg-muted px-2 py-0.5 text-[10px] font-medium text-muted-foreground'>
-                {formatModelName(message.model)}
-              </span>
-            )
-          )}
-        </div>
-      </div>
+      <article className='w-full max-w-[80%]' aria-label='Assistant'>
+        <MarkdownContent content={message.content} />
+        {agentRun ? (
+          <ActivityChips
+            model={agentRun.model}
+            inputTokens={agentRun.inputTokens}
+            outputTokens={agentRun.outputTokens}
+            durationMs={agentRun.durationMs}
+          />
+        ) : (
+          message.model && (
+            <span className='mt-1.5 inline-block rounded-md bg-muted px-2 py-0.5 text-[11px] text-muted-foreground'>
+              {formatModelName(message.model)}
+            </span>
+          )
+        )}
+      </article>
     );
   }
 
   // system and unknown roles
   return (
-    <div className='flex w-full justify-center'>
+    <article className='flex w-full justify-center' aria-label='System'>
       <div className='flex items-center gap-2 text-xs italic text-muted-foreground'>
-        <span role='img' aria-label='System'>
-          <Info className='h-3 w-3' />
-        </span>
+        <Info className='h-3 w-3' />
         <span>{message.content}</span>
       </div>
-    </div>
+    </article>
   );
 };

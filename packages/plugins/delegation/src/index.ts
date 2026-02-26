@@ -119,11 +119,11 @@ const createRegister: CreateRegister = () => {
     type SetHooks = (hooks: PluginHooks[]) => void;
     const setHooks: SetHooks = (hooks) => {
       resolvedHooks = hooks;
-      pluginState.currentHooks = hooks;
+      state.currentHooks = hooks;
     };
 
     // Store setHooks on the plugin state for the orchestrator to call
-    pluginState.setHooks = setHooks;
+    state.setHooks = setHooks;
 
     return {
       onCommand: async (threadId, command, args) => {
@@ -149,7 +149,7 @@ export type DelegationPluginState = {
   currentHooks: PluginHooks[] | null;
 };
 
-const pluginState: DelegationPluginState = {
+const state: DelegationPluginState = {
   setHooks: null,
   currentHooks: null,
 };
@@ -183,7 +183,7 @@ const delegateTools: PluginTool[] = [
         return 'Error: prompt is required for delegation.';
       }
 
-      runDelegationLoop(ctx, pluginState.currentHooks ?? [], {
+      runDelegationLoop(ctx, state.currentHooks ?? [], {
         prompt,
         parentThreadId: meta.threadId,
         model: input.model as string | undefined,
