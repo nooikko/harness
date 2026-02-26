@@ -60,12 +60,16 @@ model Message {
   threadId  String
   thread    Thread   @relation(fields: [threadId], references: [id], onDelete: Cascade)
   role      String
+  kind      String   @default("text")
+  source    String   @default("builtin")
   content   String   @db.Text
   model     String?
   metadata  Json?
   createdAt DateTime @default(now())
 
   @@index([threadId, createdAt])
+  @@index([threadId, kind])
+  @@index([threadId, source])
 }
 
 model OrchestratorTask {
