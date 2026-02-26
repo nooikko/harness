@@ -6,6 +6,7 @@ import { useCallback, useEffect, useRef, useState, useTransition } from 'react';
 import { Button } from 'ui';
 import { checkForResponse } from '../_actions/check-for-response';
 import { sendMessage } from '../_actions/send-message';
+import { PipelineActivity } from './pipeline-activity';
 import { useWs } from './ws-provider';
 
 const POLL_INTERVAL_MS = 3000;
@@ -113,7 +114,7 @@ export const ChatInput: ChatInputComponent = ({ threadId }) => {
 
   return (
     <div className='border-t border-border bg-card/50 px-4 py-3 shadow-[0_-1px_3px_0_rgb(0,0,0,0.05)]'>
-      {isThinking && <div className='mb-2 animate-pulse text-xs text-muted-foreground'>Thinking...</div>}
+      <PipelineActivity threadId={threadId} isActive={isThinking} />
       {error && <div className='mb-2 text-xs text-destructive'>{error}</div>}
       <form
         onSubmit={(e) => {

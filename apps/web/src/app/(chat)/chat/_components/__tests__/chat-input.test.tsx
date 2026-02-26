@@ -17,6 +17,15 @@ vi.mock('../ws-provider', () => ({
   useWs: (...args: unknown[]) => mockUseWs(...args),
 }));
 
+vi.mock('../pipeline-activity', () => ({
+  PipelineActivity: ({ threadId, isActive }: { threadId: string; isActive: boolean }) =>
+    isActive ? (
+      <div data-testid='pipeline-activity' data-thread-id={threadId}>
+        Thinking...
+      </div>
+    ) : null,
+}));
+
 const mockRefresh = vi.fn();
 vi.mock('next/navigation', () => ({
   useRouter: () => ({ refresh: mockRefresh }),
@@ -147,6 +156,27 @@ describe('ChatInput', () => {
     render(<ChatInput threadId='thread-1' />);
 
     expect(mockRefresh).not.toHaveBeenCalled();
+  });
+
+  it('renders PipelineActivity with correct threadId when thinking', async () => {
+    vi.useRealTimers();
+    mockSendMessage.mockResolvedValue(undefined);
+    const user = userEvent.setup();
+
+    render(<ChatInput threadId='thread-42' />);
+    const textarea = screen.getByPlaceholderText('Send a message...');
+    await user.type(textarea, 'Hello');
+    await user.click(screen.getByRole('button', { name: /send/i }));
+
+    const activity = screen.getByTestId('pipeline-activity');
+    expect(activity).toBeInTheDocument();
+    expect(activity).toHaveAttribute('data-thread-id', 'thread-42');
+    expect(activity).toHaveTextContent('Thinking...');
+  });
+
+  it('does not render PipelineActivity when not thinking', () => {
+    render(<ChatInput threadId='thread-1' />);
+    expect(screen.queryByTestId('pipeline-activity')).not.toBeInTheDocument();
   });
 
   it('does not poll when WebSocket is connected', async () => {
