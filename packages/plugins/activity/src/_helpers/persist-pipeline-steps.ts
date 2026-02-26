@@ -12,7 +12,7 @@ const persistPipelineSteps: PersistPipelineSteps = async (db, threadId, steps) =
         kind: 'pipeline_step',
         source: 'pipeline',
         content: step.step,
-        metadata: { step: step.step, detail: step.detail ?? null },
+        metadata: { step: step.step, detail: step.detail ?? null, ...(step.metadata ?? {}) },
       },
     });
   }

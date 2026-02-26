@@ -11,7 +11,7 @@ describe('persistPipelineSteps', () => {
     const db = makeDb();
     const steps: PipelineStep[] = [
       { step: 'onMessage', timestamp: 1000 },
-      { step: 'invoking', detail: 'claude-sonnet-4-6', timestamp: 2000 },
+      { step: 'invoking', detail: 'claude-sonnet-4-6 | 3,000 chars', timestamp: 2000 },
     ];
 
     await persistPipelineSteps(db as never, 'thread-1', steps);
@@ -34,8 +34,32 @@ describe('persistPipelineSteps', () => {
         kind: 'pipeline_step',
         source: 'pipeline',
         content: 'invoking',
-        metadata: { step: 'invoking', detail: 'claude-sonnet-4-6' },
+        metadata: { step: 'invoking', detail: 'claude-sonnet-4-6 | 3,000 chars' },
       },
+    });
+  });
+
+  it('spreads step.metadata into the DB message metadata', async () => {
+    const db = makeDb();
+    const steps: PipelineStep[] = [
+      {
+        step: 'invoking',
+        detail: 'claude-sonnet-4-6 | 3,000 chars',
+        metadata: { model: 'claude-sonnet-4-6', promptLength: 3000 },
+        timestamp: 1000,
+      },
+    ];
+
+    await persistPipelineSteps(db as never, 'thread-1', steps);
+
+    expect(db.message.create).toHaveBeenCalledWith({
+      data: expect.objectContaining({
+        metadata: expect.objectContaining({
+          step: 'invoking',
+          model: 'claude-sonnet-4-6',
+          promptLength: 3000,
+        }),
+      }),
     });
   });
 

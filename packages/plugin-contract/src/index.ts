@@ -39,6 +39,7 @@ export type InvokeStreamEvent = {
 export type PipelineStep = {
   step: string;
   detail?: string;
+  metadata?: Record<string, unknown>;
   timestamp: number;
 };
 

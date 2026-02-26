@@ -123,9 +123,17 @@ export const createOrchestrator: CreateOrchestrator = (deps) => {
 
     // Step 1: Fire onMessage hooks (notification — no modification)
     deps.logger.info(`Pipeline: onMessage [thread=${threadId}, role=${role}]`);
+    const onMessagePlugins = plugins.filter((p) => p.hooks.onMessage).map((p) => p.definition.name);
     await runNotifyHooks(hooks, 'onMessage', (h) => h.onMessage?.(threadId, role, content), deps.logger);
-    pipelineSteps.push({ step: 'onMessage', timestamp: Date.now() });
-    await context.broadcast('pipeline:step', { threadId, step: 'onMessage', timestamp: Date.now() });
+    const onMessageMeta = { plugins: onMessagePlugins };
+    pipelineSteps.push({ step: 'onMessage', detail: onMessagePlugins.join(', ') || 'none', metadata: onMessageMeta, timestamp: Date.now() });
+    await context.broadcast('pipeline:step', {
+      threadId,
+      step: 'onMessage',
+      detail: onMessagePlugins.join(', ') || 'none',
+      metadata: onMessageMeta,
+      timestamp: Date.now(),
+    });
 
     // Step 2: Build baseline prompt from thread context
     const threadMeta = {
@@ -137,9 +145,20 @@ export const createOrchestrator: CreateOrchestrator = (deps) => {
 
     // Step 3: Run onBeforeInvoke hooks in sequence (each can modify prompt)
     deps.logger.info(`Pipeline: onBeforeInvoke [thread=${threadId}]`);
+    const onBeforePlugins = plugins.filter((p) => p.hooks.onBeforeInvoke).map((p) => p.definition.name);
+    const promptBefore = basePrompt.length;
     const prompt = await runChainHooks(hooks, threadId, basePrompt, deps.logger);
-    pipelineSteps.push({ step: 'onBeforeInvoke', detail: 'Context assembled', timestamp: Date.now() });
-    await context.broadcast('pipeline:step', { threadId, step: 'onBeforeInvoke', detail: 'Context assembled', timestamp: Date.now() });
+    const promptAfter = prompt.length;
+    const onBeforeMeta = { plugins: onBeforePlugins, promptBefore, promptAfter };
+    const onBeforeDetail = `${onBeforePlugins.join(', ') || 'none'} | ${promptBefore.toLocaleString()} → ${promptAfter.toLocaleString()} chars`;
+    pipelineSteps.push({ step: 'onBeforeInvoke', detail: onBeforeDetail, metadata: onBeforeMeta, timestamp: Date.now() });
+    await context.broadcast('pipeline:step', {
+      threadId,
+      step: 'onBeforeInvoke',
+      detail: onBeforeDetail,
+      metadata: onBeforeMeta,
+      timestamp: Date.now(),
+    });
 
     // Step 4: Invoke Claude via the invoker with session resumption and model override
     deps.setActiveThread?.(threadId);
@@ -148,8 +167,10 @@ export const createOrchestrator: CreateOrchestrator = (deps) => {
     deps.logger.info(
       `Pipeline: invoking Claude [thread=${threadId}, promptLength=${prompt.length}, model=${model ?? 'default'}, sessionId=${sessionId ?? 'none'}]`,
     );
-    pipelineSteps.push({ step: 'invoking', detail: model ?? 'default', timestamp: Date.now() });
-    await context.broadcast('pipeline:step', { threadId, step: 'invoking', detail: model ?? 'default', timestamp: Date.now() });
+    const invokingMeta = { model: model ?? 'default', promptLength: prompt.length };
+    const invokingDetail = `${model ?? 'default'} | ${prompt.length.toLocaleString()} chars`;
+    pipelineSteps.push({ step: 'invoking', detail: invokingDetail, metadata: invokingMeta, timestamp: Date.now() });
+    await context.broadcast('pipeline:step', { threadId, step: 'invoking', detail: invokingDetail, metadata: invokingMeta, timestamp: Date.now() });
     const invokeResult = await deps.invoker.invoke(prompt, { model, sessionId, onMessage: (event) => streamEvents.push(event) });
 
     deps.logger.info(
@@ -169,12 +190,19 @@ export const createOrchestrator: CreateOrchestrator = (deps) => {
 
     // Step 5: Fire onAfterInvoke hooks (notification)
     await runNotifyHooks(hooks, 'onAfterInvoke', (h) => h.onAfterInvoke?.(threadId, invokeResult), deps.logger);
-    const afterDetail = `${(invokeResult.inputTokens ?? 0) + (invokeResult.outputTokens ?? 0)} tokens, ${invokeResult.durationMs}ms`;
-    pipelineSteps.push({ step: 'onAfterInvoke', detail: afterDetail, timestamp: Date.now() });
+    const onAfterMeta = {
+      inputTokens: invokeResult.inputTokens ?? null,
+      outputTokens: invokeResult.outputTokens ?? null,
+      durationMs: invokeResult.durationMs,
+      model: invokeResult.model ?? null,
+    };
+    const afterDetail = `${invokeResult.inputTokens ?? 0} in / ${invokeResult.outputTokens ?? 0} out | ${invokeResult.durationMs}ms`;
+    pipelineSteps.push({ step: 'onAfterInvoke', detail: afterDetail, metadata: onAfterMeta, timestamp: Date.now() });
     await context.broadcast('pipeline:step', {
       threadId,
       step: 'onAfterInvoke',
       detail: afterDetail,
+      metadata: onAfterMeta,
       timestamp: Date.now(),
     });
 
