@@ -41,6 +41,9 @@ importers:
       '@harness/logger':
         specifier: workspace:*
         version: link:../../packages/logger
+      '@harness/plugin-activity':
+        specifier: workspace:*
+        version: link:../../packages/plugins/activity
       '@harness/plugin-context':
         specifier: workspace:*
         version: link:../../packages/plugins/context
