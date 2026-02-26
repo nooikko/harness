@@ -1,4 +1,4 @@
-import { render, screen } from '@testing-library/react';
+import { fireEvent, render, screen } from '@testing-library/react';
 import { describe, expect, it } from 'vitest';
 import type { ActivityMessageProps } from '../pipeline-step';
 import { LivePipelineStep, PipelineStep } from '../pipeline-step';
@@ -49,23 +49,79 @@ describe('PipelineStep', () => {
     expect(screen.getByText('Assembling context')).toBeInTheDocument();
   });
 
-  it('renders detail from metadata.detail', () => {
+  it('renders no chevron when metadata has no expandable fields', () => {
+    const { container } = render(<PipelineStep message={makeMessage()} />);
+    expect(container.querySelector('button')).toBeNull();
+  });
+
+  it('renders a chevron and expands to show plugins when metadata.plugins is set', () => {
+    render(
+      <PipelineStep
+        message={makeMessage({
+          content: 'onMessage',
+          metadata: { step: 'onMessage', plugins: ['context', 'web'] },
+        })}
+      />,
+    );
+
+    // Detail hidden before expand
+    expect(screen.queryByText('context, web')).toBeNull();
+
+    fireEvent.click(screen.getByRole('button'));
+
+    expect(screen.getByText('Plugins')).toBeInTheDocument();
+    expect(screen.getByText('context, web')).toBeInTheDocument();
+  });
+
+  it('expands to show prompt size delta when promptBefore and promptAfter are set', () => {
     render(
       <PipelineStep
         message={makeMessage({
           content: 'onBeforeInvoke',
-          metadata: { step: 'onBeforeInvoke', detail: 'Custom detail text' },
+          metadata: { step: 'onBeforeInvoke', promptBefore: 1000, promptAfter: 5000 },
         })}
       />,
     );
-    expect(screen.getByText('Custom detail text')).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole('button'));
+
+    expect(screen.getByText('Prompt')).toBeInTheDocument();
+    expect(screen.getByText('1,000 → 5,000 chars')).toBeInTheDocument();
+  });
+
+  it('expands to show model and token counts', () => {
+    render(
+      <PipelineStep
+        message={makeMessage({
+          content: 'onAfterInvoke',
+          metadata: {
+            step: 'onAfterInvoke',
+            model: 'claude-sonnet-4-6',
+            inputTokens: 1200,
+            outputTokens: 300,
+            durationMs: 4200,
+          },
+        })}
+      />,
+    );
+
+    fireEvent.click(screen.getByRole('button'));
+
+    expect(screen.getByText('Model')).toBeInTheDocument();
+    expect(screen.getByText('claude-sonnet-4-6')).toBeInTheDocument();
+    expect(screen.getByText('Input tokens')).toBeInTheDocument();
+    expect(screen.getByText('1,200')).toBeInTheDocument();
+    expect(screen.getByText('Output tokens')).toBeInTheDocument();
+    expect(screen.getByText('300')).toBeInTheDocument();
+    expect(screen.getByText('Duration')).toBeInTheDocument();
+    expect(screen.getByText('4,200ms')).toBeInTheDocument();
   });
 });
 
 describe('LivePipelineStep', () => {
-  const makeStep = (step: string, detail?: string) => ({
+  const makeStep = (step: string, metadata?: Record<string, unknown>) => ({
     step,
-    detail,
+    metadata,
     timestamp: Date.now(),
   });
 
@@ -90,8 +146,22 @@ describe('LivePipelineStep', () => {
     expect(screen.getByText('custom_step')).toBeInTheDocument();
   });
 
-  it('renders detail when provided', () => {
-    render(<LivePipelineStep stepData={makeStep('invoking', 'claude-sonnet-4-6')} isLatest={true} />);
+  it('renders no chevron when metadata has no expandable fields', () => {
+    const { container } = render(<LivePipelineStep stepData={makeStep('invoking')} isLatest={true} />);
+    expect(container.querySelector('button')).toBeNull();
+  });
+
+  it('expands to show model when metadata.model is set', () => {
+    render(<LivePipelineStep stepData={makeStep('invoking', { model: 'claude-sonnet-4-6', promptLength: 3000 })} isLatest={true} />);
+
+    // Detail hidden before expand
+    expect(screen.queryByText('claude-sonnet-4-6')).toBeNull();
+
+    fireEvent.click(screen.getByRole('button'));
+
+    expect(screen.getByText('Model')).toBeInTheDocument();
     expect(screen.getByText('claude-sonnet-4-6')).toBeInTheDocument();
+    expect(screen.getByText('Prompt')).toBeInTheDocument();
+    expect(screen.getByText('3,000 chars')).toBeInTheDocument();
   });
 });

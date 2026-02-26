@@ -31,7 +31,6 @@ EXCLUDED_PATTERNS = [
     r"dist/",
     r"packages/database/src/index\.ts$",  # Prisma singleton — no testable logic
     r"prisma/seed\.ts$",  # Seed script — requires database connection
-    r"apps/web/src/app/",  # Next.js UI components — tested via E2E, not unit tests
 ]
 
 # --- Barrel Detection ---
@@ -161,7 +160,11 @@ def run_coverage(testable_files: list[str], project_dir: str) -> dict | None:
     if os.path.isfile(coverage_path):
         os.remove(coverage_path)
 
-    # Try vitest related first (faster, only runs relevant tests)
+    # Try vitest related first (faster, only runs relevant tests).
+    # Use a short timeout: the ESM race condition with vite-tsconfig-paths can cause
+    # vitest related to hang indefinitely (not just fail fast) when run from the
+    # workspace root with multiple projects loaded simultaneously. 90s is enough
+    # for a successful run; anything longer is a hang — fall through to full suite.
     cmd = [
         "pnpm", "vitest", "related",
         *testable_files,
@@ -171,11 +174,14 @@ def run_coverage(testable_files: list[str], project_dir: str) -> dict | None:
         *project_args,
     ]
 
-    subprocess.run(
-        cmd,
-        timeout=300,
-        cwd=project_dir,
-    )
+    try:
+        subprocess.run(
+            cmd,
+            timeout=90,
+            cwd=project_dir,
+        )
+    except subprocess.TimeoutExpired:
+        print("vitest related timed out (ESM race condition), falling back to full suite...", file=sys.stderr)
 
     if os.path.isfile(coverage_path):
         with open(coverage_path, "r") as f:
