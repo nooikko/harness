@@ -53,6 +53,9 @@ importers:
       '@harness/plugin-discord':
         specifier: workspace:*
         version: link:../../packages/plugins/discord
+      '@harness/plugin-metrics':
+        specifier: workspace:*
+        version: link:../../packages/plugins/metrics
       '@harness/plugin-web':
         specifier: workspace:*
         version: link:../../packages/plugins/web

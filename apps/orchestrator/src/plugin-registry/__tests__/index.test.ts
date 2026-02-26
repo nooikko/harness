@@ -72,6 +72,13 @@ describe('getPlugins', () => {
     expect(names).toContain('web');
   });
 
+  it('includes the metrics plugin', async () => {
+    const plugins = await getPlugins(makeDb(), makeLogger());
+    const names = plugins.map((p) => p.name);
+
+    expect(names).toContain('metrics');
+  });
+
   it('calls syncPluginConfigs before filterDisabledPlugins', async () => {
     const db = makeDb();
     const logger = makeLogger();
