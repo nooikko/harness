@@ -21,11 +21,20 @@ vi.mock('../_helpers/run-notify-hooks', () => ({
   runNotifyHooks: vi.fn().mockResolvedValue(undefined),
 }));
 
+vi.mock('../_helpers/prompt-assembler', () => ({
+  assemblePrompt: vi.fn().mockImplementation((message: string, _meta: unknown) => ({
+    prompt: `[assembled] ${message}`,
+    threadMeta: _meta,
+  })),
+}));
+
 import { parseCommands } from '../_helpers/parse-commands';
+import { assemblePrompt } from '../_helpers/prompt-assembler';
 import { runChainHooks } from '../_helpers/run-chain-hooks';
 import { runCommandHooks } from '../_helpers/run-command-hooks';
 import { runNotifyHooks } from '../_helpers/run-notify-hooks';
 
+const mockAssemblePrompt = vi.mocked(assemblePrompt);
 const mockParseCommands = vi.mocked(parseCommands);
 const mockRunChainHooks = vi.mocked(runChainHooks);
 const mockRunCommandHooks = vi.mocked(runCommandHooks);
@@ -62,7 +71,7 @@ const makeDeps = (overrides?: Partial<OrchestratorDeps>): OrchestratorDeps => ({
   db: {
     message: { create: vi.fn().mockResolvedValue({}) },
     thread: {
-      findUnique: vi.fn().mockResolvedValue({ sessionId: null, model: null }),
+      findUnique: vi.fn().mockResolvedValue({ sessionId: null, model: null, kind: 'primary', name: 'Main' }),
       update: vi.fn().mockResolvedValue({}),
     },
   } as unknown as PrismaClient,
@@ -82,6 +91,10 @@ const makePluginDefinition = (name: string, hooks: PluginHooks = {}, overrides?:
 describe('createOrchestrator', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    mockAssemblePrompt.mockImplementation((message: string, _meta: unknown) => ({
+      prompt: `[assembled] ${message}`,
+      threadMeta: _meta as { threadId: string; kind: string; name: string | undefined },
+    }));
     mockParseCommands.mockReturnValue([]);
     mockRunChainHooks.mockImplementation((_hooks, _threadId, prompt) => Promise.resolve(prompt));
     mockRunCommandHooks.mockResolvedValue(false);
@@ -356,14 +369,14 @@ describe('createOrchestrator', () => {
       expect(mockRunNotifyHooks).toHaveBeenCalledWith([hooks], 'onMessage', expect.any(Function), deps.logger);
     });
 
-    it('calls runChainHooks with the original content and returns modified prompt to invoker', async () => {
+    it('calls runChainHooks with the assembled prompt and returns modified prompt to invoker', async () => {
       const deps = makeDeps();
       const orchestrator = createOrchestrator(deps);
       mockRunChainHooks.mockResolvedValue('augmented prompt');
 
       const result = await orchestrator.handleMessage('thread-1', 'user', 'original');
 
-      expect(mockRunChainHooks).toHaveBeenCalledWith([], 'thread-1', 'original', deps.logger);
+      expect(mockRunChainHooks).toHaveBeenCalledWith([], 'thread-1', '[assembled] original', deps.logger);
       expect(result.prompt).toBe('augmented prompt');
       expect(deps.invoker.invoke).toHaveBeenCalledWith('augmented prompt', { model: undefined, sessionId: undefined });
     });
@@ -470,6 +483,47 @@ describe('createOrchestrator', () => {
       expect(result.commandsHandled).toEqual([]);
     });
 
+    it('calls assemblePrompt with message and thread metadata before onBeforeInvoke', async () => {
+      const deps = makeDeps();
+      vi.mocked(deps.db.thread.findUnique).mockResolvedValue({
+        sessionId: null,
+        model: null,
+        kind: 'task',
+        name: 'Research Task',
+      } as never);
+
+      const orchestrator = createOrchestrator(deps);
+      await orchestrator.handleMessage('thread-1', 'user', 'do research');
+
+      expect(mockAssemblePrompt).toHaveBeenCalledWith('do research', {
+        threadId: 'thread-1',
+        kind: 'task',
+        name: 'Research Task',
+      });
+    });
+
+    it('passes assembled prompt to onBeforeInvoke chain hooks', async () => {
+      const deps = makeDeps();
+      const orchestrator = createOrchestrator(deps);
+      await orchestrator.handleMessage('thread-1', 'user', 'hello');
+
+      expect(mockRunChainHooks).toHaveBeenCalledWith(expect.any(Array), 'thread-1', '[assembled] hello', deps.logger);
+    });
+
+    it('uses kind "general" when thread is not found', async () => {
+      const deps = makeDeps();
+      vi.mocked(deps.db.thread.findUnique).mockResolvedValue(null);
+
+      const orchestrator = createOrchestrator(deps);
+      await orchestrator.handleMessage('thread-new', 'user', 'hi');
+
+      expect(mockAssemblePrompt).toHaveBeenCalledWith('hi', {
+        threadId: 'thread-new',
+        kind: 'general',
+        name: undefined,
+      });
+    });
+
     it('passes hooks from registered plugins to all pipeline functions', async () => {
       const deps = makeDeps();
       const orchestrator = createOrchestrator(deps);
@@ -479,7 +533,7 @@ describe('createOrchestrator', () => {
       await orchestrator.handleMessage('t', 'user', 'hi');
 
       expect(mockRunNotifyHooks).toHaveBeenCalledWith([hooks], 'onMessage', expect.any(Function), deps.logger);
-      expect(mockRunChainHooks).toHaveBeenCalledWith([hooks], 't', 'hi', deps.logger);
+      expect(mockRunChainHooks).toHaveBeenCalledWith([hooks], 't', '[assembled] hi', deps.logger);
     });
 
     it('looks up thread for sessionId and model before invoking', async () => {
@@ -490,7 +544,7 @@ describe('createOrchestrator', () => {
 
       expect(deps.db.thread.findUnique as ReturnType<typeof vi.fn>).toHaveBeenCalledWith({
         where: { id: 'thread-123' },
-        select: { sessionId: true, model: true },
+        select: { sessionId: true, model: true, kind: true, name: true },
       });
     });
 

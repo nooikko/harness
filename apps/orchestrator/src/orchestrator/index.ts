@@ -4,6 +4,7 @@ import type { Logger } from '@harness/logger';
 import type { InvokeResult, Invoker, OrchestratorConfig, PluginContext, PluginDefinition, PluginHooks } from '@harness/plugin-contract';
 import type { PrismaClient } from 'database';
 import { parseCommands } from './_helpers/parse-commands';
+import { assemblePrompt } from './_helpers/prompt-assembler';
 import { runChainHooks } from './_helpers/run-chain-hooks';
 import { runCommandHooks } from './_helpers/run-command-hooks';
 import { runNotifyHooks } from './_helpers/run-notify-hooks';
@@ -79,18 +80,26 @@ export const createOrchestrator: CreateOrchestrator = (deps) => {
     // Step 0: Look up thread for session resumption and model override
     const thread = await deps.db.thread.findUnique({
       where: { id: threadId },
-      select: { sessionId: true, model: true },
+      select: { sessionId: true, model: true, kind: true, name: true },
     });
 
     // Step 1: Fire onMessage hooks (notification — no modification)
     deps.logger.info(`Pipeline: onMessage [thread=${threadId}, role=${role}]`);
     await runNotifyHooks(hooks, 'onMessage', (h) => h.onMessage?.(threadId, role, content), deps.logger);
 
-    // Step 2: Run onBeforeInvoke hooks in sequence (each can modify prompt)
-    deps.logger.info(`Pipeline: onBeforeInvoke [thread=${threadId}]`);
-    const prompt = await runChainHooks(hooks, threadId, content, deps.logger);
+    // Step 2: Build baseline prompt from thread context
+    const threadMeta = {
+      threadId,
+      kind: (thread?.kind as string) ?? 'general',
+      name: (thread?.name as string) ?? undefined,
+    };
+    const { prompt: basePrompt } = assemblePrompt(content, threadMeta);
 
-    // Step 3: Invoke Claude via the invoker with session resumption and model override
+    // Step 3: Run onBeforeInvoke hooks in sequence (each can modify prompt)
+    deps.logger.info(`Pipeline: onBeforeInvoke [thread=${threadId}]`);
+    const prompt = await runChainHooks(hooks, threadId, basePrompt, deps.logger);
+
+    // Step 4: Invoke Claude via the invoker with session resumption and model override
     const model = thread?.model ?? undefined;
     const sessionId = thread?.sessionId ?? undefined;
     deps.logger.info(
@@ -105,7 +114,7 @@ export const createOrchestrator: CreateOrchestrator = (deps) => {
       deps.logger.warn(`Pipeline: invoke error [thread=${threadId}]: ${invokeResult.error}`);
     }
 
-    // Step 3b: Persist sessionId on thread if changed
+    // Step 4b: Persist sessionId on thread if changed
     if (invokeResult.sessionId && invokeResult.sessionId !== thread?.sessionId) {
       await deps.db.thread.update({
         where: { id: threadId },
@@ -113,14 +122,14 @@ export const createOrchestrator: CreateOrchestrator = (deps) => {
       });
     }
 
-    // Step 4: Fire onAfterInvoke hooks (notification)
+    // Step 5: Fire onAfterInvoke hooks (notification)
     await runNotifyHooks(hooks, 'onAfterInvoke', (h) => h.onAfterInvoke?.(threadId, invokeResult), deps.logger);
 
-    // Step 5: Parse commands from the response
+    // Step 6: Parse commands from the response
     const commands = parseCommands(invokeResult.output);
     const commandsHandled: string[] = [];
 
-    // Step 6: For each command, fire onCommand hooks
+    // Step 7: For each command, fire onCommand hooks
     for (const cmd of commands) {
       deps.logger.info(`Pipeline: onCommand /${cmd.command} [thread=${threadId}]`);
       const handled = await runCommandHooks(hooks, threadId, cmd.command, cmd.args, deps.logger);
@@ -131,7 +140,7 @@ export const createOrchestrator: CreateOrchestrator = (deps) => {
       }
     }
 
-    // Step 7: Broadcast pipeline completion event
+    // Step 8: Broadcast pipeline completion event
     await context.broadcast('pipeline:complete', {
       threadId,
       commandsHandled,
