@@ -31,6 +31,8 @@ EXCLUDED_PATTERNS = [
     r"\.test\.tsx?$",
     r"\.spec\.tsx?$",
     r"prisma/generated/",
+    r"/generated/",  # auto-generated files
+    r"^scripts/",  # build/codegen scripts
     r"\.next/",
     r"node_modules/",
     r"dist/",

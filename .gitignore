@@ -45,6 +45,8 @@ yarn-error.log*
 
 # Prisma generated client
 **/generated/
+!apps/web/src/generated/
+!apps/web/src/generated/plugin-settings-registry.ts
 
 # Claude Code worktrees
 .claude/worktrees/
