@@ -10,8 +10,10 @@ import type {
   PluginContext,
   PluginDefinition,
   PluginHooks,
+  SettingsFieldDefs,
 } from '@harness/plugin-contract';
 import type { PrismaClient } from 'database';
+import { getPluginSettings } from './_helpers/get-plugin-settings';
 import { parseCommands } from './_helpers/parse-commands';
 import { assemblePrompt } from './_helpers/prompt-assembler';
 import { runChainHooks } from './_helpers/run-chain-hooks';
@@ -107,6 +109,12 @@ export const createOrchestrator: CreateOrchestrator = (deps) => {
     },
     broadcast: async (event: string, data: unknown) => {
       await runNotifyHooks(allHooks(), 'onBroadcast', (h) => h.onBroadcast?.(event, data), deps.logger);
+    },
+    getSettings: async () => {
+      throw new Error('getSettings must be called via a plugin-scoped context');
+    },
+    notifySettingsChange: async (pluginName: string) => {
+      await runNotifyHooks(allHooks(), 'onSettingsChange', (h) => h.onSettingsChange?.(pluginName), deps.logger);
     },
   };
 
@@ -236,7 +244,13 @@ export const createOrchestrator: CreateOrchestrator = (deps) => {
 
   return {
     registerPlugin: async (definition: PluginDefinition) => {
-      const hooks = await definition.register(context);
+      const pluginName = definition.name;
+      const pluginContext: PluginContext = {
+        ...context,
+        getSettings: <T extends SettingsFieldDefs>(schema: import('@harness/plugin-contract').PluginSettingsSchemaInstance<T>) =>
+          getPluginSettings(deps.db, pluginName, schema),
+      };
+      const hooks = await definition.register(pluginContext);
       plugins.push({ definition, hooks });
       deps.logger.info(`Plugin registered: ${definition.name}@${definition.version}`);
     },
