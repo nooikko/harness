@@ -8,19 +8,16 @@ import type { PluginSettingsField } from '@/generated/plugin-settings-registry';
 const ENCRYPTION_KEY = process.env.HARNESS_ENCRYPTION_KEY ?? '';
 const ORCHESTRATOR_URL = process.env.ORCHESTRATOR_URL ?? 'http://localhost:3001';
 
-export type BuildSettingsPayload = (
-  fields: PluginSettingsField[],
-  formData: Record<string, string>,
-  encryptionKey: string,
-) => Record<string, unknown>;
+export type BuildSettingsPayload = (fields: PluginSettingsField[], formData: Record<string, string>, encryptionKey: string) => Record<string, string>;
 
 export const buildSettingsPayload: BuildSettingsPayload = (fields, formData, encryptionKey) => {
-  const payload: Record<string, unknown> = {};
+  const payload: Record<string, string> = {};
   for (const field of fields) {
     const value = formData[field.name];
     if (value === undefined) {
       continue;
     }
+    // Empty string means "clear the field" — stored as-is, not encrypted
     if (field.secret && encryptionKey && value) {
       payload[field.name] = encryptValue(value, encryptionKey);
     } else {
@@ -40,6 +37,7 @@ export const savePluginSettings: SavePluginSettings = async (pluginName, formDat
 
     const settings = buildSettingsPayload(fields, formData, ENCRYPTION_KEY);
 
+    // First save enables the plugin; subsequent saves preserve the existing enabled state
     await prisma.pluginConfig.upsert({
       where: { pluginName },
       create: { pluginName, enabled: true, settings },

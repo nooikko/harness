@@ -65,6 +65,12 @@ describe('buildSettingsPayload', () => {
     const payload = buildSettingsPayload(fields, { token: 'plaintext' }, '');
     expect(payload.token).toBe('plaintext');
   });
+
+  it('stores empty string as-is for secret field (empty string means clear the field)', () => {
+    const fields = [{ name: 'botToken', type: 'string', label: 'Bot Token', secret: true }];
+    const payload = buildSettingsPayload(fields, { botToken: '' }, TEST_KEY);
+    expect(payload.botToken).toBe('');
+  });
 });
 
 describe('savePluginSettings', () => {
