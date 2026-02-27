@@ -4,6 +4,7 @@ import type { PluginContext, PluginDefinition, PluginHooks } from '@harness/plug
 import { Client, Events, GatewayIntentBits, type TextChannel } from 'discord.js';
 import { extractChannelId } from './_helpers/extract-channel-id';
 import { toPipelineMessage } from './_helpers/message-adapter';
+import { settingsSchema } from './_helpers/settings-schema';
 import { shouldProcessMessage } from './_helpers/should-process-message';
 import { stripMentions } from './_helpers/strip-mentions';
 
@@ -95,13 +96,33 @@ export const splitMessage: SplitMessage = (content) => {
   return chunks;
 };
 
+// Shared mutable token resolved during register(), used by start() and onSettingsChange()
+let resolvedToken: string | undefined;
+
 type CreateRegister = () => PluginDefinition['register'];
 
 const createRegister: CreateRegister = () => {
   const register = async (ctx: PluginContext): Promise<PluginHooks> => {
     ctx.logger.info('Discord plugin registered');
 
-    const hooks: PluginHooks = {};
+    const settings = await ctx.getSettings(settingsSchema);
+    resolvedToken = settings.botToken ?? ctx.config.discordToken;
+
+    const hooks: PluginHooks = {
+      onSettingsChange: async (pluginName: string) => {
+        if (pluginName !== 'discord') {
+          return;
+        }
+        const newSettings = await ctx.getSettings(settingsSchema);
+        const newToken = newSettings.botToken ?? ctx.config.discordToken;
+        if (newToken && state.client) {
+          await state.client.destroy();
+          await state.client.login(newToken);
+          ctx.logger.info('Discord: reconnected with updated token');
+        }
+      },
+    };
+
     return hooks;
   };
 
@@ -111,7 +132,7 @@ const createRegister: CreateRegister = () => {
 type StartDiscordPlugin = NonNullable<PluginDefinition['start']>;
 
 const start: StartDiscordPlugin = async (ctx) => {
-  const token = ctx.config.discordToken;
+  const token = resolvedToken ?? ctx.config.discordToken;
   if (!token) {
     ctx.logger.warn('Discord plugin: DISCORD_TOKEN not set, skipping Discord connection');
     state.connected = false;
@@ -246,4 +267,5 @@ export const plugin: PluginDefinition = {
   register: createRegister(),
   start,
   stop,
+  settingsSchema,
 };
