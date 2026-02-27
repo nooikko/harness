@@ -32,12 +32,12 @@ describe('createScopedDb', () => {
       Record<string, (opts: { args: Record<string, unknown>; query: typeof query }) => Promise<unknown>>
     >;
     const result = await interceptors['pluginConfig']?.['findUnique']?.({
-      args: { where: { key: 'myKey' } },
+      args: { where: {} },
       query,
     });
 
     expect(query).toHaveBeenCalledWith({
-      where: { key: 'myKey', pluginName: 'discord' },
+      where: { pluginName: 'discord' },
     });
     expect(result).toEqual({ id: '1' });
   });
@@ -60,17 +60,17 @@ describe('createScopedDb', () => {
     >;
     const result = await interceptors['pluginConfig']?.['upsert']?.({
       args: {
-        where: { key: 'myKey' },
-        create: { key: 'myKey', value: '{}' },
-        update: { value: '{}' },
+        where: {},
+        create: { enabled: true, settings: {} },
+        update: { settings: {} },
       },
       query,
     });
 
     expect(query).toHaveBeenCalledWith({
-      where: { key: 'myKey', pluginName: 'web' },
-      create: { key: 'myKey', value: '{}', pluginName: 'web' },
-      update: { value: '{}' },
+      where: { pluginName: 'web' },
+      create: { enabled: true, settings: {}, pluginName: 'web' },
+      update: { settings: {} },
     });
     expect(result).toEqual({ id: '2' });
   });
@@ -92,13 +92,13 @@ describe('createScopedDb', () => {
       Record<string, (opts: { args: Record<string, unknown>; query: typeof query }) => Promise<unknown>>
     >;
     const result = await interceptors['pluginConfig']?.['update']?.({
-      args: { where: { key: 'myKey' }, data: { value: '{}' } },
+      args: { where: {}, data: { settings: {} } },
       query,
     });
 
     expect(query).toHaveBeenCalledWith({
-      where: { key: 'myKey', pluginName: 'metrics' },
-      data: { value: '{}' },
+      where: { pluginName: 'metrics' },
+      data: { settings: {} },
     });
     expect(result).toEqual({ id: '3' });
   });

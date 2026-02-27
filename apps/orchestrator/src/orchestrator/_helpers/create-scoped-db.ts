@@ -6,10 +6,10 @@ export const createScopedDb: CreateScopedDb = (db, pluginName) => {
   return db.$extends({
     query: {
       pluginConfig: {
-        async findUnique({ args, query }) {
+        findUnique: async ({ args, query }) => {
           return query({ ...args, where: { ...args.where, pluginName } });
         },
-        async upsert({ args, query }) {
+        upsert: async ({ args, query }) => {
           return query({
             ...args,
             where: { ...args.where, pluginName },
@@ -17,7 +17,7 @@ export const createScopedDb: CreateScopedDb = (db, pluginName) => {
             update: args.update,
           });
         },
-        async update({ args, query }) {
+        update: async ({ args, query }) => {
           return query({ ...args, where: { ...args.where, pluginName } });
         },
       },
