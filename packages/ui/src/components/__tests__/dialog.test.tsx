@@ -35,4 +35,44 @@ describe('Dialog', () => {
     await user.click(screen.getByText('Open'));
     expect(screen.getByText('My Dialog')).toBeInTheDocument();
   });
+
+  it('closes dialog when the close button is clicked', async () => {
+    const user = userEvent.setup();
+    render(
+      <Dialog>
+        <DialogTrigger>Open</DialogTrigger>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>My Dialog</DialogTitle>
+          </DialogHeader>
+        </DialogContent>
+      </Dialog>,
+    );
+
+    await user.click(screen.getByText('Open'));
+    expect(screen.getByText('My Dialog')).toBeInTheDocument();
+
+    await user.click(screen.getByRole('button', { name: 'Close' }));
+    expect(screen.queryByText('My Dialog')).not.toBeInTheDocument();
+  });
+
+  it('closes dialog on Escape key press', async () => {
+    const user = userEvent.setup();
+    render(
+      <Dialog>
+        <DialogTrigger>Open</DialogTrigger>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>My Dialog</DialogTitle>
+          </DialogHeader>
+        </DialogContent>
+      </Dialog>,
+    );
+
+    await user.click(screen.getByText('Open'));
+    expect(screen.getByText('My Dialog')).toBeInTheDocument();
+
+    await user.keyboard('{Escape}');
+    expect(screen.queryByText('My Dialog')).not.toBeInTheDocument();
+  });
 });

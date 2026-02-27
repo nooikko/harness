@@ -2,18 +2,19 @@
   "$schema": "https://turbo.build/schema.json",
   "ui": "tui",
   "concurrency": "20",
+  "globalEnv": ["NODE_ENV"],
+  "globalDependencies": ["tsconfig.base.json"],
   "tasks": {
     "build": {
       "dependsOn": ["^build"],
-      "outputs": [".next/**", "!.next/cache/**", "dist/**"]
+      "outputs": [".next/**", "!.next/cache/**", "dist/**"],
+      "env": ["NEXT_PUBLIC_APP_URL", "NEXT_PUBLIC_ORCHESTRATOR_WS_URL"]
     },
     "dev": {
       "cache": false,
       "persistent": true
     },
-    "lint": {
-      "dependsOn": ["^lint"]
-    },
+    "lint": {},
     "typecheck": {
       "dependsOn": ["^build"]
     },
@@ -39,7 +40,6 @@
       "persistent": true
     },
     "plugin:generate": {
-      "cache": false,
       "inputs": ["packages/plugins/*/src/_helpers/settings-schema.ts", "scripts/generate-plugin-registry.ts"],
       "outputs": ["apps/web/src/generated/plugin-settings-registry.ts"]
     }

@@ -118,8 +118,8 @@ importers:
         specifier: ^2.1.1
         version: 2.1.1
       database:
-        specifier: '*'
-        version: 0.0.2
+        specifier: workspace:*
+        version: link:../../packages/database
       lexical:
         specifier: ^0.41.0
         version: 0.41.0
@@ -151,8 +151,8 @@ importers:
         specifier: ^1.4.0
         version: 1.4.0
       ui:
-        specifier: '*'
-        version: 0.2.4
+        specifier: workspace:*
+        version: link:../../packages/ui
     devDependencies:
       '@tailwindcss/postcss':
         specifier: ^4.2.0
@@ -2600,9 +2600,6 @@ packages:
     resolution: {integrity: sha512-23XHcCF+coGYevirZceTVD7NdJOqVn+49IHyxgszm+JIiHLoB2TkmPtsYkNWT1pvRSGkc35L6NHs0yHkN2SumA==}
     engines: {node: ^20.19.0 || ^22.12.0 || >=24.0.0}
 
-  database@0.0.2:
-    resolution: {integrity: sha512-lrqvU32firrb2TBjn4Iv9V1Mh90rqUtyyLAvdSqdGP2w7IrNy+oI5IqGNowHq8o+/WVnQtKNfNIpLYd6uWZLHw==}
-
   debug@4.4.3:
     resolution: {integrity: sha512-RGwwWnwQvkVfavKVt22FGLw+xYSdzARwm0ru6DhTVA3umU5hZc28V3kO4stgYryrTlLpuvgI9GiijltAjNbcqA==}
     engines: {node: '>=6.0'}
@@ -3936,9 +3933,6 @@ packages:
   std-env@3.10.0:
     resolution: {integrity: sha512-5GS12FdOZNliM5mAOxFRg7Ir0pWz8MdpYm6AY6VPkGpbA7ZzmbzNcBJQ0GPvvyWgcY7QAhCgf9Uy89I03faLkg==}
 
-  std@0.1.40:
-    resolution: {integrity: sha512-wUf57hkDGCoVShrhPA8Q7lAg2Qosk+FaMlECmAsr1A4/rL2NRXFHQGBcgMUFKVkPEemJFW9gzjCQisRty14ohg==}
-
   streamx@2.23.0:
     resolution: {integrity: sha512-kn+e44esVfn2Fa/O0CPFcex27fjIL6MkVae0Mm6q+E6f0hWv578YCERbv+4m02cjxvDsPKLnmxral/rR6lBMAg==}
 
@@ -4205,9 +4199,6 @@ packages:
 
   ufo@1.6.3:
     resolution: {integrity: sha512-yDJTmhydvl5lJzBmy/hyOAA0d+aqCBuwl818haVdYCRrWV84o7YyeVm4QlVHStqNrrJSTb6jKuFAVqAFsr+K3Q==}
-
-  ui@0.2.4:
-    resolution: {integrity: sha512-se2D+frb/i6JwFc7j72IEa0JADF8lfgc6ivOigaYkXHOuZRBtWe8R7UZ2YiXcbJ1dYNsjq40dn39rlNRxmVdPw==}
 
   undici-types@5.26.5:
     resolution: {integrity: sha512-JlCMO+ehdEIKqlFxk6IfVoAUVmgz7cU7zD/h9XZ0qzeosSHmUJVOzSQvvYSYWXkFXC+IfLKSIffhv0sVZup6pA==}
@@ -6395,8 +6386,6 @@ snapshots:
     transitivePeerDependencies:
       - '@noble/hashes'
 
-  database@0.0.2: {}
-
   debug@4.4.3:
     dependencies:
       ms: 2.1.3
@@ -8043,8 +8032,6 @@ snapshots:
 
   std-env@3.10.0: {}
 
-  std@0.1.40: {}
-
   streamx@2.23.0:
     dependencies:
       events-universal: 1.0.1
@@ -8350,10 +8337,6 @@ snapshots:
   typescript@5.9.3: {}
 
   ufo@1.6.3: {}
-
-  ui@0.2.4:
-    dependencies:
-      std: 0.1.40
 
   undici-types@5.26.5: {}
 

@@ -56,7 +56,8 @@ describe('metrics plugin integration', () => {
     expect(totalMetric?.value).toBe(280);
 
     expect(costMetric).toBeDefined();
-    expect(costMetric?.value).toBeGreaterThan(0);
+    // haiku: (200 / 1_000_000) * 0.8 + (80 / 1_000_000) * 4 = 0.00016 + 0.00032
+    expect(costMetric?.value).toBe(0.00048);
   });
 
   it('does not write any Metric row when the invoker returns model: undefined', async () => {
