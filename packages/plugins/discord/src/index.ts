@@ -115,9 +115,14 @@ const createRegister: CreateRegister = () => {
         }
         const newSettings = await ctx.getSettings(settingsSchema);
         const newToken = newSettings.botToken ?? ctx.config.discordToken;
-        if (newToken && state.client) {
-          await state.client.destroy();
-          await state.client.login(newToken);
+        if (newToken) {
+          resolvedToken = newToken;
+          if (state.client) {
+            await state.client.destroy();
+            state.client = null;
+            state.connected = false;
+          }
+          await start(ctx);
           ctx.logger.info('Discord: reconnected with updated token');
         }
       },
