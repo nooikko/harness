@@ -40,6 +40,15 @@ describe('web plugin integration', () => {
     expect(response.status).toBe(200);
     const body = (await response.json()) as { success: boolean };
     expect(body.success).toBe(true);
+    // Wait for the fire-and-forget pipeline to complete before cleanup() disconnects Prisma.
+    // Without this, orchestrator.stop() races with an in-flight invoke() call and can
+    // produce "Client already disconnected" errors on slower CI machines.
+    await vi.waitFor(
+      () => {
+        expect(harness.invoker.invoke).toHaveBeenCalledTimes(1);
+      },
+      { timeout: 10_000 },
+    );
   });
 
   it('POST /api/chat triggers pipeline execution asynchronously', async () => {

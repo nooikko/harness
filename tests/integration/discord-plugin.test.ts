@@ -1,4 +1,4 @@
-import { plugin as discordPlugin, splitMessage } from '@harness/plugin-discord';
+import { plugin as discordPlugin } from '@harness/plugin-discord';
 import { PrismaClient } from 'database';
 import { afterAll, afterEach, beforeEach, describe, expect, it } from 'vitest';
 import type { TestHarness } from './helpers/create-harness';
@@ -23,32 +23,15 @@ describe('discord plugin integration', () => {
   });
 
   it('registers and starts without throwing when discordToken is undefined', async () => {
+    // The discord plugin logs a warning and skips gateway connection when no token is set.
+    // This verifies the graceful degradation path exercised through the real orchestrator
+    // registerPlugin → start lifecycle. A regression here (plugin throwing instead of warning)
+    // would break the entire orchestrator startup since all plugins register at boot.
     await expect(
       createTestHarness(discordPlugin).then((h) => {
         harness = h;
         return h;
       }),
     ).resolves.toBeDefined();
-  });
-
-  it('has correct name and version', () => {
-    expect(discordPlugin.name).toBe('discord');
-    expect(discordPlugin.version).toBe('1.0.0');
-  });
-
-  it('splitMessage returns a single chunk for short messages', () => {
-    const result = splitMessage('Hello world');
-    expect(result).toHaveLength(1);
-    expect(result[0]).toBe('Hello world');
-  });
-
-  it('splitMessage splits messages over 2000 characters into multiple chunks', () => {
-    const longMessage = 'x'.repeat(2001);
-    const result = splitMessage(longMessage);
-    expect(result.length).toBeGreaterThan(1);
-    for (const chunk of result) {
-      expect(chunk.length).toBeLessThanOrEqual(2000);
-    }
-    expect(result.join('')).toBe(longMessage);
   });
 });

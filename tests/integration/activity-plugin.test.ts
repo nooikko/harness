@@ -26,6 +26,10 @@ describe('activity plugin integration', () => {
   it('writes a pipeline_start status message to DB when pipeline starts', async () => {
     harness = await createTestHarness(activityPlugin);
 
+    // sendToThread (not handleMessage) is required here because onPipelineStart/onPipelineComplete
+    // hooks fire only from sendToThread — they are the outer envelope around the 8-step pipeline.
+    // Using handleMessage directly would skip these hooks and silently make all four tests pass
+    // vacuously (no DB rows written, but no assertion would catch it).
     await harness.orchestrator.getContext().sendToThread(harness.threadId, 'hello');
 
     const statusMessages = await prisma.message.findMany({
@@ -43,6 +47,7 @@ describe('activity plugin integration', () => {
   it('writes pipeline step messages (onMessage, onBeforeInvoke, invoking, onAfterInvoke) to DB', async () => {
     harness = await createTestHarness(activityPlugin);
 
+    // See comment in first test: sendToThread required (not handleMessage) for pipeline hooks.
     await harness.orchestrator.getContext().sendToThread(harness.threadId, 'hello');
 
     const stepMessages = await prisma.message.findMany({
@@ -62,6 +67,7 @@ describe('activity plugin integration', () => {
   it('writes a pipeline_complete status message to DB when pipeline finishes', async () => {
     harness = await createTestHarness(activityPlugin);
 
+    // See comment in first test: sendToThread required (not handleMessage) for pipeline hooks.
     await harness.orchestrator.getContext().sendToThread(harness.threadId, 'hello');
 
     const statusMessages = await prisma.message.findMany({
@@ -97,6 +103,7 @@ describe('activity plugin integration', () => {
       };
     });
 
+    // See comment in first test: sendToThread required (not handleMessage) for pipeline hooks.
     await harness.orchestrator.getContext().sendToThread(harness.threadId, 'hello');
 
     const thinkingMessages = await prisma.message.findMany({

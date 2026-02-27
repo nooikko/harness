@@ -1,3 +1,6 @@
+import { mkdirSync, rmSync, writeFileSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
 import { createContextPlugin } from '@harness/plugin-context';
 import { PrismaClient } from 'database';
 import { afterAll, afterEach, beforeEach, describe, expect, it } from 'vitest';
@@ -110,5 +113,25 @@ describe('context plugin integration', () => {
     expect(promptArg).not.toContain('Conversation History');
     // But the prompt itself must still be present
     expect(promptArg).toContain('Hello');
+  });
+
+  it('injects .md context files from disk into the prompt before invocation', async () => {
+    // This test exercises the readContextFiles → formatContextSection code path, which was
+    // entirely untested by the other tests (they all pass a nonexistent contextDir).
+    const contextDir = join(tmpdir(), `harness-ctx-test-${Date.now()}`);
+    mkdirSync(contextDir, { recursive: true });
+    writeFileSync(join(contextDir, 'project-rules.md'), '# Project Rules\n\nAlways be helpful.');
+
+    try {
+      harness = await createTestHarness(createContextPlugin({ contextDir }));
+
+      await harness.orchestrator.handleMessage(harness.threadId, 'user', 'What are the rules?');
+
+      const promptArg = harness.invoker.invoke.mock.calls[0]![0] as string;
+      expect(promptArg).toContain('Always be helpful.');
+      expect(promptArg).toContain('project-rules');
+    } finally {
+      rmSync(contextDir, { recursive: true, force: true });
+    }
   });
 });

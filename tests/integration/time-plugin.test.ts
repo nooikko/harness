@@ -30,7 +30,7 @@ describe('time plugin integration', () => {
     const promptArg = harness.invoker.invoke.mock.calls[0]![0] as string;
 
     expect(promptArg).not.toContain('/current-time');
-    expect(promptArg).toMatch(/\d{4}/); // year present in timestamp
+    expect(promptArg).toMatch(/\d{4} at \d{1,2}:\d{2}:\d{2}/); // year and HH:MM:SS present in timestamp
     expect(promptArg).toContain('[Current time:');
   });
 
@@ -53,7 +53,7 @@ describe('time plugin integration', () => {
     const promptArg = harness.invoker.invoke.mock.calls[0]![0] as string;
 
     expect(promptArg).not.toContain('/current-time');
-    expect(promptArg).toMatch(/\d{4}/); // year present
+    expect(promptArg).toMatch(/\d{4} at \d{1,2}:\d{2}:\d{2}/); // year and HH:MM:SS present in timestamp
     expect(promptArg).toContain('The current time is');
     expect(promptArg).toContain('Please tell me the current time');
   });

@@ -67,6 +67,8 @@ describe('delegation plugin integration', () => {
 
     // The OrchestratorTask is linked to the task thread (not directly to the parent)
     expect(tasks[0]?.threadId).toBe(taskThreads[0]?.id);
+    // Status is intentionally not asserted here — the delegation loop runs asynchronously
+    // and may be in any in-progress state at query time. Task creation is the meaningful invariant.
   });
 
   it('does not create any OrchestratorTask when /delegate has an empty prompt', async () => {
@@ -84,8 +86,14 @@ describe('delegation plugin integration', () => {
 
     await harness.orchestrator.handleMessage(harness.threadId, 'user', 'Go');
 
-    // Give background work time to run (if any) then assert nothing was created
-    await new Promise((resolve) => setTimeout(resolve, 500));
+    // Wait until the main invoke completes (mock returns instantly), then check no delegation fired.
+    // vi.waitFor is used instead of setTimeout to avoid timing fragility on slow CI machines.
+    await vi.waitFor(
+      () => {
+        expect(harness.invoker.invoke).toHaveBeenCalledTimes(1);
+      },
+      { timeout: 5_000, interval: 100 },
+    );
 
     const tasks = await harness.prisma.orchestratorTask.findMany();
     expect(tasks).toHaveLength(0);
@@ -111,8 +119,12 @@ describe('delegation plugin integration', () => {
 
     await harness.orchestrator.handleMessage(harness.threadId, 'user', 'Go');
 
-    // Give background work time to run (if any) then assert nothing was created
-    await new Promise((resolve) => setTimeout(resolve, 500));
+    await vi.waitFor(
+      () => {
+        expect(harness.invoker.invoke).toHaveBeenCalledTimes(1);
+      },
+      { timeout: 5_000, interval: 100 },
+    );
 
     const tasks = await harness.prisma.orchestratorTask.findMany();
     expect(tasks).toHaveLength(0);
