@@ -2,8 +2,8 @@
 
 import { ChevronDown, ChevronRight, Loader2 } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
+import { useWs } from '@/app/_components/ws-provider';
 import { LivePipelineStep, STEP_LABELS } from './pipeline-step';
-import { useWs } from './ws-provider';
 
 type PipelineStep = {
   step: string;

@@ -3,11 +3,11 @@
 import { useRouter } from 'next/navigation';
 import { useCallback, useEffect, useRef, useState, useTransition } from 'react';
 import { ScrollArea } from 'ui';
+import { useWs } from '@/app/_components/ws-provider';
 import { checkForResponse } from '../_actions/check-for-response';
 import { sendMessage } from '../_actions/send-message';
 import { ChatInput } from './chat-input';
 import { PipelineActivity } from './pipeline-activity';
-import { useWs } from './ws-provider';
 
 const POLL_INTERVAL_MS = 3000;
 const POLL_TIMEOUT_MS = 120_000;

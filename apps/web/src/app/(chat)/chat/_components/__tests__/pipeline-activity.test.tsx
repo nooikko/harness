@@ -2,7 +2,7 @@ import { render, screen } from '@testing-library/react';
 import { describe, expect, it, vi } from 'vitest';
 
 const mockUseWs = vi.fn().mockReturnValue({ lastEvent: null, isConnected: true });
-vi.mock('../ws-provider', () => ({
+vi.mock('@/app/_components/ws-provider', () => ({
   useWs: (...args: unknown[]) => mockUseWs(...args),
 }));
 

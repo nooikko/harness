@@ -13,7 +13,7 @@ vi.mock('../../_actions/check-for-response', () => ({
 }));
 
 const mockUseWs = vi.fn().mockReturnValue({ lastEvent: null, isConnected: true });
-vi.mock('../ws-provider', () => ({
+vi.mock('@/app/_components/ws-provider', () => ({
   useWs: (...args: unknown[]) => mockUseWs(...args),
 }));
 
