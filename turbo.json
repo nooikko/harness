@@ -24,6 +24,10 @@
       "cache": false,
       "persistent": true
     },
+    "test:integration": {
+      "dependsOn": ["^build"],
+      "cache": false
+    },
     "db:generate": {
       "cache": false
     },

@@ -23,7 +23,8 @@
     "db:push": "turbo db:push",
     "db:studio": "turbo db:studio",
     "prepare": "husky",
-    "plugin:generate": "tsx scripts/generate-plugin-registry.ts"
+    "plugin:generate": "tsx scripts/generate-plugin-registry.ts",
+    "test:integration": "turbo test:integration"
   },
   "devDependencies": {
     "@biomejs/biome": "^2.4.4",

@@ -1,0 +1,28 @@
+{
+  "name": "integration-tests",
+  "version": "0.0.1",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "test:integration": "vitest run",
+    "test:integration:watch": "vitest"
+  },
+  "devDependencies": {
+    "@harness/logger": "workspace:*",
+    "@harness/plugin-activity": "workspace:*",
+    "@harness/plugin-context": "workspace:*",
+    "@harness/plugin-contract": "workspace:*",
+    "@harness/plugin-delegation": "workspace:*",
+    "@harness/plugin-discord": "workspace:*",
+    "@harness/plugin-metrics": "workspace:*",
+    "@harness/plugin-time": "workspace:*",
+    "@harness/plugin-web": "workspace:*",
+    "@testcontainers/postgresql": "^10.24.2",
+    "@vitest/coverage-v8": "^4.0.18",
+    "database": "workspace:*",
+    "orchestrator": "workspace:*",
+    "testcontainers": "^10.24.2",
+    "vite-tsconfig-paths": "^6.1.1",
+    "vitest": "^4.0.18"
+  }
+}
