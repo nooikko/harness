@@ -182,3 +182,6 @@ export const main = async (): Promise<void> => {
 if (process.env.NODE_ENV !== 'test' && !process.env.VITEST) {
   main();
 }
+
+export type { HandleMessageResult, OrchestratorDeps } from './orchestrator';
+export { createOrchestrator } from './orchestrator';
