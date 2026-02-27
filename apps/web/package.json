@@ -12,6 +12,7 @@
     "test:watch": "vitest"
   },
   "dependencies": {
+    "@harness/plugin-contract": "workspace:*",
     "@lexical/react": "^0.41.0",
     "@radix-ui/react-slot": "^1.2.4",
     "@tailwindcss/typography": "^0.5.19",

@@ -38,6 +38,7 @@ EXCLUDED_PATTERNS = [
     r"dist/",
     r"packages/database/src/index\.ts$",  # Prisma singleton — no testable logic
     r"prisma/seed\.ts$",  # Seed script — requires database connection
+    r"settings-schema\.ts$",  # pure data declarations — no logic to test
 ]
 
 # Maps repo-relative file prefix -> package subdirectory (relative to repo root).
