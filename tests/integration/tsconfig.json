@@ -8,6 +8,6 @@
     },
     "baseUrl": "."
   },
-  "include": ["src/**/*.ts", "setup/**/*.ts", "vitest.config.ts"],
+  "include": ["src/**/*.ts", "setup/**/*.ts", "helpers/**/*.ts", "vitest.config.ts", "*.test.ts"],
   "exclude": ["node_modules", "dist"]
 }
