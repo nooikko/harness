@@ -33,6 +33,7 @@ EXCLUDED_PATTERNS = [
     r"prisma/generated/",
     r"/generated/",  # auto-generated files
     r"^scripts/",  # build/codegen scripts
+    r"^tests/",  # integration test infrastructure — not unit-testable source code
     r"\.next/",
     r"node_modules/",
     r"dist/",
