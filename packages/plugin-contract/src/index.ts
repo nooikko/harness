@@ -170,5 +170,7 @@ export type PluginDefinition = {
   stop?: StopFn;
   tools?: PluginTool[];
   system?: boolean;
+  /** For code generation only (pnpm plugin:generate). Do NOT pass this to ctx.getSettings() —
+   *  always pass your own typed schema const to preserve InferSettings<T> inference. */
   settingsSchema?: PluginSettingsSchemaInstance<SettingsFieldDefs>;
 };
