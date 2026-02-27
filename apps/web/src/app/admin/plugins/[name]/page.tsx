@@ -42,7 +42,7 @@ const PluginSettingsPage: PluginSettingsPageComponent = async ({ params }) => {
         )}
       </div>
 
-      <SettingsForm pluginName={name} fields={entry.fields} currentValues={displayValues} />
+      <SettingsForm pluginName={name} fields={entry.fields} currentValues={displayValues} disabled={!config?.enabled} />
     </div>
   );
 };

@@ -21,8 +21,24 @@ vi.mock('database', () => ({
 
 // Mock SettingsForm — tested separately
 vi.mock('../_components/settings-form', () => ({
-  SettingsForm: ({ pluginName, fields, currentValues }: { pluginName: string; fields: unknown[]; currentValues: Record<string, string> }) => (
-    <form data-testid='settings-form' data-plugin={pluginName} data-fields={fields.length} data-values={JSON.stringify(currentValues)} />
+  SettingsForm: ({
+    pluginName,
+    fields,
+    currentValues,
+    disabled,
+  }: {
+    pluginName: string;
+    fields: unknown[];
+    currentValues: Record<string, string>;
+    disabled?: boolean;
+  }) => (
+    <form
+      data-testid='settings-form'
+      data-plugin={pluginName}
+      data-fields={fields.length}
+      data-values={JSON.stringify(currentValues)}
+      data-disabled={String(disabled ?? false)}
+    />
   ),
 }));
 
