@@ -11,6 +11,12 @@ describe('decryptValue', () => {
     expect(decryptValue(encrypted, TEST_KEY)).toBe(plaintext);
   });
 
+  it('round-trips unicode plaintext correctly', () => {
+    const plaintext = 'café-token-\u4e2d\u6587-\u00e9';
+    const encrypted = encryptValue(plaintext, TEST_KEY);
+    expect(decryptValue(encrypted, TEST_KEY)).toBe(plaintext);
+  });
+
   it('throws on tampered ciphertext', () => {
     const encrypted = encryptValue('hello', TEST_KEY);
     const parts = encrypted.split(':');

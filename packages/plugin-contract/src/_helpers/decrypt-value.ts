@@ -20,5 +20,5 @@ export const decryptValue: DecryptValue = (ciphertext, key) => {
   const encrypted = Buffer.from(encryptedHex, 'hex');
   const decipher = createDecipheriv(ALGORITHM, keyBuffer, iv);
   decipher.setAuthTag(tag);
-  return decipher.update(encrypted) + decipher.final('utf8');
+  return decipher.update(encrypted, undefined, 'utf8') + decipher.final('utf8');
 };
