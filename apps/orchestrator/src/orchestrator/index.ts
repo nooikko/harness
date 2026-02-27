@@ -120,7 +120,8 @@ export const createOrchestrator: CreateOrchestrator = (deps) => {
     },
   };
 
-  const buildPluginContext = (definition: PluginDefinition): PluginContext => {
+  type BuildPluginContext = (definition: PluginDefinition) => PluginContext;
+  const buildPluginContext: BuildPluginContext = (definition) => {
     if (definition.system) {
       return context;
     }

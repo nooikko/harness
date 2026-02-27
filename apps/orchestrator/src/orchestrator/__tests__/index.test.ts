@@ -117,6 +117,7 @@ describe('createOrchestrator', () => {
       const passedContext = (definition.register as ReturnType<typeof vi.fn>).mock.calls[0]![0] as PluginContext;
       // Non-system plugins receive a scoped db (not deps.db directly)
       expect(passedContext.db).toBeDefined();
+      expect(passedContext.db).not.toBe(deps.db);
       expect(passedContext).toHaveProperty('invoker', deps.invoker);
       expect(passedContext).toHaveProperty('config', deps.config);
       expect(passedContext).toHaveProperty('logger', deps.logger);
