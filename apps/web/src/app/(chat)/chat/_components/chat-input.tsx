@@ -1,142 +1,116 @@
+// @refresh reset
 'use client';
 
+import type { InitialConfigType } from '@lexical/react/LexicalComposer';
+import { LexicalComposer } from '@lexical/react/LexicalComposer';
+import { useLexicalComposerContext } from '@lexical/react/LexicalComposerContext';
+import { ContentEditable } from '@lexical/react/LexicalContentEditable';
+import { LexicalErrorBoundary } from '@lexical/react/LexicalErrorBoundary';
+import { HistoryPlugin } from '@lexical/react/LexicalHistoryPlugin';
+import { RichTextPlugin } from '@lexical/react/LexicalRichTextPlugin';
+import { KEY_ENTER_COMMAND } from 'lexical';
+import { BeautifulMentionNode, BeautifulMentionsPlugin } from 'lexical-beautiful-mentions';
 import { SendHorizontal } from 'lucide-react';
-import { useRouter } from 'next/navigation';
-import { useCallback, useEffect, useRef, useState, useTransition } from 'react';
+import { useCallback, useRef } from 'react';
 import { Button } from 'ui';
-import { checkForResponse } from '../_actions/check-for-response';
-import { sendMessage } from '../_actions/send-message';
-import { PipelineActivity } from './pipeline-activity';
-import { useWs } from './ws-provider';
+import { CommandMenu } from '../_helpers/command-menu';
+import { CommandMenuItem } from '../_helpers/command-menu-item';
+import { CommandNode } from '../_helpers/command-node';
+import { COMMANDS } from '../_helpers/commands';
+import { SubmitPlugin } from '../_helpers/submit-plugin';
 
-const POLL_INTERVAL_MS = 3000;
-const POLL_TIMEOUT_MS = 120_000;
+// Static — module-level so Lexical does not warn about a new config reference on every render.
+// Extra scalar fields (description, args, category) are passed through as BeautifulMentionsItem
+// flat properties and exposed to the menu item component via item.data.
+const MENTION_ITEMS = {
+  '/': COMMANDS.map(({ name, description, args, category }) => ({
+    value: name,
+    description,
+    args,
+    category,
+  })),
+};
+
+const EDITOR_CONFIG: InitialConfigType = {
+  namespace: 'ChatInput',
+  nodes: [
+    CommandNode,
+    // Node Override: replace every BeautifulMentionNode the plugin creates
+    // with a CommandNode so the custom chip component is used.
+    {
+      replace: BeautifulMentionNode,
+      with: (node: BeautifulMentionNode) => new CommandNode(node.getTrigger(), node.getValue(), node.getData()),
+    },
+  ],
+  onError: (error: Error) => {
+    throw error;
+  },
+};
+
+// Inner component — must live inside LexicalComposer to call useLexicalComposerContext.
+type SendButtonProps = { disabled: boolean };
+const SendButton = ({ disabled }: SendButtonProps) => {
+  const [editor] = useLexicalComposerContext();
+  return (
+    <Button
+      type='button'
+      size='sm'
+      disabled={disabled}
+      onClick={() => editor.dispatchCommand(KEY_ENTER_COMMAND, null as unknown as KeyboardEvent)}
+      aria-label='Send message'
+    >
+      <SendHorizontal className='h-4 w-4' />
+    </Button>
+  );
+};
 
 type ChatInputProps = {
   threadId: string;
+  onSubmit: (text: string) => void;
+  disabled?: boolean;
+  error?: string | null;
 };
 
 type ChatInputComponent = (props: ChatInputProps) => React.ReactNode;
 
-export const ChatInput: ChatInputComponent = ({ threadId }) => {
-  const [value, setValue] = useState('');
-  const [error, setError] = useState<string | null>(null);
-  const [isThinking, setIsThinking] = useState(false);
-  const [isPending, startTransition] = useTransition();
-  const textareaRef = useRef<HTMLTextAreaElement>(null);
-  const sentAtRef = useRef<Date | null>(null);
-  const router = useRouter();
-  const { lastEvent, isConnected } = useWs('pipeline:complete');
+export const ChatInput: ChatInputComponent = ({ threadId, onSubmit, disabled = false, error }) => {
+  // Stable ref so SubmitPlugin's useEffect does not re-register on every render
+  // when the parent passes a new function reference.
+  const onSubmitRef = useRef(onSubmit);
+  onSubmitRef.current = onSubmit;
 
-  useEffect(() => {
-    const el = textareaRef.current;
-    if (!el) {
-      return;
-    }
-    el.style.height = 'auto';
-    el.style.height = `${Math.min(el.scrollHeight, 160)}px`;
-  }, [value]);
-
-  const onResponseReceived = useCallback(() => {
-    setIsThinking(false);
-    router.refresh();
-  }, [router]);
-
-  // WebSocket-based refresh
-  useEffect(() => {
-    if (lastEvent && typeof lastEvent === 'object' && 'threadId' in lastEvent) {
-      const event = lastEvent as { threadId: string };
-      if (event.threadId === threadId) {
-        onResponseReceived();
-      }
-    }
-  }, [lastEvent, threadId, onResponseReceived]);
-
-  // Polling fallback when WebSocket is unavailable
-  useEffect(() => {
-    if (!isThinking || isConnected) {
-      return;
-    }
-
-    const startTime = Date.now();
-
-    const interval = setInterval(async () => {
-      if (Date.now() - startTime > POLL_TIMEOUT_MS) {
-        setIsThinking(false);
-        clearInterval(interval);
-        return;
-      }
-
-      if (sentAtRef.current) {
-        const hasResponse = await checkForResponse(threadId, sentAtRef.current);
-        if (hasResponse) {
-          clearInterval(interval);
-          onResponseReceived();
-        }
-      }
-    }, POLL_INTERVAL_MS);
-
-    return () => clearInterval(interval);
-  }, [isThinking, isConnected, threadId, onResponseReceived]);
-
-  const handleSubmit = () => {
-    const trimmed = value.trim();
-    if (!trimmed || isPending) {
-      return;
-    }
-
-    setError(null);
-    setIsThinking(true);
-    sentAtRef.current = new Date();
-    setValue('');
-    if (textareaRef.current) {
-      textareaRef.current.style.height = 'auto';
-    }
-
-    startTransition(async () => {
-      const result = await sendMessage(threadId, trimmed);
-      if (result?.error) {
-        setError(result.error);
-        setIsThinking(false);
-        setValue(trimmed);
-      }
-    });
-  };
-
-  type HandleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => void;
-
-  const handleKeyDown: HandleKeyDown = (e) => {
-    if (e.key === 'Enter' && !e.shiftKey) {
-      e.preventDefault();
-      handleSubmit();
-    }
-  };
+  const stableOnSubmit = useCallback((text: string) => {
+    onSubmitRef.current(text);
+  }, []);
 
   return (
     <div className='border-t border-border bg-card/50 px-4 py-3 shadow-[0_-1px_3px_0_rgb(0,0,0,0.05)]'>
-      <PipelineActivity threadId={threadId} isActive={isThinking} />
-      {error && <div className='mb-2 text-xs text-destructive'>{error}</div>}
-      <form
-        onSubmit={(e) => {
-          e.preventDefault();
-          handleSubmit();
-        }}
-        className='flex items-end gap-2'
-      >
-        <textarea
-          ref={textareaRef}
-          value={value}
-          onChange={(e) => setValue(e.target.value)}
-          onKeyDown={handleKeyDown}
-          placeholder='Send a message...'
-          rows={1}
-          className='flex-1 resize-none rounded-lg border border-border bg-background px-3 py-2 text-sm placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring/50 min-h-[40px] max-h-[160px]'
-          disabled={isPending}
-        />
-        <Button type='submit' size='sm' disabled={isPending || !value.trim()} aria-label='Send message'>
-          <SendHorizontal className='h-4 w-4' />
-        </Button>
-      </form>
+      {error && <p className='mb-2 text-xs text-destructive'>{error}</p>}
+      <LexicalComposer initialConfig={EDITOR_CONFIG}>
+        <div className='flex items-end gap-2'>
+          <div className='relative min-h-[40px] flex-1 rounded-lg border border-border bg-background px-3 py-2 text-sm focus-within:ring-2 focus-within:ring-ring/50'>
+            <RichTextPlugin
+              contentEditable={
+                <ContentEditable
+                  className='max-h-[136px] min-h-[24px] resize-none overflow-y-auto outline-none'
+                  aria-placeholder='Send a message… (/ for commands)'
+                  placeholder={
+                    <div className='pointer-events-none absolute left-3 top-2 select-none text-sm text-muted-foreground'>
+                      Send a message… (/ for commands)
+                    </div>
+                  }
+                />
+              }
+              ErrorBoundary={LexicalErrorBoundary}
+            />
+            <BeautifulMentionsPlugin items={MENTION_ITEMS} menuComponent={CommandMenu} menuItemComponent={CommandMenuItem} />
+            <HistoryPlugin />
+            <SubmitPlugin threadId={threadId} onSubmit={stableOnSubmit} disabled={disabled} />
+          </div>
+          <SendButton disabled={disabled} />
+        </div>
+        <p className='mt-1.5 text-[11px] text-muted-foreground/60'>Enter to send · Shift+Enter for new line · / for commands</p>
+      </LexicalComposer>
     </div>
   );
 };
