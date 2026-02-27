@@ -1,5 +1,5 @@
 import { plugin as activityPlugin } from '@harness/plugin-activity';
-import type { InvokeOptions, InvokeResult } from '@harness/plugin-contract';
+import type { InvokeOptions } from '@harness/plugin-contract';
 import { PrismaClient } from 'database';
 import { afterAll, afterEach, beforeEach, describe, expect, it } from 'vitest';
 import type { TestHarness } from './helpers/create-harness';
@@ -79,8 +79,9 @@ describe('activity plugin integration', () => {
   it('writes a thinking stream event to DB when the invoker emits a thinking event', async () => {
     harness = await createTestHarness(activityPlugin);
 
-    harness.invoker.invoke.mockImplementation(async (_prompt: string, opts?: InvokeOptions): Promise<InvokeResult> => {
-      opts?.onMessage?.({
+    harness.invoker.invoke.mockImplementation(async (_prompt, opts) => {
+      const onMessage = (opts as InvokeOptions | undefined)?.onMessage;
+      onMessage?.({
         type: 'thinking',
         content: 'Let me reason about this...',
         timestamp: Date.now(),
