@@ -1,3 +1,4 @@
+import { render, screen } from '@testing-library/react';
 import { renderToStaticMarkup } from 'react-dom/server';
 import { describe, expect, it, vi } from 'vitest';
 
@@ -17,6 +18,13 @@ vi.mock('database', () => ({
       findUnique: (...args: unknown[]) => mockFindUnique(...args),
     },
   },
+}));
+
+// Mock ConnectionStatus — tested separately
+vi.mock('../_components/connection-status', () => ({
+  ConnectionStatus: ({ pluginName, initialState }: { pluginName: string; initialState: { connected: boolean } }) => (
+    <div data-testid='connection-status' data-plugin={pluginName} data-connected={String(initialState.connected)} />
+  ),
 }));
 
 // Mock SettingsForm — tested separately
@@ -169,5 +177,33 @@ describe('PluginSettingsPage', () => {
     mockFindUnique.mockResolvedValue(null);
     const html = renderToStaticMarkup(await PluginSettingsPage({ params: Promise.resolve({ name: 'discord' }) }));
     expect(html).toContain('data-fields="1"');
+  });
+
+  it('renders ConnectionStatus when PluginConfig metadata has connection field', async () => {
+    mockFindUnique.mockResolvedValue({
+      pluginName: 'discord',
+      enabled: true,
+      settings: null,
+      metadata: { connection: { connected: true, username: 'HarnessBot#1234' } },
+    });
+
+    render(await PluginSettingsPage({ params: Promise.resolve({ name: 'discord' }) }));
+
+    const status = screen.getByTestId('connection-status');
+    expect(status).toBeInTheDocument();
+    expect(status).toHaveAttribute('data-connected', 'true');
+  });
+
+  it('does not render ConnectionStatus when PluginConfig metadata has no connection field', async () => {
+    mockFindUnique.mockResolvedValue({
+      pluginName: 'discord',
+      enabled: true,
+      settings: null,
+      metadata: null,
+    });
+
+    render(await PluginSettingsPage({ params: Promise.resolve({ name: 'discord' }) }));
+
+    expect(screen.queryByTestId('connection-status')).not.toBeInTheDocument();
   });
 });
