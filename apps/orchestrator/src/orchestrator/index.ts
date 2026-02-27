@@ -194,7 +194,7 @@ export const createOrchestrator: CreateOrchestrator = (deps) => {
     const invokingDetail = `${model ?? 'default'} | ${prompt.length.toLocaleString()} chars`;
     pipelineSteps.push({ step: 'invoking', detail: invokingDetail, metadata: invokingMeta, timestamp: Date.now() });
     await context.broadcast('pipeline:step', { threadId, step: 'invoking', detail: invokingDetail, metadata: invokingMeta, timestamp: Date.now() });
-    const invokeResult = await deps.invoker.invoke(prompt, { model, sessionId, onMessage: (event) => streamEvents.push(event) });
+    const invokeResult = await deps.invoker.invoke(prompt, { model, sessionId, threadId, onMessage: (event) => streamEvents.push(event) });
 
     deps.logger.info(
       `Pipeline: invoke complete [thread=${threadId}, duration=${invokeResult.durationMs}ms, exit=${invokeResult.exitCode}, outputLength=${invokeResult.output.length}, model=${invokeResult.model ?? 'unknown'}, sessionId=${invokeResult.sessionId ?? 'none'}]`,
