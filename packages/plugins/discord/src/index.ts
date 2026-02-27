@@ -150,11 +150,29 @@ const start: StartDiscordPlugin = async (ctx) => {
   client.once(Events.ClientReady, (readyClient) => {
     state.connected = true;
     ctx.logger.info(`Discord plugin: connected as ${readyClient.user.tag}`);
+    void ctx.broadcast('discord:connection', { connected: true, username: readyClient.user.tag });
+    void ctx.db.pluginConfig
+      .update({
+        where: { pluginName: 'discord' },
+        data: { metadata: { connection: { connected: true, username: readyClient.user.tag } } },
+      })
+      .catch((err: unknown) => {
+        ctx.logger.warn(`Discord plugin: failed to persist connection state: ${err instanceof Error ? err.message : String(err)}`);
+      });
   });
 
   client.on(Events.ShardDisconnect, () => {
     state.connected = false;
     ctx.logger.warn('Discord plugin: disconnected from gateway');
+    void ctx.broadcast('discord:connection', { connected: false });
+    void ctx.db.pluginConfig
+      .update({
+        where: { pluginName: 'discord' },
+        data: { metadata: { connection: { connected: false } } },
+      })
+      .catch((err: unknown) => {
+        ctx.logger.warn(`Discord plugin: failed to persist connection state: ${err instanceof Error ? err.message : String(err)}`);
+      });
   });
 
   client.on(Events.ShardReconnecting, () => {
@@ -164,6 +182,15 @@ const start: StartDiscordPlugin = async (ctx) => {
   client.on(Events.ShardResume, () => {
     state.connected = true;
     ctx.logger.info('Discord plugin: reconnected to gateway');
+    void ctx.broadcast('discord:connection', { connected: true });
+    void ctx.db.pluginConfig
+      .update({
+        where: { pluginName: 'discord' },
+        data: { metadata: { connection: { connected: true } } },
+      })
+      .catch((err: unknown) => {
+        ctx.logger.warn(`Discord plugin: failed to persist connection state: ${err instanceof Error ? err.message : String(err)}`);
+      });
   });
 
   // Register message listener

@@ -71,6 +71,9 @@ const createMockContext = (overrides: Partial<PluginContext['config']> = {}): Pl
     message: {
       create: vi.fn(),
     },
+    pluginConfig: {
+      update: vi.fn().mockResolvedValue({}),
+    },
   } as unknown as PluginContext['db'],
   invoker: { invoke: vi.fn() },
   config: {
@@ -400,6 +403,129 @@ describe('discord plugin', () => {
       await handler?.(validMessage);
 
       expect(ctx.logger.error).toHaveBeenCalledWith(expect.stringContaining('failed to process message'));
+    });
+  });
+
+  describe('connection broadcasts', () => {
+    it('broadcasts connected status when ClientReady fires', async () => {
+      mockLogin.mockResolvedValue('token');
+      const ctx = createMockContext({ discordToken: 'test-token' });
+
+      await plugin.start!(ctx);
+
+      type ReadyHandler = (readyClient: { user: { tag: string } }) => void;
+      const handler = findHandler<ReadyHandler>(mockOnce, 'ready');
+      expect(handler).toBeDefined();
+
+      handler?.({ user: { tag: 'HarnessBot#1234' } });
+
+      expect(ctx.broadcast).toHaveBeenCalledWith('discord:connection', {
+        connected: true,
+        username: 'HarnessBot#1234',
+      });
+    });
+
+    it('broadcasts disconnected status when ShardDisconnect fires', async () => {
+      mockLogin.mockResolvedValue('token');
+      const ctx = createMockContext({ discordToken: 'test-token' });
+
+      await plugin.start!(ctx);
+
+      type DisconnectHandler = () => void;
+      const handler = findHandler<DisconnectHandler>(mockOn, 'shardDisconnect');
+      expect(handler).toBeDefined();
+
+      handler?.();
+
+      expect(ctx.broadcast).toHaveBeenCalledWith('discord:connection', {
+        connected: false,
+      });
+    });
+
+    it('broadcasts connected status when ShardResume fires', async () => {
+      mockLogin.mockResolvedValue('token');
+      const ctx = createMockContext({ discordToken: 'test-token' });
+
+      await plugin.start!(ctx);
+
+      type ResumeHandler = () => void;
+      const handler = findHandler<ResumeHandler>(mockOn, 'shardResume');
+      expect(handler).toBeDefined();
+
+      handler?.();
+
+      expect(ctx.broadcast).toHaveBeenCalledWith('discord:connection', {
+        connected: true,
+      });
+    });
+
+    it('logs warning when pluginConfig.update fails on ClientReady (Error instance)', async () => {
+      mockLogin.mockResolvedValue('token');
+      const ctx = createMockContext({ discordToken: 'test-token' });
+      (ctx.db.pluginConfig.update as ReturnType<typeof vi.fn>).mockRejectedValue(new Error('DB error'));
+
+      await plugin.start!(ctx);
+
+      type ReadyHandler = (readyClient: { user: { tag: string } }) => void;
+      const handler = findHandler<ReadyHandler>(mockOnce, 'ready');
+      handler?.({ user: { tag: 'HarnessBot#1234' } });
+
+      // Flush microtasks so the void promise .catch() runs
+      await Promise.resolve();
+      await Promise.resolve();
+
+      expect(ctx.logger.warn).toHaveBeenCalledWith(expect.stringContaining('failed to persist connection state'));
+    });
+
+    it('logs warning when pluginConfig.update fails on ClientReady (non-Error value)', async () => {
+      mockLogin.mockResolvedValue('token');
+      const ctx = createMockContext({ discordToken: 'test-token' });
+      (ctx.db.pluginConfig.update as ReturnType<typeof vi.fn>).mockRejectedValue('string error');
+
+      await plugin.start!(ctx);
+
+      type ReadyHandler = (readyClient: { user: { tag: string } }) => void;
+      const handler = findHandler<ReadyHandler>(mockOnce, 'ready');
+      handler?.({ user: { tag: 'HarnessBot#1234' } });
+
+      await Promise.resolve();
+      await Promise.resolve();
+
+      expect(ctx.logger.warn).toHaveBeenCalledWith(expect.stringContaining('failed to persist connection state'));
+    });
+
+    it('logs warning when pluginConfig.update fails on ShardDisconnect', async () => {
+      mockLogin.mockResolvedValue('token');
+      const ctx = createMockContext({ discordToken: 'test-token' });
+      (ctx.db.pluginConfig.update as ReturnType<typeof vi.fn>).mockRejectedValue(new Error('DB error'));
+
+      await plugin.start!(ctx);
+
+      type DisconnectHandler = () => void;
+      const handler = findHandler<DisconnectHandler>(mockOn, 'shardDisconnect');
+      handler?.();
+
+      await Promise.resolve();
+      await Promise.resolve();
+
+      expect(ctx.logger.warn).toHaveBeenCalledWith(expect.stringContaining('failed to persist connection state'));
+    });
+
+    it('logs warning when pluginConfig.update fails on ShardResume', async () => {
+      mockLogin.mockResolvedValue('token');
+      const ctx = createMockContext({ discordToken: 'test-token' });
+      (ctx.db.pluginConfig.update as ReturnType<typeof vi.fn>).mockRejectedValue(new Error('DB error'));
+
+      await plugin.start!(ctx);
+
+      type ResumeHandler = () => void;
+      const handler = findHandler<ResumeHandler>(mockOn, 'shardResume');
+      handler?.();
+
+      await Promise.resolve();
+      await Promise.resolve();
+
+      expect(ctx.logger.warn).toHaveBeenCalledWith(expect.stringContaining('failed to persist connection state'));
     });
   });
 
