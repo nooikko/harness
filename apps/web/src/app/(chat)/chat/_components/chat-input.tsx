@@ -11,13 +11,14 @@ import { RichTextPlugin } from '@lexical/react/LexicalRichTextPlugin';
 import { KEY_ENTER_COMMAND } from 'lexical';
 import { BeautifulMentionNode, BeautifulMentionsPlugin } from 'lexical-beautiful-mentions';
 import { SendHorizontal } from 'lucide-react';
-import { useCallback, useEffect, useRef } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { Button } from 'ui';
 import { CommandMenu } from '../_helpers/command-menu';
 import { CommandMenuItem } from '../_helpers/command-menu-item';
 import { CommandNode } from '../_helpers/command-node';
 import { COMMANDS } from '../_helpers/commands';
 import { SubmitPlugin } from '../_helpers/submit-plugin';
+import { ModelSelector } from './model-selector';
 
 // Static — module-level so Lexical does not warn about a new config reference on every render.
 // Extra scalar fields (description, args, category) are passed through as BeautifulMentionsItem
@@ -66,6 +67,7 @@ const SendButton = ({ disabled }: SendButtonProps) => {
 
 type ChatInputProps = {
   threadId: string;
+  currentModel: string | null;
   onSubmit: (text: string) => void;
   disabled?: boolean;
   error?: string | null;
@@ -73,7 +75,9 @@ type ChatInputProps = {
 
 type ChatInputComponent = (props: ChatInputProps) => React.ReactNode;
 
-export const ChatInput: ChatInputComponent = ({ threadId, onSubmit, disabled = false, error }) => {
+export const ChatInput: ChatInputComponent = ({ threadId, currentModel, onSubmit, disabled = false, error }) => {
+  const [menuOpen, setMenuOpen] = useState(false);
+
   // Stable ref so SubmitPlugin's useEffect does not re-register on every render
   // when the parent passes a new function reference.
   const onSubmitRef = useRef(onSubmit);
@@ -83,12 +87,12 @@ export const ChatInput: ChatInputComponent = ({ threadId, onSubmit, disabled = f
     onSubmitRef.current(text);
   }, []);
 
-  // Measure the input box and publish its position as CSS variables so the
+  // Measure the card container and publish its position as CSS variables so the
   // slash-command menu can be positioned with `position: fixed` at exactly the
-  // top edge of this box (0 clearance) and at full width.
-  const inputWrapperRef = useRef<HTMLDivElement>(null);
+  // top edge of this card (0 clearance) and at full width.
+  const cardRef = useRef<HTMLDivElement>(null);
   useEffect(() => {
-    const el = inputWrapperRef.current;
+    const el = cardRef.current;
     if (!el) {
       return;
     }
@@ -113,18 +117,20 @@ export const ChatInput: ChatInputComponent = ({ threadId, onSubmit, disabled = f
     <div className='border-t border-border bg-card/50 px-4 py-3 shadow-[0_-1px_3px_0_rgb(0,0,0,0.05)]'>
       {error && <p className='mb-2 text-xs text-destructive'>{error}</p>}
       <LexicalComposer initialConfig={EDITOR_CONFIG}>
-        <div className='flex items-end gap-2'>
-          <div
-            ref={inputWrapperRef}
-            className='relative min-h-[40px] flex-1 rounded-lg border border-border bg-background px-3 py-2 text-sm focus-within:ring-2 focus-within:ring-ring/50'
-          >
+        {/* Unified card: text area on top, controls row on bottom */}
+        <div
+          ref={cardRef}
+          className={menuOpen ? 'rounded-b-xl border-x border-b border-border bg-background' : 'rounded-xl border border-border bg-background'}
+        >
+          {/* Text editing area */}
+          <div className='relative px-3 pt-3 pb-2'>
             <RichTextPlugin
               contentEditable={
                 <ContentEditable
-                  className='max-h-[136px] min-h-[24px] resize-none overflow-y-auto outline-none'
+                  className='max-h-[136px] min-h-[40px] resize-none overflow-y-auto text-sm outline-none'
                   aria-placeholder='Send a message… (/ for commands)'
                   placeholder={
-                    <div className='pointer-events-none absolute left-3 top-2 select-none text-sm text-muted-foreground'>
+                    <div className='pointer-events-none absolute left-3 top-3 select-none text-sm text-muted-foreground'>
                       Send a message… (/ for commands)
                     </div>
                   }
@@ -138,11 +144,18 @@ export const ChatInput: ChatInputComponent = ({ threadId, onSubmit, disabled = f
               menuItemComponent={CommandMenuItem}
               menuAnchorClassName='mention-menu-anchor'
               menuItemLimit={false}
+              insertOnBlur={false}
+              onMenuOpen={() => setMenuOpen(true)}
+              onMenuClose={() => setMenuOpen(false)}
             />
             <HistoryPlugin />
             <SubmitPlugin threadId={threadId} onSubmit={stableOnSubmit} disabled={disabled} />
           </div>
-          <SendButton disabled={disabled} />
+          {/* Controls row: model selector left, send button right */}
+          <div className='flex items-center justify-between border-t border-border/40 px-3 py-2'>
+            <ModelSelector threadId={threadId} currentModel={currentModel} />
+            <SendButton disabled={disabled} />
+          </div>
         </div>
         <p className='mt-1.5 text-[11px] text-muted-foreground/60'>Enter to send · Shift+Enter for new line · / for commands</p>
       </LexicalComposer>

@@ -30,10 +30,6 @@ vi.mock('../../_components/chat-input', () => ({
   ChatInput: () => null,
 }));
 
-vi.mock('../../_components/model-selector', () => ({
-  ModelSelector: ({ currentModel }: { currentModel: string | null }) => <div data-testid='model-selector'>{currentModel ?? 'default'}</div>,
-}));
-
 vi.mock('../../_components/prewarm-trigger', () => ({
   PrewarmTrigger: () => null,
 }));
@@ -117,7 +113,7 @@ describe('ThreadPage', () => {
     expect(html).toContain('discord/ch-456');
   });
 
-  it('renders the model selector in the header', async () => {
+  it('renders successfully when thread has a model set', async () => {
     mockFindUnique.mockResolvedValue(makeThread({ model: 'claude-opus-4-6' }));
     mockFindMany.mockResolvedValue([]);
 
@@ -126,7 +122,7 @@ describe('ThreadPage', () => {
     });
     const html = renderToStaticMarkup(element as React.ReactElement);
 
-    expect(html).toContain('model-selector');
-    expect(html).toContain('claude-opus-4-6');
+    // model selector lives inside ChatInput (inside ChatArea), not in the page header
+    expect(html).toContain('My Thread');
   });
 });

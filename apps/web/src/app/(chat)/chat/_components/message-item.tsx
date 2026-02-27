@@ -52,8 +52,8 @@ export const MessageItem: MessageItemComponent = ({ message, agentRun }) => {
   if (message.role === 'user') {
     return (
       <div className='flex w-full justify-end'>
-        <div className='max-w-[75%] rounded-lg bg-primary px-4 py-3 text-primary-foreground'>
-          <div className='whitespace-pre-wrap break-words text-sm'>{message.content}</div>
+        <div className='max-w-[75%] rounded-2xl bg-muted/60 px-4 py-3'>
+          <div className='whitespace-pre-wrap break-words text-sm text-foreground'>{message.content}</div>
         </div>
       </div>
     );

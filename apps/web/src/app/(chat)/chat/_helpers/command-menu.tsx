@@ -7,11 +7,7 @@ import { forwardRef } from 'react';
 // from the input box: same background and border colour, no bottom border
 // (the input's top border acts as the divider), rounded only on top.
 const CommandMenu = forwardRef<HTMLUListElement, BeautifulMentionsMenuProps>(({ loading: _loading, ...props }, ref) => (
-  <ul
-    ref={ref}
-    className='z-50 overflow-hidden rounded-t-lg border-x border-t border-border bg-background py-1 animate-in fade-in-0 slide-in-from-bottom-1'
-    {...props}
-  />
+  <ul ref={ref} className='z-50 overflow-hidden rounded-t-xl border-x border-t border-border bg-background py-1' {...props} />
 ));
 
 CommandMenu.displayName = 'CommandMenu';

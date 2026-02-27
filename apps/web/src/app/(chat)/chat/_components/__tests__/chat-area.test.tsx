@@ -58,7 +58,7 @@ describe('ChatArea', () => {
 
   it('renders children inside the scroll area', () => {
     render(
-      <ChatArea threadId='thread-1'>
+      <ChatArea threadId='thread-1' currentModel={null}>
         <div data-testid='child-content'>Message content</div>
       </ChatArea>,
     );
@@ -66,12 +66,20 @@ describe('ChatArea', () => {
   });
 
   it('renders ChatInput with a send button', () => {
-    render(<ChatArea threadId='thread-1'>{null}</ChatArea>);
+    render(
+      <ChatArea threadId='thread-1' currentModel={null}>
+        {null}
+      </ChatArea>,
+    );
     expect(screen.getByRole('button', { name: /send message/i })).toBeInTheDocument();
   });
 
   it('renders a scroll anchor element', () => {
-    const { container } = render(<ChatArea threadId='thread-1'>{null}</ChatArea>);
+    const { container } = render(
+      <ChatArea threadId='thread-1' currentModel={null}>
+        {null}
+      </ChatArea>,
+    );
     expect(container.querySelector('[data-scroll-anchor]')).toBeInTheDocument();
   });
 
@@ -80,7 +88,11 @@ describe('ChatArea', () => {
     mockSendMessage.mockResolvedValue(undefined);
     const user = userEvent.setup();
 
-    render(<ChatArea threadId='thread-1'>{null}</ChatArea>);
+    render(
+      <ChatArea threadId='thread-1' currentModel={null}>
+        {null}
+      </ChatArea>,
+    );
     await user.click(screen.getByRole('button', { name: /send message/i }));
 
     expect(mockSendMessage).toHaveBeenCalledWith('thread-1', 'test message');
@@ -91,7 +103,11 @@ describe('ChatArea', () => {
     mockSendMessage.mockResolvedValue({ error: 'Could not reach orchestrator. Make sure it is running.' });
     const user = userEvent.setup();
 
-    render(<ChatArea threadId='thread-1'>{null}</ChatArea>);
+    render(
+      <ChatArea threadId='thread-1' currentModel={null}>
+        {null}
+      </ChatArea>,
+    );
     await user.click(screen.getByRole('button', { name: /send message/i }));
 
     expect(screen.getByTestId('error-message')).toHaveTextContent(/Could not reach orchestrator/);
@@ -103,7 +119,11 @@ describe('ChatArea', () => {
     mockSendMessage.mockReturnValue(new Promise(() => {}));
     const user = userEvent.setup();
 
-    render(<ChatArea threadId='thread-1'>{null}</ChatArea>);
+    render(
+      <ChatArea threadId='thread-1' currentModel={null}>
+        {null}
+      </ChatArea>,
+    );
     const btn = screen.getByRole('button', { name: /send message/i });
     await user.click(btn);
 
@@ -113,7 +133,11 @@ describe('ChatArea', () => {
   it('calls router.refresh when pipeline:complete matches threadId', () => {
     mockUseWs.mockReturnValue({ lastEvent: { threadId: 'thread-1' }, isConnected: true });
 
-    render(<ChatArea threadId='thread-1'>{null}</ChatArea>);
+    render(
+      <ChatArea threadId='thread-1' currentModel={null}>
+        {null}
+      </ChatArea>,
+    );
 
     expect(mockRefresh).toHaveBeenCalled();
   });
@@ -121,7 +145,11 @@ describe('ChatArea', () => {
   it('does not call router.refresh when pipeline:complete has different threadId', () => {
     mockUseWs.mockReturnValue({ lastEvent: { threadId: 'thread-other' }, isConnected: true });
 
-    render(<ChatArea threadId='thread-1'>{null}</ChatArea>);
+    render(
+      <ChatArea threadId='thread-1' currentModel={null}>
+        {null}
+      </ChatArea>,
+    );
 
     expect(mockRefresh).not.toHaveBeenCalled();
   });
@@ -129,7 +157,11 @@ describe('ChatArea', () => {
   it('ignores lastEvent when it is not an object', () => {
     mockUseWs.mockReturnValue({ lastEvent: 'not-an-object', isConnected: true });
 
-    render(<ChatArea threadId='thread-1'>{null}</ChatArea>);
+    render(
+      <ChatArea threadId='thread-1' currentModel={null}>
+        {null}
+      </ChatArea>,
+    );
 
     expect(mockRefresh).not.toHaveBeenCalled();
   });
@@ -139,7 +171,11 @@ describe('ChatArea', () => {
     mockSendMessage.mockResolvedValue(undefined);
     const user = userEvent.setup();
 
-    render(<ChatArea threadId='thread-42'>{null}</ChatArea>);
+    render(
+      <ChatArea threadId='thread-42' currentModel={null}>
+        {null}
+      </ChatArea>,
+    );
     await user.click(screen.getByRole('button', { name: /send message/i }));
 
     const activity = screen.getByTestId('pipeline-activity');
@@ -148,7 +184,11 @@ describe('ChatArea', () => {
   });
 
   it('does not render PipelineActivity when not thinking', () => {
-    render(<ChatArea threadId='thread-1'>{null}</ChatArea>);
+    render(
+      <ChatArea threadId='thread-1' currentModel={null}>
+        {null}
+      </ChatArea>,
+    );
     expect(screen.queryByTestId('pipeline-activity')).not.toBeInTheDocument();
   });
 
@@ -156,7 +196,11 @@ describe('ChatArea', () => {
     mockUseWs.mockReturnValue({ lastEvent: null, isConnected: true });
     mockSendMessage.mockResolvedValue(undefined);
 
-    render(<ChatArea threadId='thread-1'>{null}</ChatArea>);
+    render(
+      <ChatArea threadId='thread-1' currentModel={null}>
+        {null}
+      </ChatArea>,
+    );
 
     await userEvent.setup({ advanceTimers: vi.advanceTimersByTime }).click(screen.getByRole('button', { name: /send message/i }));
 
@@ -170,7 +214,11 @@ describe('ChatArea', () => {
     mockSendMessage.mockResolvedValue(undefined);
     mockCheckForResponse.mockResolvedValue(false);
 
-    render(<ChatArea threadId='thread-1'>{null}</ChatArea>);
+    render(
+      <ChatArea threadId='thread-1' currentModel={null}>
+        {null}
+      </ChatArea>,
+    );
 
     await userEvent.setup({ advanceTimers: vi.advanceTimersByTime }).click(screen.getByRole('button', { name: /send message/i }));
 
@@ -184,7 +232,11 @@ describe('ChatArea', () => {
     mockSendMessage.mockResolvedValue(undefined);
     mockCheckForResponse.mockResolvedValue(true);
 
-    render(<ChatArea threadId='thread-1'>{null}</ChatArea>);
+    render(
+      <ChatArea threadId='thread-1' currentModel={null}>
+        {null}
+      </ChatArea>,
+    );
 
     await userEvent.setup({ advanceTimers: vi.advanceTimersByTime }).click(screen.getByRole('button', { name: /send message/i }));
 

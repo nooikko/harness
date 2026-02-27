@@ -14,12 +14,13 @@ const POLL_TIMEOUT_MS = 120_000;
 
 type ChatAreaProps = {
   threadId: string;
+  currentModel: string | null;
   children: React.ReactNode;
 };
 
 type ChatAreaComponent = (props: ChatAreaProps) => React.ReactNode;
 
-export const ChatArea: ChatAreaComponent = ({ threadId, children }) => {
+export const ChatArea: ChatAreaComponent = ({ threadId, currentModel, children }) => {
   const [error, setError] = useState<string | null>(null);
   const [isThinking, setIsThinking] = useState(false);
   const [isPending, startTransition] = useTransition();
@@ -29,6 +30,7 @@ export const ChatArea: ChatAreaComponent = ({ threadId, children }) => {
   const hasMountedRef = useRef(false);
   const router = useRouter();
   const { lastEvent, isConnected } = useWs('pipeline:complete');
+  const { lastEvent: lastStepEvent } = useWs('pipeline:step');
 
   // Scroll to bottom on initial mount (instant) and after router.refresh() completes (smooth).
   // Fires when isRefreshing transitions false→true→false, ensuring new RSC content is rendered first.
@@ -47,6 +49,18 @@ export const ChatArea: ChatAreaComponent = ({ threadId, children }) => {
       anchorRef.current?.scrollIntoView({ behavior: 'smooth', block: 'end' });
     }
   }, [isThinking]);
+
+  // Scroll to bottom on each pipeline step so growing activity stays in view
+  useEffect(() => {
+    if (!lastStepEvent) {
+      return;
+    }
+    const event = lastStepEvent as { threadId?: string };
+    if (event.threadId !== threadId) {
+      return;
+    }
+    anchorRef.current?.scrollIntoView({ behavior: 'smooth', block: 'end' });
+  }, [lastStepEvent, threadId]);
 
   const onResponseReceived = useCallback(() => {
     setIsThinking(false);
@@ -114,7 +128,7 @@ export const ChatArea: ChatAreaComponent = ({ threadId, children }) => {
           <div ref={anchorRef} data-scroll-anchor aria-hidden='true' />
         </div>
       </ScrollArea>
-      <ChatInput threadId={threadId} onSubmit={handleSubmit} disabled={isPending} error={error} />
+      <ChatInput threadId={threadId} currentModel={currentModel} onSubmit={handleSubmit} disabled={isPending} error={error} />
     </>
   );
 };

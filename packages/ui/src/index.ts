@@ -18,6 +18,17 @@ export { Button, buttonVariants } from './components/button';
 
 export { Card, CardAction, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from './components/card';
 export {
+  Command,
+  CommandDialog,
+  CommandEmpty,
+  CommandGroup,
+  CommandInput,
+  CommandItem,
+  CommandList,
+  CommandSeparator,
+  CommandShortcut,
+} from './components/command';
+export {
   Dialog,
   DialogClose,
   DialogContent,
@@ -51,7 +62,22 @@ export { Label } from './components/label';
 export { Progress } from './components/progress';
 export { ScrollArea, ScrollBar } from './components/scroll-area';
 export { Separator } from './components/separator';
+export {
+  Sidebar,
+  SidebarContent,
+  SidebarFooter,
+  SidebarGroup,
+  SidebarGroupContent,
+  SidebarGroupLabel,
+  SidebarHeader,
+  SidebarMenu,
+  SidebarMenuAction,
+  SidebarMenuBadge,
+  SidebarMenuButton,
+  SidebarMenuItem,
+  SidebarSeparator,
+  sidebarMenuButtonVariants,
+} from './components/sidebar';
 export { Skeleton } from './components/skeleton';
 export { Table, TableBody, TableCaption, TableCell, TableFooter, TableHead, TableHeader, TableRow } from './components/table';
-
 export { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from './components/tooltip';
