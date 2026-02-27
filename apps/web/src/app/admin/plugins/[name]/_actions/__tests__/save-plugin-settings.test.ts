@@ -4,6 +4,7 @@ import { buildSettingsPayload } from '../save-plugin-settings';
 const TEST_KEY = 'a'.repeat(64); // 32-byte key as 64 hex chars
 
 const mockUpsert = vi.fn();
+const mockFindUnique = vi.fn();
 const mockRevalidatePath = vi.fn();
 const mockFetch = vi.fn();
 
@@ -11,6 +12,7 @@ vi.mock('database', () => ({
   prisma: {
     pluginConfig: {
       upsert: (...args: unknown[]) => mockUpsert(...args),
+      findUnique: (...args: unknown[]) => mockFindUnique(...args),
     },
   },
 }));
@@ -66,15 +68,16 @@ describe('buildSettingsPayload', () => {
     expect(payload.token).toBe('plaintext');
   });
 
-  it('stores empty string as-is for secret field (empty string means clear the field)', () => {
+  it('skips empty secret field so existing encrypted value is preserved via merge', () => {
     const fields = [{ name: 'botToken', type: 'string', label: 'Bot Token', secret: true }];
     const payload = buildSettingsPayload(fields, { botToken: '' }, TEST_KEY);
-    expect(payload.botToken).toBe('');
+    expect(payload.botToken).toBeUndefined();
   });
 });
 
 describe('savePluginSettings', () => {
   it('upserts settings and revalidates path on success', async () => {
+    mockFindUnique.mockResolvedValue(null);
     mockUpsert.mockResolvedValue({});
     mockFetch.mockResolvedValue({ ok: true });
 
@@ -90,6 +93,7 @@ describe('savePluginSettings', () => {
   });
 
   it('swallows orchestrator fetch failures and still returns success', async () => {
+    mockFindUnique.mockResolvedValue(null);
     mockUpsert.mockResolvedValue({});
     mockFetch.mockRejectedValue(new Error('connection refused'));
 
@@ -100,6 +104,7 @@ describe('savePluginSettings', () => {
   });
 
   it('returns error when prisma upsert fails', async () => {
+    mockFindUnique.mockResolvedValue(null);
     mockUpsert.mockRejectedValue(new Error('DB error'));
 
     const result = await savePluginSettings('discord', { channelId: 'C3' });
@@ -108,6 +113,7 @@ describe('savePluginSettings', () => {
   });
 
   it('uses empty fields when plugin is not in registry', async () => {
+    mockFindUnique.mockResolvedValue(null);
     mockUpsert.mockResolvedValue({});
     mockFetch.mockResolvedValue({ ok: true });
 
@@ -119,5 +125,26 @@ describe('savePluginSettings', () => {
       create: { pluginName: 'unknown-plugin', enabled: true, settings: {} },
       update: { settings: {} },
     });
+  });
+
+  it('preserves existing encrypted secret when submitted value is empty', async () => {
+    mockFindUnique.mockResolvedValue({
+      pluginName: 'discord',
+      enabled: true,
+      settings: { botToken: 'encrypted:existing:value', channelId: 'C42' },
+    });
+    mockUpsert.mockResolvedValue({});
+    mockFetch.mockResolvedValue({ ok: true });
+
+    // User submits with empty botToken (did not retype) and updated channelId
+    await savePluginSettings('discord', { botToken: '', channelId: 'C99' });
+
+    expect(mockUpsert).toHaveBeenCalledWith(
+      expect.objectContaining({
+        update: expect.objectContaining({
+          settings: { botToken: 'encrypted:existing:value', channelId: 'C99' },
+        }),
+      }),
+    );
   });
 });

@@ -17,7 +17,10 @@ export const buildSettingsPayload: BuildSettingsPayload = (fields, formData, enc
     if (value === undefined) {
       continue;
     }
-    // Empty string means "clear the field" — stored as-is, not encrypted
+    // Empty secret = user did not retype — skip so existing encrypted value is preserved via merge
+    if (field.secret && !value) {
+      continue;
+    }
     if (field.secret && encryptionKey && value) {
       payload[field.name] = encryptValue(value, encryptionKey);
     } else {
@@ -35,7 +38,11 @@ export const savePluginSettings: SavePluginSettings = async (pluginName, formDat
     const entry = pluginSettingsRegistry.find((e) => e.pluginName === pluginName);
     const fields = entry?.fields ?? [];
 
-    const settings = buildSettingsPayload(fields, formData, ENCRYPTION_KEY);
+    const newSettings = buildSettingsPayload(fields, formData, ENCRYPTION_KEY);
+    // Merge with existing settings so skipped empty secret fields preserve their encrypted values
+    const existing = await prisma.pluginConfig.findUnique({ where: { pluginName } });
+    const existingSettings = (existing?.settings ?? {}) as Record<string, string>;
+    const settings = { ...existingSettings, ...newSettings };
 
     // First save enables the plugin; subsequent saves preserve the existing enabled state
     await prisma.pluginConfig.upsert({
