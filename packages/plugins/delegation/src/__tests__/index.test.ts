@@ -50,6 +50,8 @@ const createMockContext: CreateMockContext = () => ({
   },
   sendToThread: vi.fn(),
   broadcast: vi.fn().mockResolvedValue(undefined),
+  getSettings: vi.fn().mockResolvedValue({}),
+  notifySettingsChange: vi.fn().mockResolvedValue(undefined),
 });
 
 describe('delegation plugin', () => {

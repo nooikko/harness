@@ -26,6 +26,8 @@ const createMockContext: CreateMockContext = () => ({
   },
   sendToThread: vi.fn(),
   broadcast: vi.fn(),
+  getSettings: vi.fn().mockResolvedValue({}),
+  notifySettingsChange: vi.fn().mockResolvedValue(undefined),
 });
 
 describe('fireTaskCompleteHooks', () => {
