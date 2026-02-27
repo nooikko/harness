@@ -26,6 +26,17 @@ vi.mock('../pipeline-activity', () => ({
     ) : null,
 }));
 
+vi.mock('../chat-input', () => ({
+  ChatInput: ({ onSubmit, disabled, error }: { onSubmit: (text: string) => void; disabled?: boolean; error?: string | null }) => (
+    <div>
+      {error && <p data-testid='error-message'>{error}</p>}
+      <button type='button' disabled={disabled} onClick={() => onSubmit('test message')} aria-label='Send message'>
+        Send
+      </button>
+    </div>
+  ),
+}));
+
 const mockRefresh = vi.fn();
 vi.mock('next/navigation', () => ({
   useRouter: () => ({ refresh: mockRefresh }),
@@ -54,10 +65,9 @@ describe('ChatArea', () => {
     expect(screen.getByTestId('child-content')).toBeInTheDocument();
   });
 
-  it('renders a textarea and send button', () => {
+  it('renders ChatInput with a send button', () => {
     render(<ChatArea threadId='thread-1'>{null}</ChatArea>);
-    expect(screen.getByPlaceholderText('Send a message...')).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: /send/i })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /send message/i })).toBeInTheDocument();
   });
 
   it('renders a scroll anchor element', () => {
@@ -65,77 +75,39 @@ describe('ChatArea', () => {
     expect(container.querySelector('[data-scroll-anchor]')).toBeInTheDocument();
   });
 
-  it('calls sendMessage on form submit', async () => {
+  it('calls sendMessage when ChatInput onSubmit is invoked', async () => {
     vi.useRealTimers();
     mockSendMessage.mockResolvedValue(undefined);
     const user = userEvent.setup();
 
     render(<ChatArea threadId='thread-1'>{null}</ChatArea>);
-    const textarea = screen.getByPlaceholderText('Send a message...');
-    await user.type(textarea, 'Hello world');
-    await user.click(screen.getByRole('button', { name: /send/i }));
+    await user.click(screen.getByRole('button', { name: /send message/i }));
 
-    expect(mockSendMessage).toHaveBeenCalledWith('thread-1', 'Hello world');
+    expect(mockSendMessage).toHaveBeenCalledWith('thread-1', 'test message');
   });
 
-  it('clears textarea after successful send', async () => {
-    vi.useRealTimers();
-    mockSendMessage.mockResolvedValue(undefined);
-    const user = userEvent.setup();
-
-    render(<ChatArea threadId='thread-1'>{null}</ChatArea>);
-    const textarea = screen.getByPlaceholderText('Send a message...');
-    await user.type(textarea, 'Hello');
-    await user.click(screen.getByRole('button', { name: /send/i }));
-
-    expect(textarea).toHaveValue('');
-  });
-
-  it('does not submit when textarea is empty', async () => {
-    vi.useRealTimers();
-    const user = userEvent.setup();
-
-    render(<ChatArea threadId='thread-1'>{null}</ChatArea>);
-    await user.click(screen.getByRole('button', { name: /send/i }));
-
-    expect(mockSendMessage).not.toHaveBeenCalled();
-  });
-
-  it('shows error message from sendMessage', async () => {
+  it('shows error message from sendMessage via ChatInput error prop', async () => {
     vi.useRealTimers();
     mockSendMessage.mockResolvedValue({ error: 'Could not reach orchestrator. Make sure it is running.' });
     const user = userEvent.setup();
 
     render(<ChatArea threadId='thread-1'>{null}</ChatArea>);
-    await user.type(screen.getByPlaceholderText('Send a message...'), 'Hello');
-    await user.click(screen.getByRole('button', { name: /send/i }));
+    await user.click(screen.getByRole('button', { name: /send message/i }));
 
-    expect(screen.getByText(/Could not reach orchestrator/)).toBeInTheDocument();
+    expect(screen.getByTestId('error-message')).toHaveTextContent(/Could not reach orchestrator/);
   });
 
-  it('does not submit on Shift+Enter', async () => {
+  it('disables ChatInput while pending', async () => {
     vi.useRealTimers();
+    // sendMessage never resolves so isPending stays true
+    mockSendMessage.mockReturnValue(new Promise(() => {}));
     const user = userEvent.setup();
 
     render(<ChatArea threadId='thread-1'>{null}</ChatArea>);
-    const textarea = screen.getByPlaceholderText('Send a message...');
-    await user.type(textarea, 'Line 1');
-    await user.keyboard('{Shift>}{Enter}{/Shift}');
+    const btn = screen.getByRole('button', { name: /send message/i });
+    await user.click(btn);
 
-    expect(mockSendMessage).not.toHaveBeenCalled();
-  });
-
-  it('submits on Enter key', async () => {
-    vi.useRealTimers();
-    mockSendMessage.mockResolvedValue(undefined);
-    const user = userEvent.setup();
-
-    render(<ChatArea threadId='thread-1'>{null}</ChatArea>);
-    const textarea = screen.getByPlaceholderText('Send a message...');
-    await user.type(textarea, 'Hello');
-    await user.keyboard('{Enter}');
-
-    expect(mockSendMessage).toHaveBeenCalledWith('thread-1', 'Hello');
+    expect(btn).toBeDisabled();
   });
 
   it('calls router.refresh when pipeline:complete matches threadId', () => {
@@ -168,9 +140,7 @@ describe('ChatArea', () => {
     const user = userEvent.setup();
 
     render(<ChatArea threadId='thread-42'>{null}</ChatArea>);
-    const textarea = screen.getByPlaceholderText('Send a message...');
-    await user.type(textarea, 'Hello');
-    await user.click(screen.getByRole('button', { name: /send/i }));
+    await user.click(screen.getByRole('button', { name: /send message/i }));
 
     const activity = screen.getByTestId('pipeline-activity');
     expect(activity).toBeInTheDocument();
@@ -188,10 +158,7 @@ describe('ChatArea', () => {
 
     render(<ChatArea threadId='thread-1'>{null}</ChatArea>);
 
-    const textarea = screen.getByPlaceholderText('Send a message...');
-    textarea.focus();
-    await userEvent.setup({ advanceTimers: vi.advanceTimersByTime }).type(textarea, 'Hi');
-    await userEvent.setup({ advanceTimers: vi.advanceTimersByTime }).keyboard('{Enter}');
+    await userEvent.setup({ advanceTimers: vi.advanceTimersByTime }).click(screen.getByRole('button', { name: /send message/i }));
 
     await vi.advanceTimersByTimeAsync(6000);
 
@@ -205,10 +172,7 @@ describe('ChatArea', () => {
 
     render(<ChatArea threadId='thread-1'>{null}</ChatArea>);
 
-    const textarea = screen.getByPlaceholderText('Send a message...');
-    textarea.focus();
-    await userEvent.setup({ advanceTimers: vi.advanceTimersByTime }).type(textarea, 'Hi');
-    await userEvent.setup({ advanceTimers: vi.advanceTimersByTime }).keyboard('{Enter}');
+    await userEvent.setup({ advanceTimers: vi.advanceTimersByTime }).click(screen.getByRole('button', { name: /send message/i }));
 
     await vi.advanceTimersByTimeAsync(3500);
 
@@ -222,10 +186,7 @@ describe('ChatArea', () => {
 
     render(<ChatArea threadId='thread-1'>{null}</ChatArea>);
 
-    const textarea = screen.getByPlaceholderText('Send a message...');
-    textarea.focus();
-    await userEvent.setup({ advanceTimers: vi.advanceTimersByTime }).type(textarea, 'Hi');
-    await userEvent.setup({ advanceTimers: vi.advanceTimersByTime }).keyboard('{Enter}');
+    await userEvent.setup({ advanceTimers: vi.advanceTimersByTime }).click(screen.getByRole('button', { name: /send message/i }));
 
     await vi.advanceTimersByTimeAsync(3500);
 
