@@ -1,6 +1,8 @@
 import type { SdkMcpToolDefinition } from '@anthropic-ai/claude-agent-sdk';
 import { createSdkMcpServer } from '@anthropic-ai/claude-agent-sdk';
 import type { PluginContext, PluginDefinition, PluginTool, PluginToolMeta } from '@harness/plugin-contract';
+import type { ZodTypeAny } from 'zod';
+import { jsonSchemaToZodShape } from './_helpers/json-schema-to-zod-shape';
 
 export type CollectedTool = PluginTool & {
   pluginName: string;
@@ -31,14 +33,15 @@ export const createToolServer: CreateToolServer = (tools, contextRef) => {
     return null;
   }
 
-  // Build SdkMcpToolDefinition objects directly to bridge between
-  // plugin contract's JSON Schema (Record<string, unknown>) and the SDK's Zod types.
-  // At runtime the MCP server serializes schemas to JSON Schema for the protocol,
-  // so plain JSON Schema objects work correctly despite the Zod type signature.
-  const mcpTools: Array<SdkMcpToolDefinition<Record<string, never>>> = tools.map((t) => ({
+  // Convert the plugin's JSON Schema to a Zod raw shape. The SDK uses Zod internally
+  // to validate tool inputs at call time; plain JSON Schema objects cause a TypeError
+  // because the SDK calls .safeParseAsync() on whatever is passed as inputSchema.
+  // jsonSchemaToZodShape maps primitive types (string/number/integer/boolean) to Zod
+  // equivalents and falls back to z.unknown() for complex/nested types.
+  const mcpTools: Array<SdkMcpToolDefinition<Record<string, ZodTypeAny>>> = tools.map((t) => ({
     name: t.qualifiedName,
     description: t.description,
-    inputSchema: t.schema as Record<string, never>,
+    inputSchema: jsonSchemaToZodShape(t.schema) as Record<string, ZodTypeAny>,
     handler: async (input: Record<string, unknown>) => {
       if (!contextRef.ctx) {
         throw new Error('PluginContext not initialized');

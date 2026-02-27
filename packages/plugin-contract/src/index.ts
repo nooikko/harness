@@ -51,6 +51,7 @@ export type InvokeOptions = {
   allowedTools?: string[];
   maxTokens?: number;
   sessionId?: string;
+  threadId?: string; // Harness thread ID — used as session pool key (stable across messages)
   onMessage?: (event: InvokeStreamEvent) => void;
 };
 
@@ -67,7 +68,7 @@ export type InvokeResult = {
 
 export type Invoker = {
   invoke: (prompt: string, options?: InvokeOptions) => Promise<InvokeResult>;
-  prewarm?: (options: { sessionId: string; model?: string }) => void;
+  prewarm?: (options: { threadId: string; model?: string }) => void;
 };
 
 // --- Plugin Settings ---

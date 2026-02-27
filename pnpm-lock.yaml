@@ -74,6 +74,9 @@ importers:
       database:
         specifier: workspace:*
         version: link:../../packages/database
+      zod:
+        specifier: ^4.3.6
+        version: 4.3.6
     devDependencies:
       '@types/node':
         specifier: ^22.19.11

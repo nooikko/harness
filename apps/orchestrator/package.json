@@ -24,7 +24,8 @@
     "@harness/plugin-metrics": "workspace:*",
     "@harness/plugin-time": "workspace:*",
     "@harness/plugin-web": "workspace:*",
-    "database": "workspace:*"
+    "database": "workspace:*",
+    "zod": "^4.3.6"
   },
   "devDependencies": {
     "@types/node": "^22.19.11",

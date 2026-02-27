@@ -161,4 +161,22 @@ describe('createToolServer', () => {
 
     await expect(mcpTool.handler({})).rejects.toThrow('PluginContext not initialized');
   });
+
+  it('passes a Zod shape (not raw JSON Schema) as inputSchema', () => {
+    const tool = makeTool('delegate');
+    // makeTool uses schema: { type: 'object', properties: { input: { type: 'string' } } }
+    const collected = [{ ...tool, pluginName: 'delegation', qualifiedName: 'delegation__delegate' }];
+
+    createToolServer(collected, makeContextRef());
+
+    const callArgs = mockCreateSdkMcpServer.mock.calls[0]![0];
+    const passedTool = callArgs.tools![0]! as { inputSchema: Record<string, unknown> };
+
+    // POSITIVE: the Zod shape must have the 'input' key from the schema properties
+    expect(passedTool.inputSchema).toHaveProperty('input');
+
+    // NEGATIVE: inputSchema must NOT be the raw JSON Schema (which would cause safeParseAsync TypeError)
+    expect(passedTool.inputSchema).not.toHaveProperty('type', 'object');
+    expect(passedTool.inputSchema).not.toHaveProperty('properties');
+  });
 });

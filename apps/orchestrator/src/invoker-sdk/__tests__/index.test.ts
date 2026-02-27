@@ -127,12 +127,20 @@ describe('createSdkInvoker', () => {
     expect(mockPool.get).toHaveBeenCalledWith('default', 'sonnet');
   });
 
-  it('uses sessionId as pool key when provided', async () => {
+  it('falls back to sessionId as pool key when threadId is absent', async () => {
     const invoker = createSdkInvoker({ defaultModel: 'haiku', defaultTimeout: 300000 });
 
     await invoker.invoke('hello', { sessionId: 'thread-123' });
 
     expect(mockPool.get).toHaveBeenCalledWith('thread-123', 'haiku');
+  });
+
+  it('uses threadId as pool key when provided, ignoring sessionId', async () => {
+    const invoker = createSdkInvoker({ defaultModel: 'haiku', defaultTimeout: 300000 });
+
+    await invoker.invoke('hello', { threadId: 'thread-stable', sessionId: 'sess-changes-every-time' });
+
+    expect(mockPool.get).toHaveBeenCalledWith('thread-stable', 'haiku');
   });
 
   it('returns extracted result on success', async () => {
@@ -156,6 +164,15 @@ describe('createSdkInvoker', () => {
     expect(result.error).toBe('Connection lost');
     expect(result.exitCode).toBe(1);
     expect(mockPool.evict).toHaveBeenCalledWith('thread-1');
+  });
+
+  it('evicts using threadId when provided', async () => {
+    vi.mocked(mockSession.send).mockRejectedValue(new Error('boom'));
+    const invoker = createSdkInvoker({ defaultModel: 'haiku', defaultTimeout: 300000 });
+
+    await invoker.invoke('hello', { threadId: 'thread-stable', sessionId: 'sess-xyz' });
+
+    expect(mockPool.evict).toHaveBeenCalledWith('thread-stable');
   });
 
   it('returns timeout error and evicts session when send exceeds timeout', async () => {
@@ -220,7 +237,7 @@ describe('createSdkInvoker', () => {
   it('prewarm creates a session in the pool', () => {
     const invoker = createSdkInvoker({ defaultModel: 'haiku', defaultTimeout: 300000 });
 
-    invoker.prewarm({ sessionId: 'thread-warm', model: 'sonnet' });
+    invoker.prewarm({ threadId: 'thread-warm', model: 'sonnet' });
 
     expect(mockPool.get).toHaveBeenCalledWith('thread-warm', 'sonnet');
     expect(mockSession.send).not.toHaveBeenCalled();
@@ -229,9 +246,20 @@ describe('createSdkInvoker', () => {
   it('prewarm uses default model when not specified', () => {
     const invoker = createSdkInvoker({ defaultModel: 'haiku', defaultTimeout: 300000 });
 
-    invoker.prewarm({ sessionId: 'thread-warm-default' });
+    invoker.prewarm({ threadId: 'thread-warm-default' });
 
     expect(mockPool.get).toHaveBeenCalledWith('thread-warm-default', 'haiku');
+  });
+
+  it('prewarm and invoke use the same pool key for the same threadId', async () => {
+    const invoker = createSdkInvoker({ defaultModel: 'haiku', defaultTimeout: 300000 });
+
+    invoker.prewarm({ threadId: 'thread-abc' });
+    await invoker.invoke('hello', { threadId: 'thread-abc' });
+
+    const calls = vi.mocked(mockPool.get).mock.calls;
+    expect(calls[0]![0]).toBe('thread-abc'); // prewarm call
+    expect(calls[1]![0]).toBe('thread-abc'); // invoke call — same key
   });
 
   it('stop() calls closeAll on the pool', () => {
