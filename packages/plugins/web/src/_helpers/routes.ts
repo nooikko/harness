@@ -81,7 +81,7 @@ export const createApp: CreateApp = ({ ctx, logger, onChatMessage }) => {
 
       if (ctx.invoker.prewarm) {
         const model = thread.model ?? ctx.config.claudeModel;
-        ctx.invoker.prewarm({ sessionId: body.threadId, model });
+        ctx.invoker.prewarm({ threadId: body.threadId, model });
       }
 
       res.json({ success: true, threadId: body.threadId });

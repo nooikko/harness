@@ -15,7 +15,7 @@ export type SdkInvokerConfig = {
 
 type CreateSdkInvoker = (config: SdkInvokerConfig) => {
   invoke: (prompt: string, options?: InvokeOptions) => Promise<InvokeResult>;
-  prewarm: (options: { sessionId: string; model?: string }) => void;
+  prewarm: (options: { threadId: string; model?: string }) => void;
   stop: () => void;
 };
 
@@ -52,11 +52,11 @@ export const createSdkInvoker: CreateSdkInvoker = (config) => {
 
   const invoke = async (prompt: string, options?: InvokeOptions): Promise<InvokeResult> => {
     const model = options?.model ?? config.defaultModel;
-    const threadId = options?.sessionId ?? 'default';
+    const poolKey = options?.threadId ?? options?.sessionId ?? 'default';
     const timeout = options?.timeout ?? config.defaultTimeout;
     const startTime = Date.now();
 
-    const session = pool.get(threadId, model);
+    const session = pool.get(poolKey, model);
 
     const sendOptions = options?.onMessage
       ? {
@@ -72,7 +72,7 @@ export const createSdkInvoker: CreateSdkInvoker = (config) => {
       const result = await withTimeout(session.send(prompt, sendOptions), timeout);
       return extractResult(result, Date.now() - startTime);
     } catch (err) {
-      pool.evict(threadId);
+      pool.evict(poolKey);
       return {
         output: '',
         error: err instanceof Error ? err.message : String(err),
@@ -82,9 +82,9 @@ export const createSdkInvoker: CreateSdkInvoker = (config) => {
     }
   };
 
-  const prewarm = (options: { sessionId: string; model?: string }) => {
+  const prewarm = (options: { threadId: string; model?: string }) => {
     const model = options.model ?? config.defaultModel;
-    pool.get(options.sessionId, model);
+    pool.get(options.threadId, model);
   };
 
   return { invoke, prewarm, stop: () => pool.closeAll() };

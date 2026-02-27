@@ -375,7 +375,7 @@ describe('routes', () => {
       expect(res.status).toBe(200);
       expect(body.success).toBe(true);
       expect(testCtx.mockInvoker.prewarm).toHaveBeenCalledWith({
-        sessionId: 't1',
+        threadId: 't1',
         model: 'claude-sonnet-4-6',
       });
     });
@@ -390,7 +390,7 @@ describe('routes', () => {
       });
 
       expect(testCtx.mockInvoker.prewarm).toHaveBeenCalledWith({
-        sessionId: 't1',
+        threadId: 't1',
         model: 'claude-haiku-4-5-20251001',
       });
     });
