@@ -485,7 +485,10 @@ describe('routes', () => {
 
       expect(res.status).toBe(500);
       expect(body.error).toBe('Internal server error');
-      expect(testCtx.mockLogger.error).toHaveBeenCalledWith('Web plugin: failed to notify settings change for discord: notify failed');
+      expect(testCtx.mockLogger.error).toHaveBeenCalledWith('Plugin reload endpoint error', {
+        pluginName: 'discord',
+        error: 'notify failed',
+      });
     });
 
     it('returns 500 and logs when notifySettingsChange throws a non-Error', async () => {
@@ -498,7 +501,23 @@ describe('routes', () => {
 
       expect(res.status).toBe(500);
       expect(body.error).toBe('Internal server error');
-      expect(testCtx.mockLogger.error).toHaveBeenCalledWith('Web plugin: failed to notify settings change for discord: something bad');
+      expect(testCtx.mockLogger.error).toHaveBeenCalledWith('Plugin reload endpoint error', {
+        pluginName: 'discord',
+        error: 'something bad',
+      });
+    });
+
+    it('returns 200 for unrecognised plugin names (hooks filter themselves)', async () => {
+      testCtx.mockNotifySettingsChange.mockResolvedValue(undefined);
+
+      const res = await fetch(`${testCtx.baseUrl}/api/plugins/unknown-plugin/reload`, {
+        method: 'POST',
+      });
+      const body = (await res.json()) as JsonResponse;
+
+      expect(res.status).toBe(200);
+      expect(body).toEqual({ success: true, pluginName: 'unknown-plugin' });
+      expect(testCtx.mockNotifySettingsChange).toHaveBeenCalledWith('unknown-plugin');
     });
   });
 

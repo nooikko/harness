@@ -99,7 +99,8 @@ export const createApp: CreateApp = ({ ctx, logger, onChatMessage }) => {
       await ctx.notifySettingsChange(name);
       res.json({ success: true, pluginName: name });
     } catch (err) {
-      ctx.logger.error(`Web plugin: failed to notify settings change for ${name}: ${err instanceof Error ? err.message : String(err)}`);
+      const message = err instanceof Error ? err.message : String(err);
+      logger.error('Plugin reload endpoint error', { pluginName: name, error: message });
       res.status(500).json({ error: 'Internal server error' });
     }
   });
