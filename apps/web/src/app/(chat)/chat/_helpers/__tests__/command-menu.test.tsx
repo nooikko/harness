@@ -26,7 +26,7 @@ describe('CommandMenu', () => {
   it('applies the expected class names', () => {
     const { container } = render(<CommandMenu />);
     const ul = container.querySelector('ul');
-    expect(ul?.className).toContain('bg-popover');
+    expect(ul?.className).toContain('bg-background');
     expect(ul?.className).toContain('border-border');
     expect(ul?.className).toContain('z-50');
   });

@@ -3,12 +3,13 @@
 import type { BeautifulMentionsMenuProps } from 'lexical-beautiful-mentions';
 import { forwardRef } from 'react';
 
-// Floating container for the slash command list.
-// lexical-beautiful-mentions positions this relative to the cursor automatically.
+// Command list that appears above the chat input. Styled to extend naturally
+// from the input box: same background and border colour, no bottom border
+// (the input's top border acts as the divider), rounded only on top.
 const CommandMenu = forwardRef<HTMLUListElement, BeautifulMentionsMenuProps>(({ loading: _loading, ...props }, ref) => (
   <ul
     ref={ref}
-    className='z-50 min-w-[18rem] overflow-hidden rounded-md border border-border bg-popover p-1 shadow-md animate-in fade-in-0 zoom-in-95'
+    className='z-50 overflow-hidden rounded-t-lg border-x border-t border-border bg-background py-1 animate-in fade-in-0 slide-in-from-bottom-1'
     {...props}
   />
 ));

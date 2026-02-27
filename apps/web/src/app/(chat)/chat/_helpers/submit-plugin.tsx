@@ -2,7 +2,7 @@
 'use client';
 
 import { useLexicalComposerContext } from '@lexical/react/LexicalComposerContext';
-import { $getRoot, COMMAND_PRIORITY_HIGH, KEY_ENTER_COMMAND } from 'lexical';
+import { $getRoot, COMMAND_PRIORITY_LOW, KEY_ENTER_COMMAND } from 'lexical';
 import { useRouter } from 'next/navigation';
 import { useEffect } from 'react';
 import { createThread } from '../_actions/create-thread';
@@ -37,8 +37,10 @@ type SubmitPluginProps = {
 
 type SubmitPluginComponent = (props: SubmitPluginProps) => null;
 
-// Lexical plugin: registers a KEY_ENTER_COMMAND handler at HIGH priority.
-// Returns null — plugins are React components with no rendered output.
+// Lexical plugin: registers a KEY_ENTER_COMMAND handler at LOW priority so
+// BeautifulMentionsPlugin (NORMAL priority) can intercept Enter first when
+// the command menu is open and select the highlighted item. Returns null —
+// plugins are React components with no rendered output.
 const SubmitPlugin: SubmitPluginComponent = ({ threadId, onSubmit, disabled }) => {
   const [editor] = useLexicalComposerContext();
   const router = useRouter();
@@ -93,7 +95,7 @@ const SubmitPlugin: SubmitPluginComponent = ({ threadId, onSubmit, disabled }) =
         onSubmit(text);
         return true;
       },
-      COMMAND_PRIORITY_HIGH,
+      COMMAND_PRIORITY_LOW,
     );
   }, [editor, threadId, onSubmit, disabled, router]);
 

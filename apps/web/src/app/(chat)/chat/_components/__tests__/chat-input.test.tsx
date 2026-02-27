@@ -15,6 +15,7 @@ vi.mock('@lexical/react/LexicalComposerContext', () => ({
 vi.mock('@lexical/react/LexicalContentEditable', () => ({
   ContentEditable: ({ placeholder }: { placeholder: React.ReactNode }) => (
     <div>
+      {/* biome-ignore lint/a11y/useSemanticElements: test mock for contenteditable */}
       <div role='textbox' aria-label='Send a message… (/ for commands)' tabIndex={0} contentEditable />
       {placeholder}
     </div>

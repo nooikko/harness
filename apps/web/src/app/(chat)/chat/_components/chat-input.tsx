@@ -11,7 +11,7 @@ import { RichTextPlugin } from '@lexical/react/LexicalRichTextPlugin';
 import { KEY_ENTER_COMMAND } from 'lexical';
 import { BeautifulMentionNode, BeautifulMentionsPlugin } from 'lexical-beautiful-mentions';
 import { SendHorizontal } from 'lucide-react';
-import { useCallback, useRef } from 'react';
+import { useCallback, useEffect, useRef } from 'react';
 import { Button } from 'ui';
 import { CommandMenu } from '../_helpers/command-menu';
 import { CommandMenuItem } from '../_helpers/command-menu-item';
@@ -83,12 +83,41 @@ export const ChatInput: ChatInputComponent = ({ threadId, onSubmit, disabled = f
     onSubmitRef.current(text);
   }, []);
 
+  // Measure the input box and publish its position as CSS variables so the
+  // slash-command menu can be positioned with `position: fixed` at exactly the
+  // top edge of this box (0 clearance) and at full width.
+  const inputWrapperRef = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    const el = inputWrapperRef.current;
+    if (!el) {
+      return;
+    }
+    const sync = () => {
+      const r = el.getBoundingClientRect();
+      const root = document.documentElement;
+      root.style.setProperty('--chat-input-top', `${r.top}px`);
+      root.style.setProperty('--chat-input-left', `${r.left}px`);
+      root.style.setProperty('--chat-input-width', `${r.width}px`);
+    };
+    sync();
+    const ro = new ResizeObserver(sync);
+    ro.observe(el);
+    window.addEventListener('resize', sync);
+    return () => {
+      ro.disconnect();
+      window.removeEventListener('resize', sync);
+    };
+  }, []);
+
   return (
     <div className='border-t border-border bg-card/50 px-4 py-3 shadow-[0_-1px_3px_0_rgb(0,0,0,0.05)]'>
       {error && <p className='mb-2 text-xs text-destructive'>{error}</p>}
       <LexicalComposer initialConfig={EDITOR_CONFIG}>
         <div className='flex items-end gap-2'>
-          <div className='relative min-h-[40px] flex-1 rounded-lg border border-border bg-background px-3 py-2 text-sm focus-within:ring-2 focus-within:ring-ring/50'>
+          <div
+            ref={inputWrapperRef}
+            className='relative min-h-[40px] flex-1 rounded-lg border border-border bg-background px-3 py-2 text-sm focus-within:ring-2 focus-within:ring-ring/50'
+          >
             <RichTextPlugin
               contentEditable={
                 <ContentEditable
@@ -103,7 +132,13 @@ export const ChatInput: ChatInputComponent = ({ threadId, onSubmit, disabled = f
               }
               ErrorBoundary={LexicalErrorBoundary}
             />
-            <BeautifulMentionsPlugin items={MENTION_ITEMS} menuComponent={CommandMenu} menuItemComponent={CommandMenuItem} />
+            <BeautifulMentionsPlugin
+              items={MENTION_ITEMS}
+              menuComponent={CommandMenu}
+              menuItemComponent={CommandMenuItem}
+              menuAnchorClassName='mention-menu-anchor'
+              menuItemLimit={false}
+            />
             <HistoryPlugin />
             <SubmitPlugin threadId={threadId} onSubmit={stableOnSubmit} disabled={disabled} />
           </div>

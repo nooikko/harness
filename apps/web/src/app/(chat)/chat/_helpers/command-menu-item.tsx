@@ -18,16 +18,17 @@ const CommandMenuItem = forwardRef<HTMLLIElement, BeautifulMentionsMenuItemProps
     <li
       ref={ref}
       className={cn(
-        'flex cursor-pointer flex-col gap-0.5 rounded-sm px-2 py-1.5 text-sm outline-none transition-colors',
+        'flex cursor-pointer items-center gap-3 rounded-sm px-3 py-2 text-sm outline-none transition-colors',
         selected ? 'bg-accent text-accent-foreground' : 'text-popover-foreground',
       )}
       {...rest}
     >
-      <div className='flex items-center gap-2'>
-        <span className='font-mono font-medium'>/{item.value}</span>
-        {args && <span className='text-xs text-muted-foreground'>{args}</span>}
-      </div>
-      {description && <span className='text-xs text-muted-foreground'>{description}</span>}
+      {/* Command + args as one monospace unit so they read as a single signature */}
+      <span className='font-mono'>
+        <span className='font-semibold'>/{item.value}</span>
+        {args && <span className='font-normal text-muted-foreground'> {args}</span>}
+      </span>
+      {description && <span className='ml-auto truncate text-xs text-muted-foreground'>{description}</span>}
     </li>
   );
 });

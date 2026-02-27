@@ -102,3 +102,23 @@
 body {
   @apply bg-background text-foreground;
 }
+
+/* Slash-command autocomplete menu: positioned above the chat input box.
+   LexicalTypeaheadMenuPlugin appends the anchor div to document.body, so we
+   cannot rely on ancestor-relative positioning. Instead the ChatInput component
+   measures the inner input-box element via a ResizeObserver and publishes its
+   viewport rect as CSS custom properties, letting us use position:fixed to pin
+   the menu flush to the top edge of the input box at full width. */
+.mention-menu-anchor {
+  z-index: 50;
+}
+
+.mention-menu-anchor > ul {
+  position: fixed !important;
+  /* Bottom of the menu == top of the input box (0 clearance). Falls back to a
+     reasonable default before the first ResizeObserver tick. */
+  bottom: calc(100vh - var(--chat-input-top, 200px)) !important;
+  top: auto !important;
+  left: var(--chat-input-left, 0px) !important;
+  width: var(--chat-input-width, 100%) !important;
+}
