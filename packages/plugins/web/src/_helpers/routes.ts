@@ -92,6 +92,19 @@ export const createApp: CreateApp = ({ ctx, logger, onChatMessage }) => {
     }
   });
 
+  // POST /api/plugins/:name/reload — notify a plugin of settings change for live reload
+  app.post('/api/plugins/:name/reload', async (req: Request, res: Response) => {
+    const { name } = req.params as { name: string };
+    try {
+      await ctx.notifySettingsChange(name);
+      res.json({ success: true, pluginName: name });
+    } catch (err) {
+      const message = err instanceof Error ? err.message : String(err);
+      logger.error('Plugin reload endpoint error', { pluginName: name, error: message });
+      res.status(500).json({ error: 'Internal server error' });
+    }
+  });
+
   // GET /api/threads — list all threads
   app.get('/api/threads', async (_req: Request, res: Response) => {
     try {

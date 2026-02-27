@@ -10,6 +10,8 @@ const makeCtx = (): PluginContext => ({
   logger: { info: vi.fn(), warn: vi.fn(), error: vi.fn(), debug: vi.fn() },
   sendToThread: vi.fn(),
   broadcast: vi.fn(),
+  getSettings: vi.fn().mockResolvedValue({}),
+  notifySettingsChange: vi.fn().mockResolvedValue(undefined),
 });
 
 const makeInvokeResult = (overrides: Partial<InvokeResult> = {}): InvokeResult => ({

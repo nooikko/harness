@@ -21,6 +21,7 @@ vi.mock('discord.js', () => {
     destroy = mockDestroy;
     channels = { fetch: mockFetchChannel };
     user = { id: 'bot-123', tag: 'HarnessBot#1234' };
+    isReady = vi.fn().mockReturnValue(true);
   }
 
   return {
@@ -92,6 +93,8 @@ const createMockContext = (overrides: Partial<PluginContext['config']> = {}): Pl
   },
   sendToThread: vi.fn(),
   broadcast: vi.fn(),
+  getSettings: vi.fn().mockResolvedValue({}),
+  notifySettingsChange: vi.fn().mockResolvedValue(undefined),
 });
 
 describe('discord plugin', () => {
@@ -108,12 +111,24 @@ describe('discord plugin', () => {
       expect(typeof plugin.stop).toBe('function');
     });
 
+    it('exports settingsSchema on the definition', () => {
+      expect(plugin.settingsSchema).toBeDefined();
+      expect(typeof plugin.settingsSchema?.toFieldArray).toBe('function');
+    });
+
     it('register returns a hooks object', async () => {
       const ctx = createMockContext();
       const hooks = await plugin.register(ctx);
 
       expect(hooks).toBeDefined();
       expect(typeof hooks).toBe('object');
+    });
+
+    it('register calls ctx.getSettings and returns onSettingsChange hook', async () => {
+      const ctx = createMockContext();
+      const hooks = await plugin.register(ctx);
+      expect(ctx.getSettings).toHaveBeenCalledWith(expect.objectContaining({ toFieldArray: expect.any(Function) }));
+      expect(typeof hooks.onSettingsChange).toBe('function');
     });
   });
 
@@ -135,6 +150,28 @@ describe('discord plugin', () => {
       expect(mockLogin).toHaveBeenCalledWith('test-token');
       expect(mockOn).toHaveBeenCalled();
       expect(mockOnce).toHaveBeenCalled();
+    });
+
+    it('uses botToken from settings over ctx.config.discordToken', async () => {
+      mockLogin.mockResolvedValue('token');
+      const ctx = createMockContext({ discordToken: 'env-token' });
+      (ctx.getSettings as ReturnType<typeof vi.fn>).mockResolvedValue({ botToken: 'settings-token' });
+
+      await plugin.register(ctx);
+      await plugin.start?.(ctx);
+
+      expect(mockLogin).toHaveBeenCalledWith('settings-token');
+    });
+
+    it('falls back to ctx.config.discordToken when settings has no botToken', async () => {
+      mockLogin.mockResolvedValue('token');
+      const ctx = createMockContext({ discordToken: 'fallback-token' });
+      (ctx.getSettings as ReturnType<typeof vi.fn>).mockResolvedValue({});
+
+      await plugin.register(ctx);
+      await plugin.start?.(ctx);
+
+      expect(mockLogin).toHaveBeenCalledWith('fallback-token');
     });
 
     it('registers event handlers on the client', async () => {
@@ -382,6 +419,54 @@ describe('discord plugin', () => {
 
       expect(mockDestroy).toHaveBeenCalled();
       expect(ctx.logger.info).toHaveBeenCalledWith(expect.stringContaining('disconnected'));
+    });
+  });
+
+  describe('onSettingsChange', () => {
+    it('does nothing when pluginName is not discord', async () => {
+      const ctx = createMockContext({ discordToken: 'test-token' });
+      const hooks = await plugin.register(ctx);
+
+      mockLogin.mockResolvedValue('token');
+      await plugin.start?.(ctx);
+      vi.clearAllMocks();
+
+      await hooks.onSettingsChange?.('other-plugin');
+
+      expect(mockDestroy).not.toHaveBeenCalled();
+      expect(mockLogin).not.toHaveBeenCalled();
+    });
+
+    it('reconnects when pluginName is discord and client is active', async () => {
+      mockLogin.mockResolvedValue('token');
+      mockDestroy.mockResolvedValue(undefined);
+      const ctx = createMockContext({ discordToken: 'old-token' });
+      (ctx.getSettings as ReturnType<typeof vi.fn>)
+        .mockResolvedValueOnce({}) // first call in register
+        .mockResolvedValue({ botToken: 'new-token' }); // subsequent calls in onSettingsChange
+
+      const hooks = await plugin.register(ctx);
+      await plugin.start?.(ctx);
+      vi.clearAllMocks();
+      mockLogin.mockResolvedValue('token');
+      mockDestroy.mockResolvedValue(undefined);
+
+      await hooks.onSettingsChange?.('discord');
+
+      expect(mockDestroy).toHaveBeenCalled();
+      expect(mockLogin).toHaveBeenCalledWith('new-token');
+      expect(ctx.logger.info).toHaveBeenCalledWith(expect.stringContaining('reconnected with updated token'));
+    });
+
+    it('does not reconnect when no client is active', async () => {
+      const ctx = createMockContext();
+      const hooks = await plugin.register(ctx);
+
+      // Do not call start — no client is set
+      await hooks.onSettingsChange?.('discord');
+
+      expect(mockDestroy).not.toHaveBeenCalled();
+      expect(mockLogin).not.toHaveBeenCalled();
     });
   });
 

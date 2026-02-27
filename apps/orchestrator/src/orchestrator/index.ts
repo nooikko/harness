@@ -10,8 +10,12 @@ import type {
   PluginContext,
   PluginDefinition,
   PluginHooks,
+  PluginSettingsSchemaInstance,
+  SettingsFieldDefs,
 } from '@harness/plugin-contract';
 import type { PrismaClient } from 'database';
+import { createScopedDb } from './_helpers/create-scoped-db';
+import { getPluginSettings } from './_helpers/get-plugin-settings';
 import { parseCommands } from './_helpers/parse-commands';
 import { assemblePrompt } from './_helpers/prompt-assembler';
 import { runChainHooks } from './_helpers/run-chain-hooks';
@@ -45,7 +49,7 @@ type CreateOrchestrator = (deps: OrchestratorDeps) => {
 };
 
 export const createOrchestrator: CreateOrchestrator = (deps) => {
-  const plugins: Array<{ definition: PluginDefinition; hooks: PluginHooks }> = [];
+  const plugins: Array<{ definition: PluginDefinition; hooks: PluginHooks; ctx: PluginContext }> = [];
 
   const allHooks = (): PluginHooks[] => plugins.map((p) => p.hooks);
 
@@ -108,6 +112,25 @@ export const createOrchestrator: CreateOrchestrator = (deps) => {
     broadcast: async (event: string, data: unknown) => {
       await runNotifyHooks(allHooks(), 'onBroadcast', (h) => h.onBroadcast?.(event, data), deps.logger);
     },
+    getSettings: async () => {
+      return {};
+    },
+    notifySettingsChange: async (pluginName: string) => {
+      await runNotifyHooks(allHooks(), 'onSettingsChange', (h) => h.onSettingsChange?.(pluginName), deps.logger);
+    },
+  };
+
+  type BuildPluginContext = (definition: PluginDefinition) => PluginContext;
+  const buildPluginContext: BuildPluginContext = (definition) => {
+    if (definition.system) {
+      return context;
+    }
+    return {
+      ...context,
+      db: createScopedDb(deps.db, definition.name),
+      getSettings: async <T extends SettingsFieldDefs>(schema: PluginSettingsSchemaInstance<T>) =>
+        getPluginSettings(deps.db, definition.name, schema),
+    };
   };
 
   const handleMessage = async (threadId: string, role: string, content: string): Promise<HandleMessageResult> => {
@@ -236,14 +259,15 @@ export const createOrchestrator: CreateOrchestrator = (deps) => {
 
   return {
     registerPlugin: async (definition: PluginDefinition) => {
-      const hooks = await definition.register(context);
-      plugins.push({ definition, hooks });
+      const ctx = buildPluginContext(definition);
+      const hooks = await definition.register(ctx);
+      plugins.push({ definition, hooks, ctx });
       deps.logger.info(`Plugin registered: ${definition.name}@${definition.version}`);
     },
     start: async () => {
       for (const plugin of plugins) {
         if (plugin.definition.start) {
-          await plugin.definition.start(context);
+          await plugin.definition.start(plugin.ctx);
         }
       }
       deps.logger.info('Orchestrator started');
@@ -251,7 +275,7 @@ export const createOrchestrator: CreateOrchestrator = (deps) => {
     stop: async () => {
       for (const plugin of plugins) {
         if (plugin.definition.stop) {
-          await plugin.definition.stop(context);
+          await plugin.definition.stop(plugin.ctx);
         }
       }
       deps.logger.info('Orchestrator stopped');

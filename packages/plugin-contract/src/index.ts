@@ -9,6 +9,8 @@ import { runHook } from './_helpers/run-hook';
 import { runHookWithResult } from './_helpers/run-hook-with-result';
 
 export { runChainHook, runHook, runHookWithResult };
+export { decryptValue } from './_helpers/decrypt-value';
+export { encryptValue } from './_helpers/encrypt-value';
 
 // Inlined from orchestrator config
 export type LogLevel = 'debug' | 'info' | 'warn' | 'error';
@@ -68,6 +70,49 @@ export type Invoker = {
   prewarm?: (options: { sessionId: string; model?: string }) => void;
 };
 
+// --- Plugin Settings ---
+
+export type SettingsFieldType = 'string' | 'number' | 'boolean' | 'select';
+
+type SettingsFieldBase = {
+  type: SettingsFieldType;
+  label: string;
+  description?: string;
+  required?: boolean;
+  secret?: boolean;
+  default?: string | number | boolean;
+};
+
+type SettingsFieldScalar = SettingsFieldBase & { type: Exclude<SettingsFieldType, 'select'> };
+type SettingsFieldSelect = SettingsFieldBase & {
+  type: 'select';
+  options: { label: string; value: string }[];
+};
+
+export type PluginSettingsField = (SettingsFieldScalar | SettingsFieldSelect) & { name: string };
+
+export type SettingsFieldDefs = Record<string, Omit<PluginSettingsField, 'name'>>;
+
+type InferFieldValue<F extends Omit<PluginSettingsField, 'name'>> = F['type'] extends 'boolean'
+  ? boolean
+  : F['type'] extends 'number'
+    ? number
+    : string;
+
+export type InferSettings<T extends SettingsFieldDefs> = {
+  [K in keyof T]?: InferFieldValue<T[K]>;
+};
+
+export type PluginSettingsSchemaInstance<_T extends SettingsFieldDefs> = {
+  toFieldArray: () => PluginSettingsField[];
+};
+
+type CreateSettingsSchema = <T extends SettingsFieldDefs>(fields: T) => PluginSettingsSchemaInstance<T>;
+
+export const createSettingsSchema: CreateSettingsSchema = (fields) => ({
+  toFieldArray: () => Object.entries(fields).map(([name, def]) => ({ name, ...def }) as PluginSettingsField),
+});
+
 export type PluginContext = {
   db: PrismaClient;
   invoker: Invoker;
@@ -75,6 +120,8 @@ export type PluginContext = {
   logger: Logger;
   sendToThread: (threadId: string, content: string) => Promise<void>;
   broadcast: (event: string, data: unknown) => Promise<void>;
+  getSettings: <T extends SettingsFieldDefs>(schema: PluginSettingsSchemaInstance<T>) => Promise<InferSettings<T>>;
+  notifySettingsChange: (pluginName: string) => Promise<void>;
 };
 
 export type PluginHooks = {
@@ -96,6 +143,7 @@ export type PluginHooks = {
       commandsHandled: string[];
     },
   ) => Promise<void>;
+  onSettingsChange?: (pluginName: string) => Promise<void>;
 };
 
 export type PluginToolMeta = {
@@ -123,4 +171,8 @@ export type PluginDefinition = {
   start?: StartFn;
   stop?: StopFn;
   tools?: PluginTool[];
+  system?: boolean;
+  /** For code generation only (pnpm plugin:generate). Do NOT pass this to ctx.getSettings() —
+   *  always pass your own typed schema const to preserve InferSettings<T> inference. */
+  settingsSchema?: PluginSettingsSchemaInstance<SettingsFieldDefs>;
 };

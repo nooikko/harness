@@ -33,6 +33,11 @@
     "db:studio": {
       "cache": false,
       "persistent": true
+    },
+    "plugin:generate": {
+      "cache": false,
+      "inputs": ["packages/plugins/*/src/_helpers/settings-schema.ts", "scripts/generate-plugin-registry.ts"],
+      "outputs": ["apps/web/src/generated/plugin-settings-registry.ts"]
     }
   }
 }

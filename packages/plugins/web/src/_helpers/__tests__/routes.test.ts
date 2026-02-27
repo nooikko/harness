@@ -24,6 +24,7 @@ type TestContext = {
   mockDb: MockDb;
   mockLogger: Logger;
   mockInvoker: MockInvoker;
+  mockNotifySettingsChange: ReturnType<typeof vi.fn>;
   onChatMessage: ReturnType<typeof vi.fn>;
 };
 
@@ -51,6 +52,7 @@ const createTestContext = (): TestContext => {
     mockDb,
     mockLogger,
     mockInvoker,
+    mockNotifySettingsChange: vi.fn(),
     onChatMessage: vi.fn(),
   };
 };
@@ -67,6 +69,7 @@ describe('routes', () => {
       invoker: testCtx.mockInvoker,
       config: { claudeModel: 'claude-haiku-4-5-20251001' },
       logger: testCtx.mockLogger,
+      notifySettingsChange: testCtx.mockNotifySettingsChange,
     } as unknown as PluginContext;
 
     const app = createApp({
@@ -442,6 +445,79 @@ describe('routes', () => {
       });
       expect(res.status).toBe(500);
       expect(testCtx.mockLogger.error).toHaveBeenCalledWith('Prewarm endpoint error', { error: 'connection lost' });
+    });
+  });
+
+  describe('POST /api/plugins/:name/reload', () => {
+    it('calls notifySettingsChange and returns { success: true, pluginName }', async () => {
+      testCtx.mockNotifySettingsChange.mockResolvedValue(undefined);
+
+      const res = await fetch(`${testCtx.baseUrl}/api/plugins/discord/reload`, {
+        method: 'POST',
+      });
+      const body = (await res.json()) as JsonResponse;
+
+      expect(res.status).toBe(200);
+      expect(body).toEqual({ success: true, pluginName: 'discord' });
+      expect(testCtx.mockNotifySettingsChange).toHaveBeenCalledWith('discord');
+    });
+
+    it('uses the plugin name from the URL param', async () => {
+      testCtx.mockNotifySettingsChange.mockResolvedValue(undefined);
+
+      const res = await fetch(`${testCtx.baseUrl}/api/plugins/context/reload`, {
+        method: 'POST',
+      });
+      const body = (await res.json()) as JsonResponse;
+
+      expect(res.status).toBe(200);
+      expect(body).toEqual({ success: true, pluginName: 'context' });
+      expect(testCtx.mockNotifySettingsChange).toHaveBeenCalledWith('context');
+    });
+
+    it('returns 500 and logs when notifySettingsChange throws an Error', async () => {
+      testCtx.mockNotifySettingsChange.mockRejectedValue(new Error('notify failed'));
+
+      const res = await fetch(`${testCtx.baseUrl}/api/plugins/discord/reload`, {
+        method: 'POST',
+      });
+      const body = (await res.json()) as JsonResponse;
+
+      expect(res.status).toBe(500);
+      expect(body.error).toBe('Internal server error');
+      expect(testCtx.mockLogger.error).toHaveBeenCalledWith('Plugin reload endpoint error', {
+        pluginName: 'discord',
+        error: 'notify failed',
+      });
+    });
+
+    it('returns 500 and logs when notifySettingsChange throws a non-Error', async () => {
+      testCtx.mockNotifySettingsChange.mockRejectedValue('something bad');
+
+      const res = await fetch(`${testCtx.baseUrl}/api/plugins/discord/reload`, {
+        method: 'POST',
+      });
+      const body = (await res.json()) as JsonResponse;
+
+      expect(res.status).toBe(500);
+      expect(body.error).toBe('Internal server error');
+      expect(testCtx.mockLogger.error).toHaveBeenCalledWith('Plugin reload endpoint error', {
+        pluginName: 'discord',
+        error: 'something bad',
+      });
+    });
+
+    it('returns 200 for unrecognised plugin names (hooks filter themselves)', async () => {
+      testCtx.mockNotifySettingsChange.mockResolvedValue(undefined);
+
+      const res = await fetch(`${testCtx.baseUrl}/api/plugins/unknown-plugin/reload`, {
+        method: 'POST',
+      });
+      const body = (await res.json()) as JsonResponse;
+
+      expect(res.status).toBe(200);
+      expect(body).toEqual({ success: true, pluginName: 'unknown-plugin' });
+      expect(testCtx.mockNotifySettingsChange).toHaveBeenCalledWith('unknown-plugin');
     });
   });
 

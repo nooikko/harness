@@ -22,14 +22,17 @@
     "db:generate": "turbo db:generate",
     "db:push": "turbo db:push",
     "db:studio": "turbo db:studio",
-    "prepare": "husky"
+    "prepare": "husky",
+    "plugin:generate": "tsx scripts/generate-plugin-registry.ts"
   },
   "devDependencies": {
     "@biomejs/biome": "^2.4.4",
     "@vitest/coverage-v8": "^4.0.18",
+    "glob": "^13.0.6",
     "husky": "^9.1.7",
     "lint-staged": "^16.2.7",
     "sherif": "^1.10.0",
+    "tsx": "^4.21.0",
     "turbo": "^2.8.10",
     "typescript": "^5.9.3",
     "vitest": "^4.0.18"

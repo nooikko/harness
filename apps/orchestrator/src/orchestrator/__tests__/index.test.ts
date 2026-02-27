@@ -69,11 +69,15 @@ const mockConfig: OrchestratorConfig = {
 
 const makeDeps = (overrides?: Partial<OrchestratorDeps>): OrchestratorDeps => ({
   db: {
+    $extends: vi.fn().mockImplementation(() => ({
+      pluginConfig: { findUnique: vi.fn().mockResolvedValue(null) },
+    })),
     message: { create: vi.fn().mockResolvedValue({}) },
     thread: {
       findUnique: vi.fn().mockResolvedValue({ sessionId: null, model: null, kind: 'primary', name: 'Main' }),
       update: vi.fn().mockResolvedValue({}),
     },
+    pluginConfig: { findUnique: vi.fn().mockResolvedValue(null) },
   } as unknown as PrismaClient,
   invoker: { invoke: vi.fn().mockResolvedValue(makeInvokeResult()) } as unknown as Invoker,
   config: mockConfig,
@@ -102,7 +106,7 @@ describe('createOrchestrator', () => {
   });
 
   describe('registerPlugin', () => {
-    it('calls definition.register with the plugin context', async () => {
+    it('calls definition.register with a per-plugin context containing required fields', async () => {
       const deps = makeDeps();
       const orchestrator = createOrchestrator(deps);
       const definition = makePluginDefinition('test-plugin');
@@ -111,12 +115,27 @@ describe('createOrchestrator', () => {
 
       expect(definition.register).toHaveBeenCalledTimes(1);
       const passedContext = (definition.register as ReturnType<typeof vi.fn>).mock.calls[0]![0] as PluginContext;
-      expect(passedContext).toHaveProperty('db', deps.db);
+      // Non-system plugins receive a scoped db (not deps.db directly)
+      expect(passedContext.db).toBeDefined();
+      expect(passedContext.db).not.toBe(deps.db);
       expect(passedContext).toHaveProperty('invoker', deps.invoker);
       expect(passedContext).toHaveProperty('config', deps.config);
       expect(passedContext).toHaveProperty('logger', deps.logger);
       expect(typeof passedContext.sendToThread).toBe('function');
       expect(typeof passedContext.broadcast).toBe('function');
+      expect(typeof passedContext.getSettings).toBe('function');
+      expect(typeof passedContext.notifySettingsChange).toBe('function');
+    });
+
+    it('passes unscoped db to system plugins', async () => {
+      const deps = makeDeps();
+      const orchestrator = createOrchestrator(deps);
+      const definition = makePluginDefinition('system-plugin', {}, { system: true });
+
+      await orchestrator.registerPlugin(definition);
+
+      const passedContext = (definition.register as ReturnType<typeof vi.fn>).mock.calls[0]![0] as PluginContext;
+      expect(passedContext.db).toBe(deps.db);
     });
 
     it('logs a message after registering the plugin', async () => {
@@ -180,7 +199,7 @@ describe('createOrchestrator', () => {
       await orchestrator.start();
 
       const passedContext = startFn.mock.calls[0]![0] as PluginContext;
-      expect(passedContext).toHaveProperty('db', deps.db);
+      expect(passedContext.db).toBeDefined();
       expect(passedContext).toHaveProperty('invoker', deps.invoker);
     });
 
