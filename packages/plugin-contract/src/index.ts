@@ -9,6 +9,8 @@ import { runHook } from './_helpers/run-hook';
 import { runHookWithResult } from './_helpers/run-hook-with-result';
 
 export { runChainHook, runHook, runHookWithResult };
+export { decryptValue } from './_helpers/decrypt-value';
+export { encryptValue } from './_helpers/encrypt-value';
 
 // Inlined from orchestrator config
 export type LogLevel = 'debug' | 'info' | 'warn' | 'error';
