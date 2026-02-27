@@ -22,6 +22,7 @@ describe('getPluginSettings', () => {
 
     const settings = await getPluginSettings(mockDb, 'discord', schema);
     expect(settings.channelId).toBe('C123');
+    expect(settings.botToken).toBe('plain-token');
   });
 
   it('returns empty object when no config row exists', async () => {
