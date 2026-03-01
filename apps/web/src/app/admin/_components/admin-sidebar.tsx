@@ -1,7 +1,7 @@
 'use client';
 
+import { Separator } from '@harness/ui';
 import { Activity, Clock, MessageSquare, Plug, SquareCheck } from 'lucide-react';
-import { Separator } from 'ui';
 import { AdminNavLink } from './admin-nav-link';
 
 type AdminSidebarComponent = () => React.ReactNode;

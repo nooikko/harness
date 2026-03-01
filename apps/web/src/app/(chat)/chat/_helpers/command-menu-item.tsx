@@ -1,8 +1,8 @@
 'use client';
 
+import { cn } from '@harness/ui';
 import type { BeautifulMentionsMenuItemProps } from 'lexical-beautiful-mentions';
 import { forwardRef } from 'react';
-import { cn } from 'ui';
 
 const CommandMenuItem = forwardRef<HTMLLIElement, BeautifulMentionsMenuItemProps>(({ selected, item, ...props }, ref) => {
   // itemValue is a plugin-internal prop — strip it before spreading to <li>

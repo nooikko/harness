@@ -1,4 +1,4 @@
-import type { PrismaClient } from 'database';
+import type { PrismaClient } from '@harness/database';
 import { describe, expect, it, vi } from 'vitest';
 import { createScopedDb } from '../create-scoped-db';
 

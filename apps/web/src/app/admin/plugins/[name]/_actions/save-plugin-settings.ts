@@ -1,6 +1,6 @@
 'use server';
 
-import { prisma } from 'database';
+import { prisma } from '@harness/database';
 import { revalidatePath } from 'next/cache';
 import { buildSettingsPayload } from './_helpers/build-settings-payload';
 

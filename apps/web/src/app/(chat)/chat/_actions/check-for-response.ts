@@ -1,6 +1,6 @@
 'use server';
 
-import { prisma } from 'database';
+import { prisma } from '@harness/database';
 
 type CheckForResponse = (threadId: string, afterDate: Date) => Promise<boolean>;
 

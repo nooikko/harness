@@ -23,8 +23,8 @@
     ],
     "paths": {
       "@/*": ["./src/*"],
-      "ui": ["../../packages/ui/src"],
-      "database": ["../../packages/database/src"]
+      "@harness/ui": ["../../packages/ui/src"],
+      "@harness/database": ["../../packages/database/src"]
     }
   },
   "include": ["next-env.d.ts", "**/*.ts", "**/*.tsx", ".next/types/**/*.ts", ".next/dev/types/**/*.ts"],

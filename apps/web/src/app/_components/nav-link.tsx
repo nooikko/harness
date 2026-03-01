@@ -1,8 +1,8 @@
 'use client';
 
+import { cn } from '@harness/ui';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { cn } from 'ui';
 
 type NavLinkProps = {
   href: string;

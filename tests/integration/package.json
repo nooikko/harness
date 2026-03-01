@@ -20,7 +20,7 @@
     "@harness/plugin-web": "workspace:*",
     "@testcontainers/postgresql": "^10.24.2",
     "@vitest/coverage-v8": "^4.0.18",
-    "database": "workspace:*",
+    "@harness/database": "workspace:*",
     "orchestrator": "workspace:*",
     "testcontainers": "^10.24.2",
     "vite-tsconfig-paths": "^6.1.1",

@@ -1,8 +1,8 @@
 'use client';
 
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@harness/ui';
 import { Check, ChevronDown } from 'lucide-react';
 import { useTransition } from 'react';
-import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from 'ui';
 import { updateThreadModel } from '../_actions/update-thread-model';
 
 type ModelSelectorProps = {

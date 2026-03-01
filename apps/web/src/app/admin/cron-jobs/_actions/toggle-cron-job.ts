@@ -1,6 +1,6 @@
 'use server';
 
-import { prisma } from 'database';
+import { prisma } from '@harness/database';
 import { revalidatePath } from 'next/cache';
 
 type ToggleCronJob = (id: string) => Promise<void>;

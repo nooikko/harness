@@ -4,7 +4,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 const mockMessageFindMany = vi.fn();
 const mockAgentRunFindMany = vi.fn();
 
-vi.mock('database', () => ({
+vi.mock('@harness/database', () => ({
   prisma: {
     message: {
       findMany: (...args: unknown[]) => mockMessageFindMany(...args),

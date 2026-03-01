@@ -75,6 +75,10 @@ export {
   SidebarMenuBadge,
   SidebarMenuButton,
   SidebarMenuItem,
+  SidebarMenuSub,
+  SidebarMenuSubButton,
+  SidebarMenuSubItem,
+  SidebarRail,
   SidebarSeparator,
   sidebarMenuButtonVariants,
 } from './components/sidebar';

@@ -1,8 +1,8 @@
 // Synchronizes plugin registry with database PluginConfig records
 
+import type { PrismaClient } from '@harness/database';
 import type { Logger } from '@harness/logger';
 import type { PluginDefinition } from '@harness/plugin-contract';
-import type { PrismaClient } from 'database';
 
 type SyncPluginConfigs = (plugins: PluginDefinition[], db: PrismaClient, logger: Logger) => Promise<void>;
 

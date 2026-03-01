@@ -1,4 +1,4 @@
-import type { Thread } from 'database';
+import type { Thread } from '@harness/database';
 
 type SortThreads = (threads: Thread[]) => Thread[];
 

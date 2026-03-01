@@ -1,8 +1,8 @@
 import { mkdirSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
+import { PrismaClient } from '@harness/database';
 import { createContextPlugin } from '@harness/plugin-context';
-import { PrismaClient } from 'database';
 import { afterAll, afterEach, beforeEach, describe, expect, it } from 'vitest';
 import type { TestHarness } from './helpers/create-harness';
 import { createTestHarness } from './helpers/create-harness';

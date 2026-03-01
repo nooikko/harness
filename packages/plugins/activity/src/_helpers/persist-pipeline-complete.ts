@@ -1,5 +1,5 @@
+import type { PrismaClient } from '@harness/database';
 import type { InvokeResult } from '@harness/plugin-contract';
-import type { PrismaClient } from 'database';
 
 type PersistPipelineComplete = (db: PrismaClient, threadId: string, invokeResult: InvokeResult) => Promise<void>;
 

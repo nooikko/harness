@@ -1,10 +1,6 @@
 import { render, screen } from '@testing-library/react';
 import { describe, expect, it, vi } from 'vitest';
 
-vi.mock('next/navigation', () => ({
-  usePathname: () => '/',
-}));
-
 vi.mock('next/link', () => ({
   default: ({ href, children, className }: { href: string; children: React.ReactNode; className?: string }) => (
     <a href={href} className={className}>
@@ -22,28 +18,18 @@ describe('TopBar', () => {
     expect(link).toHaveAttribute('href', '/');
   });
 
-  it('renders Chat nav link', () => {
-    render(<TopBar />);
-    expect(screen.getByRole('link', { name: 'Chat' })).toBeInTheDocument();
-  });
-
-  it('renders Usage nav link', () => {
-    render(<TopBar />);
-    expect(screen.getByRole('link', { name: 'Usage' })).toBeInTheDocument();
-  });
-
-  it('renders Admin nav link', () => {
-    render(<TopBar />);
-    expect(screen.getByRole('link', { name: 'Admin' })).toBeInTheDocument();
-  });
-
-  it('renders a nav element with main navigation label', () => {
-    render(<TopBar />);
-    expect(screen.getByRole('navigation', { name: 'Main navigation' })).toBeInTheDocument();
-  });
-
   it('renders a header element', () => {
     render(<TopBar />);
     expect(screen.getByRole('banner')).toBeInTheDocument();
+  });
+
+  it('renders the search button', () => {
+    render(<TopBar />);
+    expect(screen.getByRole('button', { name: /open command palette/i })).toBeInTheDocument();
+  });
+
+  it('renders the ⌘K keyboard shortcut hint', () => {
+    render(<TopBar />);
+    expect(screen.getByText('⌘K')).toBeInTheDocument();
   });
 });

@@ -1,4 +1,4 @@
-import type { PrismaClient } from 'database';
+import type { PrismaClient } from '@harness/database';
 
 type PersistPipelineStart = (db: PrismaClient, threadId: string) => Promise<void>;
 

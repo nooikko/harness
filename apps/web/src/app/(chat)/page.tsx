@@ -1,4 +1,4 @@
-import { prisma } from 'database';
+import { prisma } from '@harness/database';
 import { MessageSquare } from 'lucide-react';
 import { redirect } from 'next/navigation';
 

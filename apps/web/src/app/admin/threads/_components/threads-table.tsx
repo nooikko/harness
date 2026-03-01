@@ -1,9 +1,23 @@
 // Threads table — displays all conversation threads with management controls
 
-import { prisma } from 'database';
+import { prisma } from '@harness/database';
+import {
+  Badge,
+  Button,
+  Card,
+  CardContent,
+  CardHeader,
+  CardTitle,
+  Skeleton,
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from '@harness/ui';
 import Link from 'next/link';
 import { Suspense } from 'react';
-import { Badge, Button, Card, CardContent, CardHeader, CardTitle, Skeleton, Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from 'ui';
 import { archiveThread } from '../_actions/archive-thread';
 
 type StatusVariant = 'default' | 'secondary' | 'outline';

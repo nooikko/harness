@@ -1,8 +1,22 @@
 // Cron jobs table — displays all scheduled jobs with toggle controls
 
-import { prisma } from 'database';
+import { prisma } from '@harness/database';
+import {
+  Badge,
+  Button,
+  Card,
+  CardContent,
+  CardHeader,
+  CardTitle,
+  Skeleton,
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from '@harness/ui';
 import { Suspense } from 'react';
-import { Badge, Button, Card, CardContent, CardHeader, CardTitle, Skeleton, Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from 'ui';
 import { toggleCronJob } from '../_actions/toggle-cron-job';
 
 type FormatDate = (date: Date | null) => string;

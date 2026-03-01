@@ -2,7 +2,7 @@
 // Cross-thread notifications are system messages persisted by the delegation plugin
 // with metadata.type === "cross-thread-notification".
 
-import type { Message } from 'database';
+import type { Message } from '@harness/database';
 
 export type CrossThreadMetadata = {
   type: 'cross-thread-notification';

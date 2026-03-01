@@ -1,6 +1,7 @@
 // @refresh reset
 'use client';
 
+import { Button } from '@harness/ui';
 import type { InitialConfigType } from '@lexical/react/LexicalComposer';
 import { LexicalComposer } from '@lexical/react/LexicalComposer';
 import { useLexicalComposerContext } from '@lexical/react/LexicalComposerContext';
@@ -12,7 +13,6 @@ import { KEY_ENTER_COMMAND } from 'lexical';
 import { BeautifulMentionNode, BeautifulMentionsPlugin } from 'lexical-beautiful-mentions';
 import { SendHorizontal } from 'lucide-react';
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { Button } from 'ui';
 import { CommandMenu } from '../_helpers/command-menu';
 import { CommandMenuItem } from '../_helpers/command-menu-item';
 import { CommandNode } from '../_helpers/command-node';
@@ -114,7 +114,7 @@ export const ChatInput: ChatInputComponent = ({ threadId, currentModel, onSubmit
   }, []);
 
   return (
-    <div className='border-t border-border bg-card/50 px-4 py-3 shadow-[0_-1px_3px_0_rgb(0,0,0,0.05)]'>
+    <div className='bg-background px-3 py-2'>
       {error && <p className='mb-2 text-xs text-destructive'>{error}</p>}
       <LexicalComposer initialConfig={EDITOR_CONFIG}>
         {/* Unified card: text area on top, controls row on bottom */}
@@ -123,7 +123,7 @@ export const ChatInput: ChatInputComponent = ({ threadId, currentModel, onSubmit
           className={menuOpen ? 'rounded-b-xl border-x border-b border-border bg-background' : 'rounded-xl border border-border bg-background'}
         >
           {/* Text editing area */}
-          <div className='relative px-3 pt-3 pb-2'>
+          <div className='relative px-3 pt-2 pb-1'>
             <RichTextPlugin
               contentEditable={
                 <ContentEditable
@@ -152,7 +152,7 @@ export const ChatInput: ChatInputComponent = ({ threadId, currentModel, onSubmit
             <SubmitPlugin threadId={threadId} onSubmit={stableOnSubmit} disabled={disabled} />
           </div>
           {/* Controls row: model selector left, send button right */}
-          <div className='flex items-center justify-between border-t border-border/40 px-3 py-2'>
+          <div className='flex items-center justify-between px-3 pb-2'>
             <ModelSelector threadId={threadId} currentModel={currentModel} />
             <SendButton disabled={disabled} />
           </div>

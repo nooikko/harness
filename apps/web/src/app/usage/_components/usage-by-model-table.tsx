@@ -1,8 +1,8 @@
 // Usage by model table — displays per-model token and cost breakdown
 
-import { prisma } from 'database';
+import { prisma } from '@harness/database';
+import { Card, CardContent, CardHeader, CardTitle, Skeleton, Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@harness/ui';
 import { Suspense } from 'react';
-import { Card, CardContent, CardHeader, CardTitle, Skeleton, Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from 'ui';
 import { formatCost, formatTokenCount } from '../_helpers/format-cost';
 
 /**

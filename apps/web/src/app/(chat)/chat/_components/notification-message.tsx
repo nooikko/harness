@@ -1,7 +1,7 @@
-import type { Message } from 'database';
+import type { Message } from '@harness/database';
+import { Alert, AlertDescription, AlertTitle, cn } from '@harness/ui';
 import { ArrowRight, CheckCircle, XCircle } from 'lucide-react';
 import Link from 'next/link';
-import { Alert, AlertDescription, AlertTitle, cn } from 'ui';
 import type { CrossThreadMetadata } from '../_helpers/is-cross-thread-notification';
 
 type NotificationMessageProps = {

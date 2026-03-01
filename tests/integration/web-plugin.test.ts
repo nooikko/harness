@@ -1,5 +1,5 @@
+import { PrismaClient } from '@harness/database';
 import { plugin as webPlugin } from '@harness/plugin-web';
-import { PrismaClient } from 'database';
 import { afterAll, afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { TestHarness } from './helpers/create-harness';
 import { createTestHarness } from './helpers/create-harness';

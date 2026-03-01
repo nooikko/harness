@@ -3,7 +3,7 @@ import { describe, expect, it, vi } from 'vitest';
 
 const mockGroupBy = vi.fn();
 
-vi.mock('database', () => ({
+vi.mock('@harness/database', () => ({
   prisma: {
     agentRun: {
       groupBy: (...args: unknown[]) => mockGroupBy(...args),

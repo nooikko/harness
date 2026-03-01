@@ -22,8 +22,8 @@
     "test:watch": "vitest"
   },
   "dependencies": {
-    "@harness/logger": "workspace:*",
-    "database": "workspace:*"
+    "@harness/database": "workspace:*",
+    "@harness/logger": "workspace:*"
   },
   "devDependencies": {
     "@types/node": "^22.19.11",

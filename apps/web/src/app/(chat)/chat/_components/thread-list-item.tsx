@@ -1,9 +1,9 @@
 'use client';
 
-import type { Thread } from 'database';
+import type { Thread } from '@harness/database';
+import { cn } from '@harness/ui';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { cn } from 'ui';
 import { formatRelativeTime } from '../_helpers/format-relative-time';
 import { ThreadKindIcon } from './thread-kind-icon';
 

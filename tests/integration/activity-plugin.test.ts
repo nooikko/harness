@@ -1,6 +1,6 @@
+import { PrismaClient } from '@harness/database';
 import { plugin as activityPlugin } from '@harness/plugin-activity';
 import type { InvokeOptions } from '@harness/plugin-contract';
-import { PrismaClient } from 'database';
 import { afterAll, afterEach, beforeEach, describe, expect, it } from 'vitest';
 import type { TestHarness } from './helpers/create-harness';
 import { createTestHarness } from './helpers/create-harness';

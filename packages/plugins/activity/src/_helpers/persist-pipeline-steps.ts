@@ -1,5 +1,5 @@
+import type { PrismaClient } from '@harness/database';
 import type { PipelineStep } from '@harness/plugin-contract';
-import type { PrismaClient } from 'database';
 
 type PersistPipelineSteps = (db: PrismaClient, threadId: string, steps: PipelineStep[]) => Promise<void>;
 

@@ -2,8 +2,8 @@
 // Types are inlined here to avoid circular dependencies with the orchestrator
 // Also exports canonical hook runner utilities for iterating over plugin hooks
 
+import type { PrismaClient } from '@harness/database';
 import type { Logger } from '@harness/logger';
-import type { PrismaClient } from 'database';
 import { runChainHook } from './_helpers/run-chain-hook';
 import { runHook } from './_helpers/run-hook';
 import { runHookWithResult } from './_helpers/run-hook-with-result';

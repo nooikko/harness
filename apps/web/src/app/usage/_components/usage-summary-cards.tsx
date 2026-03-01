@@ -1,7 +1,7 @@
 // Usage summary cards — displays overview metrics as a card grid
 
+import { Card, CardContent, CardHeader, CardTitle } from '@harness/ui';
 import { Activity, Coins, FileInput, FileOutput } from 'lucide-react';
-import { Card, CardContent, CardHeader, CardTitle } from 'ui';
 import { formatCost, formatTokenCount } from '../_helpers/format-cost';
 import type { UsageSummary } from './usage-summary-section';
 

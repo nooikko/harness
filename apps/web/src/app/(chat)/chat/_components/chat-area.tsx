@@ -1,8 +1,8 @@
 'use client';
 
+import { ScrollArea } from '@harness/ui';
 import { useRouter } from 'next/navigation';
 import { useCallback, useEffect, useRef, useState, useTransition } from 'react';
-import { ScrollArea } from 'ui';
 import { useWs } from '@/app/_components/ws-provider';
 import { checkForResponse } from '../_actions/check-for-response';
 import { sendMessage } from '../_actions/send-message';

@@ -1,5 +1,5 @@
+import type { PluginConfig } from '@harness/database';
 import { render, screen } from '@testing-library/react';
-import type { PluginConfig } from 'database';
 import { describe, expect, it, vi } from 'vitest';
 
 // Mock next/navigation for usePathname

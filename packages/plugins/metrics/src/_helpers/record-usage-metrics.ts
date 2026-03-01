@@ -1,6 +1,6 @@
 // Record usage metrics — persists token usage and cost data to the Metric table
 
-import type { PrismaClient } from 'database';
+import type { PrismaClient } from '@harness/database';
 
 export type UsageMetricData = {
   threadId: string;

@@ -1,7 +1,7 @@
 // Budget warning — displays a warning when token usage approaches or exceeds the budget threshold
 
+import { Alert, AlertTitle, Card, CardContent, Progress } from '@harness/ui';
 import { AlertTriangle } from 'lucide-react';
-import { Alert, AlertTitle, Card, CardContent, Progress } from 'ui';
 import { formatCost } from '../_helpers/format-cost';
 
 /**

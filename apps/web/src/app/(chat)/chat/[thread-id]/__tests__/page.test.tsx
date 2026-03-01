@@ -1,11 +1,11 @@
-import type { Thread } from 'database';
+import type { Thread } from '@harness/database';
 import { renderToStaticMarkup } from 'react-dom/server';
 import { describe, expect, it, vi } from 'vitest';
 
 const mockFindUnique = vi.fn();
 const mockFindMany = vi.fn();
 
-vi.mock('database', () => ({
+vi.mock('@harness/database', () => ({
   prisma: {
     thread: {
       findUnique: (...args: unknown[]) => mockFindUnique(...args),

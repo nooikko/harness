@@ -1,8 +1,8 @@
 // Filters out disabled plugins based on database PluginConfig records
 
+import type { PrismaClient } from '@harness/database';
 import type { Logger } from '@harness/logger';
 import type { PluginDefinition } from '@harness/plugin-contract';
-import type { PrismaClient } from 'database';
 
 type FilterDisabledPlugins = (plugins: PluginDefinition[], db: PrismaClient, logger: Logger) => Promise<PluginDefinition[]>;
 

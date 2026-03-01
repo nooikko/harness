@@ -1,6 +1,6 @@
 // Loads recent conversation history from a Thread via Prisma
 
-import type { PrismaClient } from 'database';
+import type { PrismaClient } from '@harness/database';
 
 export type HistoryMessage = {
   role: string;

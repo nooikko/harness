@@ -1,4 +1,4 @@
-import type { PrismaClient } from 'database';
+import type { PrismaClient } from '@harness/database';
 
 type CreateScopedDb = (db: PrismaClient, pluginName: string) => PrismaClient;
 

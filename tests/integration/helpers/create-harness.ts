@@ -1,6 +1,6 @@
+import { PrismaClient } from '@harness/database';
 import { createLogger } from '@harness/logger';
 import type { InvokeResult, Invoker, OrchestratorConfig, PluginDefinition } from '@harness/plugin-contract';
-import { PrismaClient } from 'database';
 import { createOrchestrator } from 'orchestrator';
 import { type MockedFunction, vi } from 'vitest';
 

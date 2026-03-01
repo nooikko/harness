@@ -1,4 +1,4 @@
-import type { AgentRun, Message } from 'database';
+import type { AgentRun, Message } from '@harness/database';
 import { describe, expect, it } from 'vitest';
 import { matchRunToMessage } from '../match-run-to-message';
 

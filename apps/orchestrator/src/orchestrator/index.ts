@@ -1,5 +1,6 @@
 // Orchestrator module — plugin lifecycle management and message pipeline
 
+import type { PrismaClient } from '@harness/database';
 import type { Logger } from '@harness/logger';
 import type {
   InvokeResult,
@@ -13,7 +14,6 @@ import type {
   PluginSettingsSchemaInstance,
   SettingsFieldDefs,
 } from '@harness/plugin-contract';
-import type { PrismaClient } from 'database';
 import { createScopedDb } from './_helpers/create-scoped-db';
 import { getPluginSettings } from './_helpers/get-plugin-settings';
 import { parseCommands } from './_helpers/parse-commands';

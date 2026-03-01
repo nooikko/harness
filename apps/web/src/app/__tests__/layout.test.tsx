@@ -71,7 +71,7 @@ describe('RootLayout', () => {
     expect(html).toContain('flex h-screen flex-col');
   });
 
-  it('renders the TopBar with navigation links', () => {
+  it('renders the TopBar with the Harness logo and search', () => {
     const html = renderToStaticMarkup(
       <RootLayout>
         <span>content</span>
@@ -79,8 +79,6 @@ describe('RootLayout', () => {
     );
 
     expect(html).toContain('Harness');
-    expect(html).toContain('Chat');
-    expect(html).toContain('Usage');
-    expect(html).toContain('Admin');
+    expect(html).toContain('Search');
   });
 });

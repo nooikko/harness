@@ -1,7 +1,7 @@
 import type { NextConfig } from 'next';
 
 const nextConfig: NextConfig = {
-  transpilePackages: ['ui', 'database', '@harness/plugin-contract'],
+  transpilePackages: ['@harness/ui', '@harness/database', '@harness/plugin-contract'],
 };
 
 export default nextConfig;

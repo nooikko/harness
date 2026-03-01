@@ -1,5 +1,5 @@
+import { PrismaClient } from '@harness/database';
 import { plugin as metricsPlugin } from '@harness/plugin-metrics';
-import { PrismaClient } from 'database';
 import { afterAll, afterEach, beforeEach, describe, expect, it } from 'vitest';
 import type { TestHarness } from './helpers/create-harness';
 import { createTestHarness } from './helpers/create-harness';
@@ -56,8 +56,8 @@ describe('metrics plugin integration', () => {
     expect(totalMetric?.value).toBe(280);
 
     expect(costMetric).toBeDefined();
-    // haiku: (200 / 1_000_000) * 0.8 + (80 / 1_000_000) * 4 = 0.00016 + 0.00032
-    expect(costMetric?.value).toBe(0.00048);
+    // haiku: (200 / 1_000_000) * 0.8 + (80 / 1_000_000) * 4 = 0.00016 + 0.00032 = 0.00048
+    expect(costMetric?.value).toBeCloseTo(0.00048, 7);
   });
 
   it('does not write any Metric row when the invoker returns model: undefined', async () => {

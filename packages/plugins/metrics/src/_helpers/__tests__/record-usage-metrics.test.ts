@@ -2,7 +2,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 const mockCreateMany = vi.fn();
 
-vi.mock('database', () => ({
+vi.mock('@harness/database', () => ({
   prisma: {
     metric: {
       createMany: (...args: unknown[]) => mockCreateMany(...args),

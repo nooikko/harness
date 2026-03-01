@@ -1,7 +1,7 @@
 'use client';
 
+import { Button, Input, Label } from '@harness/ui';
 import { useActionState } from 'react';
-import { Button, Input, Label } from 'ui';
 import type { PluginSettingsField } from '@/generated/plugin-settings-registry';
 import { savePluginSettings } from '../_actions/save-plugin-settings';
 

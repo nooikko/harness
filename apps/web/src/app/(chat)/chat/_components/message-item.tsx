@@ -1,4 +1,4 @@
-import type { Message } from 'database';
+import type { Message } from '@harness/database';
 import { Info } from 'lucide-react';
 import { formatModelName } from '../_helpers/format-model-name';
 import { isCrossThreadNotification } from '../_helpers/is-cross-thread-notification';

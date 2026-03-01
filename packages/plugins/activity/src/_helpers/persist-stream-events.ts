@@ -1,5 +1,5 @@
+import type { PrismaClient } from '@harness/database';
 import type { InvokeStreamEvent } from '@harness/plugin-contract';
-import type { PrismaClient } from 'database';
 import { parsePluginSource } from './parse-plugin-source';
 
 type PersistStreamEvents = (db: PrismaClient, threadId: string, events: InvokeStreamEvent[]) => Promise<void>;

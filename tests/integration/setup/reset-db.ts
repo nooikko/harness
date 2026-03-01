@@ -1,4 +1,4 @@
-import type { PrismaClient } from 'database';
+import type { PrismaClient } from '@harness/database';
 
 export const resetDatabase = async (prisma: PrismaClient): Promise<void> => {
   await prisma.$executeRawUnsafe(`

@@ -5,7 +5,7 @@ const mockFindUnique = vi.fn();
 const mockRevalidatePath = vi.fn();
 const mockFetch = vi.fn();
 
-vi.mock('database', () => ({
+vi.mock('@harness/database', () => ({
   prisma: {
     pluginConfig: {
       upsert: (...args: unknown[]) => mockUpsert(...args),

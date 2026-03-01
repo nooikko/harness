@@ -4,7 +4,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 const mockAggregate = vi.fn();
 const mockCount = vi.fn();
 
-vi.mock('database', () => ({
+vi.mock('@harness/database', () => ({
   prisma: {
     metric: {
       aggregate: (...args: unknown[]) => mockAggregate(...args),

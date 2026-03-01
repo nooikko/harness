@@ -44,6 +44,9 @@ importers:
       '@anthropic-ai/claude-agent-sdk':
         specifier: ^0.2.52
         version: 0.2.52(zod@4.3.6)
+      '@harness/database':
+        specifier: workspace:*
+        version: link:../../packages/database
       '@harness/logger':
         specifier: workspace:*
         version: link:../../packages/logger
@@ -71,9 +74,6 @@ importers:
       '@harness/plugin-web':
         specifier: workspace:*
         version: link:../../packages/plugins/web
-      database:
-        specifier: workspace:*
-        version: link:../../packages/database
       zod:
         specifier: ^4.3.6
         version: 4.3.6
@@ -99,9 +99,15 @@ importers:
 
   apps/web:
     dependencies:
+      '@harness/database':
+        specifier: workspace:*
+        version: link:../../packages/database
       '@harness/plugin-contract':
         specifier: workspace:*
         version: link:../../packages/plugin-contract
+      '@harness/ui':
+        specifier: workspace:*
+        version: link:../../packages/ui
       '@lexical/react':
         specifier: ^0.41.0
         version: 0.41.0(react-dom@19.2.4(react@19.2.4))(react@19.2.4)(yjs@13.6.29)
@@ -117,9 +123,6 @@ importers:
       clsx:
         specifier: ^2.1.1
         version: 2.1.1
-      database:
-        specifier: workspace:*
-        version: link:../../packages/database
       lexical:
         specifier: ^0.41.0
         version: 0.41.0
@@ -150,9 +153,6 @@ importers:
       tw-animate-css:
         specifier: ^1.4.0
         version: 1.4.0
-      ui:
-        specifier: workspace:*
-        version: link:../../packages/ui
     devDependencies:
       '@tailwindcss/postcss':
         specifier: ^4.2.0
@@ -248,12 +248,12 @@ importers:
 
   packages/plugin-contract:
     dependencies:
+      '@harness/database':
+        specifier: workspace:*
+        version: link:../database
       '@harness/logger':
         specifier: workspace:*
         version: link:../logger
-      database:
-        specifier: workspace:*
-        version: link:../database
     devDependencies:
       '@types/node':
         specifier: ^22.19.11
@@ -275,12 +275,12 @@ importers:
 
   packages/plugins/activity:
     dependencies:
+      '@harness/database':
+        specifier: workspace:*
+        version: link:../../database
       '@harness/plugin-contract':
         specifier: workspace:*
         version: link:../../plugin-contract
-      database:
-        specifier: workspace:*
-        version: link:../../database
     devDependencies:
       '@types/node':
         specifier: ^22.19.11
@@ -300,12 +300,12 @@ importers:
 
   packages/plugins/context:
     dependencies:
+      '@harness/database':
+        specifier: workspace:*
+        version: link:../../database
       '@harness/plugin-contract':
         specifier: workspace:*
         version: link:../../plugin-contract
-      database:
-        specifier: workspace:*
-        version: link:../../database
     devDependencies:
       '@types/node':
         specifier: ^22.19.11
@@ -325,12 +325,12 @@ importers:
 
   packages/plugins/delegation:
     dependencies:
+      '@harness/database':
+        specifier: workspace:*
+        version: link:../../database
       '@harness/plugin-contract':
         specifier: workspace:*
         version: link:../../plugin-contract
-      database:
-        specifier: workspace:*
-        version: link:../../database
     devDependencies:
       '@types/node':
         specifier: ^22.19.11
@@ -350,12 +350,12 @@ importers:
 
   packages/plugins/discord:
     dependencies:
+      '@harness/database':
+        specifier: workspace:*
+        version: link:../../database
       '@harness/plugin-contract':
         specifier: workspace:*
         version: link:../../plugin-contract
-      database:
-        specifier: workspace:*
-        version: link:../../database
       discord.js:
         specifier: ^14.25.1
         version: 14.25.1
@@ -378,12 +378,12 @@ importers:
 
   packages/plugins/metrics:
     dependencies:
+      '@harness/database':
+        specifier: workspace:*
+        version: link:../../database
       '@harness/plugin-contract':
         specifier: workspace:*
         version: link:../../plugin-contract
-      database:
-        specifier: workspace:*
-        version: link:../../database
     devDependencies:
       '@types/node':
         specifier: ^22.19.11
@@ -425,6 +425,9 @@ importers:
 
   packages/plugins/web:
     dependencies:
+      '@harness/database':
+        specifier: workspace:*
+        version: link:../../database
       '@harness/logger':
         specifier: workspace:*
         version: link:../../logger
@@ -434,9 +437,6 @@ importers:
       cors:
         specifier: ^2.8.6
         version: 2.8.6
-      database:
-        specifier: workspace:*
-        version: link:../../database
       express:
         specifier: ^5.2.1
         version: 5.2.1
@@ -550,6 +550,9 @@ importers:
 
   tests/integration:
     devDependencies:
+      '@harness/database':
+        specifier: workspace:*
+        version: link:../../packages/database
       '@harness/logger':
         specifier: workspace:*
         version: link:../../packages/logger
@@ -583,9 +586,6 @@ importers:
       '@vitest/coverage-v8':
         specifier: ^4.0.18
         version: 4.0.18(vitest@4.0.18(@types/node@22.19.11)(jiti@2.6.1)(jsdom@28.1.0)(lightningcss@1.31.1)(tsx@4.21.0)(yaml@2.8.2))
-      database:
-        specifier: workspace:*
-        version: link:../../packages/database
       orchestrator:
         specifier: workspace:*
         version: link:../../apps/orchestrator

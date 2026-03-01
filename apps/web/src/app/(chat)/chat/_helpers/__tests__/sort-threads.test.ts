@@ -1,4 +1,4 @@
-import type { Thread } from 'database';
+import type { Thread } from '@harness/database';
 import { describe, expect, it } from 'vitest';
 import { sortThreads } from '../sort-threads';
 

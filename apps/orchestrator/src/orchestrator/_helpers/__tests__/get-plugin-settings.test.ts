@@ -1,5 +1,5 @@
+import type { PrismaClient } from '@harness/database';
 import { createSettingsSchema } from '@harness/plugin-contract';
-import type { PrismaClient } from 'database';
 import { describe, expect, it, vi } from 'vitest';
 import { getPluginSettings } from '../get-plugin-settings';
 

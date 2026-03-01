@@ -1,6 +1,6 @@
 'use client';
 
-import type { Message } from 'database';
+import type { Message } from '@harness/database';
 import { ChevronDown, ChevronRight, Loader2 } from 'lucide-react';
 import { useState } from 'react';
 

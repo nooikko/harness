@@ -3,7 +3,7 @@ import { describe, expect, it, vi } from 'vitest';
 
 const mockFindMany = vi.fn();
 
-vi.mock('database', () => ({
+vi.mock('@harness/database', () => ({
   prisma: {
     thread: {
       findMany: (...args: unknown[]) => mockFindMany(...args),

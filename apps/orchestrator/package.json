@@ -15,6 +15,7 @@
   },
   "dependencies": {
     "@anthropic-ai/claude-agent-sdk": "^0.2.52",
+    "@harness/database": "workspace:*",
     "@harness/logger": "workspace:*",
     "@harness/plugin-activity": "workspace:*",
     "@harness/plugin-context": "workspace:*",
@@ -24,7 +25,6 @@
     "@harness/plugin-metrics": "workspace:*",
     "@harness/plugin-time": "workspace:*",
     "@harness/plugin-web": "workspace:*",
-    "database": "workspace:*",
     "zod": "^4.3.6"
   },
   "devDependencies": {

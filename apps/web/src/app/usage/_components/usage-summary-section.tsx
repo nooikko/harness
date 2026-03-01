@@ -1,8 +1,8 @@
 // Async server component that fetches usage summary and renders budget + cards
 
-import { prisma } from 'database';
+import { prisma } from '@harness/database';
+import { Skeleton } from '@harness/ui';
 import { Suspense } from 'react';
-import { Skeleton } from 'ui';
 import { BudgetWarning } from './budget-warning';
 import { UsageSummaryCards } from './usage-summary-cards';
 

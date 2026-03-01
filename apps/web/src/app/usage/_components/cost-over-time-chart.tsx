@@ -1,6 +1,6 @@
-import { prisma } from 'database';
+import { prisma } from '@harness/database';
+import { Card, CardContent, CardHeader, CardTitle, Skeleton } from '@harness/ui';
 import { Suspense } from 'react';
-import { Card, CardContent, CardHeader, CardTitle, Skeleton } from 'ui';
 import { formatCost } from '../_helpers/format-cost';
 
 type DailyCost = {

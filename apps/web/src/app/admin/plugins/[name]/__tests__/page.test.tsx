@@ -12,7 +12,7 @@ vi.mock('next/navigation', () => ({
 
 const mockFindUnique = vi.fn();
 
-vi.mock('database', () => ({
+vi.mock('@harness/database', () => ({
   prisma: {
     pluginConfig: {
       findUnique: (...args: unknown[]) => mockFindUnique(...args),

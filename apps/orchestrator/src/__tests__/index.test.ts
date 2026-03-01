@@ -6,7 +6,7 @@ vi.mock('@harness/logger', () => ({
   createLogger: vi.fn(),
 }));
 
-vi.mock('database', () => ({
+vi.mock('@harness/database', () => ({
   prisma: {
     $connect: vi.fn().mockResolvedValue(undefined),
     $disconnect: vi.fn().mockResolvedValue(undefined),
@@ -42,8 +42,8 @@ vi.mock('../tool-server', () => ({
   createToolServer: vi.fn(),
 }));
 
+import { prisma } from '@harness/database';
 import { createLogger } from '@harness/logger';
-import { prisma } from 'database';
 import { loadConfig } from '../config';
 import { createHealthCheck } from '../health-check';
 import { boot, main } from '../index';

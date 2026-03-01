@@ -1,4 +1,4 @@
-import type { Message } from 'database';
+import type { Message } from '@harness/database';
 import { describe, expect, it } from 'vitest';
 import { isCrossThreadNotification } from '../is-cross-thread-notification';
 

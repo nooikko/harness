@@ -1,7 +1,7 @@
 'use client';
 
+import { Button } from '@harness/ui';
 import { ArrowDown } from 'lucide-react';
-import { Button } from 'ui';
 
 type ScrollToBottomButtonProps = {
   isVisible: boolean;

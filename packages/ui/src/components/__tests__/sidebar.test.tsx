@@ -13,6 +13,10 @@ import {
   SidebarMenuBadge,
   SidebarMenuButton,
   SidebarMenuItem,
+  SidebarMenuSub,
+  SidebarMenuSubButton,
+  SidebarMenuSubItem,
+  SidebarRail,
   SidebarSeparator,
 } from '../sidebar';
 
@@ -175,6 +179,64 @@ describe('Sidebar', () => {
   it('renders SidebarSeparator', () => {
     render(<SidebarSeparator data-testid='sep' />);
     expect(screen.getByTestId('sep')).toHaveAttribute('data-sidebar', 'separator');
+  });
+
+  it('renders SidebarMenuSub as a ul', () => {
+    render(<SidebarMenuSub data-testid='sub' />);
+    expect(screen.getByTestId('sub').tagName).toBe('UL');
+    expect(screen.getByTestId('sub')).toHaveAttribute('data-sidebar', 'menu-sub');
+  });
+
+  it('renders SidebarMenuSubItem as a li', () => {
+    render(
+      <SidebarMenuSub>
+        <SidebarMenuSubItem data-testid='sub-item'>item</SidebarMenuSubItem>
+      </SidebarMenuSub>,
+    );
+    expect(screen.getByTestId('sub-item').tagName).toBe('LI');
+    expect(screen.getByTestId('sub-item')).toHaveAttribute('data-sidebar', 'menu-sub-item');
+  });
+
+  it('renders SidebarMenuSubButton as an anchor by default', () => {
+    render(<SidebarMenuSubButton data-testid='sub-btn'>sub</SidebarMenuSubButton>);
+    expect(screen.getByTestId('sub-btn').tagName).toBe('A');
+    expect(screen.getByTestId('sub-btn')).toHaveAttribute('data-sidebar', 'menu-sub-button');
+    expect(screen.getByTestId('sub-btn')).toHaveAttribute('data-size', 'md');
+    expect(screen.getByTestId('sub-btn')).toHaveAttribute('data-active', 'false');
+  });
+
+  it('renders SidebarMenuSubButton with size sm', () => {
+    render(
+      <SidebarMenuSubButton size='sm' data-testid='sub-sm'>
+        sm
+      </SidebarMenuSubButton>,
+    );
+    expect(screen.getByTestId('sub-sm')).toHaveAttribute('data-size', 'sm');
+  });
+
+  it('renders SidebarMenuSubButton with isActive', () => {
+    render(
+      <SidebarMenuSubButton isActive data-testid='sub-active'>
+        active
+      </SidebarMenuSubButton>,
+    );
+    expect(screen.getByTestId('sub-active')).toHaveAttribute('data-active', 'true');
+  });
+
+  it('renders SidebarMenuSubButton with asChild', () => {
+    render(
+      <SidebarMenuSubButton asChild>
+        <span data-testid='sub-child'>child</span>
+      </SidebarMenuSubButton>,
+    );
+    expect(screen.getByTestId('sub-child').tagName).toBe('SPAN');
+  });
+
+  it('renders SidebarRail as a button', () => {
+    render(<SidebarRail data-testid='rail' />);
+    expect(screen.getByTestId('rail').tagName).toBe('BUTTON');
+    expect(screen.getByTestId('rail')).toHaveAttribute('data-sidebar', 'rail');
+    expect(screen.getByTestId('rail')).toHaveAttribute('aria-label', 'Toggle Sidebar');
   });
 
   it('renders a complete sidebar structure', () => {

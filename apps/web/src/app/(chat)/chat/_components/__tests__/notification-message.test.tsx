@@ -1,5 +1,5 @@
+import type { Message } from '@harness/database';
 import { render, screen } from '@testing-library/react';
-import type { Message } from 'database';
 import { describe, expect, it } from 'vitest';
 import type { CrossThreadMetadata } from '../../_helpers/is-cross-thread-notification';
 import { NotificationMessage } from '../notification-message';

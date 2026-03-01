@@ -1,5 +1,6 @@
 // Plugin registry — static imports of all known plugins, filtered by database config
 
+import type { PrismaClient } from '@harness/database';
 import type { Logger } from '@harness/logger';
 import { plugin as activityPlugin } from '@harness/plugin-activity';
 import { plugin as contextPlugin } from '@harness/plugin-context';
@@ -9,7 +10,6 @@ import { plugin as discordPlugin } from '@harness/plugin-discord';
 import { plugin as metricsPlugin } from '@harness/plugin-metrics';
 import { plugin as timePlugin } from '@harness/plugin-time';
 import { plugin as webPlugin } from '@harness/plugin-web';
-import type { PrismaClient } from 'database';
 import { filterDisabledPlugins } from './_helpers/filter-disabled-plugins';
 import { syncPluginConfigs } from './_helpers/sync-plugin-configs';
 

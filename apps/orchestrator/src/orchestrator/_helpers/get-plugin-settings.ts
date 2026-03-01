@@ -1,6 +1,6 @@
+import type { PrismaClient } from '@harness/database';
 import type { InferSettings, PluginSettingsSchemaInstance, SettingsFieldDefs } from '@harness/plugin-contract';
 import { decryptValue } from '@harness/plugin-contract';
-import type { PrismaClient } from 'database';
 
 const ENCRYPTION_KEY = process.env.HARNESS_ENCRYPTION_KEY ?? '';
 

@@ -4,7 +4,7 @@ const mockFindUniqueOrThrow = vi.fn();
 const mockUpdate = vi.fn();
 const mockRevalidatePath = vi.fn();
 
-vi.mock('database', () => ({
+vi.mock('@harness/database', () => ({
   prisma: {
     pluginConfig: {
       findUniqueOrThrow: (...args: unknown[]) => mockFindUniqueOrThrow(...args),

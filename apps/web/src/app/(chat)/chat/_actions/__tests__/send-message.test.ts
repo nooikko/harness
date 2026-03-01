@@ -4,7 +4,7 @@ const mockCreate = vi.fn();
 const mockUpdate = vi.fn();
 const mockRevalidatePath = vi.fn();
 
-vi.mock('database', () => ({
+vi.mock('@harness/database', () => ({
   prisma: {
     message: {
       create: (...args: unknown[]) => mockCreate(...args),

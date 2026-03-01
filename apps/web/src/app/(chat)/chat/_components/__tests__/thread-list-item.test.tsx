@@ -1,5 +1,5 @@
+import type { Thread } from '@harness/database';
 import { render, screen } from '@testing-library/react';
-import type { Thread } from 'database';
 import { describe, expect, it, vi } from 'vitest';
 
 let mockPathname = '/';

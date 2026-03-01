@@ -1,6 +1,6 @@
+import type { PrismaClient } from '@harness/database';
 import type { Logger } from '@harness/logger';
 import type { PluginDefinition } from '@harness/plugin-contract';
-import type { PrismaClient } from 'database';
 import { describe, expect, it, vi } from 'vitest';
 import { syncPluginConfigs } from '../sync-plugin-configs';
 

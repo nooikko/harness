@@ -1,8 +1,21 @@
 // Agent runs table — displays model invocations with token and cost data
 
-import { prisma } from 'database';
+import { prisma } from '@harness/database';
+import {
+  Badge,
+  Card,
+  CardContent,
+  CardHeader,
+  CardTitle,
+  Skeleton,
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from '@harness/ui';
 import { Suspense } from 'react';
-import { Badge, Card, CardContent, CardHeader, CardTitle, Skeleton, Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from 'ui';
 
 type StatusVariant = 'default' | 'secondary' | 'destructive' | 'outline';
 

@@ -22,8 +22,8 @@
     "test:watch": "vitest"
   },
   "dependencies": {
-    "@harness/plugin-contract": "workspace:*",
-    "database": "workspace:*"
+    "@harness/database": "workspace:*",
+    "@harness/plugin-contract": "workspace:*"
   },
   "devDependencies": {
     "@types/node": "^22.19.11",

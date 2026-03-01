@@ -31,12 +31,12 @@ describe('ChatLayout', () => {
     expect(html).toContain('Main content');
   });
 
-  it('renders sidebar skeleton as Suspense fallback', () => {
+  it('renders the sidebar', () => {
     const html = renderToStaticMarkup(
       <ChatLayout>
         <p>Content</p>
       </ChatLayout>,
     );
-    expect(html).toContain('data-slot="skeleton"');
+    expect(html).toContain('data-slot="sidebar"');
   });
 });

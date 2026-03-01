@@ -1,8 +1,22 @@
 // Plugins table — displays all plugin configurations with toggle controls
 
-import { prisma } from 'database';
+import { prisma } from '@harness/database';
+import {
+  Badge,
+  Button,
+  Card,
+  CardContent,
+  CardHeader,
+  CardTitle,
+  Skeleton,
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from '@harness/ui';
 import { Suspense } from 'react';
-import { Badge, Button, Card, CardContent, CardHeader, CardTitle, Skeleton, Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from 'ui';
 import { togglePlugin } from '../_actions/toggle-plugin';
 
 type StatusVariant = 'default' | 'secondary';

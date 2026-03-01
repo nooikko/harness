@@ -3,7 +3,7 @@ import { describe, expect, it, vi } from 'vitest';
 const mockUpdate = vi.fn();
 const mockRevalidatePath = vi.fn();
 
-vi.mock('database', () => ({
+vi.mock('@harness/database', () => ({
   prisma: {
     thread: {
       update: (...args: unknown[]) => mockUpdate(...args),

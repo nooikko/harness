@@ -1,8 +1,8 @@
 // Bootstrap and lifecycle manager — orchestrator entry point
 
+import { prisma } from '@harness/database';
 import { createLogger } from '@harness/logger';
 import type { PluginDefinition } from '@harness/plugin-contract';
-import { prisma } from 'database';
 import { loadConfig } from './config';
 import { createHealthCheck } from './health-check';
 import { createSdkInvoker } from './invoker-sdk';

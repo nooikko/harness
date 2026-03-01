@@ -1,4 +1,4 @@
-import { prisma } from 'database';
+import { prisma } from '@harness/database';
 import { notFound } from 'next/navigation';
 import { ChatArea } from '../_components/chat-area';
 import { MessageList } from '../_components/message-list';

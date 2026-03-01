@@ -1,4 +1,4 @@
-import { prisma } from 'database';
+import { prisma } from '@harness/database';
 import { notFound } from 'next/navigation';
 import { pluginSettingsRegistry } from '@/generated/plugin-settings-registry';
 import { ConnectionStatus } from './_components/connection-status';

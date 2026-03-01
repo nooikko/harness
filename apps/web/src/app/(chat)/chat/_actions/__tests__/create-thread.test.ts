@@ -3,7 +3,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 const mockCreate = vi.fn();
 const mockRevalidatePath = vi.fn();
 
-vi.mock('database', () => ({
+vi.mock('@harness/database', () => ({
   prisma: {
     thread: {
       create: (...args: unknown[]) => mockCreate(...args),

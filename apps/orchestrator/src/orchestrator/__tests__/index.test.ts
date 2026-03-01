@@ -1,6 +1,6 @@
+import type { PrismaClient } from '@harness/database';
 import type { Logger } from '@harness/logger';
 import type { InvokeResult, Invoker, OrchestratorConfig, PluginContext, PluginDefinition, PluginHooks } from '@harness/plugin-contract';
-import type { PrismaClient } from 'database';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import type { OrchestratorDeps } from '../index';
 import { createOrchestrator } from '../index';

@@ -1,9 +1,9 @@
 'use client';
 
-import type { PluginConfig } from 'database';
+import type { PluginConfig } from '@harness/database';
+import { cn } from '@harness/ui';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { cn } from 'ui';
 
 type PluginsNavProps = { configs: PluginConfig[] };
 

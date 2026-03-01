@@ -1,4 +1,4 @@
-import { prisma } from 'database';
+import { prisma } from '@harness/database';
 import { PluginsNav } from './_components/plugins-nav';
 
 type PluginsLayoutProps = { children: React.ReactNode };

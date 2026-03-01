@@ -28,13 +28,21 @@ describe('Table', () => {
   });
 
   it('wraps in overflow container', () => {
-    const { container } = render(<Table>Content</Table>);
+    const { container } = render(
+      <Table>
+        <TableBody />
+      </Table>,
+    );
     const wrapper = container.firstChild as HTMLElement;
     expect(wrapper.className).toContain('overflow-x-auto');
   });
 
   it('merges custom className on table', () => {
-    render(<Table className='my-table'>Content</Table>);
+    render(
+      <Table className='my-table'>
+        <TableBody />
+      </Table>,
+    );
     expect(screen.getByRole('table').className).toContain('my-table');
   });
 });
