@@ -24,6 +24,7 @@
     "@harness/plugin-discord": "workspace:*",
     "@harness/plugin-metrics": "workspace:*",
     "@harness/plugin-time": "workspace:*",
+    "@harness/plugin-validator": "workspace:*",
     "@harness/plugin-web": "workspace:*",
     "zod": "^4.3.6"
   },
