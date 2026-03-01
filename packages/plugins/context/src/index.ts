@@ -59,15 +59,24 @@ const createRegister: CreateRegister = (options) => {
         const contextSection = formatContextSection(contextResult.files);
 
         // Check if thread has an active session — if so, Claude already has history via --resume
-        const thread = await ctx.db.thread.findUnique({
-          where: { id: threadId },
-          select: { sessionId: true },
-        });
+        let thread: { sessionId: string | null } | null = null;
+        let dbAvailable = true;
+        try {
+          thread = await ctx.db.thread.findUnique({
+            where: { id: threadId },
+            select: { sessionId: true },
+          });
+        } catch (err) {
+          dbAvailable = false;
+          ctx.logger.warn(
+            `Context plugin: DB unavailable during onBeforeInvoke [thread=${threadId}], skipping history: ${err instanceof Error ? err.message : String(err)}`,
+          );
+        }
 
         let historySection = '';
         if (thread?.sessionId) {
           ctx.logger.info(`Skipping history injection for resumed session [thread=${threadId}]`);
-        } else {
+        } else if (dbAvailable) {
           const historyResult = await loadHistory(ctx.db, threadId, historyLimit);
           historySection = formatHistorySection(historyResult);
         }

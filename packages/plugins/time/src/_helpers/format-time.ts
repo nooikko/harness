@@ -9,7 +9,7 @@ type FormatTime = (options: FormatTimeOptions) => string;
 
 export const formatTime: FormatTime = (options) => {
   const date = options.now ?? new Date();
-  const formatted = date.toLocaleString('en-US', {
+  return new Intl.DateTimeFormat('en-US', {
     timeZone: options.timezone,
     weekday: 'long',
     year: 'numeric',
@@ -19,6 +19,5 @@ export const formatTime: FormatTime = (options) => {
     minute: '2-digit',
     second: '2-digit',
     timeZoneName: 'short',
-  });
-  return formatted;
+  }).format(date);
 };

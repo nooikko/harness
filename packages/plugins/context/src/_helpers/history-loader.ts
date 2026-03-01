@@ -32,7 +32,7 @@ export const loadHistory: LoadHistory = async (db, threadId, limit) => {
   });
 
   // Reverse so messages are in chronological order (oldest first)
-  const chronological = messages.reverse();
+  const chronological = messages.reverse().filter((m) => m.role != null && m.content != null);
 
   return { messages: chronological, threadId };
 };

@@ -404,6 +404,93 @@ describe('discord plugin', () => {
 
       expect(ctx.logger.error).toHaveBeenCalledWith(expect.stringContaining('failed to process message'));
     });
+
+    it('retries message delivery after P2002 upsert race when thread is found', async () => {
+      mockLogin.mockResolvedValue('token');
+      const ctx = createMockContext({ discordToken: 'test-token' });
+
+      const p2002Error = Object.assign(new Error('Unique constraint'), { code: 'P2002' });
+      const mockFindUnique = vi.fn().mockResolvedValue({ id: 'thread-existing' });
+      (ctx.db.thread.upsert as ReturnType<typeof vi.fn>).mockRejectedValue(p2002Error);
+      (ctx.db.thread as unknown as Record<string, unknown>).findUnique = mockFindUnique;
+
+      await plugin.start?.(ctx);
+
+      type MessageHandler = (msg: unknown) => Promise<void>;
+      const handler = findHandler<MessageHandler>(mockOn, 'messageCreate');
+
+      const validMessage = {
+        author: { bot: false, id: 'user-1', username: 'test', displayName: 'Test' },
+        mentions: { users: new Map([['bot-123', {}]]) },
+        guild: { id: 'guild-1' },
+        content: '<@bot-123> hello',
+        channel: { id: 'chan-1', name: 'general', isThread: () => false },
+      };
+
+      await handler?.(validMessage);
+
+      expect(ctx.db.message.create as ReturnType<typeof vi.fn>).toHaveBeenCalledWith(
+        expect.objectContaining({ data: expect.objectContaining({ threadId: 'thread-existing' }) }),
+      );
+      expect(ctx.broadcast).toHaveBeenCalledWith('discord:message', expect.objectContaining({ threadId: 'thread-existing' }));
+    });
+
+    it('handles P2002 race silently when retry find returns null', async () => {
+      mockLogin.mockResolvedValue('token');
+      const ctx = createMockContext({ discordToken: 'test-token' });
+
+      const p2002Error = Object.assign(new Error('Unique constraint'), { code: 'P2002' });
+      const mockFindUnique = vi.fn().mockResolvedValue(null);
+      (ctx.db.thread.upsert as ReturnType<typeof vi.fn>).mockRejectedValue(p2002Error);
+      (ctx.db.thread as unknown as Record<string, unknown>).findUnique = mockFindUnique;
+
+      await plugin.start?.(ctx);
+
+      type MessageHandler = (msg: unknown) => Promise<void>;
+      const handler = findHandler<MessageHandler>(mockOn, 'messageCreate');
+
+      const validMessage = {
+        author: { bot: false, id: 'user-1', username: 'test', displayName: 'Test' },
+        mentions: { users: new Map([['bot-123', {}]]) },
+        guild: { id: 'guild-1' },
+        content: '<@bot-123> hello',
+        channel: { id: 'chan-1', name: 'general', isThread: () => false },
+      };
+
+      await handler?.(validMessage);
+
+      // No discord:message broadcast when thread is still not found after race retry
+      const broadcastCalls = (ctx.broadcast as ReturnType<typeof vi.fn>).mock.calls;
+      const discordMsgCalls = broadcastCalls.filter((c: unknown[]) => c[0] === 'discord:message');
+      expect(discordMsgCalls).toHaveLength(0);
+    });
+
+    it('logs error when retry itself fails after P2002 race', async () => {
+      mockLogin.mockResolvedValue('token');
+      const ctx = createMockContext({ discordToken: 'test-token' });
+
+      const p2002Error = Object.assign(new Error('Unique constraint'), { code: 'P2002' });
+      const mockFindUnique = vi.fn().mockRejectedValue(new Error('retry DB failed'));
+      (ctx.db.thread.upsert as ReturnType<typeof vi.fn>).mockRejectedValue(p2002Error);
+      (ctx.db.thread as unknown as Record<string, unknown>).findUnique = mockFindUnique;
+
+      await plugin.start?.(ctx);
+
+      type MessageHandler = (msg: unknown) => Promise<void>;
+      const handler = findHandler<MessageHandler>(mockOn, 'messageCreate');
+
+      const validMessage = {
+        author: { bot: false, id: 'user-1', username: 'test', displayName: 'Test' },
+        mentions: { users: new Map([['bot-123', {}]]) },
+        guild: { id: 'guild-1' },
+        content: '<@bot-123> hello',
+        channel: { id: 'chan-1', name: 'general', isThread: () => false },
+      };
+
+      await handler?.(validMessage);
+
+      expect(ctx.logger.error).toHaveBeenCalledWith(expect.stringContaining('retry after race failed'));
+    });
   });
 
   describe('connection broadcasts', () => {
@@ -640,7 +727,7 @@ describe('discord plugin', () => {
 
     it('handles empty string', () => {
       const result = splitMessage('');
-      expect(result).toEqual(['']);
+      expect(result).toEqual([]);
     });
   });
 

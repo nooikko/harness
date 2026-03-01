@@ -2,7 +2,12 @@ import type { InvokeResult, PluginContext, PluginHooks } from '@harness/plugin-c
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { runDelegationLoop } from '../delegation-loop';
 
+vi.mock('../calculate-backoff-ms', () => ({
+  calculateBackoffMs: vi.fn().mockReturnValue(0),
+}));
+
 type MockDb = {
+  $transaction: ReturnType<typeof vi.fn>;
   thread: {
     create: ReturnType<typeof vi.fn>;
     update: ReturnType<typeof vi.fn>;
@@ -16,6 +21,7 @@ type MockDb = {
   };
   agentRun: {
     create: ReturnType<typeof vi.fn>;
+    aggregate: ReturnType<typeof vi.fn>;
   };
   metric: {
     createMany: ReturnType<typeof vi.fn>;
@@ -42,10 +48,13 @@ const createMockContext: CreateMockContext = (overrides) => {
     },
     agentRun: {
       create: vi.fn().mockResolvedValue({ id: 'run-123' }),
+      aggregate: vi.fn().mockResolvedValue({ _sum: { costEstimate: 0 } }),
     },
     metric: {
       createMany: vi.fn().mockResolvedValue({ count: 4 }),
     },
+    // $transaction executes the callback with the same db as the tx client
+    $transaction: vi.fn().mockImplementation((fn: (tx: unknown) => Promise<unknown>) => fn(db)),
   };
 
   const defaultInvokeResult: InvokeResult = {
@@ -192,6 +201,7 @@ describe('runDelegationLoop', () => {
     expect(mockCtx.invoker.invoke).toHaveBeenCalledWith('Research topic', {
       model: undefined,
       threadId: 'thread-task-1',
+      timeout: 30000,
       onMessage: expect.any(Function),
     });
   });
@@ -208,6 +218,7 @@ describe('runDelegationLoop', () => {
     expect(mockCtx.invoker.invoke).toHaveBeenCalledWith('Research topic', {
       model: 'claude-opus-4-20250514',
       threadId: 'thread-task-1',
+      timeout: 30000,
       onMessage: expect.any(Function),
     });
   });
@@ -883,5 +894,88 @@ describe('runDelegationLoop', () => {
     const notificationData = (notificationCall?.[0] as { data: { content: string; metadata: { status: string } } }).data;
     expect(notificationData.metadata.status).toBe('failed');
     expect(notificationData.content).toContain('failed');
+  });
+
+  it('cost cap stops the loop when budget is exceeded after a failed invoke', async () => {
+    const invokeMock = vi.fn().mockResolvedValue({
+      output: '',
+      durationMs: 200,
+      exitCode: 1,
+      error: 'timeout',
+    });
+
+    const { ctx, db } = createMockContext();
+    (ctx as unknown as { invoker: { invoke: ReturnType<typeof vi.fn> } }).invoker.invoke = invokeMock;
+    // Simulate $5.00 already spent — at or above the $5 cap
+    db.agentRun.aggregate.mockResolvedValue({ _sum: { costEstimate: 5.0 } });
+
+    const hooks: PluginHooks[] = [];
+
+    const result = await runDelegationLoop(ctx, hooks, {
+      prompt: 'Expensive task',
+      parentThreadId: 'parent-1',
+      maxIterations: 10,
+    });
+
+    // Loop must exit before maxIterations — cost cap triggered after first failure
+    expect(invokeMock).toHaveBeenCalledTimes(1);
+    expect(result.status).toBe('failed');
+
+    // task:cost-cap must have been broadcast
+    const broadcastCalls = (ctx.broadcast as ReturnType<typeof vi.fn>).mock.calls;
+    const costCapEvent = broadcastCalls.find((call) => call[0] === 'task:cost-cap');
+    expect(costCapEvent).toBeDefined();
+    expect(costCapEvent?.[1]).toMatchObject({ spent: 5.0, cap: 5 });
+  });
+
+  it('circuit breaker fast-fails on logic-error without retrying', async () => {
+    const invokeMock = vi.fn().mockResolvedValue({
+      output: '',
+      durationMs: 100,
+      exitCode: 1,
+      error: 'JSON parse error in tool call',
+    });
+
+    const { ctx } = createMockContext();
+    (ctx as unknown as { invoker: { invoke: ReturnType<typeof vi.fn> } }).invoker.invoke = invokeMock;
+
+    const hooks: PluginHooks[] = [];
+
+    const result = await runDelegationLoop(ctx, hooks, {
+      prompt: 'Bad schema task',
+      parentThreadId: 'parent-1',
+      maxIterations: 5,
+    });
+
+    // Logic errors must break immediately — no retries
+    expect(invokeMock).toHaveBeenCalledTimes(1);
+    expect(result.status).toBe('failed');
+  });
+
+  it('circuit breaker retries on timeout and succeeds on the third attempt', async () => {
+    let callCount = 0;
+    const invokeMock = vi.fn().mockImplementation(async () => {
+      callCount++;
+      if (callCount <= 2) {
+        return { output: '', durationMs: 300000, exitCode: 1, error: 'Timed out after 300000ms' };
+      }
+      return { output: 'done', durationMs: 500, exitCode: 0 };
+    });
+
+    const { ctx } = createMockContext();
+    (ctx as unknown as { invoker: { invoke: ReturnType<typeof vi.fn> } }).invoker.invoke = invokeMock;
+
+    const hooks: PluginHooks[] = [];
+
+    const result = await runDelegationLoop(ctx, hooks, {
+      prompt: 'Flaky task',
+      parentThreadId: 'parent-1',
+      maxIterations: 5,
+    });
+
+    // Must have retried — invoked 3 times total (2 timeouts + 1 success)
+    expect(invokeMock).toHaveBeenCalledTimes(3);
+    expect(result.status).toBe('completed');
+    expect(result.result).toBe('done');
   });
 });

@@ -54,9 +54,22 @@ const createTools: CreateTools = () => [
   },
 ];
 
+type StartFn = NonNullable<PluginDefinition['start']>;
+
+const start: StartFn = async (ctx) => {
+  const tz = ctx.config.timezone;
+  const supported = Intl.supportedValuesOf('timeZone');
+  if (!supported.includes(tz)) {
+    ctx.logger.error(
+      `Time plugin: invalid timezone "${tz}" — time reporting will fall back to UTC. Update OrchestratorConfig.timezone to a valid IANA timezone string.`,
+    );
+  }
+};
+
 export const plugin: PluginDefinition = {
   name: 'time',
   version: '1.0.0',
   register: createRegister(),
+  start,
   tools: createTools(),
 };

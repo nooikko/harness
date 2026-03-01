@@ -5,12 +5,18 @@
 import type { InvokeStreamEvent, PluginContext, PluginHooks } from '@harness/plugin-contract';
 import { runHook, runHookWithResult } from '@harness/plugin-contract';
 import { buildIterationPrompt } from './build-iteration-prompt';
-import { createTaskRecord } from './create-task-record';
-import { createTaskThread } from './create-task-thread';
+import { calculateBackoffMs } from './calculate-backoff-ms';
+import { categorizeFailure } from './categorize-failure';
 import { fireTaskCompleteHooks } from './fire-task-complete-hooks';
 import { invokeSubAgent } from './invoke-sub-agent';
 import { parseCommands } from './parse-commands';
+import { queryDelegationCost } from './query-delegation-cost';
 import { sendThreadNotification } from './send-thread-notification';
+
+// Maximum USD spend allowed for a single delegation chain.
+// Stops the loop before runaway Opus usage drains the budget.
+// Override with DELEGATION_COST_CAP_USD env var.
+const DELEGATION_COST_CAP_USD = Number(process.env.DELEGATION_COST_CAP_USD ?? '5');
 
 export type DelegationOptions = {
   prompt: string;
@@ -27,18 +33,44 @@ export type DelegationResult = {
   iterations: number;
 };
 
+export type SetupDelegationTaskResult = {
+  threadId: string;
+  taskId: string;
+};
+
 const DEFAULT_MAX_ITERATIONS = 5;
 
-type RunDelegationLoop = (ctx: PluginContext, allHooks: PluginHooks[], options: DelegationOptions) => Promise<DelegationResult>;
+type SetupDelegationTask = (ctx: PluginContext, allHooks: PluginHooks[], options: DelegationOptions) => Promise<SetupDelegationTaskResult>;
 
-export const runDelegationLoop: RunDelegationLoop = async (ctx, allHooks, options) => {
+export const setupDelegationTask: SetupDelegationTask = async (ctx, allHooks, options) => {
   const maxIterations = options.maxIterations ?? DEFAULT_MAX_ITERATIONS;
 
-  // Step 1: Create a task thread linked to the parent
-  const { threadId } = await createTaskThread(ctx, options.parentThreadId, options.prompt);
+  // Steps 1 & 2: Create thread and task record atomically
+  const { threadId, taskId } = await ctx.db.$transaction(async (tx) => {
+    const thread = await tx.thread.create({
+      data: {
+        source: 'delegation',
+        sourceId: `task-${crypto.randomUUID()}`,
+        name: `Task: ${options.prompt.slice(0, 50)}`,
+        kind: 'task',
+        status: 'active',
+        parentThreadId: options.parentThreadId,
+        lastActivity: new Date(),
+      },
+    });
 
-  // Step 2: Create the task record
-  const { taskId } = await createTaskRecord(ctx, threadId, options.prompt, maxIterations);
+    const task = await tx.orchestratorTask.create({
+      data: {
+        threadId: thread.id,
+        prompt: options.prompt,
+        status: 'pending',
+        maxIterations,
+        currentIteration: 0,
+      },
+    });
+
+    return { threadId: thread.id, taskId: task.id };
+  });
 
   ctx.logger.info(`Delegation: created task ${taskId} in thread ${threadId}`, {
     parentThreadId: options.parentThreadId,
@@ -58,14 +90,24 @@ export const runDelegationLoop: RunDelegationLoop = async (ctx, allHooks, option
     ctx.logger,
   );
 
-  // Broadcast task creation
+  // Step 4: Broadcast task creation
   await ctx.broadcast('task:created', {
     taskId,
     threadId,
     parentThreadId: options.parentThreadId,
   });
 
-  // Step 4: Delegation loop — invoke and validate
+  return { threadId, taskId };
+};
+
+type RunDelegationLoop = (ctx: PluginContext, allHooks: PluginHooks[], options: DelegationOptions) => Promise<DelegationResult>;
+
+export const runDelegationLoop: RunDelegationLoop = async (ctx, allHooks, options) => {
+  const maxIterations = options.maxIterations ?? DEFAULT_MAX_ITERATIONS;
+
+  const { threadId, taskId } = await setupDelegationTask(ctx, allHooks, options);
+
+  // Delegation loop — invoke and validate
   let feedback: string | undefined;
   let iterations = 0;
 
@@ -125,11 +167,41 @@ export const runDelegationLoop: RunDelegationLoop = async (ctx, allHooks, option
 
     // Check for invocation failure
     if (invokeResult.exitCode !== 0 && invokeResult.exitCode !== null) {
+      const category = categorizeFailure(invokeResult.error);
+
       ctx.logger.warn(`Delegation: sub-agent failed for task ${taskId}`, {
         exitCode: invokeResult.exitCode,
         error: invokeResult.error,
+        category,
+        iteration: iterations,
       });
-      feedback = `Sub-agent invocation failed with exit code ${invokeResult.exitCode}: ${invokeResult.error ?? 'unknown error'}`;
+
+      feedback = `Sub-agent invocation failed (${category}) at iteration ${iterations}: ${invokeResult.error ?? 'unknown error'}`;
+
+      if (category === 'logic-error') {
+        // Same prompt will fail the same way — no point retrying
+        ctx.logger.error(`Delegation: logic error detected, fast-failing task ${taskId}`, { category });
+        break;
+      }
+
+      const waitMs = calculateBackoffMs(iterations, category);
+      if (waitMs > 0) {
+        ctx.logger.info(`Delegation: backing off ${waitMs}ms before retry`, { iteration: iterations, category });
+        await new Promise((resolve) => setTimeout(resolve, waitMs));
+      }
+
+      // Cost cap check before retrying
+      const spentAfterFailure = await queryDelegationCost(ctx.db, taskId);
+      if (spentAfterFailure >= DELEGATION_COST_CAP_USD) {
+        ctx.logger.warn(`Delegation: cost cap hit for task ${taskId}`, {
+          spent: spentAfterFailure,
+          cap: DELEGATION_COST_CAP_USD,
+        });
+        await ctx.broadcast('task:cost-cap', { taskId, threadId, spent: spentAfterFailure, cap: DELEGATION_COST_CAP_USD });
+        feedback = `Task stopped: exceeded cost budget of $${DELEGATION_COST_CAP_USD.toFixed(2)} (spent $${spentAfterFailure.toFixed(2)})`;
+        break;
+      }
+
       continue;
     }
 
@@ -211,6 +283,18 @@ export const runDelegationLoop: RunDelegationLoop = async (ctx, allHooks, option
       status: 'rejected',
       feedback,
     });
+
+    // Cost cap check before next iteration
+    const spentAfterRejection = await queryDelegationCost(ctx.db, taskId);
+    if (spentAfterRejection >= DELEGATION_COST_CAP_USD) {
+      ctx.logger.warn(`Delegation: cost cap hit for task ${taskId}`, {
+        spent: spentAfterRejection,
+        cap: DELEGATION_COST_CAP_USD,
+      });
+      await ctx.broadcast('task:cost-cap', { taskId, threadId, spent: spentAfterRejection, cap: DELEGATION_COST_CAP_USD });
+      feedback = `Task stopped: exceeded cost budget of $${DELEGATION_COST_CAP_USD.toFixed(2)} (spent $${spentAfterRejection.toFixed(2)})`;
+      break;
+    }
   }
 
   // Max iterations exhausted — task failed

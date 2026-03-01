@@ -375,4 +375,52 @@ describe('context plugin', () => {
     const alphaIdx = text.indexOf('Alpha');
     expect(betaIdx).toBeLessThan(alphaIdx);
   });
+
+  it('skips history injection when thread has an active sessionId', async () => {
+    writeFileSync(resolve(CONTEXT_DIR, 'memory.md'), 'Memory data');
+
+    const findMany = vi.fn().mockResolvedValue([{ role: 'user', content: 'Old message', createdAt: new Date() }]);
+    // Thread has an active session — history should be skipped
+    const threadFindUnique = vi.fn().mockResolvedValue({ sessionId: 'sess-abc-123' });
+
+    const plugin = createContextPlugin({ contextDir: CONTEXT_DIR });
+    const ctx = createMockContext({ findMany, threadFindUnique });
+    const hooks = await plugin.register(ctx);
+
+    const result = await hooks.onBeforeInvoke?.('thread-1', 'My prompt');
+
+    // History must not appear
+    expect(result).not.toContain('# Conversation History');
+    expect(result).not.toContain('Old message');
+    // Context files and original prompt still appear
+    expect(result).toContain('Memory data');
+    expect(result).toContain('My prompt');
+    // The skip was logged
+    expect(ctx.logger.info).toHaveBeenCalledWith(expect.stringContaining('Skipping history injection for resumed session'));
+    // findMany should never have been called
+    expect(findMany).not.toHaveBeenCalled();
+  });
+
+  it('continues without history when DB throws during thread lookup', async () => {
+    writeFileSync(resolve(CONTEXT_DIR, 'memory.md'), 'Memory data');
+
+    const threadFindUnique = vi.fn().mockRejectedValue(new Error('Connection refused'));
+    const findMany = vi.fn();
+
+    const plugin = createContextPlugin({ contextDir: CONTEXT_DIR });
+    const ctx = createMockContext({ findMany, threadFindUnique });
+    const hooks = await plugin.register(ctx);
+
+    const result = await hooks.onBeforeInvoke?.('thread-1', 'My prompt');
+
+    // Context files and prompt still present
+    expect(result).toContain('Memory data');
+    expect(result).toContain('My prompt');
+    // History section absent because DB was unavailable
+    expect(result).not.toContain('# Conversation History');
+    // Warning was logged with the error message
+    expect(ctx.logger.warn).toHaveBeenCalledWith(expect.stringContaining('Connection refused'));
+    // loadHistory was never called because dbAvailable = false
+    expect(findMany).not.toHaveBeenCalled();
+  });
 });

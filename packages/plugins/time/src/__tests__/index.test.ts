@@ -115,3 +115,23 @@ describe('time plugin tools', () => {
     expect(mockFormatTime).toHaveBeenCalledWith({ timezone: 'America/Phoenix' });
   });
 });
+
+describe('time plugin start lifecycle', () => {
+  it('does not log an error when timezone is valid', async () => {
+    const ctx = createMockContext();
+    // 'America/Phoenix' is a valid IANA timezone included in Intl.supportedValuesOf
+    await plugin.start?.(ctx);
+
+    expect(ctx.logger.error).not.toHaveBeenCalled();
+  });
+
+  it('logs an error when timezone is invalid', async () => {
+    const ctx = createMockContext();
+    // Override config with a bogus timezone string
+    (ctx.config as { timezone: string }).timezone = 'Not/A/Timezone';
+
+    await plugin.start?.(ctx);
+
+    expect(ctx.logger.error).toHaveBeenCalledWith(expect.stringContaining('invalid timezone "Not/A/Timezone"'));
+  });
+});

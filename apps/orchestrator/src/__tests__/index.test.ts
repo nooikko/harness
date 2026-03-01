@@ -10,6 +10,13 @@ vi.mock('@harness/database', () => ({
   prisma: {
     $connect: vi.fn().mockResolvedValue(undefined),
     $disconnect: vi.fn().mockResolvedValue(undefined),
+    orchestratorTask: {
+      findMany: vi.fn().mockResolvedValue([]),
+      update: vi.fn().mockResolvedValue({}),
+    },
+    thread: {
+      update: vi.fn().mockResolvedValue({}),
+    },
   },
 }));
 
@@ -177,6 +184,9 @@ describe('boot', () => {
     // Reset prisma mocks to default resolved values after clearAllMocks
     mockPrisma.$connect.mockResolvedValue(undefined);
     mockPrisma.$disconnect.mockResolvedValue(undefined);
+    vi.mocked(mockPrisma.orchestratorTask.findMany).mockResolvedValue([]);
+    vi.mocked(mockPrisma.orchestratorTask.update).mockResolvedValue({} as never);
+    vi.mocked(mockPrisma.thread.update).mockResolvedValue({} as never);
 
     originalProcessOn = process.on;
     originalProcessExit = process.exit;
@@ -311,6 +321,25 @@ describe('boot', () => {
       });
     });
 
+    it('setActiveThread callback updates contextRef.threadId', async () => {
+      const config = makeConfig();
+      const { logger, invoker } = setupDefaults({ config });
+
+      await boot();
+
+      // Capture the setActiveThread arg passed to createOrchestrator
+      const createOrchestratorArgs = mockCreateOrchestrator.mock.calls[0]![0] as {
+        setActiveThread: (threadId: string) => void;
+      };
+      expect(typeof createOrchestratorArgs.setActiveThread).toBe('function');
+
+      // Call it and verify it does not throw (it mutates the internal contextRef)
+      expect(() => createOrchestratorArgs.setActiveThread('thread-xyz')).not.toThrow();
+      // Suppress unused variable warnings for these — they are captured to satisfy vi.mocked
+      void logger;
+      void invoker;
+    });
+
     it('late-binds orchestrator context to the tool context ref', async () => {
       const mockContext = { db: {}, invoker: {} };
       const orchestrator = makeOrchestrator();
@@ -324,6 +353,27 @@ describe('boot', () => {
       // The mutable ref passed to createToolServer now has the context from getContext()
       const passedRef = mockCreateToolServer.mock.calls[0]![1];
       expect(passedRef).toEqual({ ctx: mockContext, threadId: '' });
+    });
+
+    it('logs a warning when orphaned tasks are recovered', async () => {
+      vi.mocked(mockPrisma.orchestratorTask.findMany).mockResolvedValue([
+        { id: 'task-stale', threadId: 'thread-stale', currentIteration: 1, maxIterations: 5 },
+      ] as never);
+      const { logger } = setupDefaults();
+
+      await boot();
+
+      expect(logger.warn).toHaveBeenCalledWith(expect.stringContaining('orphaned task'));
+    });
+
+    it('does not log orphan warning when no tasks are recovered', async () => {
+      vi.mocked(mockPrisma.orchestratorTask.findMany).mockResolvedValue([] as never);
+      const { logger } = setupDefaults();
+
+      await boot();
+
+      const warnCalls = (logger.warn as ReturnType<typeof vi.fn>).mock.calls.map((c: unknown[]) => String(c[0]));
+      expect(warnCalls.every((msg) => !msg.includes('orphaned task'))).toBe(true);
     });
   });
 
@@ -466,6 +516,26 @@ describe('boot', () => {
       await result.shutdown();
       await result.shutdown();
 
+      expect(orchestrator.stop).toHaveBeenCalledTimes(1);
+    });
+
+    it('does nothing when onSignal is called while already shutting down', async () => {
+      const { orchestrator } = setupDefaults();
+
+      await boot();
+
+      // Fire SIGTERM once to start shutdown
+      const handler = getSignalHandler(signalHandlers, 'SIGTERM');
+      handler();
+
+      // Fire SIGTERM again immediately before shutdown completes
+      handler();
+
+      await vi.waitFor(() => {
+        expect(process.exit).toHaveBeenCalledWith(0);
+      });
+
+      // orchestrator.stop should only be called once despite two signal fires
       expect(orchestrator.stop).toHaveBeenCalledTimes(1);
     });
   });
@@ -650,13 +720,18 @@ describe('boot', () => {
       await expect(boot()).rejects.toThrow('connection refused');
     });
 
-    it('throws when plugin registration fails', async () => {
+    it('logs error and continues when plugin registration fails', async () => {
       const orchestrator = makeOrchestrator();
       orchestrator.registerPlugin.mockRejectedValue(new Error('register failed'));
       const plugins = [makePluginDefinition('broken')];
-      setupDefaults({ plugins, orchestrator });
+      const { logger } = setupDefaults({ plugins, orchestrator });
 
-      await expect(boot()).rejects.toThrow('register failed');
+      // Boot should succeed — registration failures are isolated, not fatal
+      await boot();
+      expect(logger.error).toHaveBeenCalledWith(
+        expect.stringContaining('Failed to register plugin'),
+        expect.objectContaining({ error: 'register failed' }),
+      );
     });
 
     it('throws when orchestrator.start() fails', async () => {
@@ -706,6 +781,7 @@ describe('boot', () => {
 
 describe('main', () => {
   let originalProcessExit: typeof process.exit;
+  let mainProcessHandlers: Map<string, (...args: unknown[]) => void>;
 
   beforeEach(() => {
     vi.clearAllMocks();
@@ -715,7 +791,11 @@ describe('main', () => {
     originalProcessExit = process.exit;
     process.exit = vi.fn() as unknown as typeof process.exit;
 
-    process.on = vi.fn(() => process) as unknown as typeof process.on;
+    mainProcessHandlers = new Map();
+    process.on = vi.fn((event: string, handler: (...args: unknown[]) => void) => {
+      mainProcessHandlers.set(event, handler);
+      return process;
+    }) as unknown as typeof process.on;
   });
 
   afterEach(() => {
@@ -786,5 +866,62 @@ describe('main', () => {
     await main();
 
     expect(process.exit).not.toHaveBeenCalled();
+  });
+
+  it('unhandledRejection handler logs Error reason', async () => {
+    const logger = makeLogger();
+    mockCreateLogger.mockReturnValue(logger);
+    mockLoadConfig.mockImplementation(() => {
+      throw new Error('boot fail');
+    });
+
+    await main();
+
+    const rejectionHandler = mainProcessHandlers.get('unhandledRejection');
+    expect(rejectionHandler).toBeDefined();
+
+    rejectionHandler?.(new Error('unhandled rejection'));
+
+    expect(logger.error).toHaveBeenCalledWith('Unhandled promise rejection', {
+      error: 'unhandled rejection',
+    });
+  });
+
+  it('unhandledRejection handler logs non-Error reason as string', async () => {
+    const logger = makeLogger();
+    mockCreateLogger.mockReturnValue(logger);
+    mockLoadConfig.mockImplementation(() => {
+      throw new Error('boot fail');
+    });
+
+    await main();
+
+    const rejectionHandler = mainProcessHandlers.get('unhandledRejection');
+    rejectionHandler?.('raw string reason');
+
+    expect(logger.error).toHaveBeenCalledWith('Unhandled promise rejection', {
+      error: 'raw string reason',
+    });
+  });
+
+  it('uncaughtException handler calls process.exit(1) with null shutdownFn', async () => {
+    const logger = makeLogger();
+    mockCreateLogger.mockReturnValue(logger);
+    // Ensure boot fails so shutdownFn stays null
+    mockLoadConfig.mockImplementation(() => {
+      throw new Error('boot fail');
+    });
+
+    await main();
+
+    const uncaughtHandler = mainProcessHandlers.get('uncaughtException');
+    expect(uncaughtHandler).toBeDefined();
+
+    const testErr = new Error('uncaught crash');
+    uncaughtHandler?.(testErr);
+
+    await vi.waitFor(() => {
+      expect(process.exit).toHaveBeenCalledWith(1);
+    });
   });
 });

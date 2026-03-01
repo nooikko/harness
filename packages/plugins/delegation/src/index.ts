@@ -3,10 +3,23 @@
 // manage task lifecycle, and enforce iteration limits via validation hooks
 
 import type { PluginContext, PluginDefinition, PluginHooks, PluginTool } from '@harness/plugin-contract';
-import { type DelegationOptions, type DelegationResult, runDelegationLoop } from './_helpers/delegation-loop';
+import { type DelegationOptions, type DelegationResult, runDelegationLoop, setupDelegationTask } from './_helpers/delegation-loop';
 import { handleCheckin } from './_helpers/handle-checkin';
 
 export type { DelegationOptions, DelegationResult };
+
+const MAX_ITERATIONS_LIMIT = 20;
+
+const VALID_MODELS = new Set([
+  'claude-opus-4-6',
+  'claude-sonnet-4-6',
+  'claude-haiku-4-5-20251001',
+  'claude-opus-4-5',
+  'claude-sonnet-4-5',
+  'claude-3-5-sonnet-20241022',
+  'claude-3-5-haiku-20241022',
+  'claude-3-opus-20240229',
+]);
 
 type ParseDelegateArgs = (args: string) => { prompt: string; model?: string; maxIterations?: number };
 
@@ -26,7 +39,7 @@ const parseDelegateArgs: ParseDelegateArgs = (args) => {
   if (iterMatch?.[1]) {
     const parsed = Number.parseInt(iterMatch[1], 10);
     if (!Number.isNaN(parsed) && parsed > 0) {
-      maxIterations = parsed;
+      maxIterations = Math.min(parsed, MAX_ITERATIONS_LIMIT);
     }
   }
 
@@ -49,12 +62,24 @@ const handleDelegateCommand: HandleDelegateCommand = async (ctx, allHooks, threa
     return false;
   }
 
+  if (model !== undefined && !VALID_MODELS.has(model) && model !== ctx.config.claudeModel) {
+    ctx.logger.warn(`Delegation: invalid model "${model}" in delegate command`);
+    return false;
+  }
+
   const options: DelegationOptions = {
     prompt,
     parentThreadId: threadId,
     model,
     maxIterations,
   };
+
+  try {
+    await setupDelegationTask(ctx, allHooks, options);
+  } catch (err) {
+    ctx.logger.error(`Delegation: delegate command setup failed: ${err instanceof Error ? err.message : String(err)}`);
+    return false;
+  }
 
   runDelegationLoop(ctx, allHooks, options)
     .then((result) => {

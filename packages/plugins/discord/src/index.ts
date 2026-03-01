@@ -53,6 +53,10 @@ const sendDiscordMessage: SendDiscordMessage = async (client, sourceId, content,
 
   // Split long messages into Discord-compliant chunks (2000 char limit)
   const chunks = splitMessage(content);
+  if (chunks.length === 0) {
+    ctx.logger.warn('Discord plugin: empty message content, skipping send');
+    return;
+  }
   for (const chunk of chunks) {
     await (channel as TextChannel).send(chunk);
   }
@@ -63,6 +67,10 @@ const DISCORD_MAX_LENGTH = 2000;
 type SplitMessage = (content: string) => string[];
 
 export const splitMessage: SplitMessage = (content) => {
+  if (!content.trim()) {
+    return [];
+  }
+
   if (content.length <= DISCORD_MAX_LENGTH) {
     return [content];
   }
@@ -252,7 +260,31 @@ const start: StartDiscordPlugin = async (ctx) => {
         authorName: pipelineMsg.authorName,
       });
     } catch (err) {
-      ctx.logger.error(`Discord plugin: failed to process message: ${err instanceof Error ? err.message : String(err)}`);
+      // P2002 = unique constraint: concurrent upsert race on same channel
+      const isPrismaUnique = err instanceof Error && 'code' in err && (err as { code: string }).code === 'P2002';
+      if (isPrismaUnique) {
+        ctx.logger.debug(`Discord plugin: upsert race on thread, re-fetching [source=${pipelineMsg.sourceId}]`);
+        try {
+          const existing = await ctx.db.thread.findUnique({
+            where: { source_sourceId: { source: 'discord', sourceId: pipelineMsg.sourceId } },
+          });
+          if (existing) {
+            await ctx.db.message.create({
+              data: { threadId: existing.id, role: 'user', content: pipelineMsg.content },
+            });
+            await ctx.broadcast('discord:message', {
+              threadId: existing.id,
+              sourceId: pipelineMsg.sourceId,
+              content: pipelineMsg.content,
+              authorName: pipelineMsg.authorName,
+            });
+          }
+        } catch (retryErr) {
+          ctx.logger.error(`Discord plugin: retry after race failed: ${retryErr instanceof Error ? retryErr.message : String(retryErr)}`);
+        }
+      } else {
+        ctx.logger.error(`Discord plugin: failed to process message: ${err instanceof Error ? err.message : String(err)}`);
+      }
     }
   });
 

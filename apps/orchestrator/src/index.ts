@@ -3,6 +3,7 @@
 import { prisma } from '@harness/database';
 import { createLogger } from '@harness/logger';
 import type { PluginDefinition } from '@harness/plugin-contract';
+import { recoverOrphanedTasks } from './_helpers/recover-orphaned-tasks';
 import { loadConfig } from './config';
 import { createHealthCheck } from './health-check';
 import { createSdkInvoker } from './invoker-sdk';
@@ -30,6 +31,12 @@ export const boot: Boot = async () => {
 
   logger.info('Initializing database connection');
   await prisma.$connect();
+
+  logger.info('Scanning for orphaned tasks from previous run');
+  const recovered = await recoverOrphanedTasks(prisma, logger);
+  if (recovered > 0) {
+    logger.warn(`Recovered ${recovered} orphaned task(s) — they have been marked failed`);
+  }
 
   logger.info('Loading plugins from registry');
   const rawPlugins = await getPlugins(prisma, logger);
@@ -75,7 +82,14 @@ export const boot: Boot = async () => {
 
   logger.info('Registering plugins');
   for (const plugin of loaded) {
-    await orchestrator.registerPlugin(plugin);
+    try {
+      await orchestrator.registerPlugin(plugin);
+    } catch (err) {
+      logger.error('Failed to register plugin', {
+        plugin: plugin.name,
+        error: err instanceof Error ? err.message : String(err),
+      });
+    }
   }
 
   logger.info('Starting plugins');
@@ -142,6 +156,9 @@ export const boot: Boot = async () => {
   };
 
   const onSignal = (): void => {
+    if (state.isShuttingDown) {
+      return;
+    }
     shutdown()
       .then(() => {
         process.exit(0);
@@ -167,10 +184,30 @@ export const boot: Boot = async () => {
 };
 
 export const main = async (): Promise<void> => {
+  const logger = createLogger('harness');
+  let shutdownFn: (() => Promise<void>) | null = null;
+
+  process.on('unhandledRejection', (reason: unknown) => {
+    logger.error('Unhandled promise rejection', {
+      error: reason instanceof Error ? reason.message : String(reason),
+    });
+  });
+
+  process.on('uncaughtException', (err: Error) => {
+    logger.error('Uncaught exception — initiating shutdown', {
+      error: err.message,
+      stack: err.stack,
+    });
+    const doShutdown = shutdownFn ?? (() => Promise.resolve());
+    doShutdown()
+      .catch(() => {})
+      .finally(() => process.exit(1));
+  });
+
   try {
-    await boot();
+    const result = await boot();
+    shutdownFn = result.shutdown;
   } catch (err) {
-    const logger = createLogger('harness');
     logger.error('Fatal error during boot', {
       error: err instanceof Error ? err.message : String(err),
     });
