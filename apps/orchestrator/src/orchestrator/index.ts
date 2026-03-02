@@ -16,10 +16,8 @@ import type {
 } from '@harness/plugin-contract';
 import { createScopedDb } from './_helpers/create-scoped-db';
 import { getPluginSettings } from './_helpers/get-plugin-settings';
-import { parseCommands } from './_helpers/parse-commands';
 import { assemblePrompt } from './_helpers/prompt-assembler';
 import { runChainHooks } from './_helpers/run-chain-hooks';
-import { runCommandHooks } from './_helpers/run-command-hooks';
 import { runNotifyHooks } from './_helpers/run-notify-hooks';
 
 export type OrchestratorDeps = {
@@ -234,26 +232,7 @@ export const createOrchestrator: CreateOrchestrator = (deps) => {
       timestamp: Date.now(),
     });
 
-    // Step 6: Parse commands from the response text.
-    // Deduplicate: skip any text command where the equivalent tool already ran during invoke.
-    // Tool names are qualified as 'pluginName__commandName'; we extract the command suffix.
-    const executedToolCommands = new Set(streamEvents.filter((e) => e.type === 'tool_call').map((e) => (e.toolName ?? '').split('__').pop() ?? ''));
-    if (executedToolCommands.size > 0) {
-      deps.logger.info(`Pipeline: deduplicating commands [thread=${threadId}, executedTools=${[...executedToolCommands].join(', ')}]`);
-    }
-    const commands = parseCommands(invokeResult.output).filter((cmd) => !executedToolCommands.has(cmd.command));
     const commandsHandled: string[] = [];
-
-    // Step 7: For each command, fire onCommand hooks
-    for (const cmd of commands) {
-      deps.logger.info(`Pipeline: onCommand /${cmd.command} [thread=${threadId}]`);
-      const handled = await runCommandHooks(hooks, threadId, cmd.command, cmd.args, deps.logger);
-      if (handled) {
-        commandsHandled.push(cmd.command);
-      } else {
-        deps.logger.warn(`Unhandled command: /${cmd.command} [thread=${threadId}]`);
-      }
-    }
 
     // Step 8: Broadcast pipeline completion event
     await context.broadcast('pipeline:complete', {

@@ -1,6 +1,6 @@
 import type { PluginContext } from '@harness/plugin-contract';
 import { describe, expect, it, vi } from 'vitest';
-import { createDelegationPlugin, parseDelegateArgs, plugin } from '../index';
+import { createDelegationPlugin, plugin } from '../index';
 
 type CreateMockContext = () => PluginContext;
 
@@ -64,12 +64,12 @@ describe('delegation plugin', () => {
     expect(plugin.version).toBe('1.0.0');
   });
 
-  it('registers and returns onCommand hook', async () => {
+  it('registers and returns empty hooks (no text command routing needed — tools handle delegation)', async () => {
     const ctx = createMockContext();
     const hooks = await plugin.register(ctx);
 
-    expect(hooks.onCommand).toBeDefined();
-    expect(typeof hooks.onCommand).toBe('function');
+    expect(hooks).toEqual({});
+    expect(hooks.onCommand).toBeUndefined();
   });
 
   it('logs registration message', async () => {
@@ -79,269 +79,12 @@ describe('delegation plugin', () => {
     expect(ctx.logger.info).toHaveBeenCalledWith('Delegation plugin registered');
   });
 
-  it('handles delegate command with fire-and-forget', async () => {
-    const ctx = createMockContext();
-    const hooks = await plugin.register(ctx);
-
-    const handled = await hooks.onCommand?.('thread-1', 'delegate', 'Research something');
-
-    // Fire-and-forget: returns true immediately, invoke runs in background
-    expect(handled).toBe(true);
-  });
-
-  it('handles re-delegate command with fire-and-forget', async () => {
-    const ctx = createMockContext();
-    const hooks = await plugin.register(ctx);
-
-    const handled = await hooks.onCommand?.('thread-1', 're-delegate', 'Try again with different approach');
-
-    // Fire-and-forget: returns true immediately
-    expect(handled).toBe(true);
-  });
-
-  it('returns false for unknown commands', async () => {
-    const ctx = createMockContext();
-    const hooks = await plugin.register(ctx);
-
-    const handled = await hooks.onCommand?.('thread-1', 'unknown', 'some args');
-
-    expect(handled).toBe(false);
-  });
-
-  it('returns false for delegate with empty prompt', async () => {
-    const ctx = createMockContext();
-    const hooks = await plugin.register(ctx);
-
-    const handled = await hooks.onCommand?.('thread-1', 'delegate', '   ');
-
-    expect(handled).toBe(false);
-    expect(ctx.logger.warn).toHaveBeenCalledWith(expect.stringContaining('empty prompt'));
-  });
-
-  it('returns false for re-delegate with empty prompt', async () => {
-    const ctx = createMockContext();
-    const hooks = await plugin.register(ctx);
-
-    const handled = await hooks.onCommand?.('thread-1', 're-delegate', '');
-
-    expect(handled).toBe(false);
-  });
-
   it('creates delegation plugin via factory function', () => {
     const created = createDelegationPlugin();
 
     expect(created.name).toBe('delegation');
     expect(created.version).toBe('1.0.0');
     expect(typeof created.register).toBe('function');
-  });
-
-  it('logs a deprecation warning when delegate command is used', async () => {
-    const ctx = createMockContext();
-    const hooks = await plugin.register(ctx);
-
-    await hooks.onCommand?.('thread-1', 'delegate', 'Do something');
-
-    expect(ctx.logger.warn).toHaveBeenCalledWith(expect.stringContaining('deprecated'));
-  });
-
-  it('does not call setupDelegationTask separately — runDelegationLoop handles setup internally', async () => {
-    // After the fix, handleDelegateCommand fires runDelegationLoop directly and returns true
-    // without a separate awaited setupDelegationTask call. We verify the command still
-    // returns true even when the DB is healthy (loop runs in background).
-    const ctx = createMockContext();
-    const hooks = await plugin.register(ctx);
-
-    const handled = await hooks.onCommand?.('thread-1', 'delegate', 'Do something');
-
-    expect(handled).toBe(true);
-  });
-
-  it('logs error from runDelegationLoop in background when setup fails', async () => {
-    const ctx = createMockContext();
-
-    // Make the thread creation fail (inside $transaction) — loop runs in background
-    (ctx.db as unknown as { thread: { create: ReturnType<typeof vi.fn> } }).thread.create = vi
-      .fn()
-      .mockRejectedValue(new Error('DB connection failed'));
-
-    const hooks = await plugin.register(ctx);
-    const handled = await hooks.onCommand?.('thread-1', 'delegate', 'Do something');
-
-    // Command returns true immediately (fire-and-forget) — setup failure surfaces via background error log
-    expect(handled).toBe(true);
-    await vi.waitFor(() => {
-      expect(ctx.logger.error).toHaveBeenCalledWith(expect.stringContaining('delegate command failed'));
-    });
-  });
-
-  it('handles checkin command', async () => {
-    const ctx = createMockContext();
-
-    // Add thread.findUnique for checkin handler
-    (ctx.db as unknown as { thread: { findUnique: ReturnType<typeof vi.fn> } }).thread.findUnique = vi
-      .fn()
-      .mockResolvedValue({ parentThreadId: 'parent-thread-1' });
-
-    const hooks = await plugin.register(ctx);
-    const handled = await hooks.onCommand?.('thread-1', 'checkin', 'Progress update');
-
-    expect(handled).toBe(true);
-  });
-
-  it('returns false for checkin with empty message', async () => {
-    const ctx = createMockContext();
-    const hooks = await plugin.register(ctx);
-    const handled = await hooks.onCommand?.('thread-1', 'checkin', '   ');
-
-    expect(handled).toBe(false);
-  });
-
-  it('returns false for delegate with an invalid model not in VALID_MODELS', async () => {
-    const ctx = createMockContext();
-    const hooks = await plugin.register(ctx);
-
-    const handled = await hooks.onCommand?.('thread-1', 'delegate', 'model=gpt-4o Do something');
-
-    expect(handled).toBe(false);
-    expect(ctx.logger.warn).toHaveBeenCalledWith(expect.stringContaining('invalid model'));
-  });
-
-  it('accepts a valid model from VALID_MODELS for the delegate command', async () => {
-    const ctx = createMockContext();
-    const hooks = await plugin.register(ctx);
-
-    const handled = await hooks.onCommand?.('thread-1', 'delegate', 'model=claude-opus-4-6 Do something');
-
-    expect(handled).toBe(true);
-  });
-
-  it('accepts ctx.config.claudeModel even if not in VALID_MODELS', async () => {
-    const ctx = createMockContext();
-    // claudeModel is 'claude-sonnet-4-20250514' which is not in VALID_MODELS
-    const hooks = await plugin.register(ctx);
-
-    const handled = await hooks.onCommand?.('thread-1', 'delegate', 'model=claude-sonnet-4-20250514 Do something');
-
-    expect(handled).toBe(true);
-  });
-
-  it('logs success info after delegate command loop resolves', async () => {
-    const ctx = createMockContext();
-    const hooks = await plugin.register(ctx);
-
-    await hooks.onCommand?.('thread-1', 'delegate', 'Do something');
-
-    await vi.waitFor(() => {
-      expect(ctx.logger.info).toHaveBeenCalledWith('Delegation: delegate command finished', expect.any(Object));
-    });
-  });
-
-  it('logs success info after re-delegate command loop resolves', async () => {
-    const ctx = createMockContext();
-    const hooks = await plugin.register(ctx);
-
-    await hooks.onCommand?.('thread-1', 're-delegate', 'Do something');
-
-    await vi.waitFor(() => {
-      expect(ctx.logger.info).toHaveBeenCalledWith('Delegation: re-delegate command finished', expect.any(Object));
-    });
-  });
-});
-
-describe('parseDelegateArgs', () => {
-  it('extracts prompt from simple args', () => {
-    const result = parseDelegateArgs('Research quantum computing');
-
-    expect(result.prompt).toBe('Research quantum computing');
-    expect(result.model).toBeUndefined();
-    expect(result.maxIterations).toBeUndefined();
-  });
-
-  it('extracts model parameter', () => {
-    const result = parseDelegateArgs('model=claude-opus-4-20250514 Write a report');
-
-    expect(result.model).toBe('claude-opus-4-20250514');
-    expect(result.prompt).toBe('Write a report');
-  });
-
-  it('extracts maxIterations parameter', () => {
-    const result = parseDelegateArgs('maxIterations=3 Write tests');
-
-    expect(result.maxIterations).toBe(3);
-    expect(result.prompt).toBe('Write tests');
-  });
-
-  it('extracts both model and maxIterations', () => {
-    const result = parseDelegateArgs('model=sonnet maxIterations=10 Build a feature');
-
-    expect(result.model).toBe('sonnet');
-    expect(result.maxIterations).toBe(10);
-    expect(result.prompt).toBe('Build a feature');
-  });
-
-  it('handles args with no parameters', () => {
-    const result = parseDelegateArgs('Just do the work');
-
-    expect(result.prompt).toBe('Just do the work');
-    expect(result.model).toBeUndefined();
-    expect(result.maxIterations).toBeUndefined();
-  });
-
-  it('trims whitespace from prompt', () => {
-    const result = parseDelegateArgs('  Do work  ');
-
-    expect(result.prompt).toBe('Do work');
-  });
-
-  it('handles empty string', () => {
-    const result = parseDelegateArgs('');
-
-    expect(result.prompt).toBe('');
-  });
-
-  it('ignores invalid maxIterations', () => {
-    const result = parseDelegateArgs('maxIterations=abc Do work');
-
-    expect(result.maxIterations).toBeUndefined();
-    expect(result.prompt).toBe('Do work');
-  });
-
-  it('ignores zero maxIterations', () => {
-    const result = parseDelegateArgs('maxIterations=0 Do work');
-
-    expect(result.maxIterations).toBeUndefined();
-  });
-
-  it('ignores negative maxIterations', () => {
-    const result = parseDelegateArgs('maxIterations=-5 Do work');
-
-    expect(result.maxIterations).toBeUndefined();
-  });
-
-  it('handles parameters at end of args', () => {
-    const result = parseDelegateArgs('Write code model=opus');
-
-    expect(result.model).toBe('opus');
-    expect(result.prompt).toBe('Write code');
-  });
-
-  it('caps maxIterations at MAX_ITERATIONS_LIMIT (20)', () => {
-    const result = parseDelegateArgs('maxIterations=99 Do work');
-
-    expect(result.maxIterations).toBe(20);
-    expect(result.prompt).toBe('Do work');
-  });
-
-  it('accepts maxIterations exactly at the limit', () => {
-    const result = parseDelegateArgs('maxIterations=20 Do work');
-
-    expect(result.maxIterations).toBe(20);
-  });
-
-  it('accepts maxIterations below the limit', () => {
-    const result = parseDelegateArgs('maxIterations=1 Do work');
-
-    expect(result.maxIterations).toBe(1);
   });
 });
 

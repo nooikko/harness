@@ -8,157 +8,21 @@ import { handleCheckin } from './_helpers/handle-checkin';
 
 export type { DelegationOptions, DelegationResult };
 
-const MAX_ITERATIONS_LIMIT = 20;
-
-const VALID_MODELS = new Set([
-  'claude-opus-4-6',
-  'claude-sonnet-4-6',
-  'claude-haiku-4-5-20251001',
-  'claude-opus-4-5',
-  'claude-sonnet-4-5',
-  'claude-3-5-sonnet-20241022',
-  'claude-3-5-haiku-20241022',
-  'claude-3-opus-20240229',
-]);
-
-type ParseDelegateArgs = (args: string) => { prompt: string; model?: string; maxIterations?: number };
-
-const parseDelegateArgs: ParseDelegateArgs = (args) => {
-  const trimmed = args.trim();
-
-  // Extract optional model parameter: model=<value>
-  let model: string | undefined;
-  const modelMatch = trimmed.match(/\bmodel=(\S+)/);
-  if (modelMatch?.[1]) {
-    model = modelMatch[1];
-  }
-
-  // Extract optional maxIterations parameter: maxIterations=<value>
-  let maxIterations: number | undefined;
-  const iterMatch = trimmed.match(/\bmaxIterations=(\d+)/);
-  if (iterMatch?.[1]) {
-    const parsed = Number.parseInt(iterMatch[1], 10);
-    if (!Number.isNaN(parsed) && parsed > 0) {
-      maxIterations = Math.min(parsed, MAX_ITERATIONS_LIMIT);
-    }
-  }
-
-  // Remove parameter tokens to get the prompt (strip all maxIterations=<value> tokens, valid or not)
-  const prompt = trimmed
-    .replace(/\bmodel=\S+/, '')
-    .replace(/\bmaxIterations=\S+/, '')
-    .trim();
-
-  return { prompt, model, maxIterations };
-};
-
-type HandleDelegateCommand = (ctx: PluginContext, allHooks: PluginHooks[], threadId: string, args: string) => Promise<boolean>;
-
-const handleDelegateCommand: HandleDelegateCommand = async (ctx, allHooks, threadId, args) => {
-  const { prompt, model, maxIterations } = parseDelegateArgs(args);
-
-  if (!prompt) {
-    ctx.logger.warn('Delegation: empty prompt in delegate command');
-    return false;
-  }
-
-  if (model !== undefined && !VALID_MODELS.has(model) && model !== ctx.config.claudeModel) {
-    ctx.logger.warn(`Delegation: invalid model "${model}" in delegate command`);
-    return false;
-  }
-
-  ctx.logger.warn('Delegation: text-based /delegate command is deprecated; prefer the delegation__delegate tool');
-
-  const options: DelegationOptions = {
-    prompt,
-    parentThreadId: threadId,
-    model,
-    maxIterations,
-  };
-
-  runDelegationLoop(ctx, allHooks, options)
-    .then((result) => {
-      ctx.logger.info('Delegation: delegate command finished', {
-        taskId: result.taskId,
-        status: result.status,
-        iterations: result.iterations,
-      });
-    })
-    .catch((err) => {
-      ctx.logger.error(`Delegation: delegate command failed: ${err instanceof Error ? err.message : String(err)}`);
-    });
-
-  return true;
-};
-
-type HandleRedelegateCommand = (ctx: PluginContext, allHooks: PluginHooks[], threadId: string, args: string) => Promise<boolean>;
-
-const handleRedelegateCommand: HandleRedelegateCommand = async (ctx, allHooks, threadId, args) => {
-  // Re-delegate reuses the same logic as delegate but is triggered
-  // when validation rejects and the agent explicitly requests re-delegation
-  const { prompt, model, maxIterations } = parseDelegateArgs(args);
-
-  if (!prompt) {
-    ctx.logger.warn('Delegation: empty prompt in re-delegate command');
-    return false;
-  }
-
-  const options: DelegationOptions = {
-    prompt,
-    parentThreadId: threadId,
-    model,
-    maxIterations,
-  };
-
-  runDelegationLoop(ctx, allHooks, options)
-    .then((result) => {
-      ctx.logger.info('Delegation: re-delegate command finished', {
-        taskId: result.taskId,
-        status: result.status,
-        iterations: result.iterations,
-      });
-    })
-    .catch((err) => {
-      ctx.logger.error(`Delegation: re-delegate command failed: ${err instanceof Error ? err.message : String(err)}`);
-    });
-
-  return true;
-};
-
 type CreateRegister = () => PluginDefinition['register'];
 
 const createRegister: CreateRegister = () => {
   const register = async (ctx: PluginContext): Promise<PluginHooks> => {
     ctx.logger.info('Delegation plugin registered');
 
-    // Capture a reference to allHooks that will be populated after all plugins register.
-    // The orchestrator calls register() on all plugins first, then the hooks are available.
-    // We use a lazy accessor so the onCommand handler always sees the current hooks.
-    let resolvedHooks: PluginHooks[] = [];
-
+    // Store setHooks on the plugin state so the orchestrator can call it after all plugins
+    // register — the tool handler uses state.currentHooks to pass allHooks to runDelegationLoop.
     type SetHooks = (hooks: PluginHooks[]) => void;
     const setHooks: SetHooks = (hooks) => {
-      resolvedHooks = hooks;
       state.currentHooks = hooks;
     };
-
-    // Store setHooks on the plugin state for the orchestrator to call
     state.setHooks = setHooks;
 
-    return {
-      onCommand: async (threadId, command, args) => {
-        if (command === 'delegate') {
-          return handleDelegateCommand(ctx, resolvedHooks, threadId, args);
-        }
-        if (command === 're-delegate') {
-          return handleRedelegateCommand(ctx, resolvedHooks, threadId, args);
-        }
-        if (command === 'checkin') {
-          return handleCheckin(ctx, threadId, args);
-        }
-        return false;
-      },
-    };
+    return {};
   };
 
   return register;
@@ -254,5 +118,3 @@ export const createDelegationPlugin: CreateDelegationPlugin = () => ({
   register: createRegister(),
   tools: delegateTools,
 });
-
-export { parseDelegateArgs };

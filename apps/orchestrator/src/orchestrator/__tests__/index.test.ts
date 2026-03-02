@@ -5,16 +5,8 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import type { OrchestratorDeps } from '../index';
 import { createOrchestrator } from '../index';
 
-vi.mock('../_helpers/parse-commands', () => ({
-  parseCommands: vi.fn().mockReturnValue([]),
-}));
-
 vi.mock('../_helpers/run-chain-hooks', () => ({
   runChainHooks: vi.fn().mockImplementation((_hooks, _threadId, prompt) => Promise.resolve(prompt)),
-}));
-
-vi.mock('../_helpers/run-command-hooks', () => ({
-  runCommandHooks: vi.fn().mockResolvedValue(false),
 }));
 
 vi.mock('../_helpers/run-notify-hooks', () => ({
@@ -28,16 +20,12 @@ vi.mock('../_helpers/prompt-assembler', () => ({
   })),
 }));
 
-import { parseCommands } from '../_helpers/parse-commands';
 import { assemblePrompt } from '../_helpers/prompt-assembler';
 import { runChainHooks } from '../_helpers/run-chain-hooks';
-import { runCommandHooks } from '../_helpers/run-command-hooks';
 import { runNotifyHooks } from '../_helpers/run-notify-hooks';
 
 const mockAssemblePrompt = vi.mocked(assemblePrompt);
-const mockParseCommands = vi.mocked(parseCommands);
 const mockRunChainHooks = vi.mocked(runChainHooks);
-const mockRunCommandHooks = vi.mocked(runCommandHooks);
 const mockRunNotifyHooks = vi.mocked(runNotifyHooks);
 
 const makeLogger = (): Logger =>
@@ -100,9 +88,7 @@ describe('createOrchestrator', () => {
       prompt: `[assembled] ${message}`,
       threadMeta: _meta as { threadId: string; kind: string; name: string | undefined },
     }));
-    mockParseCommands.mockReturnValue([]);
     mockRunChainHooks.mockImplementation((_hooks, _threadId, prompt) => Promise.resolve(prompt));
-    mockRunCommandHooks.mockResolvedValue(false);
     mockRunNotifyHooks.mockResolvedValue(undefined);
   });
 
@@ -485,42 +471,6 @@ describe('createOrchestrator', () => {
       expect(result.prompt).toBe('prompt used');
     });
 
-    it('parses commands from invoke output and calls runCommandHooks for each', async () => {
-      const invokeResult = makeInvokeResult({ output: '/delegate task-1\n/notify done' });
-      const deps = makeDeps({
-        invoker: { invoke: vi.fn().mockResolvedValue(invokeResult) } as unknown as Invoker,
-      });
-      const orchestrator = createOrchestrator(deps);
-      mockParseCommands.mockReturnValue([
-        { command: 'delegate', args: 'task-1' },
-        { command: 'notify', args: 'done' },
-      ]);
-      mockRunCommandHooks.mockResolvedValue(true);
-
-      const result = await orchestrator.handleMessage('thread-1', 'user', 'go');
-
-      expect(mockParseCommands).toHaveBeenCalledWith(invokeResult.output);
-      expect(mockRunCommandHooks).toHaveBeenCalledTimes(2);
-      expect(mockRunCommandHooks).toHaveBeenCalledWith([], 'thread-1', 'delegate', 'task-1', deps.logger);
-      expect(mockRunCommandHooks).toHaveBeenCalledWith([], 'thread-1', 'notify', 'done', deps.logger);
-      expect(result.commandsHandled).toEqual(['delegate', 'notify']);
-    });
-
-    it('does not add command to commandsHandled when no hook handles it', async () => {
-      const invokeResult = makeInvokeResult({ output: '/unknown-cmd' });
-      const deps = makeDeps({
-        invoker: { invoke: vi.fn().mockResolvedValue(invokeResult) } as unknown as Invoker,
-      });
-      const orchestrator = createOrchestrator(deps);
-      mockParseCommands.mockReturnValue([{ command: 'unknown-cmd', args: '' }]);
-      mockRunCommandHooks.mockResolvedValue(false);
-
-      const result = await orchestrator.handleMessage('t', 'user', 'input');
-
-      expect(result.commandsHandled).toEqual([]);
-      expect(deps.logger.warn).toHaveBeenCalledWith('Unhandled command: /unknown-cmd [thread=t]');
-    });
-
     it('broadcasts pipeline:complete after all hooks have run', async () => {
       const invokeResult = makeInvokeResult({ durationMs: 123 });
       const deps = makeDeps({
@@ -537,7 +487,6 @@ describe('createOrchestrator', () => {
     it('returns empty commandsHandled when invoke output has no commands', async () => {
       const deps = makeDeps();
       const orchestrator = createOrchestrator(deps);
-      mockParseCommands.mockReturnValue([]);
 
       const result = await orchestrator.handleMessage('t', 'user', 'hi');
 
@@ -682,76 +631,6 @@ describe('createOrchestrator', () => {
       await orchestrator.handleMessage('thread-1', 'user', 'hi');
 
       expect(deps.db.thread.update as ReturnType<typeof vi.fn>).not.toHaveBeenCalled();
-    });
-  });
-
-  describe('Step 6 command deduplication', () => {
-    it('does not fire onCommand for text command when matching tool_call event exists', async () => {
-      const invokeResult = makeInvokeResult({ output: '/delegate some task' });
-      const deps = makeDeps({
-        invoker: {
-          invoke: vi.fn().mockImplementation((_prompt: string, options: { onMessage?: (e: unknown) => void }) => {
-            options.onMessage?.({
-              type: 'tool_call',
-              toolName: 'delegation__delegate',
-              toolInput: { prompt: 'some task' },
-              timestamp: 0,
-            });
-            return Promise.resolve(invokeResult);
-          }),
-        } as unknown as Invoker,
-      });
-      const orchestrator = createOrchestrator(deps);
-      mockParseCommands.mockReturnValue([{ command: 'delegate', args: 'some task' }]);
-
-      await orchestrator.handleMessage('thread-1', 'user', 'go');
-
-      expect(mockRunCommandHooks).not.toHaveBeenCalledWith(expect.anything(), 'thread-1', 'delegate', expect.anything(), expect.anything());
-    });
-
-    it('fires onCommand for text command when no matching tool_call event exists', async () => {
-      const invokeResult = makeInvokeResult({ output: '/delegate some task' });
-      const deps = makeDeps({
-        invoker: { invoke: vi.fn().mockResolvedValue(invokeResult) } as unknown as Invoker,
-      });
-      const orchestrator = createOrchestrator(deps);
-      mockParseCommands.mockReturnValue([{ command: 'delegate', args: 'some task' }]);
-      mockRunCommandHooks.mockResolvedValue(true);
-
-      const result = await orchestrator.handleMessage('thread-1', 'user', 'go');
-
-      expect(mockRunCommandHooks).toHaveBeenCalledWith(expect.anything(), 'thread-1', 'delegate', 'some task', expect.anything());
-      expect(result.commandsHandled).toContain('delegate');
-    });
-
-    it('only deduplicates the specific command, not unrelated ones', async () => {
-      const invokeResult = makeInvokeResult({ output: '/delegate some task\n/checkin message' });
-      const deps = makeDeps({
-        invoker: {
-          invoke: vi.fn().mockImplementation((_prompt: string, options: { onMessage?: (e: unknown) => void }) => {
-            options.onMessage?.({
-              type: 'tool_call',
-              toolName: 'delegation__delegate',
-              toolInput: { prompt: 'some task' },
-              timestamp: 0,
-            });
-            return Promise.resolve(invokeResult);
-          }),
-        } as unknown as Invoker,
-      });
-      const orchestrator = createOrchestrator(deps);
-      mockParseCommands.mockReturnValue([
-        { command: 'delegate', args: 'some task' },
-        { command: 'checkin', args: 'message' },
-      ]);
-      mockRunCommandHooks.mockResolvedValue(true);
-
-      const result = await orchestrator.handleMessage('thread-1', 'user', 'go');
-
-      expect(mockRunCommandHooks).not.toHaveBeenCalledWith(expect.anything(), 'thread-1', 'delegate', expect.anything(), expect.anything());
-      expect(mockRunCommandHooks).toHaveBeenCalledWith(expect.anything(), 'thread-1', 'checkin', 'message', expect.anything());
-      expect(result.commandsHandled).not.toContain('delegate');
-      expect(result.commandsHandled).toContain('checkin');
     });
   });
 });
