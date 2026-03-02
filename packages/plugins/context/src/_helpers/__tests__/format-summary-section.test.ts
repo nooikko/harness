@@ -19,10 +19,11 @@ describe('formatSummarySection', () => {
     expect(result).toContain('The user discussed deployment plans.');
   });
 
-  it('formats multiple summaries oldest first', () => {
+  it('renders summaries in the order provided (caller is responsible for sort)', () => {
+    // Caller passes oldest-first (after reversing desc query results); formatter maps in input order
     const summaries: SummaryMessage[] = [
-      { content: 'Second summary content.', createdAt: new Date('2026-02-23T13:00:00Z') },
       { content: 'First summary content.', createdAt: new Date('2026-02-23T12:00:00Z') },
+      { content: 'Second summary content.', createdAt: new Date('2026-02-23T13:00:00Z') },
     ];
 
     const result = formatSummarySection(summaries);
@@ -42,7 +43,6 @@ describe('formatSummarySection', () => {
 
     expect(result).toContain('Summary A.');
     expect(result).toContain('Summary B.');
-    // Both summaries present and separated
     const aIdx = result.indexOf('Summary A.');
     const bIdx = result.indexOf('Summary B.');
     expect(aIdx).toBeLessThan(bIdx);

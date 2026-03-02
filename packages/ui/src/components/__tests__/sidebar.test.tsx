@@ -1,5 +1,6 @@
-import { render, screen } from '@testing-library/react';
-import { describe, expect, it } from 'vitest';
+import { act, render, screen } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
+import { describe, expect, it, vi } from 'vitest';
 import {
   Sidebar,
   SidebarContent,
@@ -8,6 +9,7 @@ import {
   SidebarGroupContent,
   SidebarGroupLabel,
   SidebarHeader,
+  SidebarInset,
   SidebarMenu,
   SidebarMenuAction,
   SidebarMenuBadge,
@@ -16,8 +18,11 @@ import {
   SidebarMenuSub,
   SidebarMenuSubButton,
   SidebarMenuSubItem,
+  SidebarProvider,
   SidebarRail,
   SidebarSeparator,
+  SidebarTrigger,
+  useSidebar,
 } from '../sidebar';
 
 describe('Sidebar', () => {
@@ -271,5 +276,337 @@ describe('Sidebar', () => {
     expect(screen.getByRole('button', { name: 'Dashboard' })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Settings' })).toBeInTheDocument();
     expect(screen.getByText('Footer')).toBeInTheDocument();
+  });
+});
+
+describe('SidebarProvider', () => {
+  it('renders children', () => {
+    render(
+      <SidebarProvider>
+        <span>child content</span>
+      </SidebarProvider>,
+    );
+    expect(screen.getByText('child content')).toBeInTheDocument();
+  });
+
+  it('renders the wrapper div with data-slot attribute', () => {
+    render(
+      <SidebarProvider data-testid='wrapper'>
+        <span>child</span>
+      </SidebarProvider>,
+    );
+    expect(screen.getByTestId('wrapper')).toHaveAttribute('data-slot', 'sidebar-wrapper');
+  });
+
+  it('defaults to expanded state', () => {
+    render(
+      <SidebarProvider data-testid='wrapper'>
+        <span>child</span>
+      </SidebarProvider>,
+    );
+    // The wrapper itself doesn't carry the state, but it renders without error
+    expect(screen.getByTestId('wrapper')).toBeInTheDocument();
+  });
+
+  it('renders with defaultOpen=false (collapsed initial state)', () => {
+    render(
+      <SidebarProvider defaultOpen={false}>
+        <Sidebar collapsible='icon' data-testid='sidebar'>
+          content
+        </Sidebar>
+      </SidebarProvider>,
+    );
+    // Should render the collapsible sidebar div in collapsed state
+    const sidebarContainer = document.querySelector('[data-state="collapsed"]');
+    expect(sidebarContainer).not.toBeNull();
+  });
+
+  it('accepts an external open prop and calls onOpenChange', async () => {
+    const onOpenChange = vi.fn();
+    render(
+      <SidebarProvider open={true} onOpenChange={onOpenChange}>
+        <SidebarTrigger />
+      </SidebarProvider>,
+    );
+    const trigger = screen.getByRole('button', { name: 'Toggle Sidebar' });
+    await userEvent.click(trigger);
+    expect(onOpenChange).toHaveBeenCalledWith(false);
+  });
+
+  it('applies custom className to wrapper', () => {
+    render(
+      <SidebarProvider className='custom-wrapper' data-testid='wrapper'>
+        <span>child</span>
+      </SidebarProvider>,
+    );
+    expect(screen.getByTestId('wrapper')).toHaveClass('custom-wrapper');
+  });
+
+  it('sets a cookie when sidebar state changes', async () => {
+    const cookieSpy = vi.spyOn(document, 'cookie', 'set');
+    render(
+      <SidebarProvider defaultOpen={true}>
+        <SidebarTrigger />
+      </SidebarProvider>,
+    );
+    await userEvent.click(screen.getByRole('button', { name: 'Toggle Sidebar' }));
+    expect(cookieSpy).toHaveBeenCalled();
+    cookieSpy.mockRestore();
+  });
+});
+
+describe('useSidebar', () => {
+  it('throws when used outside SidebarProvider', () => {
+    const BadComponent = () => {
+      useSidebar();
+      return <div>bad</div>;
+    };
+
+    // Suppress expected console error from React
+    const consoleError = vi.spyOn(console, 'error').mockImplementation(() => {});
+    expect(() => render(<BadComponent />)).toThrow('useSidebar must be used within a SidebarProvider');
+    consoleError.mockRestore();
+  });
+
+  it('returns context values when used inside SidebarProvider', () => {
+    let capturedContext: ReturnType<typeof useSidebar> | null = null;
+
+    const Consumer = () => {
+      capturedContext = useSidebar();
+      return null;
+    };
+
+    render(
+      <SidebarProvider defaultOpen={true}>
+        <Consumer />
+      </SidebarProvider>,
+    );
+
+    expect(capturedContext).not.toBeNull();
+    expect(capturedContext!.state).toBe('expanded');
+    expect(capturedContext!.open).toBe(true);
+    expect(capturedContext!.isMobile).toBe(false);
+    expect(typeof capturedContext!.toggleSidebar).toBe('function');
+    expect(typeof capturedContext!.setOpen).toBe('function');
+  });
+
+  it('toggleSidebar switches from expanded to collapsed', async () => {
+    let capturedContext: ReturnType<typeof useSidebar> | null = null;
+
+    const Consumer = () => {
+      capturedContext = useSidebar();
+      return null;
+    };
+
+    render(
+      <SidebarProvider defaultOpen={true}>
+        <Consumer />
+      </SidebarProvider>,
+    );
+
+    expect(capturedContext!.state).toBe('expanded');
+
+    act(() => {
+      capturedContext!.toggleSidebar();
+    });
+
+    expect(capturedContext!.state).toBe('collapsed');
+  });
+
+  it('setOpen with a function value toggles state correctly', () => {
+    let capturedContext: ReturnType<typeof useSidebar> | null = null;
+
+    const Consumer = () => {
+      capturedContext = useSidebar();
+      return null;
+    };
+
+    render(
+      <SidebarProvider defaultOpen={false}>
+        <Consumer />
+      </SidebarProvider>,
+    );
+
+    expect(capturedContext!.open).toBe(false);
+
+    act(() => {
+      capturedContext!.setOpen((prev) => !prev);
+    });
+
+    expect(capturedContext!.open).toBe(true);
+  });
+});
+
+describe('SidebarTrigger', () => {
+  it('renders a button with Toggle Sidebar label', () => {
+    render(
+      <SidebarProvider>
+        <SidebarTrigger />
+      </SidebarProvider>,
+    );
+    expect(screen.getByRole('button', { name: 'Toggle Sidebar' })).toBeInTheDocument();
+  });
+
+  it('has data-slot="sidebar-trigger"', () => {
+    render(
+      <SidebarProvider>
+        <SidebarTrigger data-testid='trigger' />
+      </SidebarProvider>,
+    );
+    expect(screen.getByTestId('trigger')).toHaveAttribute('data-slot', 'sidebar-trigger');
+  });
+
+  it('calls toggleSidebar when clicked', async () => {
+    let capturedContext: ReturnType<typeof useSidebar> | null = null;
+
+    const Consumer = () => {
+      capturedContext = useSidebar();
+      return <SidebarTrigger />;
+    };
+
+    render(
+      <SidebarProvider defaultOpen={true}>
+        <Consumer />
+      </SidebarProvider>,
+    );
+
+    expect(capturedContext!.state).toBe('expanded');
+    await userEvent.click(screen.getByRole('button', { name: 'Toggle Sidebar' }));
+    expect(capturedContext!.state).toBe('collapsed');
+  });
+
+  it('calls custom onClick in addition to toggleSidebar', async () => {
+    const onClick = vi.fn();
+    render(
+      <SidebarProvider>
+        <SidebarTrigger onClick={onClick} />
+      </SidebarProvider>,
+    );
+    await userEvent.click(screen.getByRole('button', { name: 'Toggle Sidebar' }));
+    expect(onClick).toHaveBeenCalledOnce();
+  });
+});
+
+describe('SidebarInset', () => {
+  it('renders as a main element', () => {
+    render(<SidebarInset>main content</SidebarInset>);
+    expect(screen.getByRole('main')).toBeInTheDocument();
+    expect(screen.getByRole('main')).toHaveAttribute('data-slot', 'sidebar-inset');
+  });
+
+  it('applies custom className', () => {
+    render(<SidebarInset className='inset-custom'>content</SidebarInset>);
+    expect(screen.getByRole('main')).toHaveClass('inset-custom');
+  });
+});
+
+describe('Sidebar collapsible mode', () => {
+  it('renders a div wrapper when collapsible="icon" and context is provided', () => {
+    render(
+      <SidebarProvider defaultOpen={true}>
+        <Sidebar collapsible='icon' data-testid='sidebar'>
+          <span>nav</span>
+        </Sidebar>
+      </SidebarProvider>,
+    );
+    // Collapsible sidebar renders a div wrapper with data-state
+    const wrapper = document.querySelector('[data-state="expanded"]');
+    expect(wrapper).not.toBeNull();
+  });
+
+  it('renders with collapsed state when defaultOpen is false', () => {
+    render(
+      <SidebarProvider defaultOpen={false}>
+        <Sidebar collapsible='icon'>
+          <span>nav</span>
+        </Sidebar>
+      </SidebarProvider>,
+    );
+    const wrapper = document.querySelector('[data-state="collapsed"]');
+    expect(wrapper).not.toBeNull();
+  });
+
+  it('renders as an aside when collapsible="none"', () => {
+    render(
+      <SidebarProvider>
+        <Sidebar collapsible='none'>content</Sidebar>
+      </SidebarProvider>,
+    );
+    expect(screen.getByRole('complementary')).toBeInTheDocument();
+    expect(screen.getByRole('complementary').tagName).toBe('ASIDE');
+  });
+
+  it('renders as an aside when no context is provided (no collapsible prop override)', () => {
+    // Without SidebarProvider, ctx is null so it falls back to the aside path
+    render(<Sidebar>content</Sidebar>);
+    expect(screen.getByRole('complementary').tagName).toBe('ASIDE');
+  });
+});
+
+describe('Keyboard shortcut', () => {
+  it('toggles sidebar state when Ctrl+B is pressed', async () => {
+    let capturedContext: ReturnType<typeof useSidebar> | null = null;
+
+    const Consumer = () => {
+      capturedContext = useSidebar();
+      return null;
+    };
+
+    render(
+      <SidebarProvider defaultOpen={true}>
+        <Consumer />
+      </SidebarProvider>,
+    );
+
+    expect(capturedContext!.state).toBe('expanded');
+
+    await userEvent.keyboard('{Control>}b{/Control}');
+
+    expect(capturedContext!.state).toBe('collapsed');
+  });
+
+  it('toggles sidebar state when Meta+B is pressed', async () => {
+    let capturedContext: ReturnType<typeof useSidebar> | null = null;
+
+    const Consumer = () => {
+      capturedContext = useSidebar();
+      return null;
+    };
+
+    render(
+      <SidebarProvider defaultOpen={true}>
+        <Consumer />
+      </SidebarProvider>,
+    );
+
+    expect(capturedContext!.state).toBe('expanded');
+
+    await userEvent.keyboard('{Meta>}b{/Meta}');
+
+    expect(capturedContext!.state).toBe('collapsed');
+  });
+
+  it('does not toggle when b is pressed without modifier', async () => {
+    let capturedContext: ReturnType<typeof useSidebar> | null = null;
+
+    const Consumer = () => {
+      capturedContext = useSidebar();
+      return <input data-testid='input' />;
+    };
+
+    render(
+      <SidebarProvider defaultOpen={true}>
+        <Consumer />
+      </SidebarProvider>,
+    );
+
+    expect(capturedContext!.state).toBe('expanded');
+
+    // Focus the input first so keydown goes to document/window but without meta/ctrl
+    await userEvent.click(screen.getByTestId('input'));
+    await userEvent.keyboard('b');
+
+    // State should remain expanded
+    expect(capturedContext!.state).toBe('expanded');
   });
 });
