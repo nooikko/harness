@@ -49,8 +49,16 @@ vi.mock('../tool-server', () => ({
   createToolServer: vi.fn(),
 }));
 
+vi.mock('@harness/plugin-delegation', () => ({
+  state: {
+    setHooks: vi.fn(),
+    currentHooks: null,
+  },
+}));
+
 import { prisma } from '@harness/database';
 import { createLogger } from '@harness/logger';
+import { state as delegationState } from '@harness/plugin-delegation';
 import { loadConfig } from '../config';
 import { createHealthCheck } from '../health-check';
 import { boot, main } from '../index';
@@ -183,6 +191,7 @@ describe('boot', () => {
 
     // Reset prisma mocks to default resolved values after clearAllMocks
     mockPrisma.$connect.mockResolvedValue(undefined);
+    vi.mocked(delegationState.setHooks).mockReset();
     mockPrisma.$disconnect.mockResolvedValue(undefined);
     vi.mocked(mockPrisma.orchestratorTask.findMany).mockResolvedValue([]);
     vi.mocked(mockPrisma.orchestratorTask.update).mockResolvedValue({} as never);
@@ -408,6 +417,21 @@ describe('boot', () => {
 
       expect(orchestrator.registerPlugin).not.toHaveBeenCalled();
       expect(orchestrator.start).toHaveBeenCalledTimes(1);
+    });
+
+    it('wires delegation hook resolver before starting plugins', async () => {
+      const mockHooks = [{ onTaskComplete: vi.fn() }];
+      const orchestrator = makeOrchestrator();
+      orchestrator.getHooks.mockReturnValue(mockHooks);
+      setupDefaults({ orchestrator });
+
+      await boot();
+
+      expect(vi.mocked(delegationState.setHooks)).toHaveBeenCalledWith(mockHooks);
+      // setHooks must be called before start() so tool-path delegation sees all hooks
+      const setHooksOrder = vi.mocked(delegationState.setHooks).mock.invocationCallOrder[0] ?? 0;
+      const startOrder = orchestrator.start.mock.invocationCallOrder[0] ?? 0;
+      expect(setHooksOrder).toBeLessThan(startOrder);
     });
   });
 

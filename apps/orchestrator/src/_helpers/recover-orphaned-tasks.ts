@@ -1,5 +1,10 @@
 // Scans for OrchestratorTask rows stuck at status='running' after a process crash
 // and resets them to 'failed'. Called once at boot before plugins start.
+//
+// Note: parent-thread notification is intentionally omitted here because plugins
+// have not started yet when this runs (sendToThread requires the web plugin).
+// Recovery is visible in logs and in the DB; a future enhancement could post
+// notifications after orchestrator.start() by passing sendToThread as a callback.
 
 import type { PrismaClient } from '@harness/database';
 import type { Logger } from '@harness/logger';

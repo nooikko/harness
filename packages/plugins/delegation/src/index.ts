@@ -1,6 +1,6 @@
 // Delegation plugin — sub-agent task management with iteration control
-// Registers "delegate" and "re-delegate" command handlers that spawn sub-agents,
-// manage task lifecycle, and enforce iteration limits via validation hooks
+// Exposes delegation__delegate and delegation__checkin MCP tools for Claude.
+// Manages task lifecycle and enforces iteration limits via validation hooks.
 
 import type { PluginContext, PluginDefinition, PluginHooks, PluginTool } from '@harness/plugin-contract';
 import { type DelegationOptions, type DelegationResult, runDelegationLoop } from './_helpers/delegation-loop';
@@ -37,6 +37,8 @@ const state: DelegationPluginState = {
   setHooks: null,
   currentHooks: null,
 };
+
+export { state };
 
 const delegateTools: PluginTool[] = [
   {

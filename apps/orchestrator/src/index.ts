@@ -3,6 +3,7 @@
 import { prisma } from '@harness/database';
 import { createLogger } from '@harness/logger';
 import type { PluginDefinition } from '@harness/plugin-contract';
+import { state as delegationState } from '@harness/plugin-delegation';
 import { recoverOrphanedTasks } from './_helpers/recover-orphaned-tasks';
 import { loadConfig } from './config';
 import { createHealthCheck } from './health-check';
@@ -90,6 +91,14 @@ export const boot: Boot = async () => {
         error: err instanceof Error ? err.message : String(err),
       });
     }
+  }
+
+  // Wire delegation plugin's hook resolver so onTaskCreate/onTaskComplete/onTaskFailed
+  // fire during tool-path delegation. state.currentHooks is null until this runs,
+  // so any plugin implementing those hooks (e.g. validator) would be silently skipped.
+  if (delegationState.setHooks) {
+    delegationState.setHooks(orchestrator.getHooks());
+    logger.info('Wired delegation hook resolver', { hookCount: orchestrator.getHooks().length });
   }
 
   logger.info('Starting plugins');
