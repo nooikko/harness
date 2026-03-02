@@ -76,6 +76,7 @@ const makeDeps = (overrides?: Partial<OrchestratorDeps>): OrchestratorDeps => ({
     thread: {
       findUnique: vi.fn().mockResolvedValue({ sessionId: null, model: null, kind: 'primary', name: 'Main' }),
       update: vi.fn().mockResolvedValue({}),
+      updateMany: vi.fn().mockResolvedValue({ count: 1 }),
     },
     pluginConfig: { findUnique: vi.fn().mockResolvedValue(null) },
   } as unknown as PrismaClient,
@@ -644,8 +645,8 @@ describe('createOrchestrator', () => {
 
       await orchestrator.handleMessage('thread-1', 'user', 'hi');
 
-      expect(deps.db.thread.update as ReturnType<typeof vi.fn>).toHaveBeenCalledWith({
-        where: { id: 'thread-1' },
+      expect(deps.db.thread.updateMany as ReturnType<typeof vi.fn>).toHaveBeenCalledWith({
+        where: { id: 'thread-1', sessionId: null },
         data: { sessionId: 'new-sess-id' },
       });
     });
@@ -681,6 +682,76 @@ describe('createOrchestrator', () => {
       await orchestrator.handleMessage('thread-1', 'user', 'hi');
 
       expect(deps.db.thread.update as ReturnType<typeof vi.fn>).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('Step 6 command deduplication', () => {
+    it('does not fire onCommand for text command when matching tool_call event exists', async () => {
+      const invokeResult = makeInvokeResult({ output: '/delegate some task' });
+      const deps = makeDeps({
+        invoker: {
+          invoke: vi.fn().mockImplementation((_prompt: string, options: { onMessage?: (e: unknown) => void }) => {
+            options.onMessage?.({
+              type: 'tool_call',
+              toolName: 'delegation__delegate',
+              toolInput: { prompt: 'some task' },
+              timestamp: 0,
+            });
+            return Promise.resolve(invokeResult);
+          }),
+        } as unknown as Invoker,
+      });
+      const orchestrator = createOrchestrator(deps);
+      mockParseCommands.mockReturnValue([{ command: 'delegate', args: 'some task' }]);
+
+      await orchestrator.handleMessage('thread-1', 'user', 'go');
+
+      expect(mockRunCommandHooks).not.toHaveBeenCalledWith(expect.anything(), 'thread-1', 'delegate', expect.anything(), expect.anything());
+    });
+
+    it('fires onCommand for text command when no matching tool_call event exists', async () => {
+      const invokeResult = makeInvokeResult({ output: '/delegate some task' });
+      const deps = makeDeps({
+        invoker: { invoke: vi.fn().mockResolvedValue(invokeResult) } as unknown as Invoker,
+      });
+      const orchestrator = createOrchestrator(deps);
+      mockParseCommands.mockReturnValue([{ command: 'delegate', args: 'some task' }]);
+      mockRunCommandHooks.mockResolvedValue(true);
+
+      const result = await orchestrator.handleMessage('thread-1', 'user', 'go');
+
+      expect(mockRunCommandHooks).toHaveBeenCalledWith(expect.anything(), 'thread-1', 'delegate', 'some task', expect.anything());
+      expect(result.commandsHandled).toContain('delegate');
+    });
+
+    it('only deduplicates the specific command, not unrelated ones', async () => {
+      const invokeResult = makeInvokeResult({ output: '/delegate some task\n/checkin message' });
+      const deps = makeDeps({
+        invoker: {
+          invoke: vi.fn().mockImplementation((_prompt: string, options: { onMessage?: (e: unknown) => void }) => {
+            options.onMessage?.({
+              type: 'tool_call',
+              toolName: 'delegation__delegate',
+              toolInput: { prompt: 'some task' },
+              timestamp: 0,
+            });
+            return Promise.resolve(invokeResult);
+          }),
+        } as unknown as Invoker,
+      });
+      const orchestrator = createOrchestrator(deps);
+      mockParseCommands.mockReturnValue([
+        { command: 'delegate', args: 'some task' },
+        { command: 'checkin', args: 'message' },
+      ]);
+      mockRunCommandHooks.mockResolvedValue(true);
+
+      const result = await orchestrator.handleMessage('thread-1', 'user', 'go');
+
+      expect(mockRunCommandHooks).not.toHaveBeenCalledWith(expect.anything(), 'thread-1', 'delegate', expect.anything(), expect.anything());
+      expect(mockRunCommandHooks).toHaveBeenCalledWith(expect.anything(), 'thread-1', 'checkin', 'message', expect.anything());
+      expect(result.commandsHandled).not.toContain('delegate');
+      expect(result.commandsHandled).toContain('checkin');
     });
   });
 });

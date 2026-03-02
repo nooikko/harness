@@ -3,7 +3,7 @@
 // manage task lifecycle, and enforce iteration limits via validation hooks
 
 import type { PluginContext, PluginDefinition, PluginHooks, PluginTool } from '@harness/plugin-contract';
-import { type DelegationOptions, type DelegationResult, runDelegationLoop, setupDelegationTask } from './_helpers/delegation-loop';
+import { type DelegationOptions, type DelegationResult, runDelegationLoop } from './_helpers/delegation-loop';
 import { handleCheckin } from './_helpers/handle-checkin';
 
 export type { DelegationOptions, DelegationResult };
@@ -67,19 +67,14 @@ const handleDelegateCommand: HandleDelegateCommand = async (ctx, allHooks, threa
     return false;
   }
 
+  ctx.logger.warn('Delegation: text-based /delegate command is deprecated; prefer the delegation__delegate tool');
+
   const options: DelegationOptions = {
     prompt,
     parentThreadId: threadId,
     model,
     maxIterations,
   };
-
-  try {
-    await setupDelegationTask(ctx, allHooks, options);
-  } catch (err) {
-    ctx.logger.error(`Delegation: delegate command setup failed: ${err instanceof Error ? err.message : String(err)}`);
-    return false;
-  }
 
   runDelegationLoop(ctx, allHooks, options)
     .then((result) => {

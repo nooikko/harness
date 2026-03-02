@@ -67,46 +67,51 @@ export const createOrchestrator: CreateOrchestrator = (deps) => {
         throw new Error('Orchestrator not fully initialized');
       }
 
-      deps.logger.info(`sendToThread: starting [thread=${threadId}, contentLength=${content.length}]`);
+      try {
+        deps.logger.info(`sendToThread: starting [thread=${threadId}, contentLength=${content.length}]`);
 
-      // Notify plugins pipeline is starting
-      await runNotifyHooks(allHooks(), 'onPipelineStart', (h) => h.onPipelineStart?.(threadId), deps.logger);
+        // Notify plugins pipeline is starting
+        await runNotifyHooks(allHooks(), 'onPipelineStart', (h) => h.onPipelineStart?.(threadId), deps.logger);
 
-      const result = await pipeline.handleMessage(threadId, 'user', content);
-      const { invokeResult, pipelineSteps, streamEvents, commandsHandled } = result;
+        const result = await pipeline.handleMessage(threadId, 'user', content);
+        const { invokeResult, pipelineSteps, streamEvents, commandsHandled } = result;
 
-      // Notify plugins pipeline is complete BEFORE innate writes.
-      // This ensures thinking/tool_call/tool_result records get earlier createdAt than
-      // assistant_text — message-list.tsx sorts by createdAt: 'asc', so order matters for UI.
-      await runNotifyHooks(
-        allHooks(),
-        'onPipelineComplete',
-        (h) => h.onPipelineComplete?.(threadId, { invokeResult, pipelineSteps, streamEvents, commandsHandled }),
-        deps.logger,
-      );
-
-      // INNATE: Persist assistant text reply and update thread activity (after activity plugin
-      // so the reply appears after thinking/tool records in the sorted message list)
-      if (invokeResult.output) {
-        deps.logger.info(`sendToThread: persisting assistant response [thread=${threadId}, outputLength=${invokeResult.output.length}]`);
-        await deps.db.message.create({
-          data: {
-            threadId,
-            role: 'assistant',
-            kind: 'text',
-            source: 'builtin',
-            content: invokeResult.output,
-            model: invokeResult.model,
-          },
-        });
-        await deps.db.thread.update({
-          where: { id: threadId },
-          data: { lastActivity: new Date() },
-        });
-      } else {
-        deps.logger.warn(
-          `sendToThread: no output from pipeline [thread=${threadId}, error=${invokeResult.error ?? 'none'}, exit=${invokeResult.exitCode}]`,
+        // Notify plugins pipeline is complete BEFORE innate writes.
+        // This ensures thinking/tool_call/tool_result records get earlier createdAt than
+        // assistant_text — message-list.tsx sorts by createdAt: 'asc', so order matters for UI.
+        await runNotifyHooks(
+          allHooks(),
+          'onPipelineComplete',
+          (h) => h.onPipelineComplete?.(threadId, { invokeResult, pipelineSteps, streamEvents, commandsHandled }),
+          deps.logger,
         );
+
+        // INNATE: Persist assistant text reply and update thread activity (after activity plugin
+        // so the reply appears after thinking/tool records in the sorted message list)
+        if (invokeResult.output) {
+          deps.logger.info(`sendToThread: persisting assistant response [thread=${threadId}, outputLength=${invokeResult.output.length}]`);
+          await deps.db.message.create({
+            data: {
+              threadId,
+              role: 'assistant',
+              kind: 'text',
+              source: 'builtin',
+              content: invokeResult.output,
+              model: invokeResult.model,
+            },
+          });
+          await deps.db.thread.update({
+            where: { id: threadId },
+            data: { lastActivity: new Date() },
+          });
+        } else {
+          deps.logger.warn(
+            `sendToThread: no output from pipeline [thread=${threadId}, error=${invokeResult.error ?? 'none'}, exit=${invokeResult.exitCode}]`,
+          );
+        }
+      } catch (error) {
+        deps.logger.error(`sendToThread: pipeline failed [thread=${threadId}]: ${error instanceof Error ? error.message : String(error)}`);
+        throw error;
       }
     },
     broadcast: async (event: string, data: unknown) => {
@@ -203,10 +208,10 @@ export const createOrchestrator: CreateOrchestrator = (deps) => {
       deps.logger.warn(`Pipeline: invoke error [thread=${threadId}]: ${invokeResult.error}`);
     }
 
-    // Step 4b: Persist sessionId on thread if changed
+    // Step 4b: Persist sessionId on thread if changed (predicated write — no-ops if already set)
     if (invokeResult.sessionId && invokeResult.sessionId !== thread?.sessionId) {
-      await deps.db.thread.update({
-        where: { id: threadId },
+      await deps.db.thread.updateMany({
+        where: { id: threadId, sessionId: null },
         data: { sessionId: invokeResult.sessionId },
       });
     }
@@ -229,8 +234,14 @@ export const createOrchestrator: CreateOrchestrator = (deps) => {
       timestamp: Date.now(),
     });
 
-    // Step 6: Parse commands from the response
-    const commands = parseCommands(invokeResult.output);
+    // Step 6: Parse commands from the response text.
+    // Deduplicate: skip any text command where the equivalent tool already ran during invoke.
+    // Tool names are qualified as 'pluginName__commandName'; we extract the command suffix.
+    const executedToolCommands = new Set(streamEvents.filter((e) => e.type === 'tool_call').map((e) => (e.toolName ?? '').split('__').pop() ?? ''));
+    if (executedToolCommands.size > 0) {
+      deps.logger.info(`Pipeline: deduplicating commands [thread=${threadId}, executedTools=${[...executedToolCommands].join(', ')}]`);
+    }
+    const commands = parseCommands(invokeResult.output).filter((cmd) => !executedToolCommands.has(cmd.command));
     const commandsHandled: string[] = [];
 
     // Step 7: For each command, fire onCommand hooks
@@ -267,18 +278,31 @@ export const createOrchestrator: CreateOrchestrator = (deps) => {
     start: async () => {
       for (const plugin of plugins) {
         if (plugin.definition.start) {
-          await plugin.definition.start(plugin.ctx);
+          try {
+            await plugin.definition.start(plugin.ctx);
+          } catch (error) {
+            deps.logger.error(`Plugin start failed [plugin=${plugin.definition.name}]: ${error instanceof Error ? error.message : String(error)}`);
+          }
         }
       }
       deps.logger.info('Orchestrator started');
     },
     stop: async () => {
+      const errors: Array<{ plugin: string }> = [];
       for (const plugin of plugins) {
         if (plugin.definition.stop) {
-          await plugin.definition.stop(plugin.ctx);
+          try {
+            await plugin.definition.stop(plugin.ctx);
+          } catch (error) {
+            deps.logger.error(`Plugin stop failed [plugin=${plugin.definition.name}]: ${error instanceof Error ? error.message : String(error)}`);
+            errors.push({ plugin: plugin.definition.name });
+          }
         }
       }
       deps.logger.info('Orchestrator stopped');
+      if (errors.length > 0) {
+        throw new Error(`Plugin stop failures: ${errors.map((e) => e.plugin).join(', ')}`);
+      }
     },
     getPlugins: () => plugins.map((p) => p.definition.name),
     getContext: () => context,
