@@ -15,6 +15,10 @@ const createRegister: CreateRegister = () => {
         const { model, inputTokens, outputTokens, traceId } = result;
 
         if (!model || inputTokens == null || outputTokens == null) {
+          const missing = [!model && 'model', inputTokens == null && 'inputTokens', outputTokens == null && 'outputTokens']
+            .filter(Boolean)
+            .join(', ');
+          ctx.logger.warn(`Metrics: skipping — missing fields [${missing}] [thread=${threadId}]`);
           return;
         }
 
