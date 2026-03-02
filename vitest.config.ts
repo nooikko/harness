@@ -16,6 +16,7 @@ export default defineConfig({
       'packages/plugins/metrics',
       'packages/plugins/summarization',
       'packages/plugins/time',
+      'packages/plugins/cron',
       'packages/database',
     ],
     coverage: {

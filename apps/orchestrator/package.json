@@ -20,6 +20,7 @@
     "@harness/plugin-activity": "workspace:*",
     "@harness/plugin-context": "workspace:*",
     "@harness/plugin-contract": "workspace:*",
+    "@harness/plugin-cron": "workspace:*",
     "@harness/plugin-delegation": "workspace:*",
     "@harness/plugin-discord": "workspace:*",
     "@harness/plugin-metrics": "workspace:*",

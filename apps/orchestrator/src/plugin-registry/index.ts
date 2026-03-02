@@ -5,6 +5,7 @@ import type { Logger } from '@harness/logger';
 import { plugin as activityPlugin } from '@harness/plugin-activity';
 import { plugin as contextPlugin } from '@harness/plugin-context';
 import type { PluginDefinition } from '@harness/plugin-contract';
+import { plugin as cronPlugin } from '@harness/plugin-cron';
 import { plugin as delegationPlugin } from '@harness/plugin-delegation';
 import { plugin as discordPlugin } from '@harness/plugin-discord';
 import { plugin as metricsPlugin } from '@harness/plugin-metrics';
@@ -20,6 +21,7 @@ const ALL_PLUGINS: PluginDefinition[] = [
   contextPlugin,
   discordPlugin,
   webPlugin,
+  cronPlugin,
   delegationPlugin,
   validatorPlugin,
   metricsPlugin,
