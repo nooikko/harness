@@ -165,3 +165,102 @@ pnpm dev
 ```
 
 Required: Node >= 22, pnpm 10.x, PostgreSQL.
+
+## What Already Exists
+
+Do not rebuild any of the following — these subsystems are fully implemented.
+
+### Admin UI (`/admin` route)
+
+- **`/admin/cron-jobs`** — enable/disable CronJob records, view last/next run times
+- **`/admin/plugins`** — enable/disable plugins at runtime via PluginConfig (no code change needed)
+- **`/admin/threads`** — thread management UI
+- **`/admin/agent-runs`** — view AgentRun records and token/cost metrics
+- **`/admin/tasks`** — task management UI
+
+### Agent Management (`/agents` route)
+
+- **Full CRUD** for Agent records: create, edit, delete
+- **Memory browser** — list and delete AgentMemory records per agent
+- **Server actions** (all in `apps/web/src/app/(chat)/chat/_actions/`): `create-agent.ts`, `update-agent.ts`, `delete-agent.ts`, `list-agents.ts`, `list-agent-memories.ts`, `delete-agent-memory.ts`
+
+### Usage Dashboard (`/usage` route)
+
+- **Token and cost metrics** visualization from AgentRun records
+
+### Agent Identity Plugin (`packages/plugins/identity/`)
+
+- **Phase 1 complete: soul injection** — agent soul/identity/role loaded from Agent record and injected into every prompt via `onBeforeInvoke`
+- **Phase 2 complete: episodic memory** — AgentMemory records scored by importance, retrieved via recency+importance ranking, injected into prompts
+- **Phases 3–5: paused** — see "Planned But Incomplete" section
+- **Plugin ordering:** identity runs BEFORE context in the `onBeforeInvoke` chain (registered first in `ALL_PLUGINS`)
+
+### Summarization Plugin (`packages/plugins/summarization/`)
+
+- Fires at **50-message threshold**, creates a summary Message record, prunes old history
+
+### Audit-Delete Flow
+
+- `request-audit-delete.ts` server action → POST `/api/audit-delete` on orchestrator
+- `packages/plugins/audit/` plugin handles the request
+
+### Delegation System (`packages/plugins/delegation/`)
+
+- Full delegation loop with `delegate` and `checkin` MCP tools
+- **Validator plugin** (`packages/plugins/validator/`) for structured output validation
+- **Circuit breaker:** 4-category failure classification, fast-fail on logic errors, quadratic backoff
+
+### Cron Scheduler (`packages/plugins/cron/`)
+
+- **`@harness/plugin-cron`** — reads enabled CronJob records, schedules with croner (UTC)
+- Fires `ctx.sendToThread` on trigger, atomically updates `lastRunAt`/`nextRunAt`
+- Admin UI at `/admin/cron-jobs`
+- Thread `kind='cron'` recognized by prompt assembler with specialized instructions
+- 4 seeded CronJobs: Morning Digest, Memory Consolidation, Calendar Refresh, Weekly Review
+
+### Custom Thread Instructions
+
+- **`Thread.customInstructions`** field in Prisma schema
+- UI in `manage-thread-modal.tsx`, saved via `update-thread-instructions.ts` server action
+- Injected into prompts by `prompt-assembler.ts` as a `# Custom Instructions` section
+
+### Activity Plugin (`packages/plugins/activity/`)
+
+- Owns **all rich activity persistence**: `pipeline_start`/`pipeline_complete` status records, `pipeline_step` records, `thinking`/`tool_call`/`tool_result` stream events
+- Orchestrator writes only `kind:'text'` (the assistant response text) — everything else is owned by this plugin
+
+### AgentConfig Model
+
+- Per-agent feature flags in Prisma schema: `memoryEnabled`, `reflectionEnabled`, `heartbeatEnabled`, `heartbeatCron`
+- Used by Agent Identity Phase 5 when heartbeat is implemented
+
+---
+
+## Planned But Incomplete
+
+These features have schema/UI groundwork but are missing execution logic. Do not assume they are done, and do not implement them without reading this context first.
+
+### Agent Identity Phase 3 — Vector Search
+
+- **What:** Similarity search over AgentMemory records for semantic retrieval
+- **Status:** PAUSED — vector backend decision pending
+- **Backend candidate:** Qdrant (pgvector explicitly rejected)
+- **When ready:** Implement as an enhancement to the identity plugin's memory retrieval, not as a new plugin
+
+### Agent Identity Phase 4 — Reflection Cycle
+
+- **What:** Periodic meta-reflection that stores `REFLECTION` type AgentMemory records
+- **Status:** PAUSED — `MemoryType.REFLECTION` exists in schema, trigger logic not implemented
+- **When ready:** Likely a cron-triggered `ctx.sendToThread` to a dedicated reflection thread
+
+### Agent Identity Phase 5 — Per-Agent Heartbeat
+
+- **What:** Each agent fires a scheduled "heartbeat" message to its own thread
+- **Status:** PAUSED — unblocked now that AgentConfig and cron scheduler both exist
+- **Wire-up:** `AgentConfig.heartbeatEnabled` + `AgentConfig.heartbeatCron` → cron plugin reads these and schedules per-agent jobs
+
+### onCommand Hook (Dead Code, Preserved as Stub)
+
+- `run-command-hooks.ts` and the `commandsHandled` block in `handleMessage` are deprecated stubs
+- All commands now use PluginTool/MCP — no plugin implements `onCommand`
+- **Do not delete** until a coordinated cleanup also removes `onCommand` from `plugin-contract`
