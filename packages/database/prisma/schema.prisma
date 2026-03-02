@@ -47,12 +47,30 @@ model Thread {
   messages       Message[]
   tasks          OrchestratorTask[]
   agentRuns      AgentRun[]
+  projectId      String?
+  project        Project?   @relation(fields: [projectId], references: [id])
   lastActivity   DateTime   @default(now())
   createdAt      DateTime   @default(now())
   updatedAt      DateTime   @updatedAt
 
   @@unique([source, sourceId])
   @@index([status, lastActivity])
+  @@index([projectId])
+}
+
+model Project {
+  id           String    @id @default(cuid())
+  name         String
+  description  String?   @db.Text
+  instructions String?   @db.Text
+  memory       String?   @db.Text
+  model        String?
+  settings     Json?
+  threads      Thread[]
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+
+  @@index([name])
 }
 
 model Message {
