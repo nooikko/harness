@@ -23,6 +23,7 @@
     "@harness/plugin-delegation": "workspace:*",
     "@harness/plugin-discord": "workspace:*",
     "@harness/plugin-metrics": "workspace:*",
+    "@harness/plugin-summarization": "workspace:*",
     "@harness/plugin-time": "workspace:*",
     "@harness/plugin-validator": "workspace:*",
     "@harness/plugin-web": "workspace:*",

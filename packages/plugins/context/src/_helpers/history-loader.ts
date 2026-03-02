@@ -21,7 +21,7 @@ export const loadHistory: LoadHistory = async (db, threadId, limit) => {
   const effectiveLimit = limit ?? DEFAULT_HISTORY_LIMIT;
 
   const messages = await db.message.findMany({
-    where: { threadId },
+    where: { threadId, kind: 'text' },
     orderBy: { createdAt: 'desc' },
     take: effectiveLimit,
     select: {

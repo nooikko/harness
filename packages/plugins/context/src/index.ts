@@ -9,7 +9,12 @@ import type { ReadContextFilesOptions } from './_helpers/file-reader';
 import { readContextFiles } from './_helpers/file-reader';
 import { formatContextSection } from './_helpers/format-context-section';
 import { formatHistorySection } from './_helpers/format-history-section';
+import { formatSummarySection } from './_helpers/format-summary-section';
 import { loadHistory } from './_helpers/history-loader';
+
+const HISTORY_LIMIT_WITH_SUMMARY = 25;
+const HISTORY_LIMIT_DEFAULT = 50;
+const SUMMARY_LOOKBACK = 2;
 
 export type ContextPluginOptions = {
   contextDir?: string;
@@ -73,16 +78,34 @@ const createRegister: CreateRegister = (options) => {
           );
         }
 
+        let summarySection = '';
         let historySection = '';
+
         if (thread?.sessionId) {
           ctx.logger.info(`Skipping history injection for resumed session [thread=${threadId}]`);
         } else if (dbAvailable) {
-          const historyResult = await loadHistory(ctx.db, threadId, historyLimit);
+          // Check for existing summaries to use smart injection
+          const summaries = await ctx.db.message.findMany({
+            where: { threadId, kind: 'summary' },
+            orderBy: { createdAt: 'desc' },
+            take: SUMMARY_LOOKBACK,
+            select: { content: true, createdAt: true },
+          });
+
+          const hasSummaries = summaries.length > 0;
+          const rawLimit = historyLimit ?? (hasSummaries ? HISTORY_LIMIT_WITH_SUMMARY : HISTORY_LIMIT_DEFAULT);
+
+          if (hasSummaries) {
+            // Inject summaries oldest-first so Claude reads them in chronological order
+            summarySection = formatSummarySection([...summaries].reverse());
+          }
+
+          const historyResult = await loadHistory(ctx.db, threadId, rawLimit);
           historySection = formatHistorySection(historyResult);
         }
 
-        // Concatenate: context + history (if not resuming) + original prompt
-        return buildPrompt([contextSection, historySection, prompt]);
+        // Concatenate: context + summary (if available) + history + original prompt
+        return buildPrompt([contextSection, summarySection, historySection, prompt]);
       },
     };
   };

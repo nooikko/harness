@@ -58,6 +58,7 @@ PROJECT_DIRS = [
     ("packages/plugins/delegation/", "packages/plugins/delegation"),
     ("packages/plugins/activity/", "packages/plugins/activity"),
     ("packages/plugins/metrics/", "packages/plugins/metrics"),
+    ("packages/plugins/summarization/", "packages/plugins/summarization"),
     ("packages/plugins/time/", "packages/plugins/time"),
 ]
 

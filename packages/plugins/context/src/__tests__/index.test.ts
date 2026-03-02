@@ -209,7 +209,7 @@ describe('context plugin', () => {
 
     expect(findMany).toHaveBeenCalledWith(
       expect.objectContaining({
-        where: { threadId: 'specific-thread-id' },
+        where: expect.objectContaining({ threadId: 'specific-thread-id' }),
       }),
     );
   });

@@ -8,6 +8,7 @@ import type { PluginDefinition } from '@harness/plugin-contract';
 import { plugin as delegationPlugin } from '@harness/plugin-delegation';
 import { plugin as discordPlugin } from '@harness/plugin-discord';
 import { plugin as metricsPlugin } from '@harness/plugin-metrics';
+import { plugin as summarizationPlugin } from '@harness/plugin-summarization';
 import { plugin as timePlugin } from '@harness/plugin-time';
 import { plugin as validatorPlugin } from '@harness/plugin-validator';
 import { plugin as webPlugin } from '@harness/plugin-web';
@@ -22,6 +23,7 @@ const ALL_PLUGINS: PluginDefinition[] = [
   delegationPlugin,
   validatorPlugin,
   metricsPlugin,
+  summarizationPlugin,
   timePlugin,
 ];
 

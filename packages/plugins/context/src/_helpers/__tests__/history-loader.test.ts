@@ -26,7 +26,7 @@ describe('loadHistory', () => {
     const result = await loadHistory(db as never, 'thread-1');
 
     expect(db.message.findMany).toHaveBeenCalledWith({
-      where: { threadId: 'thread-1' },
+      where: { threadId: 'thread-1', kind: 'text' },
       orderBy: { createdAt: 'desc' },
       take: 50,
       select: {
