@@ -1,8 +1,10 @@
 import { prisma } from '@harness/database';
 import { notFound } from 'next/navigation';
+import { Suspense } from 'react';
 import { ChatArea } from '../_components/chat-area';
 import { MessageList } from '../_components/message-list';
 import { PrewarmTrigger } from '../_components/prewarm-trigger';
+import { ThreadCostBadge, ThreadCostBadgeSkeleton } from '../_components/thread-cost-badge';
 import { ThreadKindIcon } from '../_components/thread-kind-icon';
 
 type ThreadPageProps = {
@@ -39,6 +41,9 @@ const ThreadPage: ThreadPageComponent = async ({ params }) => {
             {thread.kind} thread &middot; {thread.status}
           </p>
         </div>
+        <Suspense fallback={<ThreadCostBadgeSkeleton />}>
+          <ThreadCostBadge threadId={threadId} />
+        </Suspense>
       </header>
       <PrewarmTrigger threadId={threadId} />
       <ChatArea threadId={threadId} currentModel={thread.model}>

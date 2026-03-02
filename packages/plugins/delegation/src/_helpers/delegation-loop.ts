@@ -22,6 +22,7 @@ export type DelegationOptions = {
   parentThreadId: string;
   maxIterations?: number;
   model?: string;
+  traceId?: string;
 };
 
 export type DelegationResult = {
@@ -146,7 +147,7 @@ export const runDelegationLoop: RunDelegationLoop = async (ctx, allHooks, option
         })
         .catch(() => {});
     };
-    const invokeResult = await invokeSubAgent(ctx, iterationPrompt, taskId, threadId, options.model, onMessage);
+    const invokeResult = await invokeSubAgent(ctx, iterationPrompt, taskId, threadId, options.model, onMessage, options.traceId);
 
     // Check for invocation failure
     if (invokeResult.exitCode !== 0 && invokeResult.exitCode !== null) {

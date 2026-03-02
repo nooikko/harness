@@ -34,6 +34,11 @@ vi.mock('../../_components/prewarm-trigger', () => ({
   PrewarmTrigger: () => null,
 }));
 
+vi.mock('../../_components/thread-cost-badge', () => ({
+  ThreadCostBadge: () => null,
+  ThreadCostBadgeSkeleton: () => null,
+}));
+
 const { default: ThreadPage } = await import('../page');
 
 type MakeThread = (overrides?: Partial<Thread>) => Thread;

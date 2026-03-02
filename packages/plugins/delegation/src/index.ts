@@ -74,6 +74,7 @@ const delegateTools: PluginTool[] = [
         parentThreadId: meta.threadId,
         model: input.model as string | undefined,
         maxIterations: input.maxIterations as number | undefined,
+        traceId: meta.traceId,
       }).catch((err) => {
         ctx.logger.error(`Delegation tool failed: ${err instanceof Error ? err.message : String(err)}`);
       });

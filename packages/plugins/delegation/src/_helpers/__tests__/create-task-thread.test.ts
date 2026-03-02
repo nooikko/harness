@@ -90,7 +90,7 @@ describe('createTaskThread', () => {
     const createCall = (ctx.db as unknown as { thread: { create: ReturnType<typeof vi.fn> } }).thread.create.mock.calls[0]?.[0] as {
       data: { sourceId: string };
     };
-    expect(createCall.data.sourceId).toMatch(/^task-\d+-[a-z0-9]+$/);
+    expect(createCall.data.sourceId).toMatch(/^task-[0-9a-f-]{36}$/);
   });
 
   it('sets lastActivity to a Date instance', async () => {

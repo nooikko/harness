@@ -8,7 +8,7 @@ export const createTaskThread: CreateTaskThread = async (ctx, parentThreadId, pr
   const thread = await ctx.db.thread.create({
     data: {
       source: 'delegation',
-      sourceId: `task-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+      sourceId: `task-${crypto.randomUUID()}`,
       name: `Task: ${prompt.slice(0, 50)}`,
       kind: 'task',
       status: 'active',
