@@ -45,9 +45,20 @@ apps/orchestrator/           → Core Node.js orchestrator service
 packages/database/           → Prisma client + schema (PostgreSQL)
 packages/ui/                 → Shared UI library (shadcn/ui components, cn utility)
 packages/plugin-contract/    → Shared plugin types (@harness/plugin-contract)
-packages/plugins/context/    → Context plugin (@harness/plugin-context)
-packages/plugins/discord/    → Discord plugin (@harness/plugin-discord)
-packages/plugins/web/        → Web plugin (@harness/plugin-web)
+packages/plugins/identity/   → Agent identity + episodic memory (@harness/plugin-identity)
+packages/plugins/activity/   → Rich activity persistence (@harness/plugin-activity)
+packages/plugins/context/    → Context + history injection (@harness/plugin-context)
+packages/plugins/discord/    → Discord gateway adapter (@harness/plugin-discord)
+packages/plugins/web/        → HTTP server + WebSocket (@harness/plugin-web)
+packages/plugins/cron/       → Cron job scheduler (@harness/plugin-cron)
+packages/plugins/delegation/ → Sub-agent delegation (@harness/plugin-delegation)
+packages/plugins/validator/  → Delegation quality gate (@harness/plugin-validator)
+packages/plugins/metrics/    → Token/cost tracking (@harness/plugin-metrics)
+packages/plugins/summarization/ → Thread summarization (@harness/plugin-summarization)
+packages/plugins/auto-namer/ → Thread auto-naming (@harness/plugin-auto-namer)
+packages/plugins/audit/      → Audit-delete flow (@harness/plugin-audit)
+packages/plugins/time/       → Time injection + tool (@harness/plugin-time)
+packages/plugins/project/    → Project memory tools (@harness/plugin-project)
 ```
 
 ### Dependency Flow
@@ -65,7 +76,7 @@ packages/plugins/web/        → Web plugin (@harness/plugin-web)
 
 - Exports `cn()` utility (clsx + tailwind-merge) from `packages/ui/src/index.ts`
 - ShadCN components live in `packages/ui/src/components/` (shared across apps)
-- Available components: Alert, Badge, Button, Card, Dialog, DropdownMenu, Input, Label, Progress, ScrollArea, Separator, Skeleton, Table, Tooltip
+- Available components: AlertDialog, Alert, Badge, Button, Card, Collapsible, Command, Dialog, DropdownMenu, Input, Label, Progress, ScrollArea, Select, Separator, Sidebar, Skeleton, Table, Textarea, Tooltip
 - Uses Radix UI primitives (`@radix-ui/react-*`), Class Variance Authority for variants, Lucide for icons
 - Import components from `"ui"` (e.g., `import { Button, Card, Dialog } from "ui"`)
 
@@ -226,19 +237,46 @@ Do not rebuild any of the following — these subsystems are fully implemented.
 
 ### Activity Plugin (`packages/plugins/activity/`)
 
-- Owns **all rich activity persistence**: `pipeline_start`/`pipeline_complete` status records, `pipeline_step` records, `thinking`/`tool_call`/`tool_result` stream events
+- Owns **all rich activity persistence** via `onPipelineStart` and `onPipelineComplete` hooks
+- Writes: `pipeline_start`/`pipeline_complete` status records, `pipeline_step` records, `thinking`/`tool_call`/`tool_result` stream events
 - Orchestrator writes only `kind:'text'` (the assistant response text) — everything else is owned by this plugin
+
+### Metrics Plugin (`packages/plugins/metrics/`)
+
+- Records token usage and cost as 4 `Metric` rows (input, output, total, cost) per invocation via `onAfterInvoke`
+- Hardcoded pricing map for model cost calculation
+- Used by delegation plugin for cost-cap enforcement
+
+### Auto-Namer Plugin (`packages/plugins/auto-namer/`)
+
+- Generates thread titles after the first user message via `onMessage` hook
+- Uses Haiku for title generation (fire-and-forget, runs in parallel with main pipeline)
+- Broadcasts `thread:name-updated` for real-time sidebar refresh
+
+### Project Plugin (`packages/plugins/project/`)
+
+- Exposes `get_project_memory` and `set_project_memory` MCP tools for Claude
+- Reads/writes `Project.memory` field associated with current thread's project
+- Tool-only plugin (no hooks)
 
 ### AgentConfig Model
 
 - Per-agent feature flags in Prisma schema: `memoryEnabled`, `reflectionEnabled`, `heartbeatEnabled`, `heartbeatCron`
-- Used by Agent Identity Phase 5 when heartbeat is implemented
+- Schema exists at `packages/database/prisma/schema.prisma` (line 210)
+- No admin UI or server actions exist yet for managing AgentConfig records
+- `memoryEnabled` and `reflectionEnabled` are not yet checked by the identity plugin
 
 ---
 
 ## Planned But Incomplete
 
 These features have schema/UI groundwork but are missing execution logic. Do not assume they are done, and do not implement them without reading this context first.
+
+### AgentConfig Admin UI
+
+- **What:** UI and server actions for managing `AgentConfig` records per agent
+- **Status:** Schema exists, no UI. The `AgentConfig` model is in the database but there is no admin page or server actions to create/update config records.
+- **Fields:** `memoryEnabled`, `reflectionEnabled`, `heartbeatEnabled`, `heartbeatCron`
 
 ### Agent Identity Phase 3 — Vector Search
 
@@ -250,17 +288,18 @@ These features have schema/UI groundwork but are missing execution logic. Do not
 ### Agent Identity Phase 4 — Reflection Cycle
 
 - **What:** Periodic meta-reflection that stores `REFLECTION` type AgentMemory records
-- **Status:** PAUSED — `MemoryType.REFLECTION` exists in schema, trigger logic not implemented
-- **When ready:** Likely a cron-triggered `ctx.sendToThread` to a dedicated reflection thread
+- **Status:** PARTIALLY ACTIVE — the reflection trigger is wired as fire-and-forget in `scoreAndWriteMemory` (fires after each episodic memory write). However: `AgentConfig.reflectionEnabled` is not checked, and REFLECTION memories are not prioritized in the identity header.
+- **Remaining work:** Check `reflectionEnabled` before triggering; give REFLECTION memories a scoring boost in `retrieveMemories`
 
 ### Agent Identity Phase 5 — Per-Agent Heartbeat
 
 - **What:** Each agent fires a scheduled "heartbeat" message to its own thread
-- **Status:** PAUSED — unblocked now that AgentConfig and cron scheduler both exist
-- **Wire-up:** `AgentConfig.heartbeatEnabled` + `AgentConfig.heartbeatCron` → cron plugin reads these and schedules per-agent jobs
+- **Status:** PAUSED (intentionally deferred) — both blockers resolved (AgentConfig exists, cron plugin running)
+- **Wire-up:** `AgentConfig.heartbeatEnabled` + `AgentConfig.heartbeatCron` -> schedule per-agent croner jobs in cron or identity plugin's `start()` hook
 
-### onCommand Hook (Dead Code, Preserved as Stub)
+### onCommand Hook (Deprecated, Pending Removal)
 
-- `run-command-hooks.ts` and the `commandsHandled` block in `handleMessage` are deprecated stubs
+- Steps 6-7 (parseCommands + onCommand) have been removed from the handleMessage pipeline
+- `onCommand` remains in `PluginHooks` type for API compatibility
 - All commands now use PluginTool/MCP — no plugin implements `onCommand`
-- **Do not delete** until a coordinated cleanup also removes `onCommand` from `plugin-contract`
+- **Do not delete** until a coordinated cleanup also removes `onCommand` from `plugin-contract` and `run-hook-with-result.ts`

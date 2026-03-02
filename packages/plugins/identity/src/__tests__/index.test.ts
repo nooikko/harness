@@ -17,11 +17,23 @@ type MockAgent = {
   updatedAt: Date;
 };
 
+type MockAgentConfig = {
+  id: string;
+  agentId: string;
+  memoryEnabled: boolean;
+  reflectionEnabled: boolean;
+  heartbeatEnabled: boolean;
+  heartbeatCron: string | null;
+  createdAt: Date;
+  updatedAt: Date;
+};
+
 type CreateMockContextOptions = {
   threadAgentId?: string | null;
   agent?: MockAgent | null;
   memories?: AgentMemory[];
   invokerOutput?: string;
+  agentConfig?: MockAgentConfig | null;
 };
 
 type CreateMockContext = (options?: CreateMockContextOptions) => PluginContext;
@@ -45,6 +57,7 @@ const createMockContext: CreateMockContext = (options) => {
 
   const memories: AgentMemory[] = options?.memories ?? [];
   const invokerOutput = options?.invokerOutput ?? '8';
+  const agentConfig = options?.agentConfig !== undefined ? options.agentConfig : null;
 
   return {
     db: {
@@ -59,6 +72,9 @@ const createMockContext: CreateMockContext = (options) => {
         findMany: vi.fn().mockResolvedValue(memories),
         updateMany: vi.fn().mockResolvedValue({ count: memories.length }),
         create: vi.fn().mockResolvedValue({}),
+      },
+      agentConfig: {
+        findUnique: vi.fn().mockResolvedValue(agentConfig),
       },
     } as never,
     invoker: {
@@ -319,6 +335,33 @@ describe('identity plugin', () => {
       await flushPromises();
       await flushPromises();
 
+      const mockCreate = (ctx.db as never as { agentMemory: { create: ReturnType<typeof vi.fn> } }).agentMemory.create;
+      expect(mockCreate).not.toHaveBeenCalled();
+    });
+
+    it('does not call scoreAndWriteMemory when AgentConfig.memoryEnabled is false', async () => {
+      const config: MockAgentConfig = {
+        id: 'cfg-1',
+        agentId: 'agent-1',
+        memoryEnabled: false,
+        reflectionEnabled: false,
+        heartbeatEnabled: false,
+        heartbeatCron: null,
+        createdAt: new Date('2026-01-01T00:00:00Z'),
+        updatedAt: new Date('2026-01-01T00:00:00Z'),
+      };
+
+      const ctx = createMockContext({ agentConfig: config });
+      const hooks = await plugin.register(ctx);
+      const mockInvoker = ctx.invoker.invoke as ReturnType<typeof vi.fn>;
+
+      await hooks.onAfterInvoke?.('thread-1', { output: 'Significant insight' } as InvokeResult);
+
+      await flushPromises();
+      await flushPromises();
+
+      // invoker should NOT have been called for importance scoring
+      expect(mockInvoker).not.toHaveBeenCalled();
       const mockCreate = (ctx.db as never as { agentMemory: { create: ReturnType<typeof vi.fn> } }).agentMemory.create;
       expect(mockCreate).not.toHaveBeenCalled();
     });

@@ -351,21 +351,6 @@ await runHook(
 );
 ```
 
-### `runHookWithResult` -- Command-style (boolean return, early termination)
-
-Calls the hook on each plugin until one returns `true`. Used for `onCommand` -- the first plugin that handles a command stops the chain.
-
-```typescript
-import { runHookWithResult } from "@harness/plugin-contract";
-
-const handled = await runHookWithResult(
-  allHooks,
-  "onCommand",
-  (hooks) => hooks.onCommand?.(threadId, command, args),
-  logger,
-);
-```
-
 ### `runChainHook` -- Sequential value transformation
 
 Passes a value through each plugin's hook sequentially, where each hook can transform the value. Used for `onBeforeInvoke` -- each plugin enriches the prompt.

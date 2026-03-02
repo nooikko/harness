@@ -6,7 +6,7 @@ Which identity phases are complete, which are paused, and what each needs to pro
 
 ## Overview
 
-The identity system is implemented as `@harness/plugin-identity`. It uses two hooks: `onBeforeInvoke` (soul + memory injection) and `onAfterInvoke` (episodic memory writing). Five phases were planned; two are complete, three are paused.
+The identity system is implemented as `@harness/plugin-identity`. It uses two hooks: `onBeforeInvoke` (soul + memory injection) and `onAfterInvoke` (episodic memory writing + reflection trigger). Five phases were planned; two are complete, one is partially active, two are paused.
 
 File: `packages/plugins/identity/src/index.ts`
 
@@ -33,7 +33,7 @@ File: `packages/plugins/identity/src/_helpers/format-identity-anchor.ts`
 
 ## Phase 2 — Episodic Memory (COMPLETE)
 
-**What:** After each invocation, the assistant response is scored for importance. If importance >= 6 (on a 1–10 scale), a summary is written as an `AgentMemory` record with `type: EPISODIC`.
+**What:** After each invocation, the assistant response is scored for importance. If importance >= 6 (on a 1-10 scale), a summary is written as an `AgentMemory` record with `type: EPISODIC`.
 
 **How:** `onAfterInvoke` fires `scoreAndWriteMemory` as fire-and-forget (`void`) — does not block the pipeline.
 
@@ -51,7 +51,7 @@ CANDIDATE_POOL = 100 // most recent memories scored, top 10 returned
 Memory types defined in schema:
 - `EPISODIC` — normal conversation memories (Phase 2, active)
 - `SEMANTIC` — factual assertions about the world (not yet written by any process)
-- `REFLECTION` — synthesized meta-insights across episodic memories (Phase 4, infra exists)
+- `REFLECTION` — synthesized meta-insights across episodic memories (Phase 4, partially active)
 
 File: `packages/plugins/identity/src/_helpers/retrieve-memories.ts`
 File: `packages/plugins/identity/src/_helpers/score-and-write-memory.ts`
@@ -66,10 +66,20 @@ File: `apps/orchestrator/src/plugin-registry/index.ts`
 
 ```typescript
 const ALL_PLUGINS: PluginDefinition[] = [
-  identityPlugin,   // MUST be first — onBeforeInvoke chain starts here
+  identityPlugin,       // MUST be first — onBeforeInvoke chain starts here
   activityPlugin,
-  contextPlugin,    // injects history after identity injects soul
-  ...
+  contextPlugin,        // injects history after identity injects soul
+  discordPlugin,
+  webPlugin,
+  cronPlugin,
+  delegationPlugin,
+  validatorPlugin,
+  metricsPlugin,
+  summarizationPlugin,
+  autoNamerPlugin,
+  auditPlugin,
+  timePlugin,
+  projectPlugin,
 ];
 ```
 
@@ -96,40 +106,58 @@ const ALL_PLUGINS: PluginDefinition[] = [
 
 ---
 
-## Phase 4 — Reflection Cycle (PAUSED)
+## Phase 4 — Reflection Cycle (PARTIALLY ACTIVE)
 
 **What:** Periodic meta-reflection synthesizes patterns across episodic memories into `REFLECTION` type records. High-importance reflections (importance: 8) are injected into prompts alongside episodic memories.
 
-**Status:** PAUSED — trigger logic exists but is not wired into the live plugin.
+**Status:** PARTIALLY ACTIVE — the reflection trigger IS wired into the live plugin as fire-and-forget in `scoreAndWriteMemory`. However, two gaps remain:
 
-**What already exists:**
+1. **`reflectionEnabled` is not checked.** The `AgentConfig.reflectionEnabled` flag exists in the schema but `scoreAndWriteMemory` does not consult it. Reflection triggers for all agents regardless of their config setting.
+2. **REFLECTION memories are not prioritized in the header.** `retrieveMemories` returns memories by recency+importance score. REFLECTION records are treated identically to EPISODIC records — they are not given any special weighting or guaranteed injection.
+
+**What is wired:**
+
+File: `packages/plugins/identity/src/_helpers/score-and-write-memory.ts`, lines 92-97
+
+```typescript
+// Check if reflection should be triggered — fire-and-forget
+void (async () => {
+  const trigger = await checkReflectionTrigger(ctx.db, agentId);
+  if (trigger.shouldReflect) {
+    await runReflection(ctx, agentId, agentName, trigger.memories);
+  }
+})();
+```
+
+This runs after every episodic memory write. `checkReflectionTrigger` fires when >=10 unreflected EPISODIC memories exist since the last REFLECTION. `runReflection` uses Haiku to synthesize 3-5 insights and writes them as REFLECTION records with `sourceMemoryIds` linking back to episodic sources.
+
+**What still exists (unchanged):**
 - `MemoryType.REFLECTION` in schema
-- `checkReflectionTrigger` — fires when ≥10 unreflected EPISODIC memories exist since last REFLECTION
-- `runReflection` — uses Haiku to synthesize 3–5 insights, writes them as REFLECTION records with `sourceMemoryIds` linking back to episodic sources
+- `checkReflectionTrigger` — fires when >=10 unreflected EPISODIC memories exist since last REFLECTION
+- `runReflection` — uses Haiku to synthesize 3-5 insights, writes them as REFLECTION records
 
 Files:
 - `packages/plugins/identity/src/_helpers/check-reflection-trigger.ts`
 - `packages/plugins/identity/src/_helpers/run-reflection.ts`
 
-**When unblocked:** Wire `checkReflectionTrigger` + `runReflection` into either:
-- `onAfterInvoke` (post-conversation, fire-and-forget), OR
-- A cron-triggered `ctx.sendToThread` to a dedicated reflection thread
-
-Do not add synchronous reflection to the pipeline — it must remain fire-and-forget to avoid blocking the pipeline.
+**To complete Phase 4:**
+1. Check `AgentConfig.reflectionEnabled` before triggering — skip if false or config doesn't exist
+2. Give REFLECTION memories a boost in `retrieveMemories` scoring (or guarantee N slots in the returned set)
 
 ---
 
-## Phase 5 — Per-Agent Heartbeat (PAUSED → now unblockable)
+## Phase 5 — Per-Agent Heartbeat (PAUSED — intentionally deferred)
 
 **What:** Each agent fires a scheduled "heartbeat" prompt to its own thread on a per-agent cron schedule. Enables agents to proactively consolidate context, update their own memory, or perform maintenance tasks without user interaction.
 
-**Status:** PAUSED — was blocked on `AgentConfig` table (not yet in schema) and a working cron scheduler (cron plugin not yet implemented).
+**Status:** PAUSED — both original blockers (AgentConfig schema + cron plugin) are now resolved. Implementation is intentionally deferred, not blocked.
 
-**What blocks it now:** Both blockers need to be resolved first:
-1. Add `AgentConfig` model to `packages/database/prisma/schema.prisma`
-2. Implement `@harness/plugin-cron` (see `cron-scheduler.md`)
+**What exists:**
+- `AgentConfig` model in schema with `heartbeatEnabled: Boolean` and `heartbeatCron: String?`
+- `@harness/plugin-cron` is fully implemented and running
+- No admin UI or server actions for AgentConfig yet
 
-**To implement Phase 5 once unblocked:**
+**To implement Phase 5:**
 ```
 1. Read AgentConfig rows where heartbeatEnabled = true and heartbeatCron is non-null
 2. For each agent: find the agent's thread (thread.agentId = agent.id)
@@ -143,34 +171,34 @@ This can live in either:
 
 ---
 
-## AgentConfig Model (Planned)
+## AgentConfig Model (EXISTS IN SCHEMA)
 
-Not yet in schema. Must be added before Phase 4 or Phase 5 can be enabled per-agent.
+The model exists in `packages/database/prisma/schema.prisma` (line 210). No admin UI or server actions exist yet for managing AgentConfig records.
 
-Intended shape:
+Current shape:
 ```prisma
 model AgentConfig {
-  id                 String   @id @default(cuid())
-  agentId            String   @unique
-  agent              Agent    @relation(fields: [agentId], references: [id], onDelete: Cascade)
-
-  memoryEnabled      Boolean  @default(true)   // Phase 2 — memory writing on/off per agent
-  reflectionEnabled  Boolean  @default(false)  // Phase 4 — off by default until stable
-  heartbeatEnabled   Boolean  @default(false)  // Phase 5 — off by default
-  heartbeatCron      String?                   // Phase 5 — cron expression, null = disabled
-
-  createdAt          DateTime @default(now())
-  updatedAt          DateTime @updatedAt
+  id                String   @id @default(cuid())
+  agentId           String   @unique
+  agent             Agent    @relation(fields: [agentId], references: [id])
+  memoryEnabled     Boolean  @default(true)
+  reflectionEnabled Boolean  @default(false) // Phase 4 — not yet checked by plugin
+  heartbeatEnabled  Boolean  @default(false) // Phase 5 — blocked on implementation
+  heartbeatCron     String?                  // cron expression when heartbeat is wired
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
 }
 ```
 
-The unique FK to `Agent` means one config per agent. Add to `Agent` model as `config AgentConfig?`.
+The unique FK to `Agent` means one config per agent. The `Agent` model has `config AgentConfig?` relation (line 184 of schema).
+
+**Note:** `memoryEnabled` is not currently checked by the identity plugin. Memory writing happens for all agents with assigned threads regardless of this flag. Wiring this check is a straightforward enhancement to `scoreAndWriteMemory`.
 
 ---
 
 ## Agent Schema (Current)
 
-File: `packages/database/prisma/schema.prisma`
+File: `packages/database/prisma/schema.prisma`, line 164
 
 ```prisma
 model Agent {
@@ -188,8 +216,15 @@ model Agent {
   goal        String?
   backstory   String?  @db.Text
 
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
   threads     Thread[]
   memories    AgentMemory[]
+  config      AgentConfig?
+
+  @@index([slug])
+  @@index([enabled])
 }
 ```
 
@@ -201,11 +236,11 @@ model Agent {
 
 | Phase | Status | Blocker |
 |-------|--------|---------|
-| 1 — Soul injection | COMPLETE | — |
-| 2 — Episodic memory | COMPLETE | — |
+| 1 — Soul injection | COMPLETE | -- |
+| 2 — Episodic memory | COMPLETE | -- |
 | 3 — Vector search | PAUSED | Qdrant service + backend decision |
-| 4 — Reflection cycle | PAUSED | Wiring trigger into live plugin |
-| 5 — Per-agent heartbeat | PAUSED (unblockable) | AgentConfig schema + cron plugin |
+| 4 — Reflection cycle | PARTIALLY ACTIVE | reflectionEnabled not checked; REFLECTION memories not prioritized in header |
+| 5 — Per-agent heartbeat | PAUSED (deferred) | Intentionally deferred; AgentConfig + cron plugin both exist |
 
 ---
 
@@ -214,10 +249,10 @@ model Agent {
 | File | What it owns |
 |------|-------------|
 | `packages/plugins/identity/src/index.ts` | PluginDefinition — `onBeforeInvoke` + `onAfterInvoke` |
-| `packages/plugins/identity/src/_helpers/load-agent.ts` | Thread → Agent lookup (two-query: thread then agent) |
+| `packages/plugins/identity/src/_helpers/load-agent.ts` | Thread -> Agent lookup (two-query: thread then agent) |
 | `packages/plugins/identity/src/_helpers/retrieve-memories.ts` | Recency+importance scoring, top-N retrieval, lastAccessedAt update |
-| `packages/plugins/identity/src/_helpers/score-and-write-memory.ts` | Haiku importance scoring + summary + EPISODIC write |
+| `packages/plugins/identity/src/_helpers/score-and-write-memory.ts` | Haiku importance scoring + summary + EPISODIC write + reflection trigger |
 | `packages/plugins/identity/src/_helpers/check-reflection-trigger.ts` | Counts unreflected EPISODIC memories; returns trigger decision |
-| `packages/plugins/identity/src/_helpers/run-reflection.ts` | Haiku synthesis → REFLECTION memory records |
-| `packages/database/prisma/schema.prisma` | `Agent`, `AgentMemory`, `MemoryType` enum — `AgentConfig` planned |
+| `packages/plugins/identity/src/_helpers/run-reflection.ts` | Haiku synthesis -> REFLECTION memory records |
+| `packages/database/prisma/schema.prisma` | `Agent`, `AgentMemory`, `AgentConfig`, `MemoryType` enum |
 | `apps/orchestrator/src/plugin-registry/index.ts` | Plugin ordering — identity must be index 0 |

@@ -146,4 +146,66 @@ describe('scoreAndWriteMemory', () => {
     expect(scoringPrompt).toContain(shortOutput);
     expect(scoringPrompt).not.toContain('[...]');
   });
+
+  describe('reflectionEnabled parameter', () => {
+    const makeReflectionCtx = (importanceOutput: string, summaryOutput: string, unreflectedCount: number) => {
+      const unreflectedMemories = Array.from({ length: unreflectedCount }, (_, i) => ({
+        id: `mem-${i}`,
+        content: `Memory ${i}`,
+        importance: 7,
+        createdAt: new Date(),
+      }));
+
+      return {
+        invoker: {
+          invoke: vi.fn().mockResolvedValueOnce({ output: importanceOutput }).mockResolvedValueOnce({ output: summaryOutput }),
+        },
+        db: {
+          agentMemory: {
+            create: vi.fn().mockResolvedValue({}),
+            findFirst: vi.fn().mockResolvedValue(null), // no prior reflection
+            findMany: vi.fn().mockResolvedValue(unreflectedMemories),
+          },
+        },
+        logger: {
+          debug: vi.fn(),
+          info: vi.fn(),
+          warn: vi.fn(),
+          error: vi.fn(),
+        },
+      };
+    };
+
+    it('does not call checkReflectionTrigger when reflectionEnabled is false', async () => {
+      const ctx = makeReflectionCtx('{"importance": 8}', '{"summary": "Important event."}', 15);
+      await scoreAndWriteMemory(ctx as never, 'agent-1', 'Aria', 'thread-1', 'Meaningful output.', false);
+
+      // Memory should still be written
+      expect(ctx.db.agentMemory.create).toHaveBeenCalled();
+      // But reflection trigger queries should NOT have been called
+      // findFirst is used by checkReflectionTrigger to find the last REFLECTION memory
+      expect(ctx.db.agentMemory.findFirst).not.toHaveBeenCalled();
+    });
+
+    it('calls checkReflectionTrigger when reflectionEnabled is true', async () => {
+      const ctx = makeReflectionCtx('{"importance": 8}', '{"summary": "Important event."}', 15);
+      await scoreAndWriteMemory(ctx as never, 'agent-1', 'Aria', 'thread-1', 'Meaningful output.', true);
+
+      // Memory should be written
+      expect(ctx.db.agentMemory.create).toHaveBeenCalled();
+      // Reflection trigger should have been checked (findFirst is called by checkReflectionTrigger)
+      // Allow fire-and-forget to settle
+      await new Promise<void>((resolve) => setImmediate(resolve));
+      expect(ctx.db.agentMemory.findFirst).toHaveBeenCalled();
+    });
+
+    it('calls checkReflectionTrigger when reflectionEnabled is omitted (defaults to true)', async () => {
+      const ctx = makeReflectionCtx('{"importance": 8}', '{"summary": "Important event."}', 15);
+      await scoreAndWriteMemory(ctx as never, 'agent-1', 'Aria', 'thread-1', 'Meaningful output.');
+
+      expect(ctx.db.agentMemory.create).toHaveBeenCalled();
+      await new Promise<void>((resolve) => setImmediate(resolve));
+      expect(ctx.db.agentMemory.findFirst).toHaveBeenCalled();
+    });
+  });
 });

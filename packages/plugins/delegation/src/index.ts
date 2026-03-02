@@ -3,8 +3,9 @@
 // Manages task lifecycle and enforces iteration limits via validation hooks.
 
 import type { PluginContext, PluginDefinition, PluginHooks, PluginTool } from '@harness/plugin-contract';
-import { type DelegationOptions, type DelegationResult, runDelegationLoop } from './_helpers/delegation-loop';
+import { type DelegationResult, runDelegationLoop } from './_helpers/delegation-loop';
 import { handleCheckin } from './_helpers/handle-checkin';
+import type { DelegationOptions } from './_helpers/setup-delegation-task';
 
 export type { DelegationOptions, DelegationResult };
 

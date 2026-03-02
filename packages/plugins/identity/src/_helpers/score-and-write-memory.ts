@@ -37,9 +37,16 @@ const buildScoringSnippet: BuildScoringSnippet = (output) => {
   return `${output.slice(0, SNIPPET_HEAD)}\n\n[...]\n\n${output.slice(-SNIPPET_TAIL)}`;
 };
 
-type ScoreAndWriteMemory = (ctx: PluginContext, agentId: string, agentName: string, threadId: string, output: string) => Promise<void>;
+type ScoreAndWriteMemory = (
+  ctx: PluginContext,
+  agentId: string,
+  agentName: string,
+  threadId: string,
+  output: string,
+  reflectionEnabled?: boolean,
+) => Promise<void>;
 
-export const scoreAndWriteMemory: ScoreAndWriteMemory = async (ctx, agentId, agentName, threadId, output) => {
+export const scoreAndWriteMemory: ScoreAndWriteMemory = async (ctx, agentId, agentName, threadId, output, reflectionEnabled = true) => {
   if (!output || output.trim().length === 0) {
     return;
   }
@@ -89,10 +96,12 @@ export const scoreAndWriteMemory: ScoreAndWriteMemory = async (ctx, agentId, age
   ctx.logger.debug('Wrote episodic memory', { agentId, threadId, importance });
 
   // Check if reflection should be triggered — fire-and-forget
-  void (async () => {
-    const trigger = await checkReflectionTrigger(ctx.db, agentId);
-    if (trigger.shouldReflect) {
-      await runReflection(ctx, agentId, agentName, trigger.memories);
-    }
-  })();
+  if (reflectionEnabled) {
+    void (async () => {
+      const trigger = await checkReflectionTrigger(ctx.db, agentId);
+      if (trigger.shouldReflect) {
+        await runReflection(ctx, agentId, agentName, trigger.memories);
+      }
+    })();
+  }
 };

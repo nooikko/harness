@@ -40,50 +40,59 @@ Read `PluginHooks` completely. The hooks are:
 | `onMessage` | Step 1 — after message received | Notification only (cannot modify) |
 | `onBeforeInvoke` | Step 3 — after prompt assembled, before Claude is called | **Can transform the prompt** (chain hook — each plugin receives previous output) |
 | `onAfterInvoke` | Step 5 — after Claude returns | Notification only (cannot modify) |
-| `onCommand` | Step 7 — once per parsed /command | **Can handle commands** (first plugin returning true wins) |
+| `onPipelineStart` | In sendToThread — before handleMessage | Notification only (fires before pipeline begins) |
+| `onPipelineComplete` | In sendToThread — after handleMessage returns | Notification only (receives full result: invokeResult, pipelineSteps, streamEvents) |
+| `onSettingsChange` | Any time `ctx.notifySettingsChange(pluginName)` is called | Notification — allows plugins to reload their config |
 | `onBroadcast` | Any time `ctx.broadcast()` is called | Receives all broadcast events |
 | `onTaskCreate` | Inside delegation loop — task created | Notification |
-| `onTaskComplete` | Inside delegation loop — task validated | Notification |
+| `onTaskComplete` | Inside delegation loop — task validated | Notification (can throw to reject) |
 | `onTaskFailed` | Inside delegation loop — max iterations | Notification |
+
+**`onCommand` is deprecated.** Steps 6-7 (parseCommands + onCommand) have been removed from the pipeline. All commands now use PluginTool/MCP. The hook type remains in PluginHooks for API compatibility.
 
 Ask: **Does one of these hooks fire at the right point for what I need?**
 
-If yes → implement it in a plugin. Do not modify the orchestrator.
+If yes -> implement it in a plugin. Do not modify the orchestrator.
 
 ### Step 2 — Read the pipeline
 
-File: `apps/orchestrator/src/orchestrator/index.ts`, function `handleMessage` (line 165)
+File: `apps/orchestrator/src/orchestrator/index.ts`, function `handleMessage` at line 152
 
-The 8 steps:
+The pipeline steps inside handleMessage:
 ```
-Step 0: Thread lookup (sessionId, model, kind, name)
-Step 1: onMessage hooks fire
-Step 2: assemblePrompt — adds thread header + kind instruction
-Step 3: onBeforeInvoke chain fires — plugins transform the prompt
-Step 4: invoker.invoke(prompt) — Claude is called
-Step 4b: sessionId persisted if changed (innate — core session management)
-Step 5: onAfterInvoke hooks fire
-Step 6: parseCommands — extracts /command lines from Claude output
-Step 7: onCommand hooks fire — plugins handle each command
-Step 8: broadcast('pipeline:complete')
+Step 0: Thread lookup (sessionId, model, kind, name, customInstructions)    line 158
+Step 1: onMessage hooks fire                                                line 166
+Step 2: assemblePrompt — adds thread header + kind instruction              line 184
+Step 3: onBeforeInvoke chain fires — plugins transform prompt               line 190
+Step 4: invoker.invoke(prompt) — Claude is called                           line 214
+Step 4b: sessionId persisted if changed (innate)                            lines 224-230
+Step 5: onAfterInvoke hooks fire                                            line 233
 ```
+
+Note: `onPipelineStart` and `onPipelineComplete` fire in `sendToThread` (line 65), which wraps `handleMessage`. The `pipeline:complete` broadcast also fires in `sendToThread` after DB writes (line 118).
+
+Steps 6-7 (parseCommands + onCommand) have been removed. The `commandsHandled` array remains empty in the return shape for API compatibility (line 257).
 
 Ask: **Is there a pipeline step where this new hook SHOULD fire but currently doesn't?**
 
-If yes → add a new hook type to `packages/plugin-contract/src/index.ts` and a corresponding call in `orchestrator/index.ts`. This is the ONE valid reason to change the orchestrator.
+If yes -> add a new hook type to `packages/plugin-contract/src/index.ts` and a corresponding call in `orchestrator/index.ts`. This is the ONE valid reason to change the orchestrator.
 
-If no → the system can already do what you need. Implement it as a plugin.
+If no -> the system can already do what you need. Implement it as a plugin.
 
 ### Step 3 — Verify the hook is actually called
 
 File: `apps/orchestrator/src/plugin-registry/index.ts`
 
-Plugin registration order: `context`, `discord`, `web`, `delegation`, `metrics`, `time`
+Plugin registration order (14 plugins):
+```
+identity, activity, context, discord, web, cron, delegation, validator,
+metrics, summarization, auto-namer, audit, time, project
+```
 (filtered by `PluginConfig.enabled` in DB — plugins can be disabled at runtime without code changes)
 
 Check: Is there a plugin that already implements the hook you need?
 
-If yes and it's not working as expected → debug the existing plugin, don't add a parallel system.
+If yes and it's not working as expected -> debug the existing plugin, don't add a parallel system.
 
 ---
 
@@ -91,15 +100,17 @@ If yes and it's not working as expected → debug the existing plugin, don't add
 
 Every plugin receives this at `register(ctx)`. Read this before concluding something is unavailable.
 
-File: `packages/plugin-contract/src/index.ts` line 64
+File: `packages/plugin-contract/src/index.ts` line 119
 
 ```
-ctx.db           — full PrismaClient (direct DB access)
-ctx.invoker      — { invoke(prompt, opts), prewarm?(opts) } — call Claude as sub-agent (prewarm is optional)
-ctx.config       — { port, claudeModel, claudeTimeout, timezone, maxConcurrentAgents, ... }
-ctx.logger       — structured logger
-ctx.sendToThread — run the full 8-step pipeline on a thread, persists assistant response
-ctx.broadcast    — fan out an event to all onBroadcast hooks (reaches web browser via web plugin)
+ctx.db                  — PrismaClient (sandboxed per-plugin unless system: true)
+ctx.invoker             — { invoke(prompt, opts), prewarm?(opts) } — call Claude as sub-agent
+ctx.config              — { port, claudeModel, claudeTimeout, timezone, maxConcurrentAgents, ... }
+ctx.logger              — structured logger
+ctx.sendToThread        — run onPipelineStart + handleMessage + onPipelineComplete + persist + broadcast
+ctx.broadcast           — fan out an event to all onBroadcast hooks (reaches web browser via web plugin)
+ctx.getSettings         — read typed plugin settings from PluginConfig DB records
+ctx.notifySettingsChange — trigger onSettingsChange hooks for all plugins
 ```
 
 A plugin with `ctx.db` + `ctx.sendToThread` + `ctx.broadcast` can do nearly anything.
@@ -111,13 +122,17 @@ A plugin with `ctx.db` + `ctx.sendToThread` + `ctx.broadcast` can do nearly anyt
 These are plugin responsibilities, not orchestrator responsibilities:
 
 - **User message persistence** — the web server action persists user messages before calling the orchestrator
-- **Rich activity persistence** — pipeline step records, thinking blocks, tool call/result records, pipeline_start/complete markers. These belong in an activity plugin using `onAfterInvoke` (or a dedicated hook). **Currently implemented inline in `sendToThread` as technical debt — do not add more persistence there.**
+- **Rich activity persistence** — pipeline step records, thinking blocks, tool call/result records, pipeline_start/complete markers. Handled by the **activity plugin** via `onPipelineStart` and `onPipelineComplete` hooks.
 - **WebSocket delivery** — the web plugin's `onBroadcast` hook. The orchestrator only fires `ctx.broadcast()`.
 - **Discord delivery** — the discord plugin handles its own gateway
 - **Conversation history injection** — the context plugin's `onBeforeInvoke` injects it into the prompt
-- **Token/cost tracking** — the metrics plugin's `onAfterInvoke` records `AgentRun` rows
-- **Sub-agent delegation** — the delegation plugin's `onCommand` handles `/delegate`
+- **Token/cost tracking** — the metrics plugin's `onAfterInvoke` records `Metric` rows
+- **Sub-agent delegation** — the delegation plugin's `delegate` and `checkin` MCP tools
 - **Session pre-warming** — exposed as `ctx.invoker.prewarm()`, called by the web plugin via `POST /api/prewarm`
+- **Thread auto-naming** — the auto-namer plugin's `onMessage` hook
+- **Conversation summarization** — the summarization plugin's `onAfterInvoke` hook
+- **Agent identity/memory** — the identity plugin's `onBeforeInvoke` and `onAfterInvoke` hooks
+- **Cron scheduling** — the cron plugin's `start`/`stop` lifecycle
 
 If you are about to add any of these to the orchestrator core, stop and implement a plugin instead.
 
@@ -138,4 +153,4 @@ If you are about to add any of these to the orchestrator core, stop and implemen
 **Correct:** The orchestrator is intentionally minimal. Z belongs in a plugin. If you genuinely cannot implement Z as a plugin with the current PluginContext API, add a new method to PluginContext — don't restructure handleMessage.
 
 **Wrong:** "I need to add persistence to sendToThread for feature X"
-**Correct:** Persistence is extension behavior. Add an `onAfterInvoke` hook (or a new hook type if none fires at the right point) and implement a plugin. The current `sendToThread` has Rich Activity persistence hardcoded as technical debt — the refactor direction is OUT of sendToThread, not more into it.
+**Correct:** Persistence is extension behavior. Use `onPipelineStart` or `onPipelineComplete` hooks in a plugin. The activity plugin already demonstrates this pattern — it persists all rich activity records via these hooks.

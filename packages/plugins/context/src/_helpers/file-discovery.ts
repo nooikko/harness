@@ -4,27 +4,16 @@
 import type { Stats } from 'node:fs';
 import { readdirSync, statSync } from 'node:fs';
 import { relative, resolve } from 'node:path';
+import { DEFAULT_DISCOVERY_CONFIG, type FileDiscoveryConfig } from './default-discovery-config';
 import { matchPattern } from './match-pattern';
 
-export type FileDiscoveryConfig = {
-  includePatterns: string[];
-  excludePatterns: string[];
-  maxDepth: number;
-  followSymlinks: boolean;
-};
+export type { FileDiscoveryConfig } from './default-discovery-config';
 
 export type DiscoveredFile = {
   relativePath: string;
   absolutePath: string;
   size: number;
   lastModified: Date;
-};
-
-export const DEFAULT_DISCOVERY_CONFIG: FileDiscoveryConfig = {
-  includePatterns: ['**/*.md'],
-  excludePatterns: ['**/*.draft.md', '.*'],
-  maxDepth: 3,
-  followSymlinks: false,
 };
 
 type ShouldInclude = (relativePath: string, config: FileDiscoveryConfig) => boolean;

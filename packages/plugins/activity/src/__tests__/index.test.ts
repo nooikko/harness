@@ -60,7 +60,6 @@ describe('activity plugin', () => {
       invokeResult: makeInvokeResult(),
       pipelineSteps: steps,
       streamEvents: events,
-      commandsHandled: [],
     });
 
     const createCalls = (ctx.db.message.create as ReturnType<typeof vi.fn>).mock.calls as Array<[{ data: { kind: string } }]>;
@@ -89,7 +88,6 @@ describe('activity plugin', () => {
         invokeResult: makeInvokeResult(),
         pipelineSteps: [],
         streamEvents: [],
-        commandsHandled: [],
       }),
     ).resolves.toBeUndefined();
     expect(ctx.logger.error).toHaveBeenCalled();
@@ -114,7 +112,6 @@ describe('activity plugin', () => {
         invokeResult: makeInvokeResult(),
         pipelineSteps: [],
         streamEvents: [],
-        commandsHandled: [],
       }),
     ).resolves.toBeUndefined();
     expect(ctx.logger.error).toHaveBeenCalledWith(expect.stringContaining('string error'));

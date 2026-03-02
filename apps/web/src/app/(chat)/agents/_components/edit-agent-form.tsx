@@ -1,9 +1,10 @@
 'use client';
 
-import { Button, Card, CardContent, CardHeader, CardTitle, Input, Label } from '@harness/ui';
+import { Button, Card, CardContent, CardHeader, CardTitle, Input, Label, Separator } from '@harness/ui';
 import { useRouter } from 'next/navigation';
 import { useState, useTransition } from 'react';
 import { updateAgent } from '../../chat/_actions/update-agent';
+import { updateAgentConfig } from '../../chat/_actions/update-agent-config';
 
 type AgentFields = {
   id: string;
@@ -18,13 +19,19 @@ type AgentFields = {
   version: number;
 };
 
+type AgentConfigFields = {
+  memoryEnabled: boolean;
+  reflectionEnabled: boolean;
+} | null;
+
 type EditAgentFormProps = {
   agent: AgentFields;
+  agentConfig: AgentConfigFields;
 };
 
 type EditAgentFormComponent = (props: EditAgentFormProps) => React.ReactNode;
 
-export const EditAgentForm: EditAgentFormComponent = ({ agent }) => {
+export const EditAgentForm: EditAgentFormComponent = ({ agent, agentConfig }) => {
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
@@ -38,25 +45,40 @@ export const EditAgentForm: EditAgentFormComponent = ({ agent }) => {
   const [backstory, setBackstory] = useState(agent.backstory ?? '');
   const [enabled, setEnabled] = useState(agent.enabled);
 
+  const [memoryEnabled, setMemoryEnabled] = useState(agentConfig?.memoryEnabled ?? true);
+  const [reflectionEnabled, setReflectionEnabled] = useState(agentConfig?.reflectionEnabled ?? false);
+
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     setError(null);
     setSuccess(false);
 
     startTransition(async () => {
-      const result = await updateAgent({
-        id: agent.id,
-        name,
-        soul,
-        identity,
-        role: role || null,
-        goal: goal || null,
-        backstory: backstory || null,
-        enabled,
-      });
+      const [agentResult, configResult] = await Promise.all([
+        updateAgent({
+          id: agent.id,
+          name,
+          soul,
+          identity,
+          role: role || null,
+          goal: goal || null,
+          backstory: backstory || null,
+          enabled,
+        }),
+        updateAgentConfig({
+          agentId: agent.id,
+          memoryEnabled,
+          reflectionEnabled,
+        }),
+      ]);
 
-      if ('error' in result) {
-        setError(result.error);
+      if ('error' in agentResult) {
+        setError(agentResult.error);
+        return;
+      }
+
+      if ('error' in configResult) {
+        setError(configResult.error);
         return;
       }
 
@@ -157,6 +179,43 @@ export const EditAgentForm: EditAgentFormComponent = ({ agent }) => {
                 rows={4}
                 className='flex min-h-[80px] w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 resize-y'
               />
+            </div>
+          </div>
+
+          <Separator />
+
+          <div className='flex flex-col gap-4'>
+            <div className='flex flex-col gap-1'>
+              <Label>Agent Configuration</Label>
+              <p className='text-xs text-muted-foreground'>Feature flags that control agent behavior at runtime.</p>
+            </div>
+            <div className='grid grid-cols-1 gap-3 sm:grid-cols-2'>
+              <div className='flex items-center gap-2'>
+                <input
+                  id='edit-agent-memory-enabled'
+                  type='checkbox'
+                  checked={memoryEnabled}
+                  onChange={(e: React.ChangeEvent<HTMLInputElement>) => setMemoryEnabled(e.target.checked)}
+                  className='h-4 w-4 rounded border border-input'
+                />
+                <label htmlFor='edit-agent-memory-enabled' className='text-sm cursor-pointer'>
+                  Episodic Memory
+                  <span className='ml-1 text-xs text-muted-foreground'>(write memories after each conversation)</span>
+                </label>
+              </div>
+              <div className='flex items-center gap-2'>
+                <input
+                  id='edit-agent-reflection-enabled'
+                  type='checkbox'
+                  checked={reflectionEnabled}
+                  onChange={(e: React.ChangeEvent<HTMLInputElement>) => setReflectionEnabled(e.target.checked)}
+                  className='h-4 w-4 rounded border border-input'
+                />
+                <label htmlFor='edit-agent-reflection-enabled' className='text-sm cursor-pointer'>
+                  Reflection Cycle
+                  <span className='ml-1 text-xs text-muted-foreground'>(periodic meta-reflection on memories)</span>
+                </label>
+              </div>
             </div>
           </div>
 

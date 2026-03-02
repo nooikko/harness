@@ -65,7 +65,6 @@ describe('cron plugin', () => {
     expect(hooks.onMessage).toBeUndefined();
     expect(hooks.onBeforeInvoke).toBeUndefined();
     expect(hooks.onAfterInvoke).toBeUndefined();
-    expect(hooks.onCommand).toBeUndefined();
     expect(hooks.onBroadcast).toBeUndefined();
   });
 

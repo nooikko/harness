@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import { calculateCost, getModelPricing } from '../calculate-cost';
+import { calculateCost } from '../calculate-cost';
+import { getModelPricing } from '../get-model-pricing';
 
 describe('getModelPricing', () => {
   it("returns Sonnet pricing for exact 'sonnet' key", () => {

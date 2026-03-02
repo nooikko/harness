@@ -5,6 +5,7 @@ import type { PluginContext, PluginDefinition, PluginHooks } from '@harness/plug
 import { formatIdentityAnchor } from './_helpers/format-identity-anchor';
 import { formatIdentityHeader } from './_helpers/format-identity-header';
 import { loadAgent } from './_helpers/load-agent';
+import { loadAgentConfig } from './_helpers/load-agent-config';
 import { retrieveMemories } from './_helpers/retrieve-memories';
 import { scoreAndWriteMemory } from './_helpers/score-and-write-memory';
 
@@ -38,8 +39,13 @@ export const plugin: PluginDefinition = {
           return;
         }
 
+        const config = await loadAgentConfig(ctx.db, agent.id);
+        if (config?.memoryEnabled === false) {
+          return;
+        }
+
         // Fire-and-forget — do not block the pipeline
-        void scoreAndWriteMemory(ctx, agent.id, agent.name, threadId, result.output);
+        void scoreAndWriteMemory(ctx, agent.id, agent.name, threadId, result.output, config?.reflectionEnabled ?? true);
       },
     };
   },

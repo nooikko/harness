@@ -1,6 +1,5 @@
 // Delegation loop — manages sub-agent task lifecycle with iteration control
-// Creates task records, fires lifecycle hooks, invokes sub-agents,
-// and handles accept/reject validation with re-delegation support
+// Invokes sub-agents and handles accept/reject validation with re-delegation support
 
 import type { InvokeStreamEvent, PluginContext, PluginHooks } from '@harness/plugin-contract';
 import { runHook } from '@harness/plugin-contract';
@@ -11,19 +10,12 @@ import { fireTaskCompleteHooks } from './fire-task-complete-hooks';
 import { invokeSubAgent } from './invoke-sub-agent';
 import { queryDelegationCost } from './query-delegation-cost';
 import { sendThreadNotification } from './send-thread-notification';
+import { type DelegationOptions, setupDelegationTask } from './setup-delegation-task';
 
 // Maximum USD spend allowed for a single delegation chain.
 // Stops the loop before runaway Opus usage drains the budget.
 // Override with DELEGATION_COST_CAP_USD env var.
 const DELEGATION_COST_CAP_USD = Number(process.env.DELEGATION_COST_CAP_USD ?? '5');
-
-export type DelegationOptions = {
-  prompt: string;
-  parentThreadId: string;
-  maxIterations?: number;
-  model?: string;
-  traceId?: string;
-};
 
 export type DelegationResult = {
   taskId: string;
@@ -33,72 +25,7 @@ export type DelegationResult = {
   iterations: number;
 };
 
-export type SetupDelegationTaskResult = {
-  threadId: string;
-  taskId: string;
-};
-
 const DEFAULT_MAX_ITERATIONS = 5;
-
-type SetupDelegationTask = (ctx: PluginContext, allHooks: PluginHooks[], options: DelegationOptions) => Promise<SetupDelegationTaskResult>;
-
-export const setupDelegationTask: SetupDelegationTask = async (ctx, allHooks, options) => {
-  const maxIterations = options.maxIterations ?? DEFAULT_MAX_ITERATIONS;
-
-  // Steps 1 & 2: Create thread and task record atomically
-  const { threadId, taskId } = await ctx.db.$transaction(async (tx) => {
-    const thread = await tx.thread.create({
-      data: {
-        source: 'delegation',
-        sourceId: `task-${crypto.randomUUID()}`,
-        name: `Task: ${options.prompt.slice(0, 50)}`,
-        kind: 'task',
-        status: 'active',
-        parentThreadId: options.parentThreadId,
-        lastActivity: new Date(),
-      },
-    });
-
-    const task = await tx.orchestratorTask.create({
-      data: {
-        threadId: thread.id,
-        prompt: options.prompt,
-        status: 'pending',
-        maxIterations,
-        currentIteration: 0,
-      },
-    });
-
-    return { threadId: thread.id, taskId: task.id };
-  });
-
-  ctx.logger.info(`Delegation: created task ${taskId} in thread ${threadId}`, {
-    parentThreadId: options.parentThreadId,
-    maxIterations,
-  });
-
-  // Step 3: Fire onTaskCreate hooks
-  await runHook(
-    allHooks,
-    'onTaskCreate',
-    (hooks) => {
-      if (hooks.onTaskCreate) {
-        return hooks.onTaskCreate(threadId, taskId);
-      }
-      return undefined;
-    },
-    ctx.logger,
-  );
-
-  // Step 4: Broadcast task creation
-  await ctx.broadcast('task:created', {
-    taskId,
-    threadId,
-    parentThreadId: options.parentThreadId,
-  });
-
-  return { threadId, taskId };
-};
 
 type RunDelegationLoop = (ctx: PluginContext, allHooks: PluginHooks[], options: DelegationOptions) => Promise<DelegationResult>;
 

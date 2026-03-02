@@ -20,7 +20,7 @@ export const generateMetadata = async ({ params }: AgentEditPageProps): Promise<
 const AgentEditPage = async ({ params }: AgentEditPageProps) => {
   const { 'agent-id': agentId } = await params;
 
-  const [agent, memories] = await Promise.all([
+  const [agent, memories, agentConfig] = await Promise.all([
     prisma.agent.findUnique({
       where: { id: agentId },
       select: {
@@ -37,6 +37,13 @@ const AgentEditPage = async ({ params }: AgentEditPageProps) => {
       },
     }),
     listAgentMemories(agentId),
+    prisma.agentConfig.findUnique({
+      where: { agentId },
+      select: {
+        memoryEnabled: true,
+        reflectionEnabled: true,
+      },
+    }),
   ]);
 
   if (!agent) {
@@ -49,7 +56,7 @@ const AgentEditPage = async ({ params }: AgentEditPageProps) => {
         <h1 className='text-2xl font-semibold tracking-tight'>{agent.name}</h1>
         <p className='text-sm text-muted-foreground'>Edit agent configuration and soul definition.</p>
       </div>
-      <EditAgentForm agent={agent} />
+      <EditAgentForm agent={agent} agentConfig={agentConfig} />
       <AgentMemoryBrowser agentId={agentId} memories={memories} />
     </div>
   );

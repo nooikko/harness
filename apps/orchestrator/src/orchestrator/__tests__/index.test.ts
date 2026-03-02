@@ -482,15 +482,6 @@ describe('createOrchestrator', () => {
       expect(broadcastCall).toBeDefined();
     });
 
-    it('returns empty commandsHandled when invoke output has no commands', async () => {
-      const deps = makeDeps();
-      const orchestrator = createOrchestrator(deps);
-
-      const result = await orchestrator.handleMessage('t', 'user', 'hi');
-
-      expect(result.commandsHandled).toEqual([]);
-    });
-
     it('calls setActiveThread with threadId before invoking', async () => {
       const setActiveThread = vi.fn();
       const deps = makeDeps({ setActiveThread });

@@ -2,10 +2,14 @@ import { render, screen } from '@testing-library/react';
 import { describe, expect, it, vi } from 'vitest';
 
 const mockFindUnique = vi.fn();
+const mockAgentConfigFindUnique = vi.fn();
 vi.mock('@harness/database', () => ({
   prisma: {
     agent: {
       findUnique: (...args: unknown[]) => mockFindUnique(...args),
+    },
+    agentConfig: {
+      findUnique: (...args: unknown[]) => mockAgentConfigFindUnique(...args),
     },
   },
 }));
@@ -50,6 +54,7 @@ const fakeAgent = {
 describe('AgentEditPage', () => {
   it('calls notFound when agent does not exist', async () => {
     mockFindUnique.mockResolvedValue(null);
+    mockAgentConfigFindUnique.mockResolvedValue(null);
     mockListAgentMemories.mockResolvedValue([]);
 
     await expect(AgentEditPage({ params: makeParams('missing-id') })).rejects.toThrow('NEXT_NOT_FOUND');
@@ -58,6 +63,7 @@ describe('AgentEditPage', () => {
 
   it('renders the agent name as heading', async () => {
     mockFindUnique.mockResolvedValue(fakeAgent);
+    mockAgentConfigFindUnique.mockResolvedValue(null);
     mockListAgentMemories.mockResolvedValue([]);
 
     const jsx = await AgentEditPage({ params: makeParams('agent-1') });
@@ -68,6 +74,7 @@ describe('AgentEditPage', () => {
 
   it('renders EditAgentForm', async () => {
     mockFindUnique.mockResolvedValue(fakeAgent);
+    mockAgentConfigFindUnique.mockResolvedValue(null);
     mockListAgentMemories.mockResolvedValue([]);
 
     const jsx = await AgentEditPage({ params: makeParams('agent-1') });
@@ -78,6 +85,7 @@ describe('AgentEditPage', () => {
 
   it('renders AgentMemoryBrowser', async () => {
     mockFindUnique.mockResolvedValue(fakeAgent);
+    mockAgentConfigFindUnique.mockResolvedValue(null);
     mockListAgentMemories.mockResolvedValue([]);
 
     const jsx = await AgentEditPage({ params: makeParams('agent-1') });

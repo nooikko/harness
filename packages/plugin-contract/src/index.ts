@@ -6,9 +6,7 @@ import type { PrismaClient } from '@harness/database';
 import type { Logger } from '@harness/logger';
 import { runChainHook } from './_helpers/run-chain-hook';
 import { runHook } from './_helpers/run-hook';
-import { runHookWithResult } from './_helpers/run-hook-with-result';
-
-export { runChainHook, runHook, runHookWithResult };
+export { runChainHook, runHook };
 export { decryptValue } from './_helpers/decrypt-value';
 export { encryptValue } from './_helpers/encrypt-value';
 
@@ -131,7 +129,6 @@ export type PluginHooks = {
   onMessage?: (threadId: string, role: string, content: string) => Promise<void>;
   onBeforeInvoke?: (threadId: string, prompt: string) => Promise<string>;
   onAfterInvoke?: (threadId: string, result: InvokeResult) => Promise<void>;
-  onCommand?: (threadId: string, command: string, args: string) => Promise<boolean>;
   onTaskCreate?: (threadId: string, taskId: string) => Promise<void>;
   onTaskComplete?: (threadId: string, taskId: string, result: string) => Promise<void>;
   onTaskFailed?: (threadId: string, taskId: string, error: Error) => Promise<void>;
@@ -143,7 +140,6 @@ export type PluginHooks = {
       invokeResult: InvokeResult;
       pipelineSteps: PipelineStep[];
       streamEvents: InvokeStreamEvent[];
-      commandsHandled: string[];
     },
   ) => Promise<void>;
   onSettingsChange?: (pluginName: string) => Promise<void>;

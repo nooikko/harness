@@ -69,7 +69,6 @@ describe('delegation plugin', () => {
     const hooks = await plugin.register(ctx);
 
     expect(hooks).toEqual({});
-    expect(hooks.onCommand).toBeUndefined();
   });
 
   it('logs registration message', async () => {

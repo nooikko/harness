@@ -32,7 +32,6 @@ export type OrchestratorDeps = {
 export type HandleMessageResult = {
   invokeResult: InvokeResult;
   prompt: string;
-  commandsHandled: string[];
   pipelineSteps: PipelineStep[];
   streamEvents: InvokeStreamEvent[];
   traceId?: string;
@@ -76,7 +75,7 @@ export const createOrchestrator: CreateOrchestrator = (deps) => {
         await runNotifyHooks(allHooks(), 'onPipelineStart', (h) => h.onPipelineStart?.(threadId), deps.logger);
 
         const result = await pipeline.handleMessage(threadId, 'user', content, traceId);
-        const { invokeResult, pipelineSteps, streamEvents, commandsHandled } = result;
+        const { invokeResult, pipelineSteps, streamEvents } = result;
 
         // Notify plugins pipeline is complete BEFORE innate writes.
         // This ensures thinking/tool_call/tool_result records get earlier createdAt than
@@ -84,7 +83,7 @@ export const createOrchestrator: CreateOrchestrator = (deps) => {
         await runNotifyHooks(
           allHooks(),
           'onPipelineComplete',
-          (h) => h.onPipelineComplete?.(threadId, { invokeResult, pipelineSteps, streamEvents, commandsHandled }),
+          (h) => h.onPipelineComplete?.(threadId, { invokeResult, pipelineSteps, streamEvents }),
           deps.logger,
         );
 
@@ -117,7 +116,6 @@ export const createOrchestrator: CreateOrchestrator = (deps) => {
         // refreshed before the assistant message was written).
         await context.broadcast('pipeline:complete', {
           threadId,
-          commandsHandled,
           durationMs: invokeResult.durationMs,
         });
       } catch (error) {
@@ -247,16 +245,7 @@ export const createOrchestrator: CreateOrchestrator = (deps) => {
       timestamp: Date.now(),
     });
 
-    // DEPRECATED — 2026-03-02
-    // Steps 6-7 (parseCommands + onCommand hooks) have been removed from this pipeline.
-    // All commands previously routed through onCommand (/delegate, /checkin, etc.) now
-    // use PluginTool via the MCP tool-server. No plugin implements onCommand.
-    // The commandsHandled array remains in the return shape for API compatibility.
-    // Cleanup requires removing onCommand from PluginHooks in plugin-contract — see
-    // apps/orchestrator/src/orchestrator/_helpers/run-command-hooks.ts for full notes.
-    const commandsHandled: string[] = [];
-
-    return { invokeResult, prompt, commandsHandled, pipelineSteps, streamEvents, traceId };
+    return { invokeResult, prompt, pipelineSteps, streamEvents, traceId };
   };
 
   // Wire sendToThread to the pipeline

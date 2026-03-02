@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { createSettingsSchema, runChainHook, runHook, runHookWithResult } from '../index';
+import { createSettingsSchema, runChainHook, runHook } from '../index';
 
 describe('plugin-contract exports', () => {
   it('exports runHook function', () => {
@@ -8,10 +8,6 @@ describe('plugin-contract exports', () => {
 
   it('exports runChainHook function', () => {
     expect(typeof runChainHook).toBe('function');
-  });
-
-  it('exports runHookWithResult function', () => {
-    expect(typeof runHookWithResult).toBe('function');
   });
 });
 
