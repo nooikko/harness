@@ -28,6 +28,7 @@ const makeRun = (overrides: Partial<AgentRun> = {}): AgentRun => ({
   error: null,
   startedAt: new Date('2026-02-23T09:59:58Z'),
   completedAt: new Date('2026-02-23T10:00:00Z'),
+  traceId: null,
   ...overrides,
 });
 

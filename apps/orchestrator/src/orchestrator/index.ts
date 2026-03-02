@@ -210,7 +210,7 @@ export const createOrchestrator: CreateOrchestrator = (deps) => {
       deps.logger.warn(`Pipeline: invoke error [thread=${threadId}]: ${invokeResult.error}`);
     }
 
-    // Step 4b: Sync sessionId — update when new session acquired, clear when session was lost
+    // Step 4b: Sync sessionId — update if changed (handles set, clear, and rotation)
     const incomingSessionId = invokeResult.sessionId ?? null;
     if (incomingSessionId !== (thread?.sessionId ?? null)) {
       await deps.db.thread.update({

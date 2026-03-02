@@ -17,6 +17,7 @@ export type { ButtonProps } from './components/button';
 export { Button, buttonVariants } from './components/button';
 
 export { Card, CardAction, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from './components/card';
+export { Collapsible, CollapsibleContent, CollapsibleTrigger } from './components/collapsible';
 export {
   Command,
   CommandDialog,
@@ -78,9 +79,11 @@ export {
   SidebarMenuSub,
   SidebarMenuSubButton,
   SidebarMenuSubItem,
+  SidebarProvider,
   SidebarRail,
   SidebarSeparator,
   sidebarMenuButtonVariants,
+  useSidebar,
 } from './components/sidebar';
 export { Skeleton } from './components/skeleton';
 export { Table, TableBody, TableCaption, TableCell, TableFooter, TableHead, TableHeader, TableRow } from './components/table';

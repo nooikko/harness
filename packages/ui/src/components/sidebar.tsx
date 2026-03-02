@@ -212,6 +212,16 @@ const SidebarRail = ({ className, ...props }: React.ComponentProps<'button'>) =>
   />
 );
 
+/** Minimal provider wrapper — passes children through without collapsible state. */
+const SidebarProvider = ({ children }: { children: React.ReactNode }) => <>{children}</>;
+
+/** Minimal hook stub — returns safe defaults for components that read sidebar state. */
+const useSidebar = (): { isMobile: boolean; open: boolean; setOpen: (open: boolean) => void } => ({
+  isMobile: false,
+  open: true,
+  setOpen: () => undefined,
+});
+
 export {
   Sidebar,
   SidebarContent,
@@ -228,7 +238,9 @@ export {
   SidebarMenuSub,
   SidebarMenuSubButton,
   SidebarMenuSubItem,
+  SidebarProvider,
   SidebarRail,
   SidebarSeparator,
   sidebarMenuButtonVariants,
+  useSidebar,
 };

@@ -17,6 +17,7 @@
     "@harness/plugin-discord": "workspace:*",
     "@harness/plugin-metrics": "workspace:*",
     "@harness/plugin-time": "workspace:*",
+    "@harness/plugin-validator": "workspace:*",
     "@harness/plugin-web": "workspace:*",
     "@testcontainers/postgresql": "^10.24.2",
     "@vitest/coverage-v8": "^4.0.18",
