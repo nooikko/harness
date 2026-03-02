@@ -77,6 +77,9 @@ export const boot: Boot = async () => {
     setActiveThread: (threadId: string) => {
       contextRef.threadId = threadId;
     },
+    setActiveTraceId: (traceId: string) => {
+      contextRef.traceId = traceId;
+    },
   });
 
   contextRef.ctx = orchestrator.getContext();

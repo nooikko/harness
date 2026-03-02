@@ -12,6 +12,7 @@ export type CollectedTool = PluginTool & {
 export type ToolContextRef = {
   ctx: PluginContext | null;
   threadId: string;
+  traceId?: string;
 };
 
 type CollectTools = (plugins: PluginDefinition[]) => CollectedTool[];
@@ -44,9 +45,11 @@ export const createToolServer: CreateToolServer = (tools, contextRef) => {
     inputSchema: jsonSchemaToZodShape(t.schema) as Record<string, ZodTypeAny>,
     handler: async (input: Record<string, unknown>) => {
       if (!contextRef.ctx) {
-        throw new Error('PluginContext not initialized');
+        throw new Error(
+          `Tool "${t.qualifiedName}" called before PluginContext was initialized. This can happen if a tool is called before plugin registration completes.`,
+        );
       }
-      const meta: PluginToolMeta = { threadId: contextRef.threadId };
+      const meta: PluginToolMeta = { threadId: contextRef.threadId, traceId: contextRef.traceId };
       const result = await t.handler(contextRef.ctx, input, meta);
       return { content: [{ type: 'text' as const, text: result }] };
     },

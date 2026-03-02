@@ -88,7 +88,10 @@ export const recordAgentRun: RecordAgentRun = async (ctx, input) => {
   });
 
   // Record usage metrics for dashboard aggregation
-  const tags = { model: resolvedModel };
+  const tags: Record<string, string> = { model: resolvedModel };
+  if (input.traceId) {
+    tags.traceId = input.traceId;
+  }
   await ctx.db.metric.createMany({
     data: [
       { name: 'token.input', value: inputTokens, tags, threadId: input.threadId },

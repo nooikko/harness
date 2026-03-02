@@ -26,6 +26,7 @@ export type OrchestratorDeps = {
   config: OrchestratorConfig;
   logger: Logger;
   setActiveThread?: (threadId: string) => void;
+  setActiveTraceId?: (traceId: string) => void;
 };
 
 export type HandleMessageResult = {
@@ -34,6 +35,7 @@ export type HandleMessageResult = {
   commandsHandled: string[];
   pipelineSteps: PipelineStep[];
   streamEvents: InvokeStreamEvent[];
+  traceId?: string;
 };
 
 type CreateOrchestrator = (deps: OrchestratorDeps) => {
@@ -43,7 +45,7 @@ type CreateOrchestrator = (deps: OrchestratorDeps) => {
   getPlugins: () => string[];
   getContext: () => PluginContext;
   getHooks: () => PluginHooks[];
-  handleMessage: (threadId: string, role: string, content: string) => Promise<HandleMessageResult>;
+  handleMessage: (threadId: string, role: string, content: string, traceId?: string) => Promise<HandleMessageResult>;
 };
 
 export const createOrchestrator: CreateOrchestrator = (deps) => {
@@ -52,7 +54,7 @@ export const createOrchestrator: CreateOrchestrator = (deps) => {
   const allHooks = (): PluginHooks[] => plugins.map((p) => p.hooks);
 
   // Mutable ref for late-binding — handleMessage is set after the return object is created
-  type HandleMessageFn = (threadId: string, role: string, content: string) => Promise<HandleMessageResult>;
+  type HandleMessageFn = (threadId: string, role: string, content: string, traceId?: string) => Promise<HandleMessageResult>;
   const pipeline: { handleMessage: HandleMessageFn | null } = { handleMessage: null };
 
   const context: PluginContext = {
@@ -66,12 +68,14 @@ export const createOrchestrator: CreateOrchestrator = (deps) => {
       }
 
       try {
-        deps.logger.info(`sendToThread: starting [thread=${threadId}, contentLength=${content.length}]`);
+        const traceId = crypto.randomUUID();
+        deps.setActiveTraceId?.(traceId);
+        deps.logger.info(`sendToThread: starting [thread=${threadId}, contentLength=${content.length}, traceId=${traceId}]`);
 
         // Notify plugins pipeline is starting
         await runNotifyHooks(allHooks(), 'onPipelineStart', (h) => h.onPipelineStart?.(threadId), deps.logger);
 
-        const result = await pipeline.handleMessage(threadId, 'user', content);
+        const result = await pipeline.handleMessage(threadId, 'user', content, traceId);
         const { invokeResult, pipelineSteps, streamEvents, commandsHandled } = result;
 
         // Notify plugins pipeline is complete BEFORE innate writes.
@@ -136,7 +140,7 @@ export const createOrchestrator: CreateOrchestrator = (deps) => {
     };
   };
 
-  const handleMessage = async (threadId: string, role: string, content: string): Promise<HandleMessageResult> => {
+  const handleMessage = async (threadId: string, role: string, content: string, traceId?: string): Promise<HandleMessageResult> => {
     const hooks = allHooks();
     const pipelineSteps: PipelineStep[] = [];
     const streamEvents: InvokeStreamEvent[] = [];
@@ -197,7 +201,7 @@ export const createOrchestrator: CreateOrchestrator = (deps) => {
     const invokingDetail = `${model ?? 'default'} | ${prompt.length.toLocaleString()} chars`;
     pipelineSteps.push({ step: 'invoking', detail: invokingDetail, metadata: invokingMeta, timestamp: Date.now() });
     await context.broadcast('pipeline:step', { threadId, step: 'invoking', detail: invokingDetail, metadata: invokingMeta, timestamp: Date.now() });
-    const invokeResult = await deps.invoker.invoke(prompt, { model, sessionId, threadId, onMessage: (event) => streamEvents.push(event) });
+    const invokeResult = await deps.invoker.invoke(prompt, { model, sessionId, threadId, traceId, onMessage: (event) => streamEvents.push(event) });
 
     deps.logger.info(
       `Pipeline: invoke complete [thread=${threadId}, duration=${invokeResult.durationMs}ms, exit=${invokeResult.exitCode}, outputLength=${invokeResult.output.length}, model=${invokeResult.model ?? 'unknown'}, sessionId=${invokeResult.sessionId ?? 'none'}]`,
@@ -206,11 +210,12 @@ export const createOrchestrator: CreateOrchestrator = (deps) => {
       deps.logger.warn(`Pipeline: invoke error [thread=${threadId}]: ${invokeResult.error}`);
     }
 
-    // Step 4b: Persist sessionId on thread if changed (predicated write — no-ops if already set)
-    if (invokeResult.sessionId && invokeResult.sessionId !== thread?.sessionId) {
-      await deps.db.thread.updateMany({
-        where: { id: threadId, sessionId: null },
-        data: { sessionId: invokeResult.sessionId },
+    // Step 4b: Sync sessionId — update when new session acquired, clear when session was lost
+    const incomingSessionId = invokeResult.sessionId ?? null;
+    if (incomingSessionId !== (thread?.sessionId ?? null)) {
+      await deps.db.thread.update({
+        where: { id: threadId },
+        data: { sessionId: incomingSessionId },
       });
     }
 
@@ -241,7 +246,7 @@ export const createOrchestrator: CreateOrchestrator = (deps) => {
       durationMs: invokeResult.durationMs,
     });
 
-    return { invokeResult, prompt, commandsHandled, pipelineSteps, streamEvents };
+    return { invokeResult, prompt, commandsHandled, pipelineSteps, streamEvents, traceId };
   };
 
   // Wire sendToThread to the pipeline

@@ -191,7 +191,7 @@ describe('boot', () => {
 
     // Reset prisma mocks to default resolved values after clearAllMocks
     mockPrisma.$connect.mockResolvedValue(undefined);
-    vi.mocked(delegationState.setHooks).mockReset();
+    vi.mocked(delegationState.setHooks!).mockReset();
     mockPrisma.$disconnect.mockResolvedValue(undefined);
     vi.mocked(mockPrisma.orchestratorTask.findMany).mockResolvedValue([]);
     vi.mocked(mockPrisma.orchestratorTask.update).mockResolvedValue({} as never);
@@ -315,7 +315,7 @@ describe('boot', () => {
       expect(mockCreateSdkInvoker).toHaveBeenCalledWith(expect.not.objectContaining({ sessionConfig: expect.anything() }));
     });
 
-    it('creates the orchestrator with correct deps including setActiveThread', async () => {
+    it('creates the orchestrator with correct deps including setActiveThread and setActiveTraceId', async () => {
       const config = makeConfig();
       const { logger, invoker } = setupDefaults({ config });
 
@@ -327,6 +327,7 @@ describe('boot', () => {
         config,
         logger,
         setActiveThread: expect.any(Function),
+        setActiveTraceId: expect.any(Function),
       });
     });
 
@@ -344,6 +345,24 @@ describe('boot', () => {
 
       // Call it and verify it does not throw (it mutates the internal contextRef)
       expect(() => createOrchestratorArgs.setActiveThread('thread-xyz')).not.toThrow();
+      // Suppress unused variable warnings for these — they are captured to satisfy vi.mocked
+      void logger;
+      void invoker;
+    });
+
+    it('setActiveTraceId callback updates contextRef.traceId', async () => {
+      const config = makeConfig();
+      const { logger, invoker } = setupDefaults({ config });
+
+      await boot();
+
+      const createOrchestratorArgs = mockCreateOrchestrator.mock.calls[0]![0] as {
+        setActiveTraceId: (traceId: string) => void;
+      };
+      expect(typeof createOrchestratorArgs.setActiveTraceId).toBe('function');
+
+      // Call it and verify it does not throw (it mutates the internal contextRef)
+      expect(() => createOrchestratorArgs.setActiveTraceId('trace-abc-123')).not.toThrow();
       // Suppress unused variable warnings for these — they are captured to satisfy vi.mocked
       void logger;
       void invoker;
@@ -427,9 +446,9 @@ describe('boot', () => {
 
       await boot();
 
-      expect(vi.mocked(delegationState.setHooks)).toHaveBeenCalledWith(mockHooks);
+      expect(vi.mocked(delegationState.setHooks!)).toHaveBeenCalledWith(mockHooks);
       // setHooks must be called before start() so tool-path delegation sees all hooks
-      const setHooksOrder = vi.mocked(delegationState.setHooks).mock.invocationCallOrder[0] ?? 0;
+      const setHooksOrder = vi.mocked(delegationState.setHooks!).mock.invocationCallOrder[0] ?? 0;
       const startOrder = orchestrator.start.mock.invocationCallOrder[0] ?? 0;
       expect(setHooksOrder).toBeLessThan(startOrder);
     });

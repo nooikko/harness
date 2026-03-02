@@ -8,6 +8,7 @@ export type UsageMetricData = {
   inputTokens: number;
   outputTokens: number;
   costEstimate: number;
+  traceId?: string;
 };
 
 type RecordUsageMetrics = (db: PrismaClient, data: UsageMetricData) => Promise<void>;
@@ -18,7 +19,10 @@ type RecordUsageMetrics = (db: PrismaClient, data: UsageMetricData) => Promise<v
  * Tags each metric with the model name for per-model aggregation.
  */
 export const recordUsageMetrics: RecordUsageMetrics = async (db, data) => {
-  const tags = { model: data.model };
+  const tags: Record<string, string> = { model: data.model };
+  if (data.traceId) {
+    tags.traceId = data.traceId;
+  }
 
   await db.metric.createMany({
     data: [

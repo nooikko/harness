@@ -203,6 +203,7 @@ describe('runDelegationLoop', () => {
       threadId: 'thread-task-1',
       timeout: 30000,
       onMessage: expect.any(Function),
+      traceId: undefined,
     });
   });
 
@@ -220,6 +221,25 @@ describe('runDelegationLoop', () => {
       threadId: 'thread-task-1',
       timeout: 30000,
       onMessage: expect.any(Function),
+      traceId: undefined,
+    });
+  });
+
+  it('forwards traceId from options to sub-agent invocation', async () => {
+    const hooks: PluginHooks[] = [];
+
+    await runDelegationLoop(mockCtx, hooks, {
+      prompt: 'Research topic',
+      parentThreadId: 'parent-1',
+      traceId: 'trace-xyz-456',
+    });
+
+    expect(mockCtx.invoker.invoke).toHaveBeenCalledWith('Research topic', {
+      model: undefined,
+      threadId: 'thread-task-1',
+      timeout: 30000,
+      onMessage: expect.any(Function),
+      traceId: 'trace-xyz-456',
     });
   });
 

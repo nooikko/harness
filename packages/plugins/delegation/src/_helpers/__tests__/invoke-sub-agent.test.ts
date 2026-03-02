@@ -28,6 +28,7 @@ const createMockContext: CreateMockContext = () =>
     },
     config: {
       claudeModel: 'claude-sonnet-4-20250514',
+      claudeTimeout: 30000,
     },
     logger: { info: vi.fn(), warn: vi.fn(), error: vi.fn(), debug: vi.fn() },
   }) as unknown as PluginContext;
@@ -180,7 +181,34 @@ describe('invokeSubAgent', () => {
 
     await invokeSubAgent(ctx, 'Do work', 'task-1', 'thread-1', undefined, onMessage);
 
-    expect(ctx.invoker.invoke).toHaveBeenCalledWith('Do work', { model: undefined, threadId: 'thread-1', onMessage });
+    expect(ctx.invoker.invoke).toHaveBeenCalledWith('Do work', {
+      model: undefined,
+      threadId: 'thread-1',
+      timeout: 30000,
+      onMessage,
+      traceId: undefined,
+    });
+  });
+
+  it('passes traceId to invoke and recordAgentRun', async () => {
+    const ctx = createMockContext();
+
+    await invokeSubAgent(ctx, 'Do work', 'task-1', 'thread-1', undefined, undefined, 'trace-abc-123');
+
+    expect(ctx.invoker.invoke).toHaveBeenCalledWith('Do work', {
+      model: undefined,
+      threadId: 'thread-1',
+      timeout: 30000,
+      onMessage: undefined,
+      traceId: 'trace-abc-123',
+    });
+
+    const agentRunCreate = (ctx.db as unknown as { agentRun: { create: ReturnType<typeof vi.fn> } }).agentRun.create;
+    expect(agentRunCreate).toHaveBeenCalledWith({
+      data: expect.objectContaining({
+        traceId: 'trace-abc-123',
+      }),
+    });
   });
 
   it('handles undefined error by setting null', async () => {

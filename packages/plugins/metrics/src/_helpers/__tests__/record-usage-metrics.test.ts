@@ -103,4 +103,38 @@ describe('recordUsageMetrics', () => {
     const costMetric = call.data.find((m: { name: string }) => m.name === 'token.cost');
     expect(costMetric?.value).toBe(0.0028);
   });
+
+  it('includes traceId in tags when provided', async () => {
+    const db = { metric: { createMany: mockCreateMany } } as never;
+
+    await recordUsageMetrics(db, {
+      threadId: 'thread-1',
+      model: 'sonnet',
+      inputTokens: 100,
+      outputTokens: 50,
+      costEstimate: 0.001,
+      traceId: 'trace-abc-123',
+    });
+
+    const call = mockCreateMany.mock.calls[0]?.[0];
+    const inputMetric = call.data.find((m: { name: string }) => m.name === 'token.input');
+    expect(inputMetric?.tags).toEqual({ model: 'sonnet', traceId: 'trace-abc-123' });
+  });
+
+  it('does not include traceId in tags when not provided', async () => {
+    const db = { metric: { createMany: mockCreateMany } } as never;
+
+    await recordUsageMetrics(db, {
+      threadId: 'thread-1',
+      model: 'sonnet',
+      inputTokens: 100,
+      outputTokens: 50,
+      costEstimate: 0.001,
+    });
+
+    const call = mockCreateMany.mock.calls[0]?.[0];
+    const inputMetric = call.data.find((m: { name: string }) => m.name === 'token.input');
+    expect(inputMetric?.tags).toEqual({ model: 'sonnet' });
+    expect(inputMetric?.tags).not.toHaveProperty('traceId');
+  });
 });

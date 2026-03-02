@@ -53,6 +53,7 @@ export type InvokeOptions = {
   sessionId?: string;
   threadId?: string; // Harness thread ID — used as session pool key (stable across messages)
   onMessage?: (event: InvokeStreamEvent) => void;
+  traceId?: string; // Trace ID for correlating main-thread invocations with sub-agent invocations
 };
 
 export type InvokeResult = {
@@ -64,6 +65,7 @@ export type InvokeResult = {
   model?: string;
   inputTokens?: number;
   outputTokens?: number;
+  traceId?: string; // Echoed back from InvokeOptions for downstream consumers (e.g. metrics)
 };
 
 export type Invoker = {
@@ -150,6 +152,7 @@ export type PluginHooks = {
 export type PluginToolMeta = {
   threadId: string;
   taskId?: string;
+  traceId?: string; // Trace ID for correlating this tool call with its originating pipeline run
 };
 
 export type PluginToolHandler = (ctx: PluginContext, input: Record<string, unknown>, meta: PluginToolMeta) => Promise<string>;

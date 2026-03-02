@@ -12,7 +12,7 @@ const createRegister: CreateRegister = () => {
 
     return {
       onAfterInvoke: async (threadId, result) => {
-        const { model, inputTokens, outputTokens } = result;
+        const { model, inputTokens, outputTokens, traceId } = result;
 
         if (!model || inputTokens == null || outputTokens == null) {
           return;
@@ -27,6 +27,7 @@ const createRegister: CreateRegister = () => {
             inputTokens,
             outputTokens,
             costEstimate: totalCost,
+            traceId,
           });
         } catch (err) {
           ctx.logger.error(`Metrics: failed to record usage: ${err instanceof Error ? err.message : String(err)}`);

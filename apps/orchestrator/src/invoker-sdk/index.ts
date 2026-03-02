@@ -25,6 +25,7 @@ const withTimeout: WithTimeout = (promise, ms) => {
   return new Promise((resolve, reject) => {
     const timer = setTimeout(() => {
       reject(new Error(`Timed out after ${ms}ms`));
+      promise.catch(() => {});
     }, ms);
 
     promise.then(
@@ -70,7 +71,7 @@ export const createSdkInvoker: CreateSdkInvoker = (config) => {
 
     try {
       const result = await withTimeout(session.send(prompt, sendOptions), timeout);
-      return extractResult(result, Date.now() - startTime);
+      return { ...extractResult(result, Date.now() - startTime), traceId: options?.traceId };
     } catch (err) {
       pool.evict(poolKey);
       return {
@@ -78,6 +79,7 @@ export const createSdkInvoker: CreateSdkInvoker = (config) => {
         error: err instanceof Error ? err.message : String(err),
         durationMs: Date.now() - startTime,
         exitCode: 1,
+        traceId: options?.traceId,
       };
     }
   };
