@@ -5,7 +5,7 @@ import type { TestHarness } from './helpers/create-harness';
 import { createTestHarness } from './helpers/create-harness';
 import { resetDatabase } from './setup/reset-db';
 
-const prisma = new PrismaClient({ datasourceUrl: process.env['TEST_DATABASE_URL'] });
+const prisma = new PrismaClient({ datasourceUrl: process.env.TEST_DATABASE_URL });
 
 beforeEach(async () => {
   await resetDatabase(prisma);

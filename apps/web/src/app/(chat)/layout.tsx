@@ -1,5 +1,6 @@
 import { SidebarInset, SidebarProvider } from '@harness/ui';
 import type { Metadata } from 'next';
+import { ThreadNameRefresher } from './chat/_components/thread-name-refresher';
 import { ThreadSidebar } from './chat/_components/thread-sidebar';
 
 export const metadata: Metadata = {
@@ -16,6 +17,7 @@ type ChatLayoutComponent = (props: ChatLayoutProps) => React.ReactNode;
 const ChatLayout: ChatLayoutComponent = ({ children }) => {
   return (
     <SidebarProvider>
+      <ThreadNameRefresher />
       <ThreadSidebar />
       <SidebarInset>
         <main className='flex flex-1 flex-col overflow-hidden'>{children}</main>

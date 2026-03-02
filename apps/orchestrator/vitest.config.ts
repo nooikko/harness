@@ -6,6 +6,7 @@ export default defineConfig({
   test: {
     name: 'orchestrator',
     environment: 'node',
+    exclude: ['**/dist/**', '**/node_modules/**'],
     coverage: {
       provider: 'v8',
     },

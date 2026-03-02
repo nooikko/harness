@@ -349,7 +349,7 @@ describe('ws-broadcaster broadcast error branches', () => {
 
     // Create a circular reference that JSON.stringify cannot handle
     const circular: Record<string, unknown> = {};
-    circular['self'] = circular;
+    circular.self = circular;
 
     // Should not throw — error is caught internally
     expect(() => broadcaster.broadcast('bad:event', circular)).not.toThrow();

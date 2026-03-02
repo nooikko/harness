@@ -6,7 +6,7 @@ import type { TestHarness } from './helpers/create-harness';
 import { createTestHarness } from './helpers/create-harness';
 import { resetDatabase } from './setup/reset-db';
 
-const prisma = new PrismaClient({ datasourceUrl: process.env['TEST_DATABASE_URL'] });
+const prisma = new PrismaClient({ datasourceUrl: process.env.TEST_DATABASE_URL });
 
 beforeEach(async () => {
   await resetDatabase(prisma);
@@ -36,7 +36,7 @@ describe('activity plugin integration', () => {
       where: { threadId: harness.threadId, kind: 'status', source: 'pipeline' },
     });
 
-    const startMsg = statusMessages.find((m) => (m.metadata as Record<string, unknown> | null)?.['event'] === 'pipeline_start');
+    const startMsg = statusMessages.find((m) => (m.metadata as Record<string, unknown> | null)?.event === 'pipeline_start');
 
     expect(startMsg).toBeDefined();
     expect(startMsg!.role).toBe('system');
@@ -56,7 +56,7 @@ describe('activity plugin integration', () => {
 
     expect(stepMessages.length).toBeGreaterThanOrEqual(4);
 
-    const stepNames = stepMessages.map((m) => (m.metadata as Record<string, unknown> | null)?.['step'] as string);
+    const stepNames = stepMessages.map((m) => (m.metadata as Record<string, unknown> | null)?.step as string);
 
     expect(stepNames).toContain('onMessage');
     expect(stepNames).toContain('onBeforeInvoke');
@@ -74,7 +74,7 @@ describe('activity plugin integration', () => {
       where: { threadId: harness.threadId, kind: 'status', source: 'pipeline' },
     });
 
-    const completeMsg = statusMessages.find((m) => (m.metadata as Record<string, unknown> | null)?.['event'] === 'pipeline_complete');
+    const completeMsg = statusMessages.find((m) => (m.metadata as Record<string, unknown> | null)?.event === 'pipeline_complete');
 
     expect(completeMsg).toBeDefined();
     expect(completeMsg!.role).toBe('system');

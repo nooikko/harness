@@ -13,7 +13,7 @@ export type TestHarness = {
 };
 
 const makeTestConfig = (port = 0): OrchestratorConfig => ({
-  databaseUrl: process.env['TEST_DATABASE_URL'] ?? '',
+  databaseUrl: process.env.TEST_DATABASE_URL ?? '',
   timezone: 'UTC',
   maxConcurrentAgents: 3,
   claudeModel: 'claude-haiku-4-5-20251001',
@@ -32,7 +32,7 @@ export type CreateTestHarnessOpts = {
 };
 
 export const createTestHarness = async (plugin: PluginDefinition, opts?: CreateTestHarnessOpts): Promise<TestHarness> => {
-  const prisma = new PrismaClient({ datasourceUrl: process.env['TEST_DATABASE_URL'] });
+  const prisma = new PrismaClient({ datasourceUrl: process.env.TEST_DATABASE_URL });
   await prisma.$connect();
 
   const defaultResult: InvokeResult = {

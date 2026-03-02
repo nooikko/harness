@@ -1,22 +1,26 @@
 'use client';
 
-import { SidebarGroup, SidebarGroupLabel, SidebarMenu, SidebarMenuButton, SidebarMenuItem, useSidebar } from '@harness/ui';
-import { MoreHorizontal } from 'lucide-react';
+import { SidebarGroup, SidebarGroupLabel, SidebarMenu, SidebarMenuButton, SidebarMenuItem } from '@harness/ui';
+import { Bot } from 'lucide-react';
+import Link from 'next/link';
+import { usePathname } from 'next/navigation';
 
 type NavProductsComponent = () => React.ReactNode;
 
 export const NavProducts: NavProductsComponent = () => {
-  const { isMobile: _isMobile } = useSidebar();
+  const pathname = usePathname();
+  const isAgentsActive = pathname === '/agents' || pathname.startsWith('/agents/');
 
   return (
     <SidebarGroup>
       <SidebarGroupLabel>Products</SidebarGroupLabel>
       <SidebarMenu>
-        {/* Placeholder — populate with product entries as needed */}
         <SidebarMenuItem>
-          <SidebarMenuButton className='text-sidebar-foreground/50'>
-            <MoreHorizontal className='text-sidebar-foreground/50' />
-            <span>More coming soon</span>
+          <SidebarMenuButton asChild isActive={isAgentsActive} className='gap-2'>
+            <Link href='/agents'>
+              <Bot className='h-4 w-4' />
+              <span>Agents</span>
+            </Link>
           </SidebarMenuButton>
         </SidebarMenuItem>
       </SidebarMenu>

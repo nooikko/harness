@@ -62,6 +62,9 @@ PROJECT_DIRS = [
     ("packages/plugins/time/", "packages/plugins/time"),
     ("packages/plugins/validator/", "packages/plugins/validator"),
     ("packages/plugins/cron/", "packages/plugins/cron"),
+    ("packages/plugins/identity/", "packages/plugins/identity"),
+    ("packages/plugins/audit/", "packages/plugins/audit"),
+    ("packages/plugins/auto-namer/", "packages/plugins/auto-namer"),
 ]
 
 MAX_RETRIES = 5  # ESM race condition is non-deterministic; retry on failure

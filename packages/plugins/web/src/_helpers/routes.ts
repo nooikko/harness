@@ -105,6 +105,25 @@ export const createApp: CreateApp = ({ ctx, logger, onChatMessage }) => {
     }
   });
 
+  // POST /api/audit-delete — extract thread conversation to audit record then hard-delete
+  app.post('/api/audit-delete', async (req: Request, res: Response) => {
+    const body = req.body as Partial<{ threadId: string }>;
+
+    if (!body.threadId || typeof body.threadId !== 'string') {
+      res.status(400).json({ error: 'Missing or invalid threadId' });
+      return;
+    }
+
+    try {
+      await ctx.broadcast('audit:requested', { threadId: body.threadId });
+      res.json({ ok: true });
+    } catch (err) {
+      const message = err instanceof Error ? err.message : String(err);
+      logger.error('Audit-delete endpoint error', { error: message });
+      res.status(500).json({ error: 'Internal server error' });
+    }
+  });
+
   // GET /api/threads — list all threads
   app.get('/api/threads', async (_req: Request, res: Response) => {
     try {

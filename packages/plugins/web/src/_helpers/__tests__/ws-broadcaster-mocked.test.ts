@@ -144,7 +144,7 @@ describe('ws-broadcaster (mocked ws)', () => {
     simulateConnection(socket);
 
     const circular: Record<string, unknown> = {};
-    circular['self'] = circular;
+    circular.self = circular;
 
     expect(() => broadcaster.broadcast('bad', circular)).not.toThrow();
     expect(logger.error).toHaveBeenCalledWith(expect.stringContaining('failed to serialize event "bad"'));

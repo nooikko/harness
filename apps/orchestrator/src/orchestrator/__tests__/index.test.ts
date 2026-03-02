@@ -394,7 +394,6 @@ describe('createOrchestrator', () => {
         'invoke',
         'onAfterInvoke',
         'onBroadcast',
-        'onBroadcast',
       ]);
     });
 
@@ -673,9 +672,9 @@ describe('createOrchestrator', () => {
       // Collect all onBroadcast calls
       const broadcastCalls = mockRunNotifyHooks.mock.calls.filter((c) => c[1] === 'onBroadcast');
 
-      // Should have pipeline:step calls plus the final pipeline:complete
-      // At minimum: onMessage step, onBeforeInvoke step, invoking step, onAfterInvoke step, pipeline:complete
-      expect(broadcastCalls.length).toBeGreaterThanOrEqual(5);
+      // Should have pipeline:step calls: onMessage, onBeforeInvoke, invoking, onAfterInvoke
+      // pipeline:complete is broadcast in sendToThread after DB write, not in handleMessage
+      expect(broadcastCalls.length).toBeGreaterThanOrEqual(4);
     });
 
     it('does not persist sessionId when it has not changed', async () => {

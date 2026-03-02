@@ -31,6 +31,7 @@ export const ChatArea: ChatAreaComponent = ({ threadId, currentModel, children }
   const router = useRouter();
   const { lastEvent, isConnected } = useWs('pipeline:complete');
   const { lastEvent: lastStepEvent } = useWs('pipeline:step');
+  const { lastEvent: lastDeletedEvent } = useWs('thread:deleted');
 
   // Scroll to bottom on initial mount (instant) and after router.refresh() completes (smooth).
   // Fires when isRefreshing transitions false→true→false, ensuring new RSC content is rendered first.
@@ -68,6 +69,17 @@ export const ChatArea: ChatAreaComponent = ({ threadId, currentModel, children }
       router.refresh();
     });
   }, [router]);
+
+  // Navigate away when the current thread is deleted
+  useEffect(() => {
+    if (!lastDeletedEvent || typeof lastDeletedEvent !== 'object') {
+      return;
+    }
+    const event = lastDeletedEvent as { threadId: string };
+    if (event.threadId === threadId) {
+      router.push('/chat');
+    }
+  }, [lastDeletedEvent, threadId, router]);
 
   // WebSocket-based refresh
   useEffect(() => {

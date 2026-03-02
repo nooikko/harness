@@ -31,7 +31,7 @@ describe('createScopedDb', () => {
       string,
       Record<string, (opts: { args: Record<string, unknown>; query: typeof query }) => Promise<unknown>>
     >;
-    const result = await interceptors['pluginConfig']?.['findUnique']?.({
+    const result = await interceptors.pluginConfig?.findUnique?.({
       args: { where: {} },
       query,
     });
@@ -58,7 +58,7 @@ describe('createScopedDb', () => {
       string,
       Record<string, (opts: { args: Record<string, unknown>; query: typeof query }) => Promise<unknown>>
     >;
-    const result = await interceptors['pluginConfig']?.['upsert']?.({
+    const result = await interceptors.pluginConfig?.upsert?.({
       args: {
         where: {},
         create: { enabled: true, settings: {} },
@@ -91,7 +91,7 @@ describe('createScopedDb', () => {
       string,
       Record<string, (opts: { args: Record<string, unknown>; query: typeof query }) => Promise<unknown>>
     >;
-    const result = await interceptors['pluginConfig']?.['update']?.({
+    const result = await interceptors.pluginConfig?.update?.({
       args: { where: {}, data: { settings: {} } },
       query,
     });

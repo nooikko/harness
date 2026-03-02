@@ -34,6 +34,7 @@ describe('createThread', () => {
         kind: 'general',
         status: 'open',
         model: undefined,
+        agentId: null,
       },
     });
   });
@@ -66,6 +67,7 @@ describe('createThread', () => {
         kind: 'general',
         status: 'open',
         model: 'claude-opus-4-6',
+        agentId: null,
       },
     });
   });

@@ -10,7 +10,7 @@ export const ThreadSidebarInternal = async () => {
   const threads = await prisma.thread.findMany({
     where: { kind: { not: 'task' } },
     orderBy: { lastActivity: 'desc' },
-    take: 50,
+    take: 20,
   });
 
   const sorted = sortThreads(threads);

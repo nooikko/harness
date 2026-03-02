@@ -3,561 +3,217 @@
     "tasks": [
       {
         "id": 1,
-        "title": "Extend Prisma Schema with Orchestrator Models",
-        "description": "Add Thread, Message, Task, AgentRun, CronJob, and Metric models to the existing Prisma schema for the orchestrator pipeline",
-        "details": "Edit packages/database/prisma/schema.prisma to add: Thread model with id (cuid), source, sourceId, name, kind (primary|task|cron|general), parentThreadId, status, lastActivity fields with unique constraint on [source, sourceId]. Message model with threadId, role, content, timestamp. Task model with status tracking, delegation prompt, iteration counts. AgentRun for invocation metrics. CronJob for scheduled tasks. Metric for telemetry. Include all proper indexes and relations as specified in PRD. Use Prisma 6.19.2 compatible syntax.",
-        "testStrategy": "Run 'pnpm db:generate' to validate schema compiles without errors. Check that generated Prisma client exports all new types correctly. Verify indexes are created properly with 'pnpm db:push'.",
-        "priority": "high",
+        "title": "Dead code cleanup: onCommand stub and legacy schema models",
+        "description": "Two cleanup items. (1) Add deprecation comments to parse-commands.ts and Steps 6-7 of handleMessage in orchestrator/index.ts documenting that onCommand is intentionally unused — all commands now use PluginTool via tool-server. Do not delete yet. (2) Delete User and Post models from packages/database/prisma/schema.prisma — Prisma template artifacts with zero application references.",
+        "status": "pending",
+        "priority": "medium",
         "dependencies": [],
-        "status": "done",
-        "subtasks": []
+        "subtasks": [
+          {
+            "id": 1,
+            "title": "Mark onCommand pipeline steps as deprecated",
+            "description": "Add JSDoc/inline comments to parse-commands.ts and Steps 6-7 of handleMessage explaining this code path is unused and intentionally preserved as a stub. All commands route through PluginTool/tool-server instead.",
+            "status": "pending",
+            "dependencies": []
+          },
+          {
+            "id": 2,
+            "title": "Remove User and Post models from schema",
+            "description": "Delete User and Post model definitions from packages/database/prisma/schema.prisma. Run pnpm db:push or create migration. Verify zero references to User or Post in application code before deleting.",
+            "status": "pending",
+            "dependencies": []
+          }
+        ],
+        "details": "Verified: onCommand (Steps 6-7 in orchestrator/index.ts) and parse-commands.ts are dead stubs — zero plugin implementations. User and Post confirmed as Prisma template artifacts with zero application references.",
+        "testStrategy": "Grep for User and Post imports after deletion — confirm zero. Confirm no TypeScript errors. Confirm DB migration completes cleanly."
       },
       {
         "id": 2,
-        "title": "Create Core Orchestrator Directory Structure",
-        "description": "Set up the apps/orchestrator directory with proper module organization following the co-location pattern",
-        "details": "Create apps/orchestrator directory structure with src/index.ts, src/config.ts, src/orchestrator/index.ts with _helpers subdirectory, src/invoker/index.ts with _helpers, src/plugin-contract/index.ts, src/plugin-loader/index.ts with _helpers, and src/plugins/ directory for built-in plugins. Initialize package.json with Node.js project configuration, typescript, tsx for dev, minimal dependencies (@prisma/client, express@^5, ws@^8). Set up tsconfig.json extending from base config.",
-        "testStrategy": "Verify directory structure matches specification. Ensure all index.ts files exist. Run 'pnpm install' in orchestrator directory to validate package.json. Check TypeScript compilation with 'pnpm tsc --noEmit'.",
-        "priority": "high",
+        "title": "Small consistency fixes (MODEL_OPTIONS, audit URL, metrics warning)",
+        "description": "Three small consistency fixes in one PR. (1) Extract MODEL_OPTIONS from manage-thread-modal.tsx and model-selector.tsx into a shared _helpers/model-options.ts. (2) Fix request-audit-delete.ts to use getOrchestratorUrl() helper instead of inline URL construction. (3) Add ctx.logger.warn in metrics plugin when inputTokens/outputTokens/model are missing from InvokeResult.",
+        "status": "pending",
+        "priority": "medium",
         "dependencies": [],
-        "status": "done",
-        "subtasks": []
+        "subtasks": [
+          {
+            "id": 1,
+            "title": "Extract MODEL_OPTIONS to shared helper",
+            "description": "Create apps/web/src/app/(chat)/chat/_helpers/model-options.ts exporting MODEL_OPTIONS. Update manage-thread-modal.tsx and model-selector.tsx to import from it.",
+            "status": "pending",
+            "dependencies": []
+          },
+          {
+            "id": 2,
+            "title": "Fix requestAuditDelete URL pattern",
+            "description": "In apps/web/src/app/(chat)/chat/_actions/request-audit-delete.ts, replace inline orchestrator URL construction with getOrchestratorUrl() helper.",
+            "status": "pending",
+            "dependencies": []
+          },
+          {
+            "id": 3,
+            "title": "Add warning log for missing metrics fields",
+            "description": "In packages/plugins/metrics/src/index.ts, add ctx.logger.warn when inputTokens, outputTokens, or model are absent from InvokeResult and the metrics write is being skipped. Currently silent — cost cap enforcement silently fails when metrics don't write.",
+            "status": "pending",
+            "dependencies": []
+          }
+        ],
+        "details": "Circuit breaker verified as fully implemented (commit dfb7f55, March 1) — removed from this task. These three remain unaddressed.",
+        "testStrategy": "MODEL_OPTIONS: both modal and selector show same options from one source. Audit URL: confirm fetch target uses helper. Metrics: mock a missing-field InvokeResult and verify warn log appears."
       },
       {
         "id": 3,
-        "title": "Implement Plugin Contract and Context Types",
-        "description": "Define the PluginContext interface and plugin contract types that all plugins must implement",
-        "details": "In src/orchestrator/index.ts, define and export PluginContext interface with all methods: onMessage, sendMessage, sendToThread, onBeforeInvoke, onAfterInvoke, onCommand, onTaskCreate, onTaskComplete, onTaskValidated, onTaskFailed, onBroadcast, broadcast, plus db, invoker, config, logger properties. Define Register, Start, Stop function types. Use arrow function type signatures following project conventions. Export from orchestrator module, not from a separate types file.",
-        "testStrategy": "TypeScript compilation should pass with strict mode. Create a mock plugin that implements the contract to verify all types work correctly. Ensure imports work from '@/orchestrator' not from internal paths.",
-        "priority": "high",
-        "dependencies": [2],
-        "status": "done",
-        "subtasks": []
+        "title": "Add AgentConfig database model",
+        "description": "Add AgentConfig model to packages/database/prisma/schema.prisma. This table stores per-agent feature flags and will hold the heartbeatCron expression when Agent Identity Phase 5 is implemented. Creating it now prevents a mid-feature schema migration when heartbeat arrives.",
+        "status": "pending",
+        "priority": "medium",
+        "dependencies": [],
+        "subtasks": [],
+        "details": "Schema: { id, agentId (unique FK to Agent), memoryEnabled (default true), reflectionEnabled (default false — Phase 4 not yet implemented), heartbeatEnabled (default false — Phase 5 blocked on cron), heartbeatCron (String? — cron expression when heartbeat is wired), createdAt, updatedAt }. Also add reverse relation on Agent model. Run db:generate after schema change.",
+        "testStrategy": "Verify AgentConfig can be created/read/updated via Prisma client. Verify FK constraint with Agent enforces referential integrity."
       },
       {
         "id": 4,
-        "title": "Build Plugin Loader Discovery System",
-        "description": "Implement plugin discovery, validation, and lifecycle management in plugin-loader module",
-        "details": "Create src/plugin-loader/index.ts that discovers plugins in src/plugins/*/index.ts, validates they export required 'register' function and optional 'start', 'stop', 'name', 'version'. Create _helpers/validator.ts for export validation logic. Implement loadPlugins function that returns array of loaded plugin instances. Handle errors gracefully if plugin fails to load. Use dynamic imports to load plugin modules.",
-        "testStrategy": "Create test plugins with valid and invalid exports. Verify validator catches missing register function. Ensure plugin loader handles missing directories gracefully. Test that all discovered plugins are loaded in correct order.",
-        "priority": "high",
-        "dependencies": [3],
-        "status": "done",
-        "subtasks": []
+        "title": "Complete custom thread instructions feature",
+        "description": "Thread.customInstructions field already exists in Prisma schema. UI textarea already exists in manage-thread-modal.tsx but is unwired — stale comment says 'once DB field exists' but the field DOES exist. Three changes needed: server action, UI wiring, orchestrator injection.",
+        "status": "pending",
+        "priority": "medium",
+        "dependencies": [],
+        "subtasks": [
+          {
+            "id": 1,
+            "title": "Create update-thread-instructions server action",
+            "description": "Create apps/web/src/app/(chat)/chat/_actions/update-thread-instructions.ts. Takes threadId and customInstructions string. Calls prisma.thread.update. Same pattern as rename-thread.ts.",
+            "status": "pending",
+            "dependencies": []
+          },
+          {
+            "id": 2,
+            "title": "Wire manage-thread-modal textarea",
+            "description": "In manage-thread-modal.tsx, add controlled state for the instructions field, load initial value from thread prop, call update-thread-instructions on save. Remove the stale TODO comment.",
+            "status": "pending",
+            "dependencies": []
+          },
+          {
+            "id": 3,
+            "title": "Inject customInstructions in prompt assembler",
+            "description": "In apps/orchestrator/src/orchestrator/_helpers/prompt-assembler.ts, when thread.customInstructions is non-null/non-empty, append it to the assembled prompt. Position: after the kind instruction, before the base content. Format as a clearly labeled section.",
+            "status": "pending",
+            "dependencies": []
+          }
+        ],
+        "details": "Verified: Thread.customInstructions column exists in schema. UI field exists in manage-thread-modal.tsx with placeholder text and stale 'DB field does not exist' comment. Neither the action nor the orchestrator injection exists.",
+        "testStrategy": "Set custom instructions on a thread, send a message, verify instructions appear in the assembled prompt (visible in pipeline_step activity records or via logger)."
       },
       {
         "id": 5,
-        "title": "Implement Core Message Pipeline Orchestration",
-        "description": "Build the main message processing pipeline that coordinates all hooks and plugin interactions",
-        "details": "In src/orchestrator/index.ts, implement the core pipeline flow: receive message → fire onBeforeInvoke hooks → assemble prompt → invoke Claude → fire onAfterInvoke hooks → parse response → route commands → send response → broadcast events. Create handleMessage arrow function that accepts IncomingMessage type. Manage hook registry as internal state. Implement hook registration methods that plugins call. Ensure proper async handling and error boundaries.",
-        "testStrategy": "Unit test each pipeline stage in isolation. Mock Claude invocation to test pipeline flow. Verify hooks fire in correct order. Test error handling when hooks throw. Ensure broadcast events are emitted at correct points.",
+        "title": "Implement cron scheduler as @harness/plugin-cron",
+        "description": "Implement the missing executor for the cron system. Schema (CronJob), seed data (4 jobs), admin UI (/admin/cron-jobs), thread kind='cron' support, and prompt templates all exist. Only the scheduler is missing. Must be implemented as a plugin (not a top-level module) so it can be disabled via PluginConfig at runtime. ctx.sendToThread is safe to call inside plugin start() hooks.",
+        "status": "pending",
         "priority": "high",
-        "dependencies": [3],
-        "status": "done",
-        "subtasks": []
-      },
-      {
-        "id": 6,
-        "title": "Create Claude CLI Invoker Module",
-        "description": "Build the subprocess management for invoking claude -p with proper timeout and output capture",
-        "details": "Create src/invoker/index.ts with invokeClaude function that spawns 'claude -p <prompt> --model <model> --output-format text' subprocess. Handle --allowedTools flag construction in _helpers/tool-filter.ts. Implement timeout (default 2 minutes, configurable). Capture stdout/stderr properly. Return structured result with output, error, duration. Handle subprocess errors and timeouts gracefully. Export as arrow function with type signature.",
-        "testStrategy": "Mock subprocess spawn to test without actual Claude CLI. Verify timeout kills process correctly. Test output parsing for various response formats. Ensure --allowedTools flag is built correctly based on context.",
-        "priority": "high",
-        "dependencies": [2],
-        "status": "done",
-        "subtasks": []
-      },
-      {
-        "id": 7,
-        "title": "REMOVED — Thread Router (Prisma wrapper anti-pattern)",
-        "description": "Originally created a thread-router module wrapping Prisma calls. Deleted because it violated review standard #1: duplicates what Prisma already provides. Plugins should use prisma.thread.* directly. The getOrCreate logic can be a small helper at the call site when needed.",
-        "details": "Implemented, then deleted. All methods (getById, getBySource, close, getChildren) were trivial Prisma one-liners. The getOrCreate had some logic but had zero consumers. Module removed from codebase and PRD.",
-        "testStrategy": "",
-        "priority": "medium",
-        "dependencies": [1],
-        "status": "done",
-        "subtasks": []
-      },
-      {
-        "id": 8,
-        "title": "Build Prompt Structure Assembly",
-        "description": "Create helper that builds the base prompt template before hooks modify it. NOTE: The hook chaining mechanism already exists in run-chain-hooks.ts — this task covers only the structural assembly that happens BEFORE hooks run.",
-        "details": "Create src/orchestrator/_helpers/prompt-assembler.ts with assemblePrompt function. Takes raw user message and thread metadata (threadId, kind, name) and builds a structured base prompt with proper framing for claude -p. This base prompt is then passed through onBeforeInvoke hooks (via the existing run-chain-hooks.ts) where plugins like context inject memory, world-state, and conversation history. The assembler is responsible for the initial template structure, not the hook iteration (which already exists).",
-        "testStrategy": "Test that base prompt includes thread context and proper structure. Verify output is ready for hook chain consumption. Test with various thread kinds (primary, task, cron, general).",
-        "priority": "medium",
-        "dependencies": [5],
-        "status": "done",
-        "subtasks": []
-      },
-      {
-        "id": 9,
-        "title": "Build Response Parser for Command Extraction",
-        "description": "Implement parser that extracts [COMMAND] blocks and regular content from agent responses",
-        "details": "Create src/orchestrator/_helpers/response-parser.ts with parseResponse function. Uses regex to find [COMMAND type=\"delegate\" model=\"claude-sonnet-4-6\"] blocks with content. Extracts command type, parameters, and content. Returns structured object with commands array and regular message content. Handle malformed commands gracefully. Support nested JSON in command content.",
-        "testStrategy": "Test parsing of various command formats. Verify multiple commands in one response are handled. Test malformed command blocks are ignored. Ensure regular content is preserved correctly.",
-        "priority": "medium",
-        "dependencies": [5],
-        "status": "done",
-        "subtasks": []
-      },
-      {
-        "id": 10,
-        "title": "Implement Command Router System",
-        "description": "Build command routing that dispatches parsed commands to registered handlers",
-        "details": "Create src/orchestrator/_helpers/command-router.ts with routeCommand function. Maintains registry of command type to handler mappings. When command is parsed, looks up handler by type, calls handler with command content and context. Handles missing handlers gracefully. Supports async command handlers. Returns handler results for pipeline to process.",
-        "testStrategy": "Test routing to correct handlers by type. Verify unknown command types are handled gracefully. Test async command handlers. Ensure handler errors don't crash pipeline.",
-        "priority": "medium",
-        "dependencies": [9],
-        "status": "done",
-        "subtasks": []
-      },
-      {
-        "id": 11,
-        "title": "Create Configuration Module",
-        "description": "Build configuration system that loads environment variables and provides defaults",
-        "details": "Create src/config.ts that reads DATABASE_URL, CLAUDE_MODEL_DEFAULT, DISCORD_TOKEN, DISCORD_CHANNEL_ID, PORT, and other env vars. Provide sensible defaults where appropriate. Export resolved config object that plugins can access. Use process.env with proper typing. Validate required vars are present at boot time.",
-        "testStrategy": "Test with various env var combinations. Verify defaults are applied correctly. Test validation throws for missing required vars. Ensure config is accessible from plugins.",
-        "priority": "medium",
-        "dependencies": [2],
-        "status": "done",
-        "subtasks": []
-      },
-      {
-        "id": 12,
-        "title": "Implement Context Plugin for Memory Injection",
-        "description": "Create plugin that reads context files and injects them into prompts before invocation",
-        "details": "Create src/plugins/context/index.ts implementing plugin contract. Register onBeforeInvoke hook. In _helpers/file-reader.ts, implement readContextFiles using fs.readFileSync for context/*.md files (memory.md, world-state.md, thread-summaries.md, inbox.md). In _helpers/history-loader.ts, load recent messages from Thread via Prisma. Concatenate context into prompt. Handle missing files gracefully.",
-        "testStrategy": "Test with various context file states (present, missing, empty). Verify conversation history is loaded correctly. Test prompt modification includes all context. Ensure file reads use fs not MCP tools.",
-        "priority": "high",
-        "dependencies": [3, 4],
-        "status": "done",
-        "subtasks": []
-      },
-      {
-        "id": 13,
-        "title": "Build Discord Plugin Message Source",
-        "description": "Implement Discord bot integration as a plugin for message input and output",
-        "details": "Create src/plugins/discord/index.ts with plugin exports. On start(), initialize Discord.js client with DISCORD_TOKEN. Register message listener that converts Discord messages to pipeline format via _helpers/message-adapter.ts. Register with onMessage hook. Implement sendMessage to reply in originating channel. Create _helpers/channel-resolver.ts to map Discord channels to sourceIds. Handle connection errors gracefully.",
-        "testStrategy": "Mock Discord.js client for testing. Verify message conversion works correctly. Test channel resolution logic. Ensure replies go to correct channel/thread. Test reconnection on disconnect.",
-        "priority": "high",
-        "dependencies": [3, 4],
-        "status": "done",
-        "subtasks": []
-      },
-      {
-        "id": 14,
-        "title": "Create Web Plugin with REST and WebSocket",
-        "description": "Build web interface plugin providing HTTP API and real-time WebSocket updates",
-        "details": "Create src/plugins/web/index.ts implementing plugin contract. On start(), initialize Express server on PORT (default 3001) and WebSocket server. Create _helpers/routes.ts with REST endpoints: POST /api/chat, GET /api/threads, GET /api/tasks, GET /api/metrics. Create _helpers/ws-broadcaster.ts that listens to onBroadcast hook and emits to connected WebSocket clients. Handle CORS for dashboard access.",
-        "testStrategy": "Test REST endpoints with various payloads. Verify WebSocket connections and broadcasting work. Test CORS headers are set correctly. Ensure graceful shutdown on stop().",
-        "priority": "high",
-        "dependencies": [3, 4],
-        "status": "done",
-        "subtasks": []
-      },
-      {
-        "id": 15,
-        "title": "Implement Delegation Plugin Core Loop",
-        "description": "Build the sub-agent delegation system with task management and iteration control",
-        "details": "Create src/plugins/delegation/index.ts registering 'delegate' and 're-delegate' command handlers. In _helpers/delegation-loop.ts, implement delegation flow: create Task record, fire onTaskCreate hooks, invoke sub-agent via ctx.invoker, fire onTaskComplete hooks for validation, handle accept/reject with re-delegation, fire onTaskValidated or onTaskFailed. Track iterations, max 5 by default. Create task thread with parentThreadId.",
-        "testStrategy": "Test full delegation flow with mock sub-agent. Verify task lifecycle hooks fire correctly. Test iteration limits are enforced. Ensure task threads link to parent properly.",
-        "priority": "high",
-        "dependencies": [3, 4, 6],
-        "status": "done",
-        "subtasks": []
-      },
-      {
-        "id": 16,
-        "title": "Build Task Lifecycle Helper",
-        "description": "Implement compound database operations for task lifecycle that involve genuine business logic beyond single Prisma calls",
-        "details": "Create src/plugins/delegation/_helpers/task-lifecycle.ts with ONLY functions that combine multiple operations or encode business logic: startDelegation (creates Task record + creates task Thread with parentThreadId + sets defaults based on kind — a multi-step operation), recordAgentRun (creates AgentRun with token estimates, duration, and links to task). Trivial operations like getTask, updateTaskStatus, completeTask should NOT be wrapped — callers use prisma.task.findUnique(), prisma.task.update() etc. directly. This avoids the Prisma-wrapper anti-pattern (see task 7).",
-        "testStrategy": "Test startDelegation creates both Task and Thread records with correct relationships. Verify AgentRun records link to tasks properly. Test that thread parentThreadId is set correctly.",
-        "priority": "medium",
-        "dependencies": [1, 15],
-        "status": "done",
-        "subtasks": []
-      },
-      {
-        "id": 17,
-        "title": "Create Validation Plugin with Adversarial Review",
-        "description": "Implement quality gate plugin that spawns separate reviewer agent for task validation",
-        "details": "Create src/plugins/validation/index.ts registering onTaskComplete handler. In _helpers/reviewer-prompt.ts, build reviewer system prompt emphasizing adversarial review, checking tests/lint/build/coverage. In _helpers/quality-checks.ts, define validation criteria. Spawn separate claude invocation with reviewer prompt, parse response for accept/reject decision with specific feedback. Use different model or prompt than worker agent.",
-        "testStrategy": "Test validation with mock reviewer responses. Verify accept/reject decisions are parsed correctly. Test feedback is actionable. Ensure reviewer uses different context than worker.",
-        "priority": "high",
-        "dependencies": [3, 4, 6],
-        "status": "deferred",
-        "subtasks": []
-      },
-      {
-        "id": 18,
-        "title": "Implement Worktree Plugin for Task Isolation",
-        "description": "Build git worktree management for isolated task development environments",
-        "details": "Create src/plugins/worktree/index.ts with handlers for onTaskCreate (creates worktree at .claude/worktrees/task-id with branch task/task-id, runs pnpm install), onTaskValidated (merges branch back to base), onTaskFailed (cleanup). In _helpers/worktree-manager.ts, implement git operations using child_process. In _helpers/branch-naming.ts, handle task ID to branch name conversion. Enrich task context with worktree path.",
-        "testStrategy": "Test worktree creation with mock git commands. Verify branch naming follows convention. Test merge on validation success. Ensure cleanup happens on failure.",
-        "priority": "high",
-        "dependencies": [3, 4],
-        "status": "deferred",
-        "subtasks": []
-      },
-      {
-        "id": 19,
-        "title": "Build Cron Plugin with Scheduler",
-        "description": "Implement cron job management plugin with node-cron scheduling and admin commands",
-        "details": "Create src/plugins/cron/index.ts that on start() loads CronJob records from database and schedules them. Register command handlers for cron_create, cron_update, cron_delete, cron_toggle. In _helpers/scheduler.ts, wrap node-cron to manage job lifecycle. In _helpers/admin-commands.ts, implement CRUD operations. When cron fires, create synthetic message and feed to pipeline. Support timezone handling.",
-        "testStrategy": "Test cron job scheduling with mock timers. Verify CRUD commands modify database correctly. Test synthetic message creation. Ensure jobs reload after modifications.",
-        "priority": "medium",
-        "dependencies": [3, 4, 1],
-        "status": "done",
-        "subtasks": []
-      },
-      {
-        "id": 20,
-        "title": "Create Bootstrap and Lifecycle Management",
-        "description": "Implement main orchestrator entry point with plugin loading and graceful shutdown",
-        "details": "In src/index.ts, implement boot sequence: load config, discover plugins via plugin-loader, call register() on each plugin with PluginContext, call start() on plugins that export it, set up signal handlers for SIGTERM/SIGINT, implement graceful shutdown calling stop() on all plugins. Handle errors during boot. Log startup progress.",
-        "testStrategy": "Test boot sequence with various plugin configurations. Verify graceful shutdown on signals. Test error handling during plugin registration. Ensure all plugins get proper lifecycle calls.",
-        "priority": "high",
-        "dependencies": [4, 5, 11],
-        "status": "done",
-        "subtasks": []
-      },
-      {
-        "id": 21,
-        "title": "Seed Initial Cron Jobs",
-        "description": "Create database seeds for default cron jobs like morning digest and memory consolidation",
-        "details": "Create seed script in packages/database that inserts CronJob records: Morning Digest (7:00 AM MST daily), Memory Consolidation (1:00 AM MST daily), Calendar/Email Refresh (every 30 min), Weekly Review (Friday 5:00 PM MST). Each with appropriate prompt text and target channel. Use Prisma's seed functionality.",
-        "testStrategy": "Run seed script and verify records are created in database. Check cron expressions are valid. Test that seeded jobs are picked up by cron plugin on start.",
-        "priority": "low",
-        "dependencies": [1, 19],
-        "status": "done",
-        "subtasks": []
-      },
-      {
-        "id": 22,
-        "title": "Build Microsoft Graph MCP Server Package",
-        "description": "Create standalone MCP server package for Microsoft Graph calendar and email integration",
-        "details": "Create packages/mcp-graph directory with package.json, src/index.ts implementing MCP server protocol. Use @modelcontextprotocol/sdk to expose tools: calendar_list_events, calendar_create_event, mail_list_messages, mail_send_message, mail_search. Implement OAuth2 auth with @azure/msal-node. Use @microsoft/microsoft-graph-client for API calls. Export as executable MCP server.",
-        "testStrategy": "Test MCP protocol compliance with mock requests. Verify OAuth flow works with test credentials. Test each tool with mock Graph API responses. Ensure package builds and runs as MCP server.",
-        "priority": "medium",
         "dependencies": [],
-        "status": "deferred",
-        "subtasks": []
-      },
-      {
-        "id": 23,
-        "title": "Create Context Directory with Starter Files",
-        "description": "Initialize context directory at project root with markdown files for agent memory",
-        "details": "Create context/ directory at project root with starter files: memory.md (empty with header), inbox.md (empty with date header), world-state.md (template for calendar/email state), thread-summaries.md (template for thread tracking), system.md (template for cron schedules and config). Each file should have minimal structure to guide agent usage.",
-        "testStrategy": "Verify files are created at correct paths. Ensure context plugin can read files. Test that missing files don't crash the system.",
-        "priority": "low",
-        "dependencies": [],
-        "status": "done",
-        "subtasks": []
-      },
-      {
-        "id": 24,
-        "title": "Write Orchestrator Agent Instructions",
-        "description": "Create comprehensive CLAUDE.md file defining agent behavior for the orchestrator",
-        "details": "Create apps/orchestrator/CLAUDE.md or extend root CLAUDE.md with orchestrator-specific instructions: context file management rules, command syntax for delegation/cron/admin operations, memory consolidation patterns, calendar/email awareness triggers, sub-agent delegation decision tree, timezone handling (MST/America/Phoenix), personality guidelines. Include examples of each command type.",
-        "testStrategy": "Review instructions for completeness. Test that following the instructions produces expected behavior. Verify command examples are syntactically correct.",
-        "priority": "medium",
-        "dependencies": [],
-        "status": "done",
-        "subtasks": []
-      },
-      {
-        "id": 25,
-        "title": "Create Dashboard Next.js Application",
-        "description": "Repurpose the existing apps/web Next.js 16 application as the dashboard with server-first architecture and App Router",
-        "status": "done",
-        "dependencies": [],
-        "priority": "medium",
-        "details": "Reconfigure the existing apps/web Next.js 16 application for dashboard use. Update package.json name from 'web' to 'dashboard'. Modify apps/web/src/app/layout.tsx metadata to reflect dashboard branding. Keep existing dependencies on database and ui packages. Maintain transpilePackages configuration in next.config.ts. Preserve the current App Router structure with Inter font. Keep strict TypeScript config. Ensure server components remain default, use 'use client' directive only where necessary. Consider renaming the apps/web directory to apps/dashboard for clarity.",
-        "testStrategy": "Run pnpm dev in apps/web and verify dashboard starts with updated branding. Check TypeScript compilation passes. Verify imports from database and ui packages work correctly. Test server components render without hydration errors. Ensure all existing configurations still function after renaming.",
         "subtasks": [
           {
             "id": 1,
-            "title": "Update package.json name",
-            "description": "Change name field in apps/web/package.json from 'web' to 'dashboard'",
-            "status": "done",
-            "dependencies": [],
-            "details": "",
-            "testStrategy": ""
+            "title": "Create @harness/plugin-cron package",
+            "description": "Create packages/plugins/cron/ with package.json, tsconfig.json, and src/index.ts following the pattern of other plugins. Add to pnpm workspace.",
+            "status": "pending",
+            "dependencies": []
           },
           {
             "id": 2,
-            "title": "Update application metadata",
-            "description": "Modify apps/web/src/app/layout.tsx to update title and description for dashboard branding",
-            "status": "done",
-            "dependencies": [],
-            "details": "",
-            "testStrategy": ""
+            "title": "Add cron library dependency",
+            "description": "Add croner (preferred over node-cron for timezone/UTC offset support) to packages/plugins/cron/package.json. Verify compatibility with Node >= 22.",
+            "status": "pending",
+            "dependencies": []
           },
           {
             "id": 3,
-            "title": "Rename directory (optional)",
-            "description": "Consider renaming apps/web to apps/dashboard for better clarity, updating all references in package.json scripts and turbo.json",
-            "status": "done",
-            "dependencies": [],
-            "details": "",
-            "testStrategy": ""
+            "title": "Implement cron-server helper",
+            "description": "Create packages/plugins/cron/src/_helpers/cron-server.ts. On start: query CronJob where enabled=true, schedule each using its cron expression (UTC). On trigger: validate threadId is non-null, call ctx.sendToThread(cronJob.threadId, cronJob.prompt), then atomically update cronJob.lastRunAt and compute nextRunAt. Wrap execution in try/catch — update lastRunAt even on failure. On stop: clear all scheduled jobs.",
+            "status": "pending",
+            "dependencies": []
           },
           {
             "id": 4,
-            "title": "Verify existing configurations",
-            "description": "Ensure all existing Next.js 16, TypeScript, and package dependencies continue to work after reconfiguration",
-            "status": "done",
-            "dependencies": [],
-            "details": "",
-            "testStrategy": ""
-          }
-        ]
-      },
-      {
-        "id": 26,
-        "title": "Build Dashboard Thread Management UI",
-        "description": "Implement multi-chat interface with thread sidebar and message history",
-        "details": "Create app/chat/[threadId]/page.tsx as Server Component that fetches thread and messages from Prisma. Build thread sidebar showing all threads with primary pinned, active threads by lastActivity. Implement thread kind icons/labels. Use URL params for active thread selection. Create loading.tsx for route-level loading. Keep all data fetching server-side, no useEffect.",
-        "testStrategy": "Test thread list renders correctly. Verify primary thread is always pinned. Test navigation between threads updates URL. Ensure server rendering works without JavaScript.",
-        "priority": "medium",
-        "dependencies": [25, 1],
-        "status": "done",
-        "subtasks": []
-      },
-      {
-        "id": 27,
-        "title": "Implement Dashboard Real-time Updates",
-        "description": "Add WebSocket client for live message streaming and task updates",
-        "details": "Create 'use client' component for WebSocket connection to orchestrator. Listen for message and task events. Update UI optimistically on new messages. Handle reconnection logic. Use React 19's use() hook for streaming responses. Wrap in Suspense boundary. Only this component should be client-side, rest stays server components.",
-        "testStrategy": "Test WebSocket connection and reconnection. Verify messages appear in real-time. Test task status updates are reflected. Ensure works with server components.",
-        "priority": "medium",
-        "dependencies": [26, 14],
-        "status": "done",
-        "subtasks": []
-      },
-      {
-        "id": 28,
-        "title": "Build Dashboard Admin Pages",
-        "description": "Create server-rendered pages for tasks, crons, metrics, and memory management",
-        "details": "Create app/tasks/page.tsx fetching Task records with status badges. Create app/crons/page.tsx showing CronJob list with toggle controls via Server Actions. Create app/metrics/page.tsx with token usage and cost charts. Create app/memory/page.tsx displaying context file contents. All pages use async data fetching in Server Components, no client state.",
-        "testStrategy": "Verify each page loads with correct data. Test Server Actions update database. Ensure pages work without JavaScript. Test data revalidation after mutations.",
-        "priority": "low",
-        "dependencies": [25, 1],
-        "status": "done",
-        "subtasks": []
-      },
-      {
-        "id": 29,
-        "title": "Implement Cross-thread Notifications",
-        "description": "Add support for task completion notifications across thread boundaries",
-        "details": "Extend delegation plugin to use sendToThread for parent thread notifications when tasks complete. Create system message type in Message model. In dashboard, render cross-thread notifications with source thread link. Implement 'View thread' navigation. Ensure notifications appear in correct thread with proper formatting.",
-        "testStrategy": "Test task completion sends notification to parent. Verify notification appears in parent thread UI. Test clicking notification navigates to task thread. Ensure message persistence works.",
-        "priority": "low",
-        "dependencies": [15, 26],
-        "status": "done",
-        "subtasks": []
-      },
-      {
-        "id": 30,
-        "title": "Add Production Deployment Configuration",
-        "description": "Set up pm2 configuration and systemd service files for production deployment",
-        "details": "Create ecosystem.config.js for pm2 with orchestrator and dashboard apps. Write systemd service file for orchestrator. Add health check endpoint. Configure log rotation. Set up proper NODE_ENV handling. Create deployment scripts. Document deployment process in README.",
-        "testStrategy": "Test pm2 starts both services correctly. Verify systemd service file is valid. Test health endpoint responds. Ensure logs rotate properly. Verify graceful reload works.",
-        "priority": "low",
-        "dependencies": [20],
-        "status": "done",
-        "subtasks": []
-      },
-      {
-        "id": 31,
-        "title": "Implement Token Usage Tracking",
-        "description": "Add comprehensive token counting and cost estimation throughout the pipeline",
-        "details": "Extend AgentRun records with accurate token counts using tiktoken or Claude's token counting. Calculate costs based on model pricing. Add token usage to Metric records. Create dashboard visualizations showing usage over time, cost breakdowns by model, task token efficiency metrics. Include token budget warnings.",
-        "testStrategy": "Verify token counts are reasonable estimates. Test cost calculations match pricing. Ensure metrics are recorded correctly. Test dashboard charts render properly.",
-        "priority": "low",
-        "dependencies": [16, 28],
-        "status": "done",
-        "subtasks": []
-      },
-      {
-        "id": 32,
-        "title": "Create Plugin Development Documentation",
-        "description": "Write comprehensive guide for third-party plugin developers",
-        "details": "Create docs/plugin-development.md with: plugin contract reference, lifecycle hook documentation, example plugin implementations, testing guidelines, best practices for hook usage, common patterns, debugging tips. Include working example of a simple notification plugin. Document how to package and distribute plugins.",
-        "testStrategy": "Follow documentation to create a test plugin. Verify all code examples compile. Test that following the guide produces working plugin. Ensure documentation is clear and complete.",
-        "priority": "low",
-        "dependencies": [3, 4],
-        "status": "done",
-        "subtasks": []
-      },
-      {
-        "id": 33,
-        "title": "Rename project from one-stack to Harness",
-        "description": "Update all references to 'one-stack' and 'One Stack' throughout the codebase to 'Harness', including package names, metadata, documentation, and configuration files",
-        "details": "Rename the project in the following locations:\n1. Root package.json: Change name field from 'one-stack' to 'harness' (line 2)\n2. apps/web/src/app/layout.tsx: Update metadata title from 'One Stack' to 'Harness' (line 8), update description to 'Claude Orchestrator with persistent conversation threads and sub-agent delegation' (line 9)\n3. apps/web/src/app/page.tsx: Change h1 text from 'One Stack' to 'Harness' (line 7), update description text to 'Claude Orchestrator — Persistent threads, sub-agent delegation, scheduled invocations, and interface adapters' (lines 8-10)\n4. README.md: Update title from '# One Stack' to '# Harness' (line 1), replace 'one-stack/' with 'harness/' in project structure diagram (line 32)\n5. LICENSE file: Change copyright from 'One Stack' to 'Harness' (line 3)\n6. AI_RESEARCH/2026-02-23-task-master-ai-configuration.md: Update projectName from 'one-stack' to 'harness' (line 345) if this file needs to be preserved\n\nNote: Git logs contain historical references that should not be modified. The web app package name remains 'web' as it's an internal package name and doesn't need the project branding.",
-        "testStrategy": "Verify the renaming is complete by:\n1. Run 'grep -r \"one-stack\" --exclude-dir=.git .' to confirm no references remain (except in git history)\n2. Run 'grep -r \"One Stack\" --exclude-dir=.git .' to confirm no references remain (except in git history)\n3. Verify package.json name field is 'harness'\n4. Run 'pnpm install' to ensure workspace configuration still works\n5. Run 'pnpm dev' and visit localhost:3000 to verify the web app displays 'Harness' as the title\n6. Check browser tab title shows 'Harness'\n7. Run 'pnpm ci' to ensure all CI checks still pass after renaming",
-        "status": "done",
-        "dependencies": [],
-        "priority": "high",
-        "subtasks": []
-      },
-      {
-        "id": 34,
-        "title": "Clarify Web Plugin Purpose and Scope",
-        "description": "Review the web plugin's implementation and document its intended purpose, verifying alignment with project requirements",
-        "details": "Analyze packages/plugins/web/ to determine its actual role in the architecture. Based on analysis:\n\n1. Document findings in a structured review:\n   - Current implementation: Express server (port 3001) with REST API endpoints (/api/chat, /api/threads, /api/tasks, /api/metrics) and WebSocket broadcasting on /ws\n   - Actual functionality: Acts as HTTP/WebSocket bridge for the orchestrator, enabling web-based interfaces to interact with the pipeline\n   - Not a chat interface itself, but provides the API layer that a separate dashboard app would consume\n\n2. Compare against PRD specifications:\n   - PRD states: 'Web plugin provides REST API endpoints for the dashboard' and 'apps/dashboard talks to these endpoints'\n   - Current state aligns with design: plugin exposes APIs, dashboard (not yet built) will consume them\n   - WebSocket broadcasts pipeline events for real-time updates\n\n3. Identify scope clarifications needed:\n   - Plugin is correctly scoped as an API provider, not a UI component\n   - Missing dashboard app (apps/dashboard) that was specified in PRD\n   - Consider if plugin needs authentication/authorization for production use\n\n4. Create documentation at packages/plugins/web/README.md:\n   - Purpose statement: HTTP/WebSocket bridge enabling web clients to interact with orchestrator\n   - API endpoint documentation with request/response formats\n   - WebSocket event types and payloads\n   - Integration guide for dashboard developers\n   - Configuration options (port, CORS settings)\n\n5. Recommend next steps:\n   - Plugin implementation matches intended design as API layer\n   - Dashboard app (apps/dashboard) needs to be created as separate Next.js app\n   - Consider adding OpenAPI/Swagger documentation for REST endpoints\n   - May need rate limiting and auth middleware for production",
-        "testStrategy": "Verify review completeness:\n1. Check that README.md is created with clear purpose statement\n2. Confirm API documentation covers all endpoints with examples\n3. Validate that scope boundaries are explicitly documented\n4. Test that recommendations align with PRD architecture\n5. Ensure distinction between plugin (API) and dashboard (UI) is clear",
-        "status": "done",
-        "dependencies": [14],
-        "priority": "medium",
-        "subtasks": []
-      },
-      {
-        "id": 35,
-        "title": "Make Context Plugin File Reader Dynamic",
-        "description": "Redesign the context plugin's file reader to dynamically discover and read relevant files based on patterns and configurations instead of using a hardcoded static list",
-        "details": "The context plugin currently uses a hardcoded `CONTEXT_FILES` array in `packages/plugins/context/src/_helpers/file-reader.ts` that only reads four specific markdown files (memory.md, world-state.md, thread-summaries.md, inbox.md). This implementation needs to be redesigned for flexibility and extensibility.\n\n**Current limitations:**\n- Static array `CONTEXT_FILES` hardcoded to only 4 specific filenames\n- No support for subdirectories within context/\n- Cannot read additional context files without code changes\n- No support for file patterns or glob matching\n- Cannot exclude certain files or directories\n\n**Implementation approach:**\n\n1. **Create file discovery module** (`_helpers/file-discovery.ts`):\n   - Implement `discoverContextFiles` function using Node's `readdirSync` with recursive option\n   - Support include/exclude patterns (e.g., `*.md`, `!*.draft.md`)\n   - Allow configuration of max depth for directory traversal\n   - Return discovered file paths relative to context directory\n\n2. **Create configuration types** (in `index.ts`):\n   ```typescript\n   export type FileDiscoveryConfig = {\n     includePatterns?: string[]; // Default: ['*.md']\n     excludePatterns?: string[]; // Default: ['*.draft.md', '.*']\n     maxDepth?: number; // Default: 3\n     followSymlinks?: boolean; // Default: false\n   };\n   ```\n\n3. **Refactor file-reader.ts**:\n   - Remove hardcoded `CONTEXT_FILES` constant\n   - Accept discovered files from file-discovery module\n   - Maintain backward compatibility by including default files if they exist\n   - Add file metadata (size, path, last modified) to ContextFile type\n   - Implement smart truncation for large files (e.g., only read first 10KB)\n\n4. **Update plugin options** (`ContextPluginOptions`):\n   ```typescript\n   export type ContextPluginOptions = {\n     contextDir?: string;\n     historyLimit?: number;\n     fileDiscovery?: FileDiscoveryConfig;\n     maxFileSize?: number; // bytes, default 50KB\n     priorityFiles?: string[]; // files to always include if present\n   };\n   ```\n\n5. **Implement pattern matching**:\n   - Use simple glob-like patterns without external dependencies\n   - Support `*` (match any characters), `**` (match any depth), `?` (single char)\n   - Implement using regex conversion of patterns\n\n6. **Add caching layer** (`_helpers/file-cache.ts`):\n   - Cache file contents with TTL (e.g., 5 seconds)\n   - Use file mtime to invalidate cache\n   - Reduce file system operations on frequent invocations\n\n7. **Enhance error handling**:\n   - Group errors by type (permissions, not found, too large)\n   - Provide helpful error messages for common issues\n   - Log warnings for skipped files (too large, binary, etc.)\n\n8. **Support for .contextignore file**:\n   - Check for .contextignore in context directory\n   - Parse gitignore-style patterns\n   - Apply exclusions during file discovery\n\n**File structure after refactoring:**\n```\npackages/plugins/context/src/\n├── index.ts (enhanced options)\n├── _helpers/\n│   ├── file-reader.ts (refactored)\n│   ├── file-discovery.ts (new)\n│   ├── file-cache.ts (new)\n│   ├── pattern-matcher.ts (new)\n│   └── history-loader.ts (unchanged)\n```",
-        "testStrategy": "1. **Unit tests for file-discovery.ts**:\n   - Test pattern matching with various glob patterns\n   - Verify exclude patterns work correctly\n   - Test max depth limiting\n   - Verify symlink handling based on configuration\n   - Test with nested directory structures\n\n2. **Unit tests for pattern-matcher.ts**:\n   - Test glob-to-regex conversion\n   - Verify `*`, `**`, `?` wildcards work as expected\n   - Test complex patterns like `docs/**/*.md`\n   - Verify exclusion patterns (starting with `!`)\n\n3. **Integration tests for file-reader.ts**:\n   - Test reading discovered files instead of static list\n   - Verify large file truncation\n   - Test with various file encodings\n   - Ensure backward compatibility with default files\n\n4. **Cache tests**:\n   - Verify TTL expiration\n   - Test mtime-based invalidation  \n   - Measure performance improvement with caching\n\n5. **End-to-end plugin tests**:\n   - Create test context directory with various file types\n   - Verify only matching files are included in prompts\n   - Test .contextignore file parsing and application\n   - Verify memory usage stays reasonable with many files\n   - Test error recovery when some files are unreadable\n\n6. **Performance benchmarks**:\n   - Measure time to discover and read 100+ files\n   - Compare cached vs uncached performance\n   - Verify no memory leaks with repeated invocations",
-        "status": "done",
-        "dependencies": [12],
-        "priority": "medium",
-        "subtasks": []
-      },
-      {
-        "id": 36,
-        "title": "Review Discord Plugin Helper Structure",
-        "description": "Analyze the discord plugin's helper file decomposition to determine if the current granular structure adds value or should be consolidated for better maintainability",
-        "details": "The discord plugin at packages/plugins/discord/ currently has multiple fine-grained helper files that may represent over-engineering:\n\n**Current structure to review:**\n- `_helpers/channel-resolver.ts` - Maps Discord channels to sourceIds\n- `_helpers/message-adapter.ts` - Converts Discord messages to pipeline format\n- Potentially other helper files following similar patterns\n\n**Analysis approach:**\n1. **Measure actual complexity:** Review each helper file to determine lines of code, number of functions, and cyclomatic complexity\n2. **Evaluate separation of concerns:** Assess whether the current separation provides clear boundaries or creates artificial divisions\n3. **Check reusability:** Determine if helpers are used by multiple consumers or only by the main plugin\n4. **Compare with other plugins:** Look at context plugin (Task 12) and web plugin (Task 14) helper structures for consistency\n\n**Consolidation criteria:**\n- If helpers are < 50 LOC and single-purpose, consider merging\n- If helpers have high cohesion (operate on same data types), combine them\n- If helpers are only used once, inline them or merge with parent\n\n**Potential refactoring outcomes:**\n1. **Keep current structure:** If each helper has sufficient complexity and clear responsibility\n2. **Partial consolidation:** Merge highly-related helpers (e.g., all Discord-specific adapters)\n3. **Full consolidation:** Move all helper logic into main index.ts if total complexity is low\n\n**Documentation requirements:**\n- Document the decision rationale in a code comment\n- Update any existing plugin documentation to reflect new structure\n- Ensure consistency with project's module organization principles (co-location, isolation, orchestration)",
-        "testStrategy": "1. **Pre-refactoring verification:**\n   - Run existing discord plugin tests to establish baseline\n   - Verify current functionality with `pnpm test --filter @harness/plugin-discord`\n   - Check test coverage to ensure no functionality is lost\n\n2. **Static analysis:**\n   - Use complexity analysis tools to measure each helper's metrics\n   - Count imports/exports to understand coupling\n   - Review git history to understand evolution of structure\n\n3. **Post-refactoring validation:**\n   - All existing tests must pass without modification\n   - Type checking must pass: `pnpm typecheck`\n   - Linting must pass: `pnpm lint`\n   - No regression in functionality when integrated with orchestrator\n\n4. **Integration testing:**\n   - Test Discord message flow end-to-end if refactored\n   - Verify channel resolution still works correctly\n   - Ensure message adaptation maintains same format\n\n5. **Code review checklist:**\n   - Confirm refactoring follows project's arrow function conventions\n   - Verify no barrel files are created\n   - Check that any new structure maintains `_helpers/` convention if kept\n   - Ensure consistency with other plugin structures",
-        "status": "done",
-        "dependencies": [13],
-        "priority": "medium",
-        "subtasks": []
-      },
-      {
-        "id": 37,
-        "title": "Implement Plugin Enable/Disable System with Metadata Discovery",
-        "description": "Create a comprehensive plugin management system that allows users to enable/disable plugins, with automatic metadata discovery and configuration persistence in the database",
-        "details": "Create a new PluginConfig model in packages/database/prisma/schema.prisma with fields: id (cuid), pluginName (unique string), enabled (boolean default true), metadata (Json for frontmatter), settings (Json for user configuration), createdAt, updatedAt. Add database migration. Create packages/plugin-contract/src/metadata.ts defining PluginMetadata type with required fields: name, version, description, author, requirements (optional dependencies/env vars), capabilities (hooks it registers), configSchema (JSON schema for settings). Update PluginDefinition in packages/plugin-contract/src/index.ts to include metadata: PluginMetadata field. Create apps/orchestrator/src/plugin-loader/_helpers/metadata-extractor.ts implementing extractMetadata function that reads plugin source files looking for frontmatter-style metadata comments (/* --- metadata --- */) or exported metadata object, parsing YAML/JSON metadata, validating against PluginMetadata schema. Update apps/orchestrator/src/plugin-loader/_helpers/validate-plugin.ts to validate metadata field is present and conforms to schema. Create apps/orchestrator/src/plugin-registry/_helpers/config-manager.ts with functions: loadPluginConfigs (reads from database), isPluginEnabled (checks enabled status), updatePluginConfig (persists changes), syncPluginRegistry (ensures all discovered plugins have config records). Update apps/orchestrator/src/plugin-registry/index.ts to filter plugins based on enabled status before returning, calling config-manager to check each plugin. Modify apps/orchestrator/src/orchestrator/index.ts registerPlugin method to skip registration if plugin is disabled, logging 'Plugin {name} is disabled, skipping registration'. Update each plugin in packages/plugins/*/src/index.ts to export metadata object with proper frontmatter. Create apps/orchestrator/src/plugins/admin/index.ts implementing admin commands: /plugins list (shows all with enabled status), /plugin enable {name}, /plugin disable {name}, /plugin config {name} {settings}. In web dashboard at apps/web/src/app/plugins/page.tsx, create server component that fetches plugin configs from database, displays table with name, description, enabled toggle, settings button, uses Server Actions for enable/disable operations. Update apps/orchestrator/src/index.ts bootstrap to call syncPluginRegistry before loading plugins, ensuring all plugins have database records. Add to PRD at .taskmaster/docs/prd.md under Design Concerns section about plugin lifecycle and configuration management.",
-        "testStrategy": "Test metadata extraction with various formats (YAML frontmatter, JSON export, missing metadata). Verify plugin validation rejects plugins without metadata. Test config-manager correctly persists and retrieves enabled states. Ensure disabled plugins are not registered in orchestrator. Test plugin-registry filters based on enabled status. Verify admin commands correctly enable/disable plugins and changes persist. Test web dashboard displays correct plugin states and toggle operations work. Ensure syncPluginRegistry creates config records for new plugins. Test that plugin settings are properly validated against configSchema. Verify bootstrap process respects enabled/disabled states on startup.",
-        "status": "done",
-        "dependencies": [3, 4, 20],
-        "priority": "medium",
-        "subtasks": []
-      },
-      {
-        "id": 38,
-        "title": "Move shared UI components from apps/web to packages/ui",
-        "description": "Move the shadcn/ui button component from apps/web/src/components/ui/ to packages/ui/ for reuse across apps, updating imports and documentation to reflect the new architecture.",
-        "details": "Currently, the button.tsx component lives in apps/web/src/components/ui/ but needs to be moved to the shared packages/ui/ package for cross-app reusability.\n\n**Implementation steps:**\n\n1. **Create UI components structure in packages/ui:**\n   - Create directory packages/ui/src/components/\n   - Move button.tsx from apps/web/src/components/ui/button.tsx to packages/ui/src/components/button.tsx\n   - Update the import in button.tsx from '@/lib/utils' to '../index' (using the cn utility already exported from packages/ui)\n\n2. **Update packages/ui/src/index.ts exports:**\n   ```typescript\n   // Existing utilities\n   export { cn, type ClassValue } from './utils';\n   \n   // Export components\n   export { Button, buttonVariants, type ButtonProps } from './components/button';\n   ```\n\n3. **Update apps/web to import from ui package:**\n   - Change apps/web/src/app/page.tsx line 1 from:\n     `import { Button } from \"@/components/ui/button\";`\n     to:\n     `import { Button } from \"ui\";`\n   - Remove the now-empty apps/web/src/components/ui/ directory\n\n4. **Remove duplicate dependencies from apps/web/package.json:**\n   Since packages/ui already has these dependencies, remove from apps/web:\n   - @radix-ui/react-slot (line 15)\n   - class-variance-authority (line 16)\n   - clsx (line 17) \n   - lucide-react (line 19)\n   - tailwind-merge (line 23)\n   \n   Keep only the ui package dependency (line 25).\n\n5. **Update components.json configuration:**\n   Change the ui alias from \"@/components/ui\" to direct imports from \"ui\" package:\n   ```json\n   \"aliases\": {\n     \"components\": \"@/components\",\n     \"utils\": \"@/lib/utils\",\n     \"ui\": \"ui\",  // Update to reference the package directly\n     \"lib\": \"@/lib\",\n     \"hooks\": \"@/hooks\"\n   }\n   ```\n\n6. **Update CLAUDE.md documentation (line 67):**\n   Change from:\n   \"shadcn/ui components live in `apps/web/src/components/ui/` (app-local, not in shared package yet)\"\n   to:\n   \"shadcn/ui components live in `packages/ui/src/components/` (shared package for cross-app reuse)\"\n\n**File structure after migration:**\n```\npackages/ui/\n├── src/\n│   ├── components/\n│   │   └── button.tsx\n│   ├── index.ts (exports cn utility + Button component)\n│   └── __tests__/\n│       ├── utils.test.ts (existing)\n│       └── components/\n│           └── button.test.tsx (new tests for Button)\n```\n\n**Benefits:**\n- Components can be reused across all apps (web, future dashboard from Task 25)\n- Single source of truth for UI components\n- Reduced duplication of dependencies\n- Cleaner separation of concerns\n- Aligns with monorepo best practices",
-        "testStrategy": "1. **Build verification:**\n   - Run `pnpm build` to ensure all packages compile successfully\n   - Verify no TypeScript errors with `pnpm typecheck`\n   - Ensure Biome passes with `pnpm lint`\n\n2. **Import resolution tests:**\n   - Verify apps/web/src/app/page.tsx imports Button from 'ui' package correctly\n   - Run `pnpm --filter web dev` and verify the Button components render on the homepage\n   - Check that both default and outline variant buttons display correctly\n\n3. **Package isolation:**\n   - Run `pnpm --filter ui build` to verify the UI package builds independently\n   - Create a simple test in packages/ui/src/components/__tests__/button.test.tsx:\n     ```typescript\n     import { render, screen } from '@testing-library/react';\n     import { Button } from '../button';\n     \n     describe('Button', () => {\n       it('renders with text', () => {\n         render(<Button>Click me</Button>);\n         expect(screen.getByRole('button')).toHaveTextContent('Click me');\n       });\n     });\n     ```\n   - Run `pnpm --filter ui test` to verify component tests pass\n\n4. **Dependency verification:**\n   - Check apps/web no longer has duplicate UI library dependencies\n   - Verify packages/ui has all required dependencies for components\n   - Run `pnpm sherif` to validate no dependency conflicts\n\n5. **Documentation accuracy:**\n   - Grep for any remaining references to '@/components/ui' that need updating\n   - Verify CLAUDE.md accurately describes the new component location\n\n6. **Coverage gate:**\n   - Run `pnpm test:coverage-gate` to ensure no barrel files were created\n   - Verify coverage remains above 80% threshold",
-        "status": "done",
-        "dependencies": [],
-        "priority": "medium",
-        "subtasks": []
-      },
-      {
-        "id": 39,
-        "title": "Extract shared hook firing utilities from delegation plugin into shared package",
-        "description": "Extract generic hook-iteration-with-error-isolation utilities from both the delegation plugin and orchestrator into the @harness/plugin-contract package, making it the canonical location for hook runtime utilities alongside the PluginHooks type definitions",
-        "status": "done",
-        "dependencies": [15],
-        "priority": "medium",
-        "details": "The delegation plugin at packages/plugins/delegation/src/_helpers/delegation-loop.ts contains three hook-firing functions (fireTaskCreateHooks, fireTaskCompleteHooks, fireTaskFailedHooks) that follow the same pattern as runNotifyHooks, runCommandHooks, and runChainHooks in apps/orchestrator/src/orchestrator/_helpers/. These are generic utilities for iterating over plugin hooks with error isolation that should be centralized in the plugin-contract package.\n\n**Implementation steps:**\n\n1. **Transform plugin-contract from types-only to types + utilities:**\n   - Add packages/plugin-contract/src/_helpers/hook-runner.ts with generic hook execution utilities\n   - Create packages/plugin-contract/vitest.config.ts (copy pattern from packages/plugins/delegation/vitest.config.ts)\n   - Update packages/plugin-contract/package.json to add \"test\" script: \"vitest\"\n   - Add vitest as devDependency to plugin-contract package\n\n2. **Implement generic hook runner utilities:**\n   ```typescript\n   // packages/plugin-contract/src/_helpers/hook-runner.ts\n   \n   // For notification-style hooks (void return)\n   export const runHook = async <T extends any[]>(\n     allHooks: PluginHooks[],\n     hookName: string,\n     hookGetter: (hooks: PluginHooks) => ((...args: T) => Promise<void>) | undefined,\n     args: T,\n     logger: Logger\n   ): Promise<void> => {\n     for (const hooks of allHooks) {\n       const hook = hookGetter(hooks);\n       if (hook) {\n         try {\n           await hook(...args);\n         } catch (err) {\n           logger.error(`Hook \"${hookName}\" threw: ${err instanceof Error ? err.message : String(err)}`);\n         }\n       }\n     }\n   };\n\n   // For command-style hooks (boolean/result return with early termination)\n   export const runHookWithResult = async <T extends any[], R>(\n     allHooks: PluginHooks[],\n     hookName: string,\n     hookGetter: (hooks: PluginHooks) => ((...args: T) => Promise<R>) | undefined,\n     args: T,\n     logger: Logger,\n     defaultResult: R,\n     resultHandler?: (result: R) => boolean\n   ): Promise<R> => {\n     for (const hooks of allHooks) {\n       const hook = hookGetter(hooks);\n       if (hook) {\n         try {\n           const result = await hook(...args);\n           if (resultHandler && resultHandler(result)) {\n             return result;\n           }\n         } catch (err) {\n           logger.error(`Hook \"${hookName}\" threw: ${err instanceof Error ? err.message : String(err)}`);\n         }\n       }\n     }\n     return defaultResult;\n   };\n\n   // For chain-style hooks (sequential prompt modification)\n   export const runChainHook = async <T>(\n     allHooks: PluginHooks[],\n     hookName: string,\n     hookGetter: (hooks: PluginHooks) => ((threadId: string, value: T) => Promise<T>) | undefined,\n     threadId: string,\n     initialValue: T,\n     logger: Logger\n   ): Promise<T> => {\n     let value = initialValue;\n     for (const hooks of allHooks) {\n       const hook = hookGetter(hooks);\n       if (hook) {\n         try {\n           value = await hook(threadId, value);\n         } catch (err) {\n           logger.error(`Hook \"${hookName}\" threw: ${err instanceof Error ? err.message : String(err)}`);\n         }\n       }\n     }\n     return value;\n   };\n   ```\n\n3. **Export utilities from plugin-contract index:**\n   - Update packages/plugin-contract/src/index.ts to export from ./_helpers/hook-runner\n   - Maintain existing type exports alongside the new utility exports\n\n4. **Refactor orchestrator to use shared utilities:**\n   - Update apps/orchestrator/src/orchestrator/_helpers/run-notify-hooks.ts:\n     - Import runHook from @harness/plugin-contract\n     - Replace implementation with call to runHook\n   - Update apps/orchestrator/src/orchestrator/_helpers/run-command-hooks.ts:\n     - Import runHookWithResult from @harness/plugin-contract\n     - Replace implementation with call to runHookWithResult\n   - Update apps/orchestrator/src/orchestrator/_helpers/run-chain-hooks.ts:\n     - Import runChainHook from @harness/plugin-contract\n     - Replace implementation with call to runChainHook\n   - Update apps/orchestrator/src/orchestrator/index.ts imports if needed\n\n5. **Break up delegation-loop.ts into separate helpers:**\n   - Create packages/plugins/delegation/src/_helpers/create-task-thread.ts (lines 93-108)\n   - Create packages/plugins/delegation/src/_helpers/create-task-record.ts (lines 110-128)\n   - Create packages/plugins/delegation/src/_helpers/build-iteration-prompt.ts (lines 130-137)\n   - Create packages/plugins/delegation/src/_helpers/invoke-sub-agent.ts (lines 139-173)\n   - In delegation-loop.ts:\n     - Import the extracted helpers\n     - Replace fireTaskCreateHooks with runHook from @harness/plugin-contract\n     - Replace fireTaskCompleteHooks with custom logic using runHook (since it returns TaskCompleteOutcome)\n     - Replace fireTaskFailedHooks with runHook from @harness/plugin-contract\n     - Keep only runDelegationLoop function as the orchestration logic\n\n6. **Update imports and exports:**\n   - Ensure all new helper files in delegation plugin export their main function\n   - Update any files that import from delegation-loop.ts if they use the extracted functions\n\n7. **Add comprehensive tests:**\n   - Create packages/plugin-contract/src/_helpers/__tests__/hook-runner.test.ts\n   - Test all three hook runner functions with various scenarios\n   - Create tests for each new delegation helper file if not covered by existing tests",
-        "testStrategy": "1. **Unit test hook runners in plugin-contract:**\n   - Create packages/plugin-contract/src/_helpers/__tests__/hook-runner.test.ts\n   - Test runHook with: successful hooks, throwing hooks, missing hooks, multiple hooks\n   - Test runHookWithResult with: early termination, default results, error handling\n   - Test runChainHook with: sequential value transformation, error isolation\n   - Verify logger.error is called for throwing hooks\n\n2. **Integration test refactored orchestrator:**\n   - Run existing tests in apps/orchestrator/src/orchestrator/_helpers/__tests__/\n   - Verify run-notify-hooks.test.ts passes without modification\n   - Verify run-command-hooks.test.ts passes without modification  \n   - Verify run-chain-hooks.test.ts passes without modification\n   - Ensure behavior is identical after refactoring to use @harness/plugin-contract\n\n3. **Test refactored delegation plugin:**\n   - Run existing tests in packages/plugins/delegation/src/_helpers/__tests__/delegation-loop.test.ts\n   - Create unit tests for each new helper:\n     - packages/plugins/delegation/src/_helpers/__tests__/create-task-thread.test.ts\n     - packages/plugins/delegation/src/_helpers/__tests__/create-task-record.test.ts\n     - packages/plugins/delegation/src/_helpers/__tests__/build-iteration-prompt.test.ts\n     - packages/plugins/delegation/src/_helpers/__tests__/invoke-sub-agent.test.ts\n   - Verify delegation flow works end-to-end after refactoring\n\n4. **Build and type checking:**\n   - Run `pnpm build` to ensure all packages compile\n   - Run `pnpm typecheck` to verify no TypeScript errors\n   - Run `pnpm lint` to ensure code style compliance\n   - Run `pnpm test` to execute all tests\n\n5. **Manual testing:**\n   - Test a full delegation flow to ensure hooks fire correctly\n   - Verify error messages from hook failures are properly logged\n   - Confirm plugin loading and hook registration still work\n   - Test that orchestrator message pipeline functions correctly",
-        "subtasks": [
-          {
-            "id": 1,
-            "title": "Add vitest and test script to plugin-contract",
-            "description": "",
-            "status": "done",
-            "dependencies": [],
-            "details": "",
-            "testStrategy": ""
-          },
-          {
-            "id": 2,
-            "title": "Create hook-runner.ts with runHook, runHookWithResult, and runChainHook",
-            "description": "",
-            "status": "done",
-            "dependencies": [],
-            "details": "",
-            "testStrategy": ""
-          },
-          {
-            "id": 3,
-            "title": "Write comprehensive tests for hook-runner utilities",
-            "description": "",
-            "status": "done",
-            "dependencies": [],
-            "details": "",
-            "testStrategy": ""
-          },
-          {
-            "id": 4,
-            "title": "Refactor orchestrator helpers to use plugin-contract utilities",
-            "description": "",
-            "status": "done",
-            "dependencies": [],
-            "details": "",
-            "testStrategy": ""
+            "title": "Implement plugin start/stop lifecycle",
+            "description": "In packages/plugins/cron/src/index.ts, implement start() hook that initializes the cron-server, and stop() hook that tears it down. No onBeforeInvoke/onAfterInvoke needed — this plugin is lifecycle-only. Use ctx.sendToThread (safe in start()) and ctx.db to query CronJob records.",
+            "status": "pending",
+            "dependencies": []
           },
           {
             "id": 5,
-            "title": "Extract delegation helper functions into separate files",
-            "description": "",
-            "status": "done",
-            "dependencies": [],
-            "details": "",
-            "testStrategy": ""
-          },
-          {
-            "id": 6,
-            "title": "Update delegation-loop.ts to use plugin-contract hook runners",
-            "description": "",
-            "status": "done",
-            "dependencies": [],
-            "details": "",
-            "testStrategy": ""
-          },
-          {
-            "id": 7,
-            "title": "Verify all tests pass and build succeeds",
-            "description": "",
-            "status": "done",
-            "dependencies": [],
-            "details": "",
-            "testStrategy": ""
+            "title": "Register cronPlugin in plugin-registry",
+            "description": "Add cronPlugin to ALL_PLUGINS array in apps/orchestrator/src/plugin-registry/index.ts. Position: after webPlugin (web must start first so HTTP is up before any cron jobs could theoretically fire via HTTP path, though sendToThread is in-memory and safe regardless).",
+            "status": "pending",
+            "dependencies": []
           }
-        ]
+        ],
+        "details": "VERIFIED BOOT SEQUENCE: ctx.sendToThread is safe in start() hooks (pipeline.handleMessage is assigned before start() fires). Seeded CronJobs already have valid threadIds pointing to the primary thread. Use atomic prisma.cronJob.update() for lastRunAt/nextRunAt — no read-modify-write. Plugin pattern preferred over top-level module per architectural invariants (enables runtime disable via PluginConfig). All 4 seeded jobs use UTC schedule expressions (MST = UTC-7).",
+        "testStrategy": "Create a test CronJob with a near-future schedule. Verify it fires, sendToThread is called with correct prompt, lastRunAt is updated in DB. Verify disabled jobs do not fire. Verify stop() clears all scheduled jobs cleanly."
       },
       {
-        "id": 40,
-        "title": "Design dynamic plugin registry to replace static imports",
-        "description": "Replace the hardcoded static plugin imports in apps/orchestrator/src/plugin-registry/index.ts with a dynamic discovery and loading system that can detect plugins at runtime based on configuration, workspace packages, or a manifest file, decoupling the orchestrator from compile-time plugin dependencies",
-        "details": "The current plugin registry at apps/orchestrator/src/plugin-registry/index.ts hardcodes imports for all plugins (context, discord, web, delegation), creating tight coupling and build-time dependencies. This implementation needs to be replaced with a dynamic registry system.\n\n**Current limitations:**\n- Static imports in plugin-registry/index.ts require recompilation when adding/removing plugins\n- Orchestrator package.json must declare all plugins as dependencies\n- No way to conditionally load plugins based on configuration\n- Cannot discover new plugins without modifying orchestrator code\n- Incompatible with the plugin enable/disable system from task 37\n\n**Implementation approach:**\n\n1. **Create plugin manifest system** (apps/orchestrator/src/plugin-registry/_helpers/manifest-loader.ts):\n   - Support JSON manifest file at project root (harness-plugins.json) with plugin metadata\n   - Manifest schema: `{ plugins: [{ name: string, package: string, enabled: boolean, config?: object }] }`\n   - Fallback to auto-discovery if no manifest exists\n   - Validate manifest against available workspace packages\n\n2. **Implement workspace package discovery** (apps/orchestrator/src/plugin-registry/_helpers/workspace-discovery.ts):\n   - Parse pnpm-workspace.yaml to find plugin packages under packages/plugins/*\n   - Read each plugin's package.json to extract name and version\n   - Check for 'harness-plugin' field in package.json as plugin marker\n   - Return array of discovered plugin package names\n\n3. **Build dynamic loader** (apps/orchestrator/src/plugin-registry/_helpers/dynamic-loader.ts):\n   - Use dynamic import() to load plugin modules at runtime\n   - Handle ESM/CJS module format differences\n   - Extract default export or named 'plugin' export\n   - Validate exported PluginDefinition matches contract\n   - Cache loaded modules to avoid re-importing\n\n4. **Create configuration-based registry** (apps/orchestrator/src/plugin-registry/_helpers/config-resolver.ts):\n   - Read plugin configuration from environment variables (ENABLED_PLUGINS, DISABLED_PLUGINS)\n   - Support glob patterns for plugin names (e.g., '@harness/plugin-*')\n   - Merge with manifest configuration if present\n   - Return final list of plugins to load with their configs\n\n5. **Update main registry** (apps/orchestrator/src/plugin-registry/index.ts):\n   - Replace static imports with async getPlugins() that returns Promise<PluginDefinition[]>\n   - Orchestrate manifest loading, workspace discovery, config resolution\n   - Load enabled plugins dynamically using dynamic-loader\n   - Handle errors gracefully, log which plugins loaded/failed\n   - Maintain backwards compatibility by checking for legacy static imports\n\n6. **Integrate with enable/disable system** (relates to task 37):\n   - Store plugin enabled state in database PluginState table\n   - Override manifest/config with database state if present\n   - Expose API to toggle plugin state at runtime\n   - Reload affected plugins when state changes\n\n7. **Update orchestrator bootstrap** (apps/orchestrator/src/index.ts):\n   - Make plugin loading async: `const rawPlugins = await getPlugins();`\n   - Handle dynamic loading errors during boot\n   - Log discovered vs loaded plugin counts\n\n8. **Remove static dependencies** (apps/orchestrator/package.json):\n   - After implementation, remove hardcoded plugin dependencies\n   - Keep only @harness/plugin-contract as required dependency\n   - Update build process to exclude plugin packages from bundle\n\n**Configuration examples:**\n\nManifest file (harness-plugins.json):\n```json\n{\n  \"plugins\": [\n    { \"name\": \"context\", \"package\": \"@harness/plugin-context\", \"enabled\": true },\n    { \"name\": \"discord\", \"package\": \"@harness/plugin-discord\", \"enabled\": false },\n    { \"name\": \"custom\", \"package\": \"./plugins/custom\", \"enabled\": true }\n  ]\n}\n```\n\nEnvironment variables:\n```bash\nENABLED_PLUGINS=context,web,delegation\nDISABLED_PLUGINS=discord\n```\n\n**Error handling:**\n- Plugin fails to load: Log error, continue with other plugins\n- No plugins found: Log warning, orchestrator runs without plugins\n- Invalid manifest: Fall back to auto-discovery\n- Module not found: Skip plugin, log as not installed",
-        "testStrategy": "1. **Unit tests for manifest-loader.ts**:\n   - Test parsing valid manifest with multiple plugins\n   - Verify handling of missing manifest file (returns null)\n   - Test validation of manifest schema\n   - Ensure invalid JSON throws appropriate error\n   - Test merge behavior with duplicate plugin entries\n\n2. **Unit tests for workspace-discovery.ts**:\n   - Mock fs to simulate pnpm-workspace.yaml and package.json files\n   - Test discovery of plugins in packages/plugins/* pattern\n   - Verify filtering by 'harness-plugin' field in package.json\n   - Test handling of missing directories or invalid package.json\n   - Ensure non-plugin packages are excluded\n\n3. **Unit tests for dynamic-loader.ts**:\n   - Mock dynamic import() to test module loading\n   - Test extraction of default export vs named export\n   - Verify PluginDefinition validation\n   - Test error handling for missing modules\n   - Verify module caching prevents duplicate imports\n\n4. **Unit tests for config-resolver.ts**:\n   - Test parsing ENABLED_PLUGINS and DISABLED_PLUGINS env vars\n   - Verify glob pattern matching for plugin names\n   - Test precedence: database > env > manifest > discovery\n   - Ensure disabled plugins are filtered out\n   - Test empty/missing configuration handling\n\n5. **Integration tests for updated registry**:\n   - Create test plugins with valid and invalid exports\n   - Test full flow: discovery → config → loading → validation\n   - Verify async getPlugins() returns correct plugins\n   - Test error recovery when some plugins fail to load\n   - Ensure backwards compatibility with static imports\n\n6. **E2E tests for orchestrator bootstrap**:\n   - Start orchestrator with various plugin configurations\n   - Verify only enabled plugins are loaded and started\n   - Test hot-reload behavior when config changes\n   - Ensure graceful degradation with no plugins\n   - Test plugin lifecycle (register, start, stop) with dynamic loading\n\n7. **Performance tests**:\n   - Measure boot time with dynamic vs static loading\n   - Test memory usage with plugin caching\n   - Verify no memory leaks on plugin reload\n   - Benchmark discovery time with many plugins",
-        "status": "done",
-        "dependencies": [4, 37],
+        "id": 6,
+        "title": "Documentation: CLAUDE.md system inventory and planned-incomplete sections",
+        "description": "Add two new sections to CLAUDE.md to prevent future agents from rebuilding existing systems or missing the state of planned systems.",
+        "status": "pending",
         "priority": "medium",
-        "subtasks": []
+        "dependencies": [5],
+        "subtasks": [
+          {
+            "id": 1,
+            "title": "Add 'What Already Exists' section to CLAUDE.md",
+            "description": "Document every fully-implemented subsystem: admin section (/admin with cron-jobs, plugins, threads, agent-runs, tasks), agent management (/agents CRUD + memory browser), usage dashboard (/usage), agent identity system (Phases 1-2 complete: soul injection + episodic memory scoring), summarization plugin (at 50-message threshold), audit-delete flow, delegation with validator and circuit breaker, cron scheduler (after Task 5).",
+            "status": "pending",
+            "dependencies": []
+          },
+          {
+            "id": 2,
+            "title": "Add 'Planned But Incomplete' section to CLAUDE.md",
+            "description": "Document: Agent Identity Phase 3 (vector search — Qdrant is the candidate, NOT pgvector, decision pending), Agent Identity Phase 4 (reflection cycle — schema REFLECTION type exists, trigger logic not implemented), Agent Identity Phase 5 (heartbeat — blocked on AgentConfig table + cron scheduler, both now exist after Tasks 3 and 5). Custom thread instructions (done in Task 4).",
+            "status": "pending",
+            "dependencies": []
+          }
+        ],
+        "details": "Do this LAST so docs reflect actual final state of all other tasks. The admin section and /agents route are fully implemented but mentioned nowhere in CLAUDE.md — biggest source of agent re-implementation.",
+        "testStrategy": "Read CLAUDE.md after changes. Verify a new agent would know: admin exists, /agents exists, heartbeat needs cron, vector search uses Qdrant not pgvector, which identity phases are complete vs. paused."
       },
       {
-        "id": 41,
-        "title": "Replace env-var plugin enable/disable with database-driven approach",
-        "description": "Replace the environment variable-based plugin enable/disable system with a database-driven approach using a new PluginConfig Prisma model to persist plugin state",
-        "details": "This task replaces the current environment variable-based plugin configuration (DISABLED_PLUGINS env var and disabledPlugins array in apps/orchestrator/src/config.ts) with a database-driven approach. The implementation requires:\n\n**1. Database Schema Changes:**\n- Add PluginConfig model to packages/database/prisma/schema.prisma with fields:\n  - id: String @id @default(cuid())\n  - pluginName: String @unique\n  - enabled: Boolean @default(true)\n  - metadata: Json? (optional, for future plugin metadata)\n  - settings: Json? (optional, for user-configurable settings)\n  - createdAt: DateTime @default(now())\n  - updatedAt: DateTime @updatedAt\n  - Add index on pluginName for query performance\n- Generate migration with `pnpm --filter database db:migrate`\n- Regenerate Prisma client with `pnpm db:generate`\n\n**2. Remove Environment Variable Configuration:**\n- Remove `disabledPlugins` field from OrchestratorConfig type in packages/plugin-contract/src/index.ts:26\n- Remove `disabledPlugins: parseDisabledPlugins(process.env.DISABLED_PLUGINS)` from apps/orchestrator/src/config.ts:53\n- Remove the `parseDisabledPlugins` function (lines 29-38) from apps/orchestrator/src/config.ts\n- Remove DISABLED_PLUGINS from any .env.example files\n\n**3. Replace filter-disabled-plugins.ts:**\n- Rewrite apps/orchestrator/src/plugin-registry/_helpers/filter-disabled-plugins.ts to:\n  - Accept PrismaClient instead of config\n  - Query PluginConfig table: `await db.pluginConfig.findMany({ where: { enabled: false } })`\n  - Filter plugins based on database records instead of config array\n  - Keep the same logging behavior for disabled plugins\n  - Handle case where plugin in database doesn't exist in registry (warn and continue)\n\n**4. Add syncPluginConfigs Startup Function:**\n- Create apps/orchestrator/src/plugin-registry/_helpers/sync-plugin-configs.ts\n- Implement `syncPluginConfigs(plugins: PluginDefinition[], db: PrismaClient, logger: Logger)` that:\n  - Gets all known plugin names from the registry\n  - Upserts PluginConfig records for each plugin (create if missing, preserve existing enabled state)\n  - Logs which plugins are being added to database for first time\n  - Removes stale PluginConfig records for plugins no longer in registry\n  - Returns the synchronized plugin list\n\n**5. Update Plugin Registry:**\n- Modify apps/orchestrator/src/plugin-registry/index.ts getPlugins function to:\n  - Accept PrismaClient instead of config\n  - Call syncPluginConfigs before filterDisabledPlugins\n  - Pass db to filterDisabledPlugins instead of config\n\n**6. Update Bootstrap:**\n- Modify apps/orchestrator/src/index.ts to pass prisma to getPlugins instead of config (line 41)\n- Remove disabledPlugins from logger output at line 116\n\n**7. Update Tests:**\n- Rewrite filter-disabled-plugins.test.ts to:\n  - Mock PrismaClient.pluginConfig.findMany instead of config\n  - Test database query scenarios\n  - Test filtering based on database records\n- Add new test file sync-plugin-configs.test.ts to test:\n  - Initial sync creates all plugin records\n  - Subsequent sync preserves enabled states\n  - Stale plugins are removed\n  - Database errors are handled gracefully\n- Update plugin-registry/index.test.ts for new signature\n\n**8. Migration Strategy:**\n- On first boot after deployment, syncPluginConfigs will create PluginConfig records for all plugins (enabled by default)\n- Admin users can then disable plugins via database updates or future admin UI\n- Database becomes single source of truth for plugin state",
-        "testStrategy": "1. **Database Migration Verification:**\n   - Run `pnpm --filter database db:migrate` to create migration\n   - Verify migration creates PluginConfig table with correct schema\n   - Run `pnpm db:generate` and verify Prisma client includes new model\n   - Test database operations with `pnpm db:studio`\n\n2. **Unit Test Suite:**\n   - Run updated filter-disabled-plugins.test.ts:\n     - Mock db.pluginConfig.findMany to return disabled plugins\n     - Verify correct plugins are filtered\n     - Test warning for unknown plugins in database\n   - Run new sync-plugin-configs.test.ts:\n     - Test initial sync creates all records\n     - Test re-sync preserves enabled states\n     - Test removal of stale plugin configs\n     - Test error handling for database failures\n\n3. **Integration Testing:**\n   - Start orchestrator with clean database\n   - Verify all plugins are created in PluginConfig table\n   - Manually disable a plugin in database (UPDATE PluginConfig SET enabled = false WHERE pluginName = 'discord')\n   - Restart orchestrator and verify plugin is not loaded\n   - Check logs for \"Plugin disabled by config: discord\" message\n\n4. **Regression Testing:**\n   - Verify DISABLED_PLUGINS env var no longer affects plugin loading\n   - Test that missing PluginConfig records default to enabled\n   - Ensure plugin lifecycle (register, start, stop) still works correctly\n   - Run full test suite: `pnpm test`\n\n5. **Performance Testing:**\n   - Verify database queries are optimized (check EXPLAIN output)\n   - Test startup time with many plugin configs\n   - Monitor memory usage during sync operation",
-        "status": "done",
-        "dependencies": [37, 20, 3],
-        "priority": "high",
-        "subtasks": []
+        "id": 7,
+        "title": "Documentation: architectural rules for cron and agent identity state",
+        "description": "Add rule files documenting the cron integration pattern and agent identity system state. Prevents future agents from designing these systems from scratch.",
+        "status": "pending",
+        "priority": "medium",
+        "dependencies": [5],
+        "subtasks": [
+          {
+            "id": 1,
+            "title": "Create .claude/rules/cron-scheduler.md",
+            "description": "Document: plugin pattern (not top-level module), how cron-server queries CronJob records, what nextRunAt means, how a trigger becomes a sendToThread call, thread kind='cron' behavior, admin UI at /admin/cron-jobs, the dependency chain for per-agent heartbeat (CronJob system → AgentConfig.heartbeatCron → identity plugin Phase 5). Include boot sequence note: ctx.sendToThread safe only in start() hooks.",
+            "status": "pending",
+            "dependencies": []
+          },
+          {
+            "id": 2,
+            "title": "Create .claude/rules/agent-identity-state.md",
+            "description": "Document: Phase 1-2 complete (soul injection, episodic memory, importance scoring, dual injection, memory retrieval). Phase 3 paused — vector search via Qdrant (NOT pgvector) when decided. Phase 4 paused — reflection cycle (REFLECTION MemoryType exists in schema). Phase 5 paused — heartbeat blocked on AgentConfig + cron. Plugin ordering: identity runs BEFORE context in onBeforeInvoke chain (registered first in ALL_PLUGINS). AgentConfig table exists for per-agent config.",
+            "status": "pending",
+            "dependencies": []
+          }
+        ],
+        "details": "Do this LAST so rules reflect actual final state. These files are loaded into agent context via .claude/rules/ and directly prevent architectural drift.",
+        "testStrategy": "Rules files exist, are accurate, and reference real file paths. An agent reading them should understand the cron wiring and identity phase state without reading source code."
       }
     ],
     "metadata": {
-      "created": "2026-02-23T03:29:17.848Z",
-      "updated": "2026-02-23T22:00:13.373Z",
-      "description": "Tasks for master context"
+      "created": "2026-03-02",
+      "updated": "2026-03-02",
+      "description": "Surgical fixes for codebase drift. PRD: .taskmaster/docs/prd-surgical-fixes.md. Verified by 4 deep-trace agents on 2026-03-02.",
+      "verified": {
+        "activity_persistence_duplication": "CLOSED — refactor complete as of sprint 4. Orchestrator writes only kind='text'. Activity plugin owns all other kinds. Zero overlap confirmed.",
+        "sessionid_bug": "CLOSED — fixed 2026-03-01 via commit 2251316 (feat(sprint4a): sync Thread.sessionId on session loss and rotation). Covered by 3 test cases.",
+        "circuit_breaker": "CLOSED — implemented 2026-03-01 via commit dfb7f55 (feat(safety): add orphaned-task recovery, cost cap, and circuit breaker). Full failure categorization, fast-fail on logic errors, quadratic backoff with jitter.",
+        "cron_boot_sequence": "CONFIRMED — implement as plugin (not top-level module). ctx.sendToThread safe in start() hooks. Seeded CronJobs have valid threadIds. Use croner library for timezone support."
+      }
     }
   }
 }

@@ -111,6 +111,15 @@ export const createOrchestrator: CreateOrchestrator = (deps) => {
             `sendToThread: no output from pipeline [thread=${threadId}, error=${invokeResult.error ?? 'none'}, exit=${invokeResult.exitCode}]`,
           );
         }
+
+        // Broadcast pipeline:complete AFTER DB writes so router.refresh() on the client
+        // sees the persisted assistant message (fixes the race condition where the browser
+        // refreshed before the assistant message was written).
+        await context.broadcast('pipeline:complete', {
+          threadId,
+          commandsHandled,
+          durationMs: invokeResult.durationMs,
+        });
       } catch (error) {
         deps.logger.error(`sendToThread: pipeline failed [thread=${threadId}]: ${error instanceof Error ? error.message : String(error)}`);
         throw error;
@@ -246,13 +255,6 @@ export const createOrchestrator: CreateOrchestrator = (deps) => {
     // Cleanup requires removing onCommand from PluginHooks in plugin-contract — see
     // apps/orchestrator/src/orchestrator/_helpers/run-command-hooks.ts for full notes.
     const commandsHandled: string[] = [];
-
-    // Step 8: Broadcast pipeline completion event
-    await context.broadcast('pipeline:complete', {
-      threadId,
-      commandsHandled,
-      durationMs: invokeResult.durationMs,
-    });
 
     return { invokeResult, prompt, commandsHandled, pipelineSteps, streamEvents, traceId };
   };

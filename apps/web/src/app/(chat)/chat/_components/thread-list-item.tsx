@@ -1,41 +1,75 @@
 'use client';
 
-import type { Thread } from '@harness/database';
-import { cn } from '@harness/ui';
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger, SidebarMenuButton } from '@harness/ui';
+import { MoreHorizontal } from 'lucide-react';
 import Link from 'next/link';
-import { usePathname } from 'next/navigation';
-import { formatRelativeTime } from '../_helpers/format-relative-time';
+import { useState } from 'react';
+import { DeleteThreadModal } from './delete-thread-modal';
+import { ManageThreadModal } from './manage-thread-modal';
 import { ThreadKindIcon } from './thread-kind-icon';
 
 type ThreadListItemProps = {
-  thread: Thread;
+  thread: {
+    id: string;
+    name: string | null;
+    source: string;
+    sourceId: string;
+    kind: string;
+    model: string | null;
+    customInstructions: string | null;
+    lastActivity: Date;
+  };
+  isActive: boolean;
 };
 
 type ThreadListItemComponent = (props: ThreadListItemProps) => React.ReactNode;
 
-/**
- * Renders a single thread entry in the sidebar thread list.
- * Client Component to read the current pathname for active-state highlighting.
- */
-export const ThreadListItem: ThreadListItemComponent = ({ thread }) => {
-  const pathname = usePathname();
-  const isActive = pathname === `/chat/${thread.id}`;
+export const ThreadListItem: ThreadListItemComponent = ({ thread, isActive }) => {
+  const [isManageOpen, setIsManageOpen] = useState(false);
+  const [isDeleteOpen, setIsDeleteOpen] = useState(false);
+
   const displayName = thread.name ?? `${thread.source}/${thread.sourceId}`;
 
   return (
-    <Link
-      href={`/chat/${thread.id}`}
-      className={cn(
-        'flex items-center gap-3 rounded-md px-3 py-2 text-sm transition-colors',
-        'hover:bg-accent hover:text-accent-foreground',
-        isActive && 'bg-accent text-accent-foreground',
-      )}
-    >
-      <ThreadKindIcon kind={thread.kind} className='h-4 w-4 shrink-0 text-muted-foreground' />
-      <div className='flex min-w-0 flex-1 flex-col'>
-        <span className='truncate font-medium'>{displayName}</span>
-        <span className='text-xs text-muted-foreground'>{formatRelativeTime(thread.lastActivity)}</span>
+    <>
+      <div className='group relative flex w-full items-center'>
+        <SidebarMenuButton asChild isActive={isActive} className='pr-8'>
+          <Link href={`/chat/${thread.id}`}>
+            <ThreadKindIcon kind={thread.kind} className='h-4 w-4 shrink-0' />
+            <span className='truncate'>{displayName}</span>
+          </Link>
+        </SidebarMenuButton>
+
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <button
+              type='button'
+              className='absolute right-1 flex h-6 w-6 shrink-0 items-center justify-center rounded opacity-0 transition-opacity hover:bg-sidebar-accent group-hover:opacity-100 focus-visible:opacity-100'
+              aria-label='Thread options'
+              onClick={(e) => e.preventDefault()}
+            >
+              <MoreHorizontal className='h-4 w-4' />
+            </button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent side='right' align='start' className='w-40'>
+            <DropdownMenuItem onSelect={() => setIsManageOpen(true)}>Manage</DropdownMenuItem>
+            <DropdownMenuItem onSelect={() => setIsDeleteOpen(true)} className='text-destructive focus:text-destructive'>
+              Delete
+            </DropdownMenuItem>
+          </DropdownMenuContent>
+        </DropdownMenu>
       </div>
-    </Link>
+
+      <ManageThreadModal
+        open={isManageOpen}
+        onOpenChange={setIsManageOpen}
+        threadId={thread.id}
+        currentName={thread.name}
+        currentModel={thread.model}
+        currentInstructions={thread.customInstructions ?? null}
+      />
+
+      <DeleteThreadModal open={isDeleteOpen} onOpenChange={setIsDeleteOpen} threadId={thread.id} threadName={thread.name} />
+    </>
   );
 };
