@@ -28,6 +28,8 @@ model Thread {
   messages       Message[]
   tasks          OrchestratorTask[]
   agentRuns      AgentRun[]
+  agentId        String?
+  agent          Agent?     @relation(fields: [agentId], references: [id])
   lastActivity   DateTime   @default(now())
   createdAt      DateTime   @default(now())
   updatedAt      DateTime   @updatedAt
@@ -159,6 +161,7 @@ model Agent {
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
 
+  threads     Thread[]
   memories    AgentMemory[]
   config      AgentConfig?
 
@@ -196,4 +199,16 @@ model AgentConfig {
   heartbeatCron     String? // cron expression when heartbeat is wired
   createdAt         DateTime @default(now())
   updatedAt         DateTime @updatedAt
+}
+
+model ThreadAudit {
+  id          String   @id @default(cuid())
+  threadId    String
+  threadName  String?
+  extractedAt DateTime @default(now())
+  content     String   @db.Text
+  metadata    Json?
+
+  @@index([threadId])
+  @@index([extractedAt])
 }
