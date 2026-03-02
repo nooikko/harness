@@ -38,11 +38,23 @@ export const createWsBroadcaster: CreateWsBroadcaster = ({ server, logger }) => 
 
   return {
     broadcast: (event, data) => {
-      const payload = JSON.stringify({ event, data, timestamp: Date.now() });
+      let payload: string;
+      try {
+        payload = JSON.stringify({ event, data, timestamp: Date.now() });
+      } catch (err) {
+        logger.error(`WebSocket broadcaster: failed to serialize event "${event}": ${err instanceof Error ? err.message : String(err)}`);
+        return;
+      }
+
       const openClients = [...clients].filter((c) => c.readyState === c.OPEN);
 
       for (const client of openClients) {
-        client.send(payload);
+        try {
+          client.send(payload);
+        } catch (err) {
+          logger.error(`WebSocket broadcaster: failed to send to client: ${err instanceof Error ? err.message : String(err)}`);
+          clients.delete(client);
+        }
       }
 
       logger.debug('Broadcast sent', {

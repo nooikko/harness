@@ -13,33 +13,48 @@ type MockFindUnique = ReturnType<typeof vi.fn>;
 
 type CreateMockContextOptions = {
   findMany?: MockFindMany;
+  summaryFindMany?: MockFindMany;
   threadFindUnique?: MockFindUnique;
 };
 
 type CreateMockContext = (options?: CreateMockContextOptions) => PluginContext;
 
-const createMockContext: CreateMockContext = (options) => ({
-  db: {
-    message: {
-      findMany: options?.findMany ?? vi.fn().mockResolvedValue([]),
+// The context plugin calls db.message.findMany twice: first for summaries, then for history.
+// summaryFindMany controls the summary call result; findMany controls the history call result.
+const createMockContext: CreateMockContext = (options) => {
+  const historyMock = options?.findMany ?? vi.fn().mockResolvedValue([]);
+  const summaryMock = options?.summaryFindMany ?? vi.fn().mockResolvedValue([]);
+  // Combine: dispatch based on the query kind to the appropriate mock
+  const combinedFindMany = vi.fn().mockImplementation((query: { where?: { kind?: string } }) => {
+    if (query?.where?.kind === 'summary') {
+      return (summaryMock as (q: unknown) => unknown)(query);
+    }
+    return (historyMock as (q: unknown) => unknown)(query);
+  });
+
+  return {
+    db: {
+      message: {
+        findMany: combinedFindMany,
+      },
+      thread: {
+        findUnique: options?.threadFindUnique ?? vi.fn().mockResolvedValue({ sessionId: null }),
+      },
+    } as never,
+    invoker: { invoke: vi.fn() },
+    config: {} as never,
+    logger: {
+      info: vi.fn(),
+      warn: vi.fn(),
+      error: vi.fn(),
+      debug: vi.fn(),
     },
-    thread: {
-      findUnique: options?.threadFindUnique ?? vi.fn().mockResolvedValue({ sessionId: null }),
-    },
-  } as never,
-  invoker: { invoke: vi.fn() },
-  config: {} as never,
-  logger: {
-    info: vi.fn(),
-    warn: vi.fn(),
-    error: vi.fn(),
-    debug: vi.fn(),
-  },
-  sendToThread: vi.fn(),
-  broadcast: vi.fn(),
-  getSettings: vi.fn().mockResolvedValue({}),
-  notifySettingsChange: vi.fn().mockResolvedValue(undefined),
-});
+    sendToThread: vi.fn(),
+    broadcast: vi.fn(),
+    getSettings: vi.fn().mockResolvedValue({}),
+    notifySettingsChange: vi.fn().mockResolvedValue(undefined),
+  };
+};
 
 beforeEach(() => {
   TEST_DIR = mkdtempSync(resolve(tmpdir(), 'harness-ctx-idx-'));
@@ -422,5 +437,91 @@ describe('context plugin', () => {
     expect(ctx.logger.warn).toHaveBeenCalledWith(expect.stringContaining('Connection refused'));
     // loadHistory was never called because dbAvailable = false
     expect(findMany).not.toHaveBeenCalled();
+  });
+
+  it('injects prior conversation summary section when summaries exist', async () => {
+    const summaries = [
+      {
+        content: 'The user and assistant discussed deployment plans.',
+        createdAt: new Date('2026-02-23T12:00:00Z'),
+      },
+    ];
+
+    const summaryFindMany = vi.fn().mockResolvedValue(summaries);
+    const findMany = vi.fn().mockResolvedValue([]);
+
+    const plugin = createContextPlugin({ contextDir: CONTEXT_DIR });
+    const ctx = createMockContext({ findMany, summaryFindMany });
+    const hooks = await plugin.register(ctx);
+
+    const result = await hooks.onBeforeInvoke?.('thread-1', 'prompt');
+
+    expect(result).toContain('# Prior Conversation Summary');
+    expect(result).toContain('The user and assistant discussed deployment plans.');
+  });
+
+  it('uses reduced history limit (25) when summaries exist', async () => {
+    const summaries = [
+      {
+        content: 'Prior summary.',
+        createdAt: new Date('2026-02-23T12:00:00Z'),
+      },
+    ];
+
+    const summaryFindMany = vi.fn().mockResolvedValue(summaries);
+    const findMany = vi.fn().mockResolvedValue([]);
+
+    const plugin = createContextPlugin({ contextDir: CONTEXT_DIR });
+    const ctx = createMockContext({ findMany, summaryFindMany });
+    const hooks = await plugin.register(ctx);
+
+    await hooks.onBeforeInvoke?.('thread-1', 'prompt');
+
+    expect(findMany).toHaveBeenCalledWith(expect.objectContaining({ take: 25 }));
+  });
+
+  it('falls back to 50-message history when no summaries exist', async () => {
+    const findMany = vi.fn().mockResolvedValue([]);
+
+    const plugin = createContextPlugin({ contextDir: CONTEXT_DIR });
+    const ctx = createMockContext({ findMany });
+    const hooks = await plugin.register(ctx);
+
+    await hooks.onBeforeInvoke?.('thread-1', 'prompt');
+
+    expect(findMany).toHaveBeenCalledWith(expect.objectContaining({ take: 50 }));
+  });
+
+  it('places summary section between context files and raw history', async () => {
+    writeFileSync(resolve(CONTEXT_DIR, 'memory.md'), 'Context file content');
+
+    const summaries = [
+      {
+        content: 'Summary of prior conversation.',
+        createdAt: new Date('2026-02-23T12:00:00Z'),
+      },
+    ];
+    const historyMessages = [{ role: 'user', content: 'Recent message', createdAt: new Date('2026-02-23T13:00:00Z') }];
+
+    const summaryFindMany = vi.fn().mockResolvedValue(summaries);
+    const findMany = vi.fn().mockResolvedValue(historyMessages);
+
+    const plugin = createContextPlugin({ contextDir: CONTEXT_DIR });
+    const ctx = createMockContext({ findMany, summaryFindMany });
+    const hooks = await plugin.register(ctx);
+
+    const result = await hooks.onBeforeInvoke?.('thread-1', 'Current prompt');
+
+    expect(result).toBeDefined();
+    const text = result ?? '';
+    const contextIdx = text.indexOf('# Context');
+    const summaryIdx = text.indexOf('# Prior Conversation Summary');
+    const historyIdx = text.indexOf('# Conversation History');
+    const promptIdx = text.indexOf('Current prompt');
+
+    // Order: context → summary → history → prompt
+    expect(contextIdx).toBeLessThan(summaryIdx);
+    expect(summaryIdx).toBeLessThan(historyIdx);
+    expect(historyIdx).toBeLessThan(promptIdx);
   });
 });

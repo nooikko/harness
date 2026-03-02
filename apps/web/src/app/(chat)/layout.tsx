@@ -1,3 +1,4 @@
+import { SidebarInset, SidebarProvider } from '@harness/ui';
 import type { Metadata } from 'next';
 import { ThreadSidebar } from './chat/_components/thread-sidebar';
 
@@ -14,10 +15,12 @@ type ChatLayoutComponent = (props: ChatLayoutProps) => React.ReactNode;
 
 const ChatLayout: ChatLayoutComponent = ({ children }) => {
   return (
-    <div className='flex h-full flex-1'>
+    <SidebarProvider>
       <ThreadSidebar />
-      <main className='flex flex-1 flex-col overflow-hidden'>{children}</main>
-    </div>
+      <SidebarInset>
+        <main className='flex flex-1 flex-col overflow-hidden'>{children}</main>
+      </SidebarInset>
+    </SidebarProvider>
   );
 };
 

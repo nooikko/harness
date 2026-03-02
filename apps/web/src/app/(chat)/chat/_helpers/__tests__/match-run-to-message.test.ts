@@ -19,6 +19,7 @@ const makeRun = (overrides: Partial<AgentRun> = {}): AgentRun => ({
   id: 'run-1',
   threadId: 'thread-1',
   taskId: null,
+  traceId: null,
   model: 'claude-sonnet-4-6',
   inputTokens: 500,
   outputTokens: 200,
@@ -28,7 +29,6 @@ const makeRun = (overrides: Partial<AgentRun> = {}): AgentRun => ({
   error: null,
   startedAt: new Date('2026-02-23T09:59:58Z'),
   completedAt: new Date('2026-02-23T10:00:00Z'),
-  traceId: null,
   ...overrides,
 });
 

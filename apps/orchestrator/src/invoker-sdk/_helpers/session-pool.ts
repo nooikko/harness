@@ -92,6 +92,12 @@ export const createSessionPool: CreateSessionPool = (config, factory, sessionCon
     }
 
     const session = factory(model, sessionConfig);
+    // Defensive: if another caller inserted a session while factory() ran, discard this duplicate
+    const winner = sessions.get(threadId);
+    if (winner?.session.isAlive && winner.model === model) {
+      session.close();
+      return winner.session;
+    }
     sessions.set(threadId, { session, model });
     startEvictionTimer();
     return session;

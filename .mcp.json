@@ -1,12 +1,24 @@
 {
   "mcpServers": {
     "serena": {
-      "command": "/home/quinn/.local/bin/serena-mcp-server",
-      "args": ["--project", "/mnt/ramdisk/harness", "--context", "claude-code", "--enable-web-dashboard", "false", "--open-web-dashboard", "false"]
+      "command": "/Users/quinn/.local/bin/serena-mcp-server",
+      "args": [
+        "--project",
+        "/Users/quinn/dev/harness",
+        "--context",
+        "claude-code",
+        "--enable-web-dashboard",
+        "false",
+        "--open-web-dashboard",
+        "false"
+      ]
     },
     "context7": {
       "command": "bash",
-      "args": ["-c", ". ~/.bashrc; exec npx -y @upstash/context7-mcp@latest --api-key $CONTEXT7_API_KEY"],
+      "args": [
+        "-c",
+        "[ -f ~/.zshrc ] && . ~/.zshrc; [ -f ~/.bashrc ] && . ~/.bashrc; exec npx -y @upstash/context7-mcp@latest --api-key $CONTEXT7_API_KEY"
+      ],
       "env": {}
     },
     "playwright": {

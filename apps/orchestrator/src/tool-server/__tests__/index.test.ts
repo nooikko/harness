@@ -159,7 +159,9 @@ describe('createToolServer', () => {
     }>;
     const mcpTool = mcpTools[0]!;
 
-    await expect(mcpTool.handler({})).rejects.toThrow('PluginContext not initialized');
+    await expect(mcpTool.handler({})).rejects.toThrow(
+      'Tool "test__test-tool" called before PluginContext was initialized. This can happen if a tool is called before plugin registration completes.',
+    );
   });
 
   it('passes a Zod shape (not raw JSON Schema) as inputSchema', () => {

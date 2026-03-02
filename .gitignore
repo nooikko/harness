@@ -53,3 +53,5 @@ yarn-error.log*
 
 # Taskmaster runtime state
 .taskmaster/state.json
+
+.playwright-mcp

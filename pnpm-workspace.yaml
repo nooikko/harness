@@ -1,8 +1,17 @@
 packages:
-  - 'apps/*'
-  - 'packages/*'
-  - 'packages/plugins/*'
-  - 'tests/*'
+  - apps/*
+  - packages/*
+  - packages/plugins/*
+  - tests/*
+  - scripts
 
 onlyBuiltDependencies:
   - '@biomejs/biome'
+  - '@prisma/client'
+  - '@prisma/engines'
+  - cpu-features
+  - esbuild
+  - prisma
+  - protobufjs
+  - sharp
+  - ssh2

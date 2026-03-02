@@ -7,7 +7,17 @@ type ExtractResult = (message: SDKResultMessage, durationMs: number) => InvokeRe
 
 export const extractResult: ExtractResult = (message, durationMs) => {
   const sessionId = message.session_id;
-  const model = Object.keys(message.modelUsage)[0];
+  const modelUsageEntries = Object.entries(message.modelUsage);
+  const model =
+    modelUsageEntries.length === 0
+      ? undefined
+      : modelUsageEntries.reduce(
+          (best, [key, usage]) => {
+            const tokens = usage.inputTokens + usage.outputTokens;
+            return tokens > best.tokens ? { key, tokens } : best;
+          },
+          { key: modelUsageEntries[0]![0], tokens: 0 },
+        ).key;
   const inputTokens = message.usage.input_tokens;
   const outputTokens = message.usage.output_tokens;
 

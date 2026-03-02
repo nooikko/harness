@@ -2,6 +2,10 @@ import { type ZodTypeAny, z } from 'zod';
 
 type JsonSchemaProperty = {
   type?: string;
+  enum?: unknown[];
+  minimum?: number;
+  maximum?: number;
+  pattern?: string;
 };
 
 type JsonSchemaToZodShape = (schema: Record<string, unknown>) => Record<string, ZodTypeAny>;
@@ -20,7 +24,7 @@ export const jsonSchemaToZodShape: JsonSchemaToZodShape = (schema) => {
 
       switch (prop.type) {
         case 'string':
-          base = z.string();
+          base = prop.enum ? z.enum(prop.enum as [string, ...string[]]) : z.string();
           break;
         case 'number':
           base = z.number();
@@ -31,10 +35,13 @@ export const jsonSchemaToZodShape: JsonSchemaToZodShape = (schema) => {
         case 'boolean':
           base = z.boolean();
           break;
+        case 'object':
+          base = z.record(z.string(), z.unknown());
+          break;
+        case 'array':
+          base = z.array(z.unknown());
+          break;
         default:
-          // NOTE: z.unknown() accepts any value including undefined, so required fields
-          // of complex types (object, array) will pass validation even when absent.
-          // Full JSON Schema support (nested objects, arrays, enums) is out of scope here.
           base = z.unknown();
           break;
       }

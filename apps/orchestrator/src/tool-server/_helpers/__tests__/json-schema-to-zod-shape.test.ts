@@ -55,16 +55,36 @@ describe('jsonSchemaToZodShape', () => {
     expect(() => z.object(result).parse({ active: 'yes' })).toThrow();
   });
 
-  it('maps unknown type to z.unknown() — accepts any value including undefined', () => {
+  it('maps object type to z.record() — enforces presence and rejects non-objects', () => {
     const result = jsonSchemaToZodShape({
       type: 'object',
       properties: { data: { type: 'object' } },
       required: ['data'],
     });
-    // z.unknown() accepts any value — limitation: presence is not enforced for complex types
     expect(() => z.object(result).parse({ data: { nested: true } })).not.toThrow();
-    expect(() => z.object(result).parse({ data: 'string' })).not.toThrow();
-    expect(() => z.object(result).parse({ data: undefined })).not.toThrow();
+    expect(() => z.object(result).parse({ data: undefined })).toThrow();
+  });
+
+  it('maps array type to z.array(z.unknown())', () => {
+    const result = jsonSchemaToZodShape({
+      type: 'object',
+      properties: { items: { type: 'array' } },
+      required: ['items'],
+    });
+    expect(() => z.object(result).parse({ items: [1, 'two', true] })).not.toThrow();
+    expect(() => z.object(result).parse({ items: undefined })).toThrow();
+    expect(() => z.object(result).parse({ items: 'not-an-array' })).toThrow();
+  });
+
+  it('maps string with enum to z.enum()', () => {
+    const result = jsonSchemaToZodShape({
+      type: 'object',
+      properties: { color: { type: 'string', enum: ['red', 'green', 'blue'] } },
+      required: ['color'],
+    });
+    expect(() => z.object(result).parse({ color: 'red' })).not.toThrow();
+    expect(() => z.object(result).parse({ color: 'green' })).not.toThrow();
+    expect(() => z.object(result).parse({ color: 'purple' })).toThrow();
   });
 
   it('maps field without a type to z.unknown()', () => {

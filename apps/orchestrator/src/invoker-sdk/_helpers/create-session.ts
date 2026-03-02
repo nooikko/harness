@@ -20,6 +20,7 @@ export const createSession: CreateSession = (model, config) => {
   let lastActivity = Date.now();
 
   const pending: PendingRequest[] = [];
+  const MAX_PENDING = 100;
   let activeRequest: PendingRequest | null = null;
   let yieldResolver: ((msg: SDKUserMessage) => void) | null = null;
 
@@ -106,6 +107,9 @@ export const createSession: CreateSession = (model, config) => {
   const send = (prompt: string, options?: SendOptions): Promise<SDKResultMessage> => {
     if (!alive) {
       return Promise.reject(new Error('Session is closed'));
+    }
+    if (pending.length >= MAX_PENDING) {
+      return Promise.reject(new Error(`Session queue full (max ${MAX_PENDING} pending requests)`));
     }
     return new Promise<SDKResultMessage>((resolve, reject) => {
       pending.push({ prompt, resolve, reject, onMessage: options?.onMessage });
