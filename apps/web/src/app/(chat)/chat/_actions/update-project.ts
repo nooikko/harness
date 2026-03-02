@@ -22,17 +22,21 @@ type UpdateProject = (
 }>;
 
 export const updateProject: UpdateProject = async (projectId, fields) => {
-  const project = await prisma.project.update({
-    where: { id: projectId },
-    data: {
-      name: fields.name,
-      description: fields.description,
-      instructions: fields.instructions,
-      model: fields.model,
-    },
-  });
+  try {
+    const project = await prisma.project.update({
+      where: { id: projectId },
+      data: {
+        name: fields.name,
+        description: fields.description,
+        instructions: fields.instructions,
+        model: fields.model,
+      },
+    });
 
-  revalidatePath('/chat');
+    revalidatePath('/chat');
 
-  return project;
+    return project;
+  } catch (error) {
+    throw new Error(`Failed to update project: ${error instanceof Error ? error.message : String(error)}`);
+  }
 };

@@ -103,4 +103,10 @@ describe('createProject', () => {
 
     await expect(createProject({ name: 'My Project' })).rejects.toThrow('Database error');
   });
+
+  it('wraps non-Error throws with a string fallback', async () => {
+    mockCreate.mockRejectedValue('unexpected string error');
+
+    await expect(createProject({ name: 'My Project' })).rejects.toThrow('unexpected string error');
+  });
 });

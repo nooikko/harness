@@ -105,4 +105,10 @@ describe('updateProject', () => {
 
     await expect(updateProject('nonexistent-id', { name: 'Updated' })).rejects.toThrow('Project not found');
   });
+
+  it('wraps non-Error throws with a string fallback', async () => {
+    mockUpdate.mockRejectedValue('unexpected string error');
+
+    await expect(updateProject('project-1', { name: 'Updated' })).rejects.toThrow('unexpected string error');
+  });
 });

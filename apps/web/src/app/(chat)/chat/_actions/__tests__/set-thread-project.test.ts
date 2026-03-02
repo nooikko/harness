@@ -58,4 +58,10 @@ describe('setThreadProject', () => {
 
     await expect(setThreadProject('nonexistent-id', 'project-1')).rejects.toThrow('Thread not found');
   });
+
+  it('wraps non-Error throws with a string fallback', async () => {
+    mockUpdate.mockRejectedValue('unexpected string error');
+
+    await expect(setThreadProject('thread-1', 'project-1')).rejects.toThrow('unexpected string error');
+  });
 });

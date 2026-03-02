@@ -19,16 +19,20 @@ type CreateProject = (options: CreateProjectOptions) => Promise<{
 }>;
 
 export const createProject: CreateProject = async (options) => {
-  const project = await prisma.project.create({
-    data: {
-      name: options.name,
-      description: options.description,
-      instructions: options.instructions,
-      model: options.model,
-    },
-  });
+  try {
+    const project = await prisma.project.create({
+      data: {
+        name: options.name,
+        description: options.description,
+        instructions: options.instructions,
+        model: options.model,
+      },
+    });
 
-  revalidatePath('/chat');
+    revalidatePath('/chat');
 
-  return project;
+    return project;
+  } catch (error) {
+    throw new Error(`Failed to create project: ${error instanceof Error ? error.message : String(error)}`);
+  }
 };

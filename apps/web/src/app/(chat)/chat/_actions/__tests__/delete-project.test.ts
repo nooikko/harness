@@ -32,10 +32,13 @@ describe('deleteProject', () => {
   it('unlinks threads from the project before deleting', async () => {
     await deleteProject('project-1');
 
-    expect(mockTransaction).toHaveBeenCalledWith([
-      mockUpdateMany({ where: { projectId: 'project-1' }, data: { projectId: null } }),
-      mockDelete({ where: { id: 'project-1' } }),
-    ]);
+    expect(mockUpdateMany).toHaveBeenCalledWith({
+      where: { projectId: 'project-1' },
+      data: { projectId: null },
+    });
+    expect(mockDelete).toHaveBeenCalledWith({
+      where: { id: 'project-1' },
+    });
   });
 
   it('calls $transaction with updateMany and delete operations', async () => {
@@ -62,5 +65,11 @@ describe('deleteProject', () => {
     await expect(deleteProject('project-1')).rejects.toThrow();
 
     expect(mockRevalidatePath).not.toHaveBeenCalled();
+  });
+
+  it('wraps non-Error throws with a string fallback', async () => {
+    mockTransaction.mockRejectedValue('unexpected string error');
+
+    await expect(deleteProject('project-1')).rejects.toThrow('unexpected string error');
   });
 });
