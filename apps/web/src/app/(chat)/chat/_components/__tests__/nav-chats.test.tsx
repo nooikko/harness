@@ -46,9 +46,9 @@ const makeThread = (overrides: Partial<{ id: string; name: string | null; kind: 
 const renderWithProvider = (ui: React.ReactElement) => render(<SidebarProvider>{ui}</SidebarProvider>);
 
 describe('NavChats', () => {
-  it('renders the Platform group label', () => {
+  it('renders the Direct Chats group label', () => {
     renderWithProvider(<NavChats threads={[]} />);
-    expect(screen.getByText('Platform')).toBeInTheDocument();
+    expect(screen.getByText('Direct Chats')).toBeInTheDocument();
   });
 
   it('renders the Chats collapsible trigger', () => {

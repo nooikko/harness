@@ -34,6 +34,7 @@ describe('createThread', () => {
         kind: 'general',
         status: 'open',
         model: undefined,
+        projectId: undefined,
       },
     });
   });
@@ -66,6 +67,24 @@ describe('createThread', () => {
         kind: 'general',
         status: 'open',
         model: 'claude-opus-4-6',
+        projectId: undefined,
+      },
+    });
+  });
+
+  it('passes projectId when provided in options', async () => {
+    mockCreate.mockResolvedValue({ id: 'new-thread-3' });
+
+    await createThread({ projectId: 'proj-abc' });
+
+    expect(mockCreate).toHaveBeenCalledWith({
+      data: {
+        source: 'web',
+        sourceId: expect.any(String),
+        kind: 'general',
+        status: 'open',
+        model: undefined,
+        projectId: 'proj-abc',
       },
     });
   });

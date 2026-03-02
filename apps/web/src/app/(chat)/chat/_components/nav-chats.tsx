@@ -30,7 +30,7 @@ export const NavChats: NavChatsComponent = ({ threads }) => {
 
   return (
     <SidebarGroup>
-      <SidebarGroupLabel>Platform</SidebarGroupLabel>
+      <SidebarGroupLabel>Direct Chats</SidebarGroupLabel>
       <SidebarMenu>
         <Collapsible defaultOpen className='group/collapsible'>
           <SidebarMenuItem>
