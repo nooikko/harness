@@ -10,26 +10,6 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
-model User {
-  id        String   @id @default(cuid())
-  email     String   @unique
-  name      String?
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-  posts     Post[]
-}
-
-model Post {
-  id        String   @id @default(cuid())
-  title     String
-  content   String?
-  published Boolean  @default(false)
-  author    User     @relation(fields: [authorId], references: [id])
-  authorId  String
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-}
-
 // ── Orchestrator Models ─────────────────────────────────────────────────
 
 model Thread {
@@ -150,4 +130,69 @@ model PluginConfig {
   updatedAt  DateTime @updatedAt
 
   @@index([pluginName])
+}
+
+// ── Agent Identity Models ────────────────────────────────────────────────
+
+enum MemoryType {
+  EPISODIC
+  SEMANTIC
+  REFLECTION
+}
+
+model Agent {
+  id          String   @id @default(cuid())
+  slug        String   @unique
+  name        String
+  version     Int      @default(1)
+  enabled     Boolean  @default(true)
+
+  soul        String   @db.Text
+  identity    String   @db.Text
+  userContext String?  @db.Text
+
+  role        String?
+  goal        String?
+  backstory   String?  @db.Text
+
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  memories    AgentMemory[]
+  config      AgentConfig?
+
+  @@index([slug])
+  @@index([enabled])
+}
+
+model AgentMemory {
+  id             String     @id @default(cuid())
+  agentId        String
+  agent          Agent      @relation(fields: [agentId], references: [id], onDelete: Cascade)
+
+  content        String     @db.Text
+  type           MemoryType @default(EPISODIC)
+  importance     Int        @default(5)
+
+  threadId        String?
+  sourceMemoryIds String[]
+
+  createdAt      DateTime   @default(now())
+  lastAccessedAt DateTime   @default(now())
+
+  @@index([agentId, type])
+  @@index([agentId, lastAccessedAt])
+  @@index([agentId, importance])
+}
+
+model AgentConfig {
+  id                String   @id @default(cuid())
+  agentId           String   @unique
+  agent             Agent    @relation(fields: [agentId], references: [id])
+  memoryEnabled     Boolean  @default(true)
+  reflectionEnabled Boolean  @default(false) // Phase 4 — not yet implemented
+  heartbeatEnabled  Boolean  @default(false) // Phase 5 — blocked on cron scheduler
+  heartbeatCron     String? // cron expression when heartbeat is wired
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
 }

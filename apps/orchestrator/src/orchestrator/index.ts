@@ -237,6 +237,13 @@ export const createOrchestrator: CreateOrchestrator = (deps) => {
       timestamp: Date.now(),
     });
 
+    // DEPRECATED — 2026-03-02
+    // Steps 6-7 (parseCommands + onCommand hooks) have been removed from this pipeline.
+    // All commands previously routed through onCommand (/delegate, /checkin, etc.) now
+    // use PluginTool via the MCP tool-server. No plugin implements onCommand.
+    // The commandsHandled array remains in the return shape for API compatibility.
+    // Cleanup requires removing onCommand from PluginHooks in plugin-contract — see
+    // apps/orchestrator/src/orchestrator/_helpers/run-command-hooks.ts for full notes.
     const commandsHandled: string[] = [];
 
     // Step 8: Broadcast pipeline completion event
