@@ -1,5 +1,5 @@
 import { PrismaClient } from '@harness/database';
-import { createDelegationPlugin } from '@harness/plugin-delegation';
+import { createDelegationPlugin, state as delegationState } from '@harness/plugin-delegation';
 import { afterAll, afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { TestHarness } from './helpers/create-harness';
 import { createTestHarness } from './helpers/create-harness';
@@ -22,30 +22,30 @@ describe('delegation plugin integration', () => {
     await harness?.cleanup();
   });
 
-  it('creates OrchestratorTask and task Thread when /delegate command fires', async () => {
-    harness = await createTestHarness(createDelegationPlugin());
+  it('creates OrchestratorTask and task Thread when delegation tool is called', async () => {
+    const plugin = createDelegationPlugin();
+    harness = await createTestHarness(plugin);
 
-    harness.invoker.invoke
-      .mockResolvedValueOnce({
-        output: 'Delegating now.\n/delegate Research ancient Rome',
-        durationMs: 10,
-        exitCode: 0,
-        model: 'claude-haiku-4-5-20251001',
-        inputTokens: 100,
-        outputTokens: 50,
-        sessionId: undefined,
-      })
-      .mockResolvedValue({
-        output: 'Rome was founded in 753 BC.',
-        durationMs: 100,
-        exitCode: 0,
-        model: 'claude-haiku-4-5-20251001',
-        inputTokens: 200,
-        outputTokens: 80,
-        sessionId: undefined,
-      });
+    // Mirror what boot does: wire hooks into the delegation state so the
+    // delegation loop can fire onTaskCreate / onTaskComplete / onTaskFailed.
+    delegationState.setHooks!(harness.orchestrator.getHooks());
 
-    await harness.orchestrator.handleMessage(harness.threadId, 'user', 'Go');
+    harness.invoker.invoke.mockResolvedValue({
+      output: 'Rome was founded in 753 BC.',
+      durationMs: 100,
+      exitCode: 0,
+      model: 'claude-haiku-4-5-20251001',
+      inputTokens: 200,
+      outputTokens: 80,
+      sessionId: undefined,
+    });
+
+    // Simulate Claude calling the delegation__delegate MCP tool by invoking the
+    // tool handler directly. In production this runs inside the Claude SDK session;
+    // here we drive it the same way the tool server would.
+    const delegateTool = plugin.tools?.find((t) => t.name === 'delegate');
+    const ctx = harness.orchestrator.getContext();
+    await delegateTool!.handler(ctx, { prompt: 'Research ancient Rome' }, { threadId: harness.threadId });
 
     await vi.waitFor(
       async () => {
@@ -67,33 +67,23 @@ describe('delegation plugin integration', () => {
 
     // The OrchestratorTask is linked to the task thread (not directly to the parent)
     expect(tasks[0]?.threadId).toBe(taskThreads[0]?.id);
-    // Status is intentionally not asserted here — the delegation loop runs asynchronously
-    // and may be in any in-progress state at query time. Task creation is the meaningful invariant.
+    // Status is intentionally not asserted — the loop runs in the background and may
+    // be in any in-progress state at query time. Task creation is the meaningful invariant.
   });
 
-  it('does not create any OrchestratorTask when /delegate has an empty prompt', async () => {
-    harness = await createTestHarness(createDelegationPlugin());
+  it('returns an error and creates no OrchestratorTask when delegation prompt is empty', async () => {
+    const plugin = createDelegationPlugin();
+    harness = await createTestHarness(plugin);
+    delegationState.setHooks!(harness.orchestrator.getHooks());
 
-    harness.invoker.invoke.mockResolvedValue({
-      output: 'Trying to delegate.\n/delegate   ',
-      durationMs: 10,
-      exitCode: 0,
-      model: 'claude-haiku-4-5-20251001',
-      inputTokens: 100,
-      outputTokens: 50,
-      sessionId: undefined,
-    });
+    const delegateTool = plugin.tools?.find((t) => t.name === 'delegate');
+    const ctx = harness.orchestrator.getContext();
+    const result = await delegateTool!.handler(ctx, { prompt: '   ' }, { threadId: harness.threadId });
 
-    await harness.orchestrator.handleMessage(harness.threadId, 'user', 'Go');
+    expect(result).toMatch(/error/i);
 
-    // Wait until the main invoke completes (mock returns instantly), then check no delegation fired.
-    // vi.waitFor is used instead of setTimeout to avoid timing fragility on slow CI machines.
-    await vi.waitFor(
-      () => {
-        expect(harness.invoker.invoke).toHaveBeenCalledTimes(1);
-      },
-      { timeout: 5_000, interval: 100 },
-    );
+    // The invoker should never have been called — no sub-agent was started
+    expect(harness.invoker.invoke).not.toHaveBeenCalled();
 
     const tasks = await harness.prisma.orchestratorTask.findMany();
     expect(tasks).toHaveLength(0);
@@ -104,7 +94,7 @@ describe('delegation plugin integration', () => {
     expect(taskThreads).toHaveLength(0);
   });
 
-  it('does not create any OrchestratorTask for unknown commands', async () => {
+  it('does not create any OrchestratorTask for arbitrary Claude text output', async () => {
     harness = await createTestHarness(createDelegationPlugin());
 
     harness.invoker.invoke.mockResolvedValue({
