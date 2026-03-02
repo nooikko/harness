@@ -4,18 +4,12 @@ import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigge
 import { Check, ChevronDown } from 'lucide-react';
 import { useTransition } from 'react';
 import { updateThreadModel } from '../_actions/update-thread-model';
+import { MODEL_OPTIONS } from '../_helpers/model-options';
 
 type ModelSelectorProps = {
   threadId: string;
   currentModel: string | null;
 };
-
-const MODEL_OPTIONS: { value: string; label: string; description?: string }[] = [
-  { value: '', label: 'Haiku', description: 'Default' },
-  { value: 'claude-haiku-4-5-20251001', label: 'Haiku' },
-  { value: 'claude-sonnet-4-6', label: 'Sonnet' },
-  { value: 'claude-opus-4-6', label: 'Opus' },
-];
 
 const getModelLabel = (model: string | null): string => {
   if (!model) {

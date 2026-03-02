@@ -10,6 +10,19 @@ export const cn = (...inputs: ClassValue[]): string => {
 
 export type { AlertProps } from './components/alert';
 export { Alert, AlertDescription, AlertTitle, alertVariants } from './components/alert';
+export {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogOverlay,
+  AlertDialogPortal,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from './components/alert-dialog';
 export type { BadgeProps } from './components/badge';
 export { Badge, badgeVariants } from './components/badge';
 // Shared UI components
@@ -62,6 +75,18 @@ export { Input } from './components/input';
 export { Label } from './components/label';
 export { Progress } from './components/progress';
 export { ScrollArea, ScrollBar } from './components/scroll-area';
+export {
+  Select,
+  SelectContent,
+  SelectGroup,
+  SelectItem,
+  SelectLabel,
+  SelectScrollDownButton,
+  SelectScrollUpButton,
+  SelectSeparator,
+  SelectTrigger,
+  SelectValue,
+} from './components/select';
 export { Separator } from './components/separator';
 export {
   Sidebar,
@@ -89,4 +114,5 @@ export {
 } from './components/sidebar';
 export { Skeleton } from './components/skeleton';
 export { Table, TableBody, TableCaption, TableCell, TableFooter, TableHead, TableHeader, TableRow } from './components/table';
+export { Textarea } from './components/textarea';
 export { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from './components/tooltip';
