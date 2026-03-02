@@ -39,6 +39,9 @@ const projectPlugin: PluginDefinition = {
         required: ['memory'],
       },
       handler: async (ctx, input, meta) => {
+        if (typeof (input as Record<string, unknown>).memory !== 'string') {
+          return '(invalid input: memory must be a string)';
+        }
         const { memory } = input as { memory: string };
         const thread = await ctx.db.thread.findUnique({
           where: { id: meta.threadId },

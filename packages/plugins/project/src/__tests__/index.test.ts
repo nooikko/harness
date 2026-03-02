@@ -154,4 +154,15 @@ describe('set_project_memory tool', () => {
     expect(result).toBe('(thread has no associated project)');
     expect(ctx.db.project.update).not.toHaveBeenCalled();
   });
+
+  it('returns error message for non-string memory input', async () => {
+    const ctx = createMockContext();
+
+    const tool = projectPlugin.tools?.[1];
+    const result = await tool?.handler(ctx, { memory: 42 }, { threadId: 'thread-1' });
+
+    expect(result).toBe('(invalid input: memory must be a string)');
+    expect(ctx.db.thread.findUnique).not.toHaveBeenCalled();
+    expect(ctx.db.project.update).not.toHaveBeenCalled();
+  });
 });
