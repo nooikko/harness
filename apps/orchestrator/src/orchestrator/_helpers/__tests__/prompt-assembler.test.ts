@@ -95,6 +95,70 @@ describe('assemblePrompt', () => {
     });
   });
 
+  describe('custom instructions', () => {
+    it('injects custom instructions section when provided', () => {
+      const meta: ThreadMeta = { ...baseMeta, customInstructions: 'Always respond in bullet points.' };
+
+      const { prompt } = assemblePrompt('hello', meta);
+
+      expect(prompt).toContain('# Custom Instructions');
+      expect(prompt).toContain('Always respond in bullet points.');
+    });
+
+    it('places custom instructions after kind instruction and before user message', () => {
+      const meta: ThreadMeta = { ...baseMeta, customInstructions: 'Be concise.' };
+
+      const { prompt } = assemblePrompt('hello', meta);
+
+      const instructionIdx = prompt.indexOf('general conversation');
+      const customIdx = prompt.indexOf('# Custom Instructions');
+      const messageIdx = prompt.indexOf('## User Message');
+
+      expect(instructionIdx).toBeLessThan(customIdx);
+      expect(customIdx).toBeLessThan(messageIdx);
+    });
+
+    it('omits custom instructions section when null', () => {
+      const meta: ThreadMeta = { ...baseMeta, customInstructions: null };
+
+      const { prompt } = assemblePrompt('hello', meta);
+
+      expect(prompt).not.toContain('# Custom Instructions');
+    });
+
+    it('omits custom instructions section when undefined', () => {
+      const meta: ThreadMeta = { ...baseMeta };
+
+      const { prompt } = assemblePrompt('hello', meta);
+
+      expect(prompt).not.toContain('# Custom Instructions');
+    });
+
+    it('omits custom instructions section when empty string', () => {
+      const meta: ThreadMeta = { ...baseMeta, customInstructions: '' };
+
+      const { prompt } = assemblePrompt('hello', meta);
+
+      expect(prompt).not.toContain('# Custom Instructions');
+    });
+
+    it('omits custom instructions section when whitespace only', () => {
+      const meta: ThreadMeta = { ...baseMeta, customInstructions: '   ' };
+
+      const { prompt } = assemblePrompt('hello', meta);
+
+      expect(prompt).not.toContain('# Custom Instructions');
+    });
+
+    it('trims whitespace from custom instructions content', () => {
+      const meta: ThreadMeta = { ...baseMeta, customInstructions: '  Be formal.  ' };
+
+      const { prompt } = assemblePrompt('hello', meta);
+
+      expect(prompt).toContain('# Custom Instructions\n\nBe formal.');
+    });
+  });
+
   describe('prompt structure', () => {
     it('places thread header before kind instruction', () => {
       const { prompt } = assemblePrompt('hello', baseMeta);
