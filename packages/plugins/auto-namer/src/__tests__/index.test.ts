@@ -89,7 +89,7 @@ describe('auto-namer plugin', () => {
   });
 
   it('skips update when generateThreadName returns null', async () => {
-    vi.mocked(generateThreadName).mockResolvedValueOnce(null);
+    vi.mocked(generateThreadName).mockResolvedValueOnce(null as unknown as string);
     const ctx = makeMockCtx();
     const hooks = await plugin.register(ctx as never);
 

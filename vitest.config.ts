@@ -20,6 +20,7 @@ export default defineConfig({
       'packages/plugins/audit',
       'packages/plugins/time',
       'packages/plugins/cron',
+      'packages/plugins/project',
       'packages/database',
     ],
     coverage: {

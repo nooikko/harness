@@ -64,12 +64,18 @@ const createRegister: CreateRegister = (options) => {
         const contextSection = formatContextSection(contextResult.files);
 
         // Check if thread has an active session — if so, Claude already has history via --resume
-        let thread: { sessionId: string | null } | null = null;
+        // Also fetch project instructions/memory for context injection
+        let thread: { sessionId: string | null; project: { instructions: string | null; memory: string | null } | null } | null = null;
         let dbAvailable = true;
         try {
           thread = await ctx.db.thread.findUnique({
             where: { id: threadId },
-            select: { sessionId: true },
+            select: {
+              sessionId: true,
+              project: {
+                select: { instructions: true, memory: true },
+              },
+            },
           });
         } catch (err) {
           dbAvailable = false;
@@ -77,6 +83,13 @@ const createRegister: CreateRegister = (options) => {
             `Context plugin: DB unavailable during onBeforeInvoke [thread=${threadId}], skipping history: ${err instanceof Error ? err.message : String(err)}`,
           );
         }
+
+        // Build project-level sections (XML-tagged per Anthropic's context engineering recommendations)
+        const projectInstructionsSection = thread?.project?.instructions
+          ? `<project_instructions>\n${thread.project.instructions}\n</project_instructions>`
+          : null;
+
+        const projectMemorySection = thread?.project?.memory ? `<project_memory>\n${thread.project.memory}\n</project_memory>` : null;
 
         let summarySection = '';
         let historySection = '';
@@ -104,8 +117,8 @@ const createRegister: CreateRegister = (options) => {
           historySection = formatHistorySection(historyResult);
         }
 
-        // Concatenate: context + summary (if available) + history + original prompt
-        return buildPrompt([contextSection, summarySection, historySection, prompt]);
+        // Concatenate: project instructions + project memory + context + summary + history + prompt
+        return buildPrompt([projectInstructionsSection ?? '', projectMemorySection ?? '', contextSection, summarySection, historySection, prompt]);
       },
     };
   };

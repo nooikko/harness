@@ -38,7 +38,7 @@ const createMockContext: CreateMockContext = (options) => {
         findMany: combinedFindMany,
       },
       thread: {
-        findUnique: options?.threadFindUnique ?? vi.fn().mockResolvedValue({ sessionId: null }),
+        findUnique: options?.threadFindUnique ?? vi.fn().mockResolvedValue({ sessionId: null, project: null }),
       },
     } as never,
     invoker: { invoke: vi.fn() },
@@ -396,7 +396,7 @@ describe('context plugin', () => {
 
     const findMany = vi.fn().mockResolvedValue([{ role: 'user', content: 'Old message', createdAt: new Date() }]);
     // Thread has an active session — history should be skipped
-    const threadFindUnique = vi.fn().mockResolvedValue({ sessionId: 'sess-abc-123' });
+    const threadFindUnique = vi.fn().mockResolvedValue({ sessionId: 'sess-abc-123', project: null });
 
     const plugin = createContextPlugin({ contextDir: CONTEXT_DIR });
     const ctx = createMockContext({ findMany, threadFindUnique });
@@ -523,5 +523,132 @@ describe('context plugin', () => {
     expect(contextIdx).toBeLessThan(summaryIdx);
     expect(summaryIdx).toBeLessThan(historyIdx);
     expect(historyIdx).toBeLessThan(promptIdx);
+  });
+
+  it('injects project instructions before global context when thread has a project', async () => {
+    writeFileSync(resolve(CONTEXT_DIR, 'memory.md'), 'Global context data');
+
+    const threadFindUnique = vi.fn().mockResolvedValue({
+      sessionId: null,
+      project: { instructions: 'Always respond in formal English.', memory: null },
+    });
+
+    const plugin = createContextPlugin({ contextDir: CONTEXT_DIR });
+    const ctx = createMockContext({ threadFindUnique });
+    const hooks = await plugin.register(ctx);
+
+    const result = await hooks.onBeforeInvoke?.('thread-1', 'User message');
+
+    expect(result).toBeDefined();
+    const text = result ?? '';
+    expect(text).toContain('<project_instructions>');
+    expect(text).toContain('Always respond in formal English.');
+    expect(text).toContain('</project_instructions>');
+
+    // Project instructions must appear before global context files
+    const instructionsIdx = text.indexOf('<project_instructions>');
+    const contextIdx = text.indexOf('# Context');
+    expect(instructionsIdx).toBeLessThan(contextIdx);
+  });
+
+  it('injects project memory after instructions but before global context', async () => {
+    writeFileSync(resolve(CONTEXT_DIR, 'memory.md'), 'Global context data');
+
+    const threadFindUnique = vi.fn().mockResolvedValue({
+      sessionId: null,
+      project: {
+        instructions: 'Project instructions here.',
+        memory: 'User prefers concise answers.',
+      },
+    });
+
+    const plugin = createContextPlugin({ contextDir: CONTEXT_DIR });
+    const ctx = createMockContext({ threadFindUnique });
+    const hooks = await plugin.register(ctx);
+
+    const result = await hooks.onBeforeInvoke?.('thread-1', 'User message');
+
+    expect(result).toBeDefined();
+    const text = result ?? '';
+    expect(text).toContain('<project_memory>');
+    expect(text).toContain('User prefers concise answers.');
+    expect(text).toContain('</project_memory>');
+
+    // Order: instructions → memory → global context
+    const instructionsIdx = text.indexOf('<project_instructions>');
+    const memoryIdx = text.indexOf('<project_memory>');
+    const contextIdx = text.indexOf('# Context');
+    expect(instructionsIdx).toBeLessThan(memoryIdx);
+    expect(memoryIdx).toBeLessThan(contextIdx);
+  });
+
+  it('injects both project instructions and memory with correct ordering', async () => {
+    const threadFindUnique = vi.fn().mockResolvedValue({
+      sessionId: null,
+      project: {
+        instructions: 'You are a coding assistant.',
+        memory: 'User is working on a TypeScript monorepo.',
+      },
+    });
+
+    const plugin = createContextPlugin({ contextDir: CONTEXT_DIR });
+    const ctx = createMockContext({ threadFindUnique });
+    const hooks = await plugin.register(ctx);
+
+    const result = await hooks.onBeforeInvoke?.('thread-1', 'Help me debug this');
+
+    expect(result).toBeDefined();
+    const text = result ?? '';
+
+    expect(text).toContain('You are a coding assistant.');
+    expect(text).toContain('User is working on a TypeScript monorepo.');
+    expect(text).toContain('Help me debug this');
+
+    // Order: instructions → memory → prompt
+    const instructionsIdx = text.indexOf('<project_instructions>');
+    const memoryIdx = text.indexOf('<project_memory>');
+    const promptIdx = text.indexOf('Help me debug this');
+    expect(instructionsIdx).toBeLessThan(memoryIdx);
+    expect(memoryIdx).toBeLessThan(promptIdx);
+  });
+
+  it('output is unchanged when thread has no project', async () => {
+    writeFileSync(resolve(CONTEXT_DIR, 'memory.md'), 'Context data');
+
+    const findMany = vi.fn().mockResolvedValue([{ role: 'user', content: 'Hello', createdAt: new Date() }]);
+    // Default mock: project: null
+    const plugin = createContextPlugin({ contextDir: CONTEXT_DIR });
+    const ctx = createMockContext({ findMany });
+    const hooks = await plugin.register(ctx);
+
+    const result = await hooks.onBeforeInvoke?.('thread-1', 'Current message');
+
+    expect(result).toBeDefined();
+    const text = result ?? '';
+    expect(text).not.toContain('<project_instructions>');
+    expect(text).not.toContain('<project_memory>');
+    expect(text).toContain('# Context');
+    expect(text).toContain('Context data');
+    expect(text).toContain('# Conversation History');
+    expect(text).toContain('Current message');
+  });
+
+  it('omits project sections when instructions and memory are null', async () => {
+    const threadFindUnique = vi.fn().mockResolvedValue({
+      sessionId: null,
+      project: { instructions: null, memory: null },
+    });
+
+    const plugin = createContextPlugin({ contextDir: CONTEXT_DIR });
+    const ctx = createMockContext({ threadFindUnique });
+    const hooks = await plugin.register(ctx);
+
+    const result = await hooks.onBeforeInvoke?.('thread-1', 'Just a prompt');
+
+    expect(result).toBeDefined();
+    const text = result ?? '';
+    expect(text).not.toContain('<project_instructions>');
+    expect(text).not.toContain('<project_memory>');
+    expect(text).toContain('Just a prompt');
   });
 });

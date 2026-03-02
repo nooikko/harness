@@ -26,45 +26,42 @@ vi.mock('../new-thread-button', () => ({
   NewThreadButton: () => <button type='button'>New chat</button>,
 }));
 
-vi.mock('../manage-thread-modal', () => ({
-  ManageThreadModal: () => null,
-}));
-
-vi.mock('../delete-thread-modal', () => ({
-  DeleteThreadModal: () => null,
-}));
-
 vi.mock('@harness/database', () => ({}));
 
 import { usePathname } from 'next/navigation';
 import { NavChats } from '../nav-chats';
 
-const makeThread = (overrides: Partial<{ id: string; name: string | null; kind: string; source: string; sourceId: string }> = {}) => ({
+const makeThread = (overrides: Partial<{ id: string; name: string | null; kind: string }> = {}) => ({
   id: 'thread-1',
   name: null,
   kind: 'default',
-  source: 'web',
-  sourceId: 'ch-1',
-  model: null,
   createdAt: new Date(),
   updatedAt: new Date(),
   lastActivity: new Date(),
   sessionId: null,
-  customInstructions: null,
+  modelId: null,
   ...overrides,
 });
 
 const renderWithProvider = (ui: React.ReactElement) => render(<SidebarProvider>{ui}</SidebarProvider>);
 
 describe('NavChats', () => {
-  it('renders the Recents group label', () => {
+  it('renders the Direct Chats group label', () => {
     renderWithProvider(<NavChats threads={[]} />);
-    expect(screen.getByText('Recents')).toBeInTheDocument();
+    expect(screen.getByText('Direct Chats')).toBeInTheDocument();
   });
 
-  it('renders the New chat button', () => {
+  it('renders the Chats collapsible trigger', () => {
     renderWithProvider(<NavChats threads={[]} />);
-    expect(screen.getByRole('button', { name: 'New chat' })).toBeInTheDocument();
+    expect(screen.getByText('Chats')).toBeInTheDocument();
+  });
+
+  it('renders the "New chat" label', () => {
+    renderWithProvider(<NavChats threads={[]} />);
+    const spans = screen.getAllByText('New chat');
+    expect(spans.length).toBeGreaterThanOrEqual(1);
+    const labelSpan = spans.find((el) => el.tagName === 'SPAN');
+    expect(labelSpan).toBeInTheDocument();
   });
 
   it('renders an empty thread list with no thread links', () => {
@@ -79,10 +76,10 @@ describe('NavChats', () => {
     expect(screen.getByText('My Thread')).toBeInTheDocument();
   });
 
-  it('falls back to source/sourceId when thread name is null', () => {
-    const thread = makeThread({ id: 'abc', name: null, source: 'discord', sourceId: 'ch-42' });
+  it('falls back to kind when thread name is null', () => {
+    const thread = makeThread({ id: 'abc', name: null, kind: 'task' });
     renderWithProvider(<NavChats threads={[thread as never]} />);
-    expect(screen.getByText('discord/ch-42')).toBeInTheDocument();
+    expect(screen.getByText('task')).toBeInTheDocument();
   });
 
   it('renders a link with the correct href for each thread', () => {
@@ -118,11 +115,11 @@ describe('NavChats', () => {
     const threads = [
       makeThread({ id: 't1', name: 'Thread One', kind: 'default' }),
       makeThread({ id: 't2', name: 'Thread Two', kind: 'default' }),
-      makeThread({ id: 't3', name: null, source: 'discord', sourceId: 'srv-99' }),
+      makeThread({ id: 't3', name: null, kind: 'task' }),
     ];
     renderWithProvider(<NavChats threads={threads as never[]} />);
     expect(screen.getByText('Thread One')).toBeInTheDocument();
     expect(screen.getByText('Thread Two')).toBeInTheDocument();
-    expect(screen.getByText('discord/srv-99')).toBeInTheDocument();
+    expect(screen.getByText('task')).toBeInTheDocument();
   });
 });

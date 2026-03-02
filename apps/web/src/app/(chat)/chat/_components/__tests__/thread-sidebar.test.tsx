@@ -8,6 +8,9 @@ vi.mock('@harness/database', () => ({
     thread: {
       findMany: vi.fn().mockResolvedValue([]),
     },
+    project: {
+      findMany: vi.fn().mockResolvedValue([]),
+    },
   },
 }));
 
@@ -45,5 +48,17 @@ describe('ThreadSidebarInternal', () => {
     const element = await ThreadSidebarInternal();
     const html = renderToStaticMarkup(<SidebarProvider>{element as React.ReactElement}</SidebarProvider>);
     expect(html).toContain('Products');
+  });
+
+  it('renders the Projects section', async () => {
+    const element = await ThreadSidebarInternal();
+    const html = renderToStaticMarkup(<SidebarProvider>{element as React.ReactElement}</SidebarProvider>);
+    expect(html).toContain('Projects');
+  });
+
+  it('renders the Direct Chats section', async () => {
+    const element = await ThreadSidebarInternal();
+    const html = renderToStaticMarkup(<SidebarProvider>{element as React.ReactElement}</SidebarProvider>);
+    expect(html).toContain('Direct Chats');
   });
 });

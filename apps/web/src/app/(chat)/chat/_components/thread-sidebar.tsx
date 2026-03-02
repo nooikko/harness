@@ -4,20 +4,33 @@ import { Suspense } from 'react';
 import { sortThreads } from '../_helpers/sort-threads';
 import { NavChats } from './nav-chats';
 import { NavProducts } from './nav-products';
+import { NavProjects } from './nav-projects';
 
 /** @internal Exported for testing only — consumers should use ThreadSidebar. */
 export const ThreadSidebarInternal = async () => {
-  const threads = await prisma.thread.findMany({
-    where: { kind: { not: 'task' } },
-    orderBy: { lastActivity: 'desc' },
-    take: 20,
-  });
+  const [threads, projects] = await Promise.all([
+    prisma.thread.findMany({
+      where: { kind: { not: 'task' }, projectId: null },
+      orderBy: { lastActivity: 'desc' },
+      take: 50,
+    }),
+    prisma.project.findMany({
+      include: {
+        threads: {
+          where: { kind: { not: 'task' } },
+          orderBy: { lastActivity: 'desc' },
+        },
+      },
+      orderBy: { updatedAt: 'desc' },
+    }),
+  ]);
 
   const sorted = sortThreads(threads);
 
   return (
     <Sidebar className='w-64 border-r border-border'>
       <SidebarContent>
+        <NavProjects projects={projects} />
         <NavChats threads={sorted} />
         <NavProducts />
       </SidebarContent>

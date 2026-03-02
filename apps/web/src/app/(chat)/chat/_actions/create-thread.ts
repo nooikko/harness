@@ -6,6 +6,7 @@ import { revalidatePath } from 'next/cache';
 type CreateThreadOptions = {
   model?: string;
   agentId?: string;
+  projectId?: string;
 };
 
 type CreateThreadResult = { threadId: string };
@@ -21,6 +22,7 @@ export const createThread: CreateThread = async (options) => {
       status: 'open',
       model: options?.model,
       agentId: options?.agentId ?? null,
+      projectId: options?.projectId,
     },
   });
 
