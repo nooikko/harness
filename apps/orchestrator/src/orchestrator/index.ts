@@ -206,11 +206,12 @@ export const createOrchestrator: CreateOrchestrator = (deps) => {
       deps.logger.warn(`Pipeline: invoke error [thread=${threadId}]: ${invokeResult.error}`);
     }
 
-    // Step 4b: Persist sessionId on thread if changed (predicated write — no-ops if already set)
-    if (invokeResult.sessionId && invokeResult.sessionId !== thread?.sessionId) {
-      await deps.db.thread.updateMany({
-        where: { id: threadId, sessionId: null },
-        data: { sessionId: invokeResult.sessionId },
+    // Step 4b: Sync sessionId — update if changed (handles set, clear, and rotation)
+    const incomingSessionId = invokeResult.sessionId ?? null;
+    if (incomingSessionId !== (thread?.sessionId ?? null)) {
+      await deps.db.thread.update({
+        where: { id: threadId },
+        data: { sessionId: incomingSessionId },
       });
     }
 

@@ -191,7 +191,7 @@ describe('boot', () => {
 
     // Reset prisma mocks to default resolved values after clearAllMocks
     mockPrisma.$connect.mockResolvedValue(undefined);
-    vi.mocked(delegationState.setHooks).mockReset();
+    vi.mocked(delegationState.setHooks!).mockReset();
     mockPrisma.$disconnect.mockResolvedValue(undefined);
     vi.mocked(mockPrisma.orchestratorTask.findMany).mockResolvedValue([]);
     vi.mocked(mockPrisma.orchestratorTask.update).mockResolvedValue({} as never);
@@ -427,9 +427,9 @@ describe('boot', () => {
 
       await boot();
 
-      expect(vi.mocked(delegationState.setHooks)).toHaveBeenCalledWith(mockHooks);
+      expect(vi.mocked(delegationState.setHooks!)).toHaveBeenCalledWith(mockHooks);
       // setHooks must be called before start() so tool-path delegation sees all hooks
-      const setHooksOrder = vi.mocked(delegationState.setHooks).mock.invocationCallOrder[0] ?? 0;
+      const setHooksOrder = vi.mocked(delegationState.setHooks!).mock.invocationCallOrder[0] ?? 0;
       const startOrder = orchestrator.start.mock.invocationCallOrder[0] ?? 0;
       expect(setHooksOrder).toBeLessThan(startOrder);
     });

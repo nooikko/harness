@@ -212,6 +212,9 @@ const SidebarRail = ({ className, ...props }: React.ComponentProps<'button'>) =>
   />
 );
 
+/** Minimal provider wrapper — passes children through without collapsible state. */
+const SidebarProvider = ({ children }: { children: React.ReactNode }) => <>{children}</>;
+
 export {
   Sidebar,
   SidebarContent,
@@ -228,6 +231,7 @@ export {
   SidebarMenuSub,
   SidebarMenuSubButton,
   SidebarMenuSubItem,
+  SidebarProvider,
   SidebarRail,
   SidebarSeparator,
   sidebarMenuButtonVariants,

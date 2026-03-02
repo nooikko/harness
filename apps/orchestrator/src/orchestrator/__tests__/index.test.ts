@@ -64,7 +64,6 @@ const makeDeps = (overrides?: Partial<OrchestratorDeps>): OrchestratorDeps => ({
     thread: {
       findUnique: vi.fn().mockResolvedValue({ sessionId: null, model: null, kind: 'primary', name: 'Main' }),
       update: vi.fn().mockResolvedValue({}),
-      updateMany: vi.fn().mockResolvedValue({ count: 1 }),
     },
     pluginConfig: { findUnique: vi.fn().mockResolvedValue(null) },
   } as unknown as PrismaClient,
@@ -594,10 +593,70 @@ describe('createOrchestrator', () => {
 
       await orchestrator.handleMessage('thread-1', 'user', 'hi');
 
-      expect(deps.db.thread.updateMany as ReturnType<typeof vi.fn>).toHaveBeenCalledWith({
-        where: { id: 'thread-1', sessionId: null },
+      expect(deps.db.thread.update as ReturnType<typeof vi.fn>).toHaveBeenCalledWith({
+        where: { id: 'thread-1' },
         data: { sessionId: 'new-sess-id' },
       });
+    });
+
+    it('clears sessionId when invoker returns no sessionId (session loss)', async () => {
+      const invokeResult = makeInvokeResult({ sessionId: undefined });
+      const deps = makeDeps({
+        invoker: { invoke: vi.fn().mockResolvedValue(invokeResult) } as unknown as Invoker,
+      });
+      (deps.db.thread.findUnique as ReturnType<typeof vi.fn>).mockResolvedValue({
+        sessionId: 'old-sess-id',
+        model: null,
+        kind: 'primary',
+        name: 'Main',
+      });
+      const orchestrator = createOrchestrator(deps);
+
+      await orchestrator.handleMessage('thread-1', 'user', 'hi');
+
+      expect(deps.db.thread.update as ReturnType<typeof vi.fn>).toHaveBeenCalledWith({
+        where: { id: 'thread-1' },
+        data: { sessionId: null },
+      });
+    });
+
+    it('updates sessionId when invoker returns a new value (session rotation)', async () => {
+      const invokeResult = makeInvokeResult({ sessionId: 'rotated-sess-id' });
+      const deps = makeDeps({
+        invoker: { invoke: vi.fn().mockResolvedValue(invokeResult) } as unknown as Invoker,
+      });
+      (deps.db.thread.findUnique as ReturnType<typeof vi.fn>).mockResolvedValue({
+        sessionId: 'old-sess-id',
+        model: null,
+        kind: 'primary',
+        name: 'Main',
+      });
+      const orchestrator = createOrchestrator(deps);
+
+      await orchestrator.handleMessage('thread-1', 'user', 'hi');
+
+      expect(deps.db.thread.update as ReturnType<typeof vi.fn>).toHaveBeenCalledWith({
+        where: { id: 'thread-1' },
+        data: { sessionId: 'rotated-sess-id' },
+      });
+    });
+
+    it('skips DB write when sessionId has not changed (both null)', async () => {
+      const invokeResult = makeInvokeResult({ sessionId: undefined });
+      const deps = makeDeps({
+        invoker: { invoke: vi.fn().mockResolvedValue(invokeResult) } as unknown as Invoker,
+      });
+      (deps.db.thread.findUnique as ReturnType<typeof vi.fn>).mockResolvedValue({
+        sessionId: null,
+        model: null,
+        kind: 'primary',
+        name: 'Main',
+      });
+      const orchestrator = createOrchestrator(deps);
+
+      await orchestrator.handleMessage('thread-1', 'user', 'hi');
+
+      expect(deps.db.thread.update as ReturnType<typeof vi.fn>).not.toHaveBeenCalled();
     });
 
     it('broadcasts pipeline:step events at each stage', async () => {
