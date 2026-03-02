@@ -23,31 +23,40 @@ describe('renameThread', () => {
     mockUpdate.mockResolvedValue({});
   });
 
-  it('updates the thread name with trimmed value', async () => {
-    await renameThread('thread-1', '  New Name  ');
+  it('updates thread name with trimmed value', async () => {
+    await renameThread('thread-1', 'My New Name');
 
     expect(mockUpdate).toHaveBeenCalledWith({
       where: { id: 'thread-1' },
-      data: { name: 'New Name' },
+      data: { name: 'My New Name' },
     });
   });
 
-  it('revalidates the root path after updating', async () => {
-    await renameThread('thread-1', 'New Name');
+  it('trims whitespace from the name before saving', async () => {
+    await renameThread('thread-1', '  Padded Name  ');
 
-    expect(mockRevalidatePath).toHaveBeenCalledWith('/');
+    expect(mockUpdate).toHaveBeenCalledWith({
+      where: { id: 'thread-1' },
+      data: { name: 'Padded Name' },
+    });
   });
 
-  it('does nothing when name is empty after trim', async () => {
+  it('does nothing when the trimmed name is empty', async () => {
     await renameThread('thread-1', '   ');
 
     expect(mockUpdate).not.toHaveBeenCalled();
     expect(mockRevalidatePath).not.toHaveBeenCalled();
   });
 
-  it('does nothing when name is empty string', async () => {
+  it('does nothing when the name is an empty string', async () => {
     await renameThread('thread-1', '');
 
     expect(mockUpdate).not.toHaveBeenCalled();
+  });
+
+  it('revalidates the root path after renaming', async () => {
+    await renameThread('thread-1', 'New Name');
+
+    expect(mockRevalidatePath).toHaveBeenCalledWith('/');
   });
 });

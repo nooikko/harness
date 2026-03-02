@@ -1,9 +1,10 @@
-import { cleanup, render, screen } from '@testing-library/react';
+import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { afterEach, describe, expect, it, vi } from 'vitest';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 const mockRenameThread = vi.fn().mockResolvedValue(undefined);
 const mockUpdateThreadModel = vi.fn().mockResolvedValue(undefined);
+const mockUpdateThreadInstructions = vi.fn().mockResolvedValue(undefined);
 
 vi.mock('../../_actions/rename-thread', () => ({
   renameThread: (...args: unknown[]) => mockRenameThread(...args),
@@ -13,132 +14,129 @@ vi.mock('../../_actions/update-thread-model', () => ({
   updateThreadModel: (...args: unknown[]) => mockUpdateThreadModel(...args),
 }));
 
-// Radix Select forbids SelectItem with value="". Stub the Select family so the
-// component tree renders without the constraint. onValueChange is stored in a
-// module-level ref so SelectItem buttons can invoke it without prop drilling.
-let selectOnValueChange: ((v: string) => void) | undefined;
-
-vi.mock('@harness/ui', async (importActual) => {
-  const actual = await importActual<typeof import('@harness/ui')>();
-  return {
-    ...actual,
-    Select: ({ children, onValueChange }: { children: React.ReactNode; onValueChange?: (v: string) => void; defaultValue?: string }) => {
-      selectOnValueChange = onValueChange;
-      return <div data-testid='select'>{children}</div>;
-    },
-    SelectTrigger: ({ children, id }: { children: React.ReactNode; id?: string }) => (
-      <button type='button' id={id}>
-        {children}
-      </button>
-    ),
-    SelectValue: ({ placeholder }: { placeholder?: string }) => <span>{placeholder}</span>,
-    SelectContent: ({ children }: { children: React.ReactNode }) => <div>{children}</div>,
-    SelectItem: ({ value, children }: { value: string; children: React.ReactNode }) => (
-      <button type='button' data-value={value} onClick={() => selectOnValueChange?.(value)}>
-        {children}
-      </button>
-    ),
-  };
-});
+vi.mock('../../_actions/update-thread-instructions', () => ({
+  updateThreadInstructions: (...args: unknown[]) => mockUpdateThreadInstructions(...args),
+}));
 
 import { ManageThreadModal } from '../manage-thread-modal';
 
+const defaultProps = {
+  open: true,
+  onOpenChange: vi.fn(),
+  threadId: 'thread-1',
+  currentName: 'My Thread',
+  currentModel: null,
+  currentInstructions: null,
+};
+
 describe('ManageThreadModal', () => {
-  afterEach(() => {
-    cleanup();
+  beforeEach(() => {
     vi.clearAllMocks();
-    selectOnValueChange = undefined;
   });
 
-  it('renders nothing when open is false', () => {
-    render(<ManageThreadModal open={false} onOpenChange={vi.fn()} threadId='t1' currentName='My Chat' currentModel={null} />);
-
-    expect(screen.queryByText('Chat Settings')).not.toBeInTheDocument();
-  });
-
-  it('renders the dialog title when open is true', () => {
-    render(<ManageThreadModal open={true} onOpenChange={vi.fn()} threadId='t1' currentName='My Chat' currentModel={null} />);
-
+  it('renders the dialog when open is true', () => {
+    render(<ManageThreadModal {...defaultProps} />);
     expect(screen.getByText('Chat Settings')).toBeInTheDocument();
   });
 
-  it('renders the name input with the current name pre-filled', () => {
-    render(<ManageThreadModal open={true} onOpenChange={vi.fn()} threadId='t1' currentName='My Chat' currentModel={null} />);
+  it('does not render dialog content when open is false', () => {
+    render(<ManageThreadModal {...defaultProps} open={false} />);
+    expect(screen.queryByText('Chat Settings')).not.toBeInTheDocument();
+  });
 
-    expect(screen.getByLabelText('Name')).toHaveValue('My Chat');
+  it('pre-fills the name input with currentName', () => {
+    render(<ManageThreadModal {...defaultProps} currentName='Research Thread' />);
+    expect(screen.getByLabelText('Name')).toHaveValue('Research Thread');
+  });
+
+  it('renders the custom instructions textarea', () => {
+    render(<ManageThreadModal {...defaultProps} />);
+    expect(screen.getByLabelText('Custom Instructions')).toBeInTheDocument();
+  });
+
+  it('pre-fills custom instructions textarea with currentInstructions', () => {
+    render(<ManageThreadModal {...defaultProps} currentInstructions='Always be concise.' />);
+    expect(screen.getByLabelText('Custom Instructions')).toHaveValue('Always be concise.');
+  });
+
+  it('initializes custom instructions to empty string when currentInstructions is null', () => {
+    render(<ManageThreadModal {...defaultProps} currentInstructions={null} />);
+    expect(screen.getByLabelText('Custom Instructions')).toHaveValue('');
+  });
+
+  it('calls updateThreadInstructions when instructions are changed and saved', async () => {
+    const user = userEvent.setup();
+    render(<ManageThreadModal {...defaultProps} currentInstructions={null} />);
+
+    const textarea = screen.getByLabelText('Custom Instructions');
+    await user.clear(textarea);
+    await user.type(textarea, 'Be formal.');
+
+    await user.click(screen.getByRole('button', { name: 'Save' }));
+
+    await waitFor(() => {
+      expect(mockUpdateThreadInstructions).toHaveBeenCalledWith('thread-1', 'Be formal.');
+    });
+  });
+
+  it('does not call updateThreadInstructions when instructions are unchanged', async () => {
+    const user = userEvent.setup();
+    render(<ManageThreadModal {...defaultProps} currentInstructions='Keep it short.' />);
+
+    await user.click(screen.getByRole('button', { name: 'Save' }));
+
+    expect(mockUpdateThreadInstructions).not.toHaveBeenCalled();
+  });
+
+  it('calls renameThread when the name is changed and saved', async () => {
+    const user = userEvent.setup();
+    render(<ManageThreadModal {...defaultProps} currentName='Old Name' />);
+
+    const nameInput = screen.getByLabelText('Name');
+    await user.clear(nameInput);
+    await user.type(nameInput, 'New Name');
+
+    await user.click(screen.getByRole('button', { name: 'Save' }));
+
+    await waitFor(() => {
+      expect(mockRenameThread).toHaveBeenCalledWith('thread-1', 'New Name');
+    });
+  });
+
+  it('does not call renameThread when the name is unchanged', async () => {
+    const user = userEvent.setup();
+    render(<ManageThreadModal {...defaultProps} currentName='Same Name' />);
+
+    await user.click(screen.getByRole('button', { name: 'Save' }));
+
+    expect(mockRenameThread).not.toHaveBeenCalled();
+  });
+
+  it('calls onOpenChange(false) after saving', async () => {
+    const onOpenChange = vi.fn();
+    const user = userEvent.setup();
+    render(<ManageThreadModal {...defaultProps} onOpenChange={onOpenChange} />);
+
+    await user.click(screen.getByRole('button', { name: 'Save' }));
+
+    await waitFor(() => {
+      expect(onOpenChange).toHaveBeenCalledWith(false);
+    });
   });
 
   it('calls onOpenChange(false) when Cancel is clicked', async () => {
-    const user = userEvent.setup();
     const onOpenChange = vi.fn();
-
-    render(<ManageThreadModal open={true} onOpenChange={onOpenChange} threadId='t1' currentName='My Chat' currentModel={null} />);
+    const user = userEvent.setup();
+    render(<ManageThreadModal {...defaultProps} onOpenChange={onOpenChange} />);
 
     await user.click(screen.getByRole('button', { name: 'Cancel' }));
 
     expect(onOpenChange).toHaveBeenCalledWith(false);
   });
 
-  it('renders all four model option buttons', () => {
-    render(<ManageThreadModal open={true} onOpenChange={vi.fn()} threadId='t1' currentName={null} currentModel={null} />);
-
-    // 4 SelectItem stubs + Cancel + Save = 6 buttons total; filter by data-value
-    const optionButtons = screen.getAllByRole('button').filter((b) => b.hasAttribute('data-value'));
-    expect(optionButtons).toHaveLength(4);
-  });
-
-  it('renders the Custom Instructions textarea', () => {
-    render(<ManageThreadModal open={true} onOpenChange={vi.fn()} threadId='t1' currentName={null} currentModel={null} />);
-
-    expect(screen.getByLabelText('Custom Instructions')).toBeInTheDocument();
-  });
-
-  it('calls renameThread when name changes on Save', async () => {
-    const user = userEvent.setup();
-
-    render(<ManageThreadModal open={true} onOpenChange={vi.fn()} threadId='t1' currentName='Old Name' currentModel={null} />);
-
-    await user.clear(screen.getByLabelText('Name'));
-    await user.type(screen.getByLabelText('Name'), 'New Name');
-    await user.click(screen.getByRole('button', { name: 'Save' }));
-
-    expect(mockRenameThread).toHaveBeenCalledWith('t1', 'New Name');
-    expect(mockUpdateThreadModel).not.toHaveBeenCalled();
-  });
-
-  it('calls updateThreadModel when model changes on Save', async () => {
-    const user = userEvent.setup();
-
-    render(<ManageThreadModal open={true} onOpenChange={vi.fn()} threadId='t1' currentName='My Chat' currentModel={null} />);
-
-    await user.click(screen.getByRole('button', { name: 'Sonnet' }));
-    await user.click(screen.getByRole('button', { name: 'Save' }));
-
-    expect(mockUpdateThreadModel).toHaveBeenCalledWith('t1', 'claude-sonnet-4-6');
-    expect(mockRenameThread).not.toHaveBeenCalled();
-  });
-
-  it('does not call actions when nothing changes on Save', async () => {
-    const user = userEvent.setup();
-
-    render(<ManageThreadModal open={true} onOpenChange={vi.fn()} threadId='t1' currentName='My Chat' currentModel={null} />);
-
-    await user.click(screen.getByRole('button', { name: 'Save' }));
-
-    expect(mockRenameThread).not.toHaveBeenCalled();
-    expect(mockUpdateThreadModel).not.toHaveBeenCalled();
-  });
-
-  it('calls updateThreadModel with null when model is cleared', async () => {
-    const user = userEvent.setup();
-
-    render(<ManageThreadModal open={true} onOpenChange={vi.fn()} threadId='t1' currentName={null} currentModel='claude-sonnet-4-6' />);
-
-    // Click the default (empty value) option to clear the model
-    const optionButtons = screen.getAllByRole('button').filter((b) => b.getAttribute('data-value') === '');
-    await user.click(optionButtons[0]!);
-    await user.click(screen.getByRole('button', { name: 'Save' }));
-
-    expect(mockUpdateThreadModel).toHaveBeenCalledWith('t1', null);
+  it('renders Save and Cancel buttons', () => {
+    render(<ManageThreadModal {...defaultProps} />);
+    expect(screen.getByRole('button', { name: 'Save' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Cancel' })).toBeInTheDocument();
   });
 });

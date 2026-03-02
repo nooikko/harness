@@ -19,6 +19,7 @@ const makeThread = (overrides: Partial<Thread> = {}): Thread => ({
   status: 'open',
   sessionId: null,
   model: null,
+  customInstructions: null,
   parentThreadId: null,
   lastActivity: new Date('2026-02-23T10:00:00Z'),
   createdAt: new Date('2026-02-20T10:00:00Z'),

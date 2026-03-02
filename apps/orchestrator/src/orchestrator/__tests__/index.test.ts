@@ -535,6 +535,7 @@ describe('createOrchestrator', () => {
         threadId: 'thread-1',
         kind: 'task',
         name: 'Research Task',
+        customInstructions: null,
       });
     });
 
@@ -557,6 +558,7 @@ describe('createOrchestrator', () => {
         threadId: 'thread-new',
         kind: 'general',
         name: undefined,
+        customInstructions: null,
       });
     });
 
@@ -580,7 +582,7 @@ describe('createOrchestrator', () => {
 
       expect(deps.db.thread.findUnique as ReturnType<typeof vi.fn>).toHaveBeenCalledWith({
         where: { id: 'thread-123' },
-        select: { sessionId: true, model: true, kind: true, name: true },
+        select: { sessionId: true, model: true, kind: true, name: true, customInstructions: true },
       });
     });
 

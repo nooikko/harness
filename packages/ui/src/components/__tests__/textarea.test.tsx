@@ -8,14 +8,14 @@ describe('Textarea', () => {
     expect(screen.getByTestId('ta').tagName).toBe('TEXTAREA');
   });
 
-  it('has the data-slot attribute', () => {
+  it('has data-slot attribute', () => {
     render(<Textarea data-testid='ta' />);
     expect(screen.getByTestId('ta')).toHaveAttribute('data-slot', 'textarea');
   });
 
   it('merges custom className', () => {
-    render(<Textarea data-testid='ta' className='my-custom' />);
-    expect(screen.getByTestId('ta').className).toContain('my-custom');
+    render(<Textarea data-testid='ta' className='my-class' />);
+    expect(screen.getByTestId('ta').className).toContain('my-class');
   });
 
   it('forwards placeholder prop', () => {
@@ -26,5 +26,10 @@ describe('Textarea', () => {
   it('forwards rows prop', () => {
     render(<Textarea data-testid='ta' rows={5} />);
     expect(screen.getByTestId('ta')).toHaveAttribute('rows', '5');
+  });
+
+  it('is disabled when disabled prop is set', () => {
+    render(<Textarea data-testid='ta' disabled />);
+    expect(screen.getByTestId('ta')).toBeDisabled();
   });
 });

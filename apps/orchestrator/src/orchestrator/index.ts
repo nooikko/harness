@@ -148,7 +148,7 @@ export const createOrchestrator: CreateOrchestrator = (deps) => {
     // Step 0: Look up thread for session resumption and model override
     const thread = await deps.db.thread.findUnique({
       where: { id: threadId },
-      select: { sessionId: true, model: true, kind: true, name: true },
+      select: { sessionId: true, model: true, kind: true, name: true, customInstructions: true },
     });
 
     // Step 1: Fire onMessage hooks (notification — no modification)
@@ -170,6 +170,7 @@ export const createOrchestrator: CreateOrchestrator = (deps) => {
       threadId,
       kind: (thread?.kind as string) ?? 'general',
       name: (thread?.name as string) ?? undefined,
+      customInstructions: thread?.customInstructions ?? null,
     };
     const { prompt: basePrompt } = assemblePrompt(content, threadMeta);
 

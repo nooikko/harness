@@ -4,6 +4,7 @@ export type ThreadMeta = {
   threadId: string;
   kind: string;
   name: string | undefined;
+  customInstructions?: string | null;
 };
 
 export type AssembledPrompt = {
@@ -40,7 +41,13 @@ export const assemblePrompt: AssemblePrompt = (message, meta) => {
   const header = formatThreadHeader(meta);
   const instruction = getKindInstruction(meta.kind);
 
-  const sections = [header, instruction, `## User Message\n\n${message}`];
+  const sections = [header, instruction];
+
+  if (meta.customInstructions?.trim()) {
+    sections.push(`# Custom Instructions\n\n${meta.customInstructions.trim()}`);
+  }
+
+  sections.push(`## User Message\n\n${message}`);
 
   const prompt = sections.join('\n\n');
 

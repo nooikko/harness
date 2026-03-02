@@ -1,49 +1,125 @@
 import { render, screen } from '@testing-library/react';
 import { describe, expect, it } from 'vitest';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../select';
-
-const renderSelect = (defaultValue?: string) =>
-  render(
-    <Select defaultValue={defaultValue}>
-      <SelectTrigger aria-label='Pick a fruit'>
-        <SelectValue placeholder='Select...' />
-      </SelectTrigger>
-      <SelectContent>
-        <SelectItem value='apple'>Apple</SelectItem>
-        <SelectItem value='banana'>Banana</SelectItem>
-        <SelectItem value='cherry'>Cherry</SelectItem>
-      </SelectContent>
-    </Select>,
-  );
+import { Select, SelectContent, SelectGroup, SelectItem, SelectLabel, SelectSeparator, SelectTrigger, SelectValue } from '../select';
 
 describe('Select', () => {
   it('renders the trigger button', () => {
-    renderSelect();
-    expect(screen.getByRole('combobox')).toBeInTheDocument();
+    render(
+      <Select>
+        <SelectTrigger data-testid='trigger'>
+          <SelectValue placeholder='Pick one' />
+        </SelectTrigger>
+        <SelectContent>
+          <SelectItem value='a'>Option A</SelectItem>
+        </SelectContent>
+      </Select>,
+    );
+    expect(screen.getByTestId('trigger')).toBeInTheDocument();
+  });
+
+  it('trigger has data-slot attribute', () => {
+    render(
+      <Select>
+        <SelectTrigger data-testid='trigger'>
+          <SelectValue />
+        </SelectTrigger>
+        <SelectContent>
+          <SelectItem value='a'>A</SelectItem>
+        </SelectContent>
+      </Select>,
+    );
+    expect(screen.getByTestId('trigger')).toHaveAttribute('data-slot', 'select-trigger');
   });
 
   it('shows placeholder text when no value is selected', () => {
-    renderSelect();
-    expect(screen.getByText('Select...')).toBeInTheDocument();
+    render(
+      <Select>
+        <SelectTrigger>
+          <SelectValue placeholder='Choose...' />
+        </SelectTrigger>
+        <SelectContent>
+          <SelectItem value='a'>Option A</SelectItem>
+        </SelectContent>
+      </Select>,
+    );
+    expect(screen.getByText('Choose...')).toBeInTheDocument();
   });
 
-  it('shows the pre-selected value label', () => {
-    renderSelect('banana');
-    expect(screen.getByRole('combobox')).toHaveTextContent('Banana');
+  it('reflects default value when provided', () => {
+    render(
+      <Select defaultValue='b'>
+        <SelectTrigger>
+          <SelectValue />
+        </SelectTrigger>
+        <SelectContent>
+          <SelectItem value='a'>Option A</SelectItem>
+          <SelectItem value='b'>Option B</SelectItem>
+        </SelectContent>
+      </Select>,
+    );
+    expect(screen.getByText('Option B')).toBeInTheDocument();
   });
 
-  it('trigger has the correct data-slot attribute', () => {
-    renderSelect();
-    expect(screen.getByRole('combobox')).toHaveAttribute('data-slot', 'select-trigger');
+  it('trigger is disabled when disabled prop is set', () => {
+    render(
+      <Select disabled>
+        <SelectTrigger>
+          <SelectValue placeholder='Disabled' />
+        </SelectTrigger>
+        <SelectContent>
+          <SelectItem value='a'>A</SelectItem>
+        </SelectContent>
+      </Select>,
+    );
+    expect(screen.getByRole('combobox')).toBeDisabled();
   });
 
-  it('trigger starts in closed state', () => {
-    renderSelect();
-    expect(screen.getByRole('combobox')).toHaveAttribute('data-state', 'closed');
+  it('merges custom className on trigger', () => {
+    render(
+      <Select>
+        <SelectTrigger className='my-trigger-class' data-testid='trigger'>
+          <SelectValue />
+        </SelectTrigger>
+        <SelectContent>
+          <SelectItem value='a'>A</SelectItem>
+        </SelectContent>
+      </Select>,
+    );
+    expect(screen.getByTestId('trigger').className).toContain('my-trigger-class');
   });
 
-  it('trigger has aria-label forwarded', () => {
-    renderSelect();
-    expect(screen.getByRole('combobox')).toHaveAttribute('aria-label', 'Pick a fruit');
+  it('SelectLabel renders within SelectGroup without throwing', () => {
+    expect(() =>
+      render(
+        <Select defaultValue='a'>
+          <SelectTrigger>
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectGroup>
+              <SelectLabel>Group Label</SelectLabel>
+              <SelectItem value='a'>A</SelectItem>
+            </SelectGroup>
+          </SelectContent>
+        </Select>,
+      ),
+    ).not.toThrow();
+  });
+
+  it('SelectSeparator renders without throwing', () => {
+    expect(() =>
+      render(
+        <Select defaultValue='a'>
+          <SelectTrigger>
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value='a'>A</SelectItem>
+            <SelectSeparator />
+            <SelectItem value='b'>B</SelectItem>
+          </SelectContent>
+        </Select>,
+      ),
+    ).not.toThrow();
   });
 });
