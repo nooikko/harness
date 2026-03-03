@@ -83,7 +83,6 @@ export const recordAgentRun: RecordAgentRun = async (ctx, input) => {
       status: isSuccess ? 'completed' : 'failed',
       error: input.invokeResult.error ?? null,
       completedAt: new Date(),
-      traceId: input.traceId ?? null,
     },
   });
 

@@ -34,7 +34,6 @@ describe('TasksTableInternal', () => {
       {
         id: 'task_1',
         threadId: 'thread_1',
-        parentTaskId: null,
         status: 'completed',
         prompt: 'Analyze the codebase and generate a summary report',
         result: 'Summary generated',
@@ -47,7 +46,6 @@ describe('TasksTableInternal', () => {
       {
         id: 'task_2',
         threadId: 'thread_2',
-        parentTaskId: null,
         status: 'running',
         prompt: 'Deploy latest changes to staging',
         result: null,
@@ -64,9 +62,53 @@ describe('TasksTableInternal', () => {
     expect(html).toContain('completed');
     expect(html).toContain('2/3');
     expect(html).toContain('Code Analysis');
+    expect(html).toContain('Summary generated');
     expect(html).toContain('running');
     expect(html).toContain('1/5');
     expect(html).toContain('thread_2');
+  });
+
+  it('renders result column with truncated text for long results', async () => {
+    const longResult = 'A'.repeat(150);
+    mockFindMany.mockResolvedValue([
+      {
+        id: 'task_5',
+        threadId: 'thread_5',
+        status: 'completed',
+        prompt: 'Long result task',
+        result: longResult,
+        maxIterations: 3,
+        currentIteration: 1,
+        thread: { id: 'thread_5', name: 'Long Result' },
+        createdAt: new Date('2026-02-24T10:00:00Z'),
+        updatedAt: new Date('2026-02-24T10:05:00Z'),
+      },
+    ]);
+    const element = await TasksTableInternal();
+    const html = renderToStaticMarkup(element as React.ReactElement);
+    expect(html).toContain('A'.repeat(100));
+    expect(html).toContain('...');
+    expect(html).not.toContain('A'.repeat(150));
+  });
+
+  it('renders dash for result when task is not completed', async () => {
+    mockFindMany.mockResolvedValue([
+      {
+        id: 'task_6',
+        threadId: 'thread_6',
+        status: 'running',
+        prompt: 'Running task',
+        result: null,
+        maxIterations: 3,
+        currentIteration: 1,
+        thread: { id: 'thread_6', name: 'Running' },
+        createdAt: new Date('2026-02-24T10:00:00Z'),
+        updatedAt: new Date('2026-02-24T10:00:00Z'),
+      },
+    ]);
+    const element = await TasksTableInternal();
+    const html = renderToStaticMarkup(element as React.ReactElement);
+    expect(html).toContain('\u2014');
   });
 
   it('renders thread id slice when thread has no name', async () => {
@@ -74,7 +116,6 @@ describe('TasksTableInternal', () => {
       {
         id: 'task_3',
         threadId: 'clxyz12345678',
-        parentTaskId: null,
         status: 'pending',
         prompt: 'Test task',
         result: null,
@@ -95,7 +136,6 @@ describe('TasksTableInternal', () => {
       {
         id: 'task_4',
         threadId: 'thread_4',
-        parentTaskId: null,
         status: 'failed',
         prompt: 'Failed task',
         result: null,

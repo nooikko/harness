@@ -12,6 +12,7 @@ type AgentFields = {
   slug: string;
   soul: string;
   identity: string;
+  userContext: string | null;
   role: string | null;
   goal: string | null;
   backstory: string | null;
@@ -43,6 +44,7 @@ export const EditAgentForm: EditAgentFormComponent = ({ agent, agentConfig }) =>
   const [role, setRole] = useState(agent.role ?? '');
   const [goal, setGoal] = useState(agent.goal ?? '');
   const [backstory, setBackstory] = useState(agent.backstory ?? '');
+  const [userContext, setUserContext] = useState(agent.userContext ?? '');
   const [enabled, setEnabled] = useState(agent.enabled);
 
   const [memoryEnabled, setMemoryEnabled] = useState(agentConfig?.memoryEnabled ?? true);
@@ -60,6 +62,7 @@ export const EditAgentForm: EditAgentFormComponent = ({ agent, agentConfig }) =>
           name,
           soul,
           identity,
+          userContext: userContext || null,
           role: role || null,
           goal: goal || null,
           backstory: backstory || null,
@@ -149,6 +152,20 @@ export const EditAgentForm: EditAgentFormComponent = ({ agent, agentConfig }) =>
               required
               rows={8}
               className='flex min-h-[120px] w-full rounded-md border border-input bg-background px-3 py-2 text-sm font-mono ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 resize-y'
+            />
+          </div>
+
+          <div className='flex flex-col gap-1.5'>
+            <Label htmlFor='edit-agent-user-context'>
+              User Context
+              <span className='ml-1 text-xs text-muted-foreground'>(optional — information about the user that this agent should always know)</span>
+            </Label>
+            <textarea
+              id='edit-agent-user-context'
+              value={userContext}
+              onChange={(e: React.ChangeEvent<HTMLTextAreaElement>) => setUserContext(e.target.value)}
+              rows={4}
+              className='flex min-h-[80px] w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 resize-y'
             />
           </div>
 

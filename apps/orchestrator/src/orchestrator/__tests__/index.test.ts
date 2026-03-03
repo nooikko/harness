@@ -62,8 +62,11 @@ const makeDeps = (overrides?: Partial<OrchestratorDeps>): OrchestratorDeps => ({
     })),
     message: { create: vi.fn().mockResolvedValue({}) },
     thread: {
-      findUnique: vi.fn().mockResolvedValue({ sessionId: null, model: null, kind: 'primary', name: 'Main' }),
+      findUnique: vi.fn().mockResolvedValue({ sessionId: null, model: null, kind: 'primary', name: 'Main', projectId: null }),
       update: vi.fn().mockResolvedValue({}),
+    },
+    project: {
+      findUnique: vi.fn().mockResolvedValue(null),
     },
     pluginConfig: { findUnique: vi.fn().mockResolvedValue(null) },
   } as unknown as PrismaClient,
@@ -282,7 +285,7 @@ describe('createOrchestrator', () => {
   });
 
   describe('sendToThread', () => {
-    it('runs the message pipeline and persists the assistant response with model', async () => {
+    it('runs the message pipeline and persists the assistant response', async () => {
       const invokeResult = makeInvokeResult({ output: 'assistant reply', durationMs: 50, model: 'claude-haiku-4-5-20251001' });
       const deps = makeDeps({
         invoker: { invoke: vi.fn().mockResolvedValue(invokeResult) } as unknown as Invoker,
@@ -300,7 +303,6 @@ describe('createOrchestrator', () => {
           kind: 'text',
           source: 'builtin',
           content: 'assistant reply',
-          model: 'claude-haiku-4-5-20251001',
         },
       });
       expect(deps.db.thread.update as ReturnType<typeof vi.fn>).toHaveBeenCalledWith({
@@ -572,7 +574,7 @@ describe('createOrchestrator', () => {
 
       expect(deps.db.thread.findUnique as ReturnType<typeof vi.fn>).toHaveBeenCalledWith({
         where: { id: 'thread-123' },
-        select: { sessionId: true, model: true, kind: true, name: true, customInstructions: true },
+        select: { sessionId: true, model: true, kind: true, name: true, customInstructions: true, projectId: true },
       });
     });
 
@@ -682,6 +684,74 @@ describe('createOrchestrator', () => {
       await orchestrator.handleMessage('thread-1', 'user', 'hi');
 
       expect(deps.db.thread.update as ReturnType<typeof vi.fn>).not.toHaveBeenCalled();
+    });
+
+    it('falls back to project model when thread model is null and thread has a projectId', async () => {
+      const invokeResult = makeInvokeResult({ output: 'response' });
+      const deps = makeDeps({
+        invoker: { invoke: vi.fn().mockResolvedValue(invokeResult) } as unknown as Invoker,
+      });
+      (deps.db.thread.findUnique as ReturnType<typeof vi.fn>).mockResolvedValue({
+        sessionId: null,
+        model: null,
+        kind: 'general',
+        name: 'Project Thread',
+        customInstructions: null,
+        projectId: 'project-1',
+      });
+      (deps.db.project.findUnique as ReturnType<typeof vi.fn>).mockResolvedValue({
+        model: 'claude-opus-4-6',
+      });
+      const orchestrator = createOrchestrator(deps);
+
+      await orchestrator.handleMessage('thread-1', 'user', 'hi');
+
+      expect(deps.db.project.findUnique as ReturnType<typeof vi.fn>).toHaveBeenCalledWith({
+        where: { id: 'project-1' },
+        select: { model: true },
+      });
+      expect(deps.invoker.invoke).toHaveBeenCalledWith(expect.any(String), expect.objectContaining({ model: 'claude-opus-4-6' }));
+    });
+
+    it('does not look up project when thread already has a model', async () => {
+      const invokeResult = makeInvokeResult({ output: 'response' });
+      const deps = makeDeps({
+        invoker: { invoke: vi.fn().mockResolvedValue(invokeResult) } as unknown as Invoker,
+      });
+      (deps.db.thread.findUnique as ReturnType<typeof vi.fn>).mockResolvedValue({
+        sessionId: null,
+        model: 'claude-haiku-4-5-20251001',
+        kind: 'general',
+        name: 'Thread',
+        customInstructions: null,
+        projectId: 'project-1',
+      });
+      const orchestrator = createOrchestrator(deps);
+
+      await orchestrator.handleMessage('thread-1', 'user', 'hi');
+
+      expect(deps.db.project.findUnique as ReturnType<typeof vi.fn>).not.toHaveBeenCalled();
+      expect(deps.invoker.invoke).toHaveBeenCalledWith(expect.any(String), expect.objectContaining({ model: 'claude-haiku-4-5-20251001' }));
+    });
+
+    it('does not look up project when thread has no projectId', async () => {
+      const invokeResult = makeInvokeResult({ output: 'response' });
+      const deps = makeDeps({
+        invoker: { invoke: vi.fn().mockResolvedValue(invokeResult) } as unknown as Invoker,
+      });
+      (deps.db.thread.findUnique as ReturnType<typeof vi.fn>).mockResolvedValue({
+        sessionId: null,
+        model: null,
+        kind: 'general',
+        name: 'Thread',
+        customInstructions: null,
+        projectId: null,
+      });
+      const orchestrator = createOrchestrator(deps);
+
+      await orchestrator.handleMessage('thread-1', 'user', 'hi');
+
+      expect(deps.db.project.findUnique as ReturnType<typeof vi.fn>).not.toHaveBeenCalled();
     });
   });
 });

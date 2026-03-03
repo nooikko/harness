@@ -48,7 +48,6 @@ model Project {
   instructions String?   @db.Text
   memory       String?   @db.Text
   model        String?
-  settings     Json?
   threads      Thread[]
   cronJobs     CronJob[]
   createdAt    DateTime  @default(now())
@@ -65,7 +64,6 @@ model Message {
   kind      String   @default("text")
   source    String   @default("builtin")
   content   String   @db.Text
-  model     String?
   metadata  Json?
   createdAt DateTime @default(now())
 
@@ -78,9 +76,6 @@ model OrchestratorTask {
   id               String             @id @default(cuid())
   threadId         String
   thread           Thread             @relation(fields: [threadId], references: [id], onDelete: Cascade)
-  parentTaskId     String?
-  parentTask       OrchestratorTask?  @relation("TaskChildren", fields: [parentTaskId], references: [id])
-  children         OrchestratorTask[] @relation("TaskChildren")
   status           String             @default("pending")
   prompt           String             @db.Text
   result           String?            @db.Text
@@ -99,7 +94,6 @@ model AgentRun {
   thread       Thread            @relation(fields: [threadId], references: [id], onDelete: Cascade)
   taskId       String?
   task         OrchestratorTask? @relation(fields: [taskId], references: [id])
-  traceId      String?
   model        String
   inputTokens  Int               @default(0)
   outputTokens Int               @default(0)
@@ -112,7 +106,6 @@ model AgentRun {
 
   @@index([threadId, startedAt])
   @@index([taskId])
-  @@index([traceId])
 }
 
 model CronJob {
@@ -152,7 +145,6 @@ model PluginConfig {
   id         String   @id @default(cuid())
   pluginName String   @unique
   enabled    Boolean  @default(true)
-  metadata   Json?
   settings   Json?
   createdAt  DateTime @default(now())
   updatedAt  DateTime @updatedAt

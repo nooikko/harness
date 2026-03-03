@@ -110,10 +110,9 @@ const ALL_PLUGINS: PluginDefinition[] = [
 
 **What:** Periodic meta-reflection synthesizes patterns across episodic memories into `REFLECTION` type records. High-importance reflections (importance: 8) are injected into prompts alongside episodic memories.
 
-**Status:** PARTIALLY ACTIVE — the reflection trigger IS wired into the live plugin as fire-and-forget in `scoreAndWriteMemory`. However, two gaps remain:
+**Status:** PARTIALLY ACTIVE — the reflection trigger IS wired into the live plugin as fire-and-forget in `scoreAndWriteMemory`. `AgentConfig.reflectionEnabled` IS checked — the identity plugin passes `config?.reflectionEnabled ?? true` to `scoreAndWriteMemory`, which guards the reflection trigger at line 99. One gap remains:
 
-1. **`reflectionEnabled` is not checked.** The `AgentConfig.reflectionEnabled` flag exists in the schema but `scoreAndWriteMemory` does not consult it. Reflection triggers for all agents regardless of their config setting.
-2. **REFLECTION memories are not prioritized in the header.** `retrieveMemories` returns memories by recency+importance score. REFLECTION records are treated identically to EPISODIC records — they are not given any special weighting or guaranteed injection.
+1. **REFLECTION memories are not prioritized in the header.** `retrieveMemories` returns memories by recency+importance score. REFLECTION records are treated identically to EPISODIC records — they are not given any special weighting or guaranteed injection.
 
 **What is wired:**
 
@@ -141,8 +140,7 @@ Files:
 - `packages/plugins/identity/src/_helpers/run-reflection.ts`
 
 **To complete Phase 4:**
-1. Check `AgentConfig.reflectionEnabled` before triggering — skip if false or config doesn't exist
-2. Give REFLECTION memories a boost in `retrieveMemories` scoring (or guarantee N slots in the returned set)
+1. Give REFLECTION memories a boost in `retrieveMemories` scoring (or guarantee N slots in the returned set)
 
 ---
 
@@ -184,7 +182,7 @@ model AgentConfig {
   agentId           String   @unique
   agent             Agent    @relation(fields: [agentId], references: [id])
   memoryEnabled     Boolean  @default(true)
-  reflectionEnabled Boolean  @default(false) // Phase 4 — not yet checked by plugin
+  reflectionEnabled Boolean  @default(false)
   createdAt         DateTime @default(now())
   updatedAt         DateTime @updatedAt
 }
@@ -192,9 +190,9 @@ model AgentConfig {
 
 The unique FK to `Agent` means one config per agent. The `Agent` model has `config AgentConfig?` relation.
 
-**Note:** The `heartbeatEnabled` and `heartbeatCron` fields were removed as part of the scheduled tasks redesign. Per-agent scheduled tasks are now modeled as CronJob records with `agentId` FK instead of per-agent config flags. See Phase 5 above.
-
-**Note:** `memoryEnabled` is not currently checked by the identity plugin. Memory writing happens for all agents with assigned threads regardless of this flag. Wiring this check is a straightforward enhancement to `scoreAndWriteMemory`.
+Both flags are checked by the identity plugin:
+- **`memoryEnabled`** — checked at line 43 of `packages/plugins/identity/src/index.ts`. If `config?.memoryEnabled === false`, `onAfterInvoke` returns early and no memory is written.
+- **`reflectionEnabled`** — passed as `config?.reflectionEnabled ?? true` to `scoreAndWriteMemory`, which guards the reflection trigger at line 99. Defaults to true when no config exists.
 
 ---
 
@@ -242,7 +240,7 @@ model Agent {
 | 1 — Soul injection | COMPLETE | -- |
 | 2 — Episodic memory | COMPLETE | -- |
 | 3 — Vector search | PAUSED | Qdrant service + backend decision |
-| 4 — Reflection cycle | PARTIALLY ACTIVE | reflectionEnabled not checked; REFLECTION memories not prioritized in header |
+| 4 — Reflection cycle | PARTIALLY ACTIVE | REFLECTION memories not prioritized in retrieval (treated same as EPISODIC) |
 | 5 — Scheduled tasks (CronJob CRUD) | IN PROGRESS | Heartbeat collapsed into CronJob; schema + UI + MCP tool in progress |
 
 ---

@@ -30,6 +30,7 @@ const AgentEditPage = async ({ params }: AgentEditPageProps) => {
         name: true,
         soul: true,
         identity: true,
+        userContext: true,
         role: true,
         goal: true,
         backstory: true,

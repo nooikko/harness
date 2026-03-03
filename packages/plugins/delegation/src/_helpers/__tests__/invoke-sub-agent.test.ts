@@ -190,7 +190,7 @@ describe('invokeSubAgent', () => {
     });
   });
 
-  it('passes traceId to invoke and recordAgentRun', async () => {
+  it('passes traceId to invoke options', async () => {
     const ctx = createMockContext();
 
     await invokeSubAgent(ctx, 'Do work', 'task-1', 'thread-1', undefined, undefined, 'trace-abc-123');
@@ -201,13 +201,6 @@ describe('invokeSubAgent', () => {
       timeout: 30000,
       onMessage: undefined,
       traceId: 'trace-abc-123',
-    });
-
-    const agentRunCreate = (ctx.db as unknown as { agentRun: { create: ReturnType<typeof vi.fn> } }).agentRun.create;
-    expect(agentRunCreate).toHaveBeenCalledWith({
-      data: expect.objectContaining({
-        traceId: 'trace-abc-123',
-      }),
     });
   });
 

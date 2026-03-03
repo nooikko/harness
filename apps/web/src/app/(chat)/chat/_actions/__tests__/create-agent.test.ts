@@ -67,6 +67,7 @@ describe('createAgent', () => {
         name: 'Full Agent',
         soul: 'soul content',
         identity: 'identity content',
+        userContext: null,
         role: 'Engineer',
         goal: 'Ship software',
         backstory: 'Some backstory',
@@ -86,6 +87,7 @@ describe('createAgent', () => {
 
     expect(mockCreate).toHaveBeenCalledWith({
       data: expect.objectContaining({
+        userContext: null,
         role: null,
         goal: null,
         backstory: null,

@@ -323,4 +323,32 @@ describe('CronJobForm', () => {
     );
     expect(screen.getByLabelText('Enabled')).not.toBeChecked();
   });
+
+  it('strips __auto__ sentinel from threadId before submitting', async () => {
+    mockCreateCronJob.mockResolvedValue({ id: 'new_job' });
+    render(<CronJobForm {...defaultProps} defaultValues={{ agentId: 'agent_1', threadId: '__auto__' }} />);
+
+    fireEvent.change(screen.getByLabelText('Name'), { target: { value: 'Job' } });
+    fireEvent.change(screen.getByLabelText('Schedule'), { target: { value: '0 9 * * *' } });
+    fireEvent.change(screen.getByLabelText('Prompt'), { target: { value: 'p' } });
+    fireEvent.submit(screen.getByLabelText('Prompt').closest('form')!);
+
+    await vi.waitFor(() => {
+      expect(mockCreateCronJob).toHaveBeenCalledWith(expect.objectContaining({ threadId: undefined }));
+    });
+  });
+
+  it('strips __none__ sentinel from projectId before submitting', async () => {
+    mockCreateCronJob.mockResolvedValue({ id: 'new_job' });
+    render(<CronJobForm {...defaultProps} defaultValues={{ agentId: 'agent_1', projectId: '__none__' }} />);
+
+    fireEvent.change(screen.getByLabelText('Name'), { target: { value: 'Job' } });
+    fireEvent.change(screen.getByLabelText('Schedule'), { target: { value: '0 9 * * *' } });
+    fireEvent.change(screen.getByLabelText('Prompt'), { target: { value: 'p' } });
+    fireEvent.submit(screen.getByLabelText('Prompt').closest('form')!);
+
+    await vi.waitFor(() => {
+      expect(mockCreateCronJob).toHaveBeenCalledWith(expect.objectContaining({ projectId: undefined }));
+    });
+  });
 });

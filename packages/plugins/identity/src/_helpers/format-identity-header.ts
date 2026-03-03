@@ -16,6 +16,10 @@ export const formatIdentityHeader: FormatIdentityHeader = (agent, memories, opti
   parts.push(`## Soul\n\n${soul}`);
   parts.push(`## Identity\n\n${identity}`);
 
+  if (agent.userContext) {
+    parts.push(`## User Context\n\n${agent.userContext}`);
+  }
+
   if (memories.length > 0) {
     const memoryLines = memories.map((m) => {
       const date = m.createdAt.toISOString().split('T')[0];

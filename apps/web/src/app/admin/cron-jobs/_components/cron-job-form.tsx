@@ -98,13 +98,16 @@ export const CronJobForm: CronJobFormComponent = ({ mode, agents, threads, proje
     setError(null);
     setSuccess(false);
 
+    const resolvedThreadId = threadId && threadId !== '__auto__' ? threadId : undefined;
+    const resolvedProjectId = projectId && projectId !== '__none__' ? projectId : undefined;
+
     startTransition(async () => {
       if (mode === 'create') {
         const result = await createCronJob({
           name,
           agentId,
-          threadId: threadId || undefined,
-          projectId: projectId || undefined,
+          threadId: resolvedThreadId,
+          projectId: resolvedProjectId,
           schedule: scheduleType === 'recurring' ? schedule : undefined,
           fireAt: scheduleType === 'one-shot' ? fireAt : undefined,
           prompt,
@@ -122,8 +125,8 @@ export const CronJobForm: CronJobFormComponent = ({ mode, agents, threads, proje
           id: defaultValues?.id ?? '',
           name,
           agentId,
-          threadId: threadId || null,
-          projectId: projectId || null,
+          threadId: resolvedThreadId ?? null,
+          projectId: resolvedProjectId ?? null,
           schedule: scheduleType === 'recurring' ? schedule : null,
           fireAt: scheduleType === 'one-shot' ? fireAt : null,
           prompt,

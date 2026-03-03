@@ -70,6 +70,19 @@ describe('updateAgent', () => {
     expect(callData).not.toHaveProperty('version');
   });
 
+  it('passes userContext to prisma when provided', async () => {
+    mockUpdate.mockResolvedValue({});
+
+    await updateAgent({ id: 'agent-1', userContext: 'User prefers dark mode' });
+
+    expect(mockUpdate).toHaveBeenCalledWith({
+      where: { id: 'agent-1' },
+      data: expect.objectContaining({
+        userContext: 'User prefers dark mode',
+      }),
+    });
+  });
+
   it('returns error when prisma throws', async () => {
     mockUpdate.mockRejectedValue(new Error('Record not found'));
 

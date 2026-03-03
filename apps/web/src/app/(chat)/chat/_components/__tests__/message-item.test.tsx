@@ -10,10 +10,6 @@ vi.mock('../notification-message', () => ({
   NotificationMessage: ({ message }: { message: Message }) => <div data-testid='notification'>{message.content}</div>,
 }));
 
-vi.mock('../../_helpers/format-model-name', () => ({
-  formatModelName: (model: string) => model.replace('claude-', '').split('-')[0],
-}));
-
 vi.mock('../markdown-content', () => ({
   MarkdownContent: ({ content }: { content: string }) => <div data-testid='markdown-content'>{content}</div>,
 }));
@@ -70,7 +66,6 @@ const makeMessage = (overrides: Partial<Message> = {}): Message => ({
   kind: 'text',
   source: 'builtin',
   content: 'Hello',
-  model: null,
   metadata: null,
   createdAt: new Date('2026-02-23T10:00:00Z'),
   ...overrides,
@@ -121,47 +116,6 @@ describe('MessageItem', () => {
     expect(screen.getByText('Task done')).toBeInTheDocument();
   });
 
-  it('shows model badge on assistant messages when model is set and no agentRun', () => {
-    render(
-      <MessageItem
-        message={makeMessage({
-          role: 'assistant',
-          content: 'Response',
-          model: 'claude-sonnet-4-6',
-        })}
-      />,
-    );
-    expect(screen.getByText('sonnet')).toBeInTheDocument();
-    expect(screen.queryByTestId('activity-chips')).not.toBeInTheDocument();
-  });
-
-  it('does not show model badge on user messages', () => {
-    render(
-      <MessageItem
-        message={makeMessage({
-          role: 'user',
-          content: 'Hi',
-          model: 'claude-sonnet-4-6',
-        })}
-      />,
-    );
-    expect(screen.queryByText('sonnet')).not.toBeInTheDocument();
-  });
-
-  it('does not show model badge when model is null', () => {
-    render(
-      <MessageItem
-        message={makeMessage({
-          role: 'assistant',
-          content: 'Response',
-          model: null,
-        })}
-      />,
-    );
-    expect(screen.queryByText('sonnet')).not.toBeInTheDocument();
-    expect(screen.queryByText(/model/i)).not.toBeInTheDocument();
-  });
-
   it('renders assistant messages with MarkdownContent', () => {
     render(<MessageItem message={makeMessage({ role: 'assistant', content: '**bold** text' })} />);
     expect(screen.getByTestId('markdown-content')).toBeInTheDocument();
@@ -184,20 +138,17 @@ describe('MessageItem', () => {
     expect(chips).toHaveAttribute('data-duration-ms', '1500');
   });
 
-  it('replaces model badge with ActivityChips when agentRun is provided', () => {
+  it('renders ActivityChips instead of bare text when agentRun is provided', () => {
     render(
       <MessageItem
         message={makeMessage({
           role: 'assistant',
           content: 'Response',
-          model: 'claude-sonnet-4-6',
         })}
         agentRun={makeAgentRun()}
       />,
     );
     expect(screen.getByTestId('activity-chips')).toBeInTheDocument();
-    // The old static model badge should NOT render
-    expect(screen.queryByText('sonnet')).not.toBeInTheDocument();
   });
 
   it('does not render ActivityChips for user messages even if agentRun is provided', () => {

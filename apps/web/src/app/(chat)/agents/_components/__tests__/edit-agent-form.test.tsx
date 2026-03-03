@@ -25,6 +25,7 @@ const fakeAgent = {
   slug: 'my-agent',
   soul: 'Soul content',
   identity: 'Identity content',
+  userContext: null as string | null,
   role: 'Engineer',
   goal: 'Ship fast',
   backstory: 'Some backstory',

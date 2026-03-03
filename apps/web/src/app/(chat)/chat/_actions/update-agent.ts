@@ -8,6 +8,7 @@ type UpdateAgentInput = {
   name?: string;
   soul?: string;
   identity?: string;
+  userContext?: string | null;
   role?: string | null;
   goal?: string | null;
   backstory?: string | null;

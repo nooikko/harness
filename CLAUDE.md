@@ -193,7 +193,7 @@ Do not rebuild any of the following — these subsystems are fully implemented.
 
 - **Full CRUD** for Agent records: create, edit, delete
 - **Memory browser** — list and delete AgentMemory records per agent
-- **Server actions** (all in `apps/web/src/app/(chat)/chat/_actions/`): `create-agent.ts`, `update-agent.ts`, `delete-agent.ts`, `list-agents.ts`, `list-agent-memories.ts`, `delete-agent-memory.ts`
+- **Server actions** (all in `apps/web/src/app/(chat)/chat/_actions/`): `create-agent.ts`, `update-agent.ts`, `delete-agent.ts`, `list-agents.ts`, `list-agent-memories.ts`, `delete-agent-memory.ts`, `update-agent-config.ts`
 
 ### Usage Dashboard (`/usage` route)
 
@@ -267,9 +267,8 @@ Do not rebuild any of the following — these subsystems are fully implemented.
 
 - Per-agent feature flags in Prisma schema: `memoryEnabled`, `reflectionEnabled`
 - Schema exists at `packages/database/prisma/schema.prisma`
-- No admin UI or server actions exist yet for managing AgentConfig records
-- `memoryEnabled` and `reflectionEnabled` are not yet checked by the identity plugin
-- **Note:** `heartbeatEnabled` and `heartbeatCron` were removed — per-agent scheduled tasks are now modeled as CronJob records with `agentId` FK
+- Server action: `update-agent-config.ts` — wired to the agent edit form
+- Both flags are checked by the identity plugin: `memoryEnabled` gates memory writing, `reflectionEnabled` gates reflection triggering
 
 ---
 
@@ -279,8 +278,8 @@ These features have schema/UI groundwork but are missing execution logic. Do not
 
 ### AgentConfig Admin UI
 
-- **What:** UI and server actions for managing `AgentConfig` records per agent
-- **Status:** Schema exists, no UI. The `AgentConfig` model is in the database but there is no admin page or server actions to create/update config records.
+- **What:** Dedicated admin page for managing `AgentConfig` records
+- **Status:** Server action exists (`update-agent-config.ts`, wired to agent edit form). No standalone admin page — config is managed inline on the agent edit form.
 - **Fields:** `memoryEnabled`, `reflectionEnabled`
 
 ### Agent Identity Phase 3 — Vector Search
@@ -293,8 +292,8 @@ These features have schema/UI groundwork but are missing execution logic. Do not
 ### Agent Identity Phase 4 — Reflection Cycle
 
 - **What:** Periodic meta-reflection that stores `REFLECTION` type AgentMemory records
-- **Status:** PARTIALLY ACTIVE — the reflection trigger is wired as fire-and-forget in `scoreAndWriteMemory` (fires after each episodic memory write). However: `AgentConfig.reflectionEnabled` is not checked, and REFLECTION memories are not prioritized in the identity header.
-- **Remaining work:** Check `reflectionEnabled` before triggering; give REFLECTION memories a scoring boost in `retrieveMemories`
+- **Status:** PARTIALLY ACTIVE — the reflection trigger is wired as fire-and-forget in `scoreAndWriteMemory` (fires after each episodic memory write). `AgentConfig.reflectionEnabled` IS checked (passed as parameter, guards the trigger). However, REFLECTION memories are not prioritized in retrieval.
+- **Remaining work:** Give REFLECTION memories a scoring boost in `retrieveMemories` (or guarantee N slots in the returned set)
 
 ### Agent Identity Phase 5 — Scheduled Tasks (CronJob CRUD)
 
@@ -302,9 +301,9 @@ These features have schema/UI groundwork but are missing execution logic. Do not
 - **Status:** IN PROGRESS — the heartbeat concept was collapsed into CronJob CRUD. See `docs/plans/2026-03-02-scheduled-tasks-prd.md`
 - **Scope:** Schema changes (agentId, projectId, fireAt, nullable schedule), full CRUD admin UI, MCP tool `cron__schedule_task`, lazy thread creation, one-shot auto-disable
 
-### onCommand Hook (Deprecated, Pending Removal)
+### onCommand Hook (COMPLETED — Fully Removed)
 
-- Steps 6-7 (parseCommands + onCommand) have been removed from the handleMessage pipeline
-- `onCommand` remains in `PluginHooks` type for API compatibility
-- All commands now use PluginTool/MCP — no plugin implements `onCommand`
-- **Do not delete** until a coordinated cleanup also removes `onCommand` from `plugin-contract` and `run-hook-with-result.ts`
+- `onCommand` has been removed from the `PluginHooks` type in `plugin-contract`
+- `run-hook-with-result.ts` and `run-command-hooks.ts` have been deleted
+- Steps 6-7 (parseCommands + onCommand) were removed from the handleMessage pipeline
+- All commands use PluginTool/MCP — no further cleanup needed

@@ -48,7 +48,7 @@ Read `PluginHooks` completely. The hooks are:
 | `onTaskComplete` | Inside delegation loop — task validated | Notification (can throw to reject) |
 | `onTaskFailed` | Inside delegation loop — max iterations | Notification |
 
-**`onCommand` is deprecated.** Steps 6-7 (parseCommands + onCommand) have been removed from the pipeline. All commands now use PluginTool/MCP. The hook type remains in PluginHooks for API compatibility.
+**`onCommand` has been removed.** Steps 6-7 (parseCommands + onCommand) were removed from the pipeline, and `onCommand` was subsequently removed from the `PluginHooks` type. All commands use PluginTool/MCP.
 
 Ask: **Does one of these hooks fire at the right point for what I need?**
 

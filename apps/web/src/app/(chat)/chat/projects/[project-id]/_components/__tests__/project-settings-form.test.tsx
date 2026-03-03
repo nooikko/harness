@@ -47,7 +47,6 @@ const makeProject = (overrides: Partial<Project> = {}): Project => ({
   instructions: 'Some instructions',
   memory: null,
   model: null,
-  settings: null,
   createdAt: new Date('2026-01-01T00:00:00Z'),
   updatedAt: new Date('2026-01-01T00:00:00Z'),
   ...overrides,

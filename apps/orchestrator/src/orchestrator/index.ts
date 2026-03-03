@@ -98,7 +98,6 @@ export const createOrchestrator: CreateOrchestrator = (deps) => {
               kind: 'text',
               source: 'builtin',
               content: invokeResult.output,
-              model: invokeResult.model,
             },
           });
           await deps.db.thread.update({
@@ -155,7 +154,7 @@ export const createOrchestrator: CreateOrchestrator = (deps) => {
     // Step 0: Look up thread for session resumption and model override
     const thread = await deps.db.thread.findUnique({
       where: { id: threadId },
-      select: { sessionId: true, model: true, kind: true, name: true, customInstructions: true },
+      select: { sessionId: true, model: true, kind: true, name: true, customInstructions: true, projectId: true },
     });
 
     // Step 1: Fire onMessage hooks (notification — no modification)
@@ -200,7 +199,15 @@ export const createOrchestrator: CreateOrchestrator = (deps) => {
 
     // Step 4: Invoke Claude via the invoker with session resumption and model override
     deps.setActiveThread?.(threadId);
-    const model = thread?.model ?? undefined;
+    let model = thread?.model ?? undefined;
+    // Fallback: inherit model from project if thread has no model override
+    if (!model && thread?.projectId) {
+      const project = await deps.db.project.findUnique({
+        where: { id: thread.projectId },
+        select: { model: true },
+      });
+      model = project?.model ?? undefined;
+    }
     const sessionId = thread?.sessionId ?? undefined;
     deps.logger.info(
       `Pipeline: invoking Claude [thread=${threadId}, promptLength=${prompt.length}, model=${model ?? 'default'}, sessionId=${sessionId ?? 'none'}]`,

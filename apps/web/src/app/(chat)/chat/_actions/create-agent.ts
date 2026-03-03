@@ -8,6 +8,7 @@ type CreateAgentInput = {
   name: string;
   soul: string;
   identity: string;
+  userContext?: string;
   role?: string;
   goal?: string;
   backstory?: string;
@@ -29,6 +30,7 @@ export const createAgent: CreateAgent = async (input) => {
         name: input.name,
         soul: input.soul,
         identity: input.identity,
+        userContext: input.userContext ?? null,
         role: input.role ?? null,
         goal: input.goal ?? null,
         backstory: input.backstory ?? null,

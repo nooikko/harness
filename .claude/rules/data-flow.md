@@ -160,7 +160,6 @@ These determine how plugins interact. Read before assuming hooks work a certain 
 |--------|----------|---------|
 | `run-hook.ts` | onMessage, onAfterInvoke, onBroadcast, onPipelineStart, onPipelineComplete, onSettingsChange, onTask* | Sequential, error-isolated, cannot stop early, no return value |
 | `run-chain-hook.ts` | onBeforeInvoke | Sequential, each plugin receives previous plugin's output, error keeps previous value |
-| `run-hook-with-result.ts` | onCommand (deprecated) | Sequential, stops and returns true as soon as one plugin returns true |
 
 **There is no parallel hook execution.** All hooks run sequentially in plugin registration order.
 

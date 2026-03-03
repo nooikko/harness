@@ -1,4 +1,3 @@
-import { render, screen } from '@testing-library/react';
 import { renderToStaticMarkup } from 'react-dom/server';
 import { describe, expect, it, vi } from 'vitest';
 
@@ -18,13 +17,6 @@ vi.mock('@harness/database', () => ({
       findUnique: (...args: unknown[]) => mockFindUnique(...args),
     },
   },
-}));
-
-// Mock ConnectionStatus — tested separately
-vi.mock('../_components/connection-status', () => ({
-  ConnectionStatus: ({ pluginName, initialState }: { pluginName: string; initialState: { connected: boolean } }) => (
-    <div data-testid='connection-status' data-plugin={pluginName} data-connected={String(initialState.connected)} />
-  ),
 }));
 
 // Mock SettingsForm — tested separately
@@ -89,7 +81,6 @@ describe('PluginSettingsPage', () => {
       id: '1',
       pluginName: 'discord',
       enabled: false,
-      metadata: null,
       settings: {},
       createdAt: new Date(),
       updatedAt: new Date(),
@@ -111,7 +102,6 @@ describe('PluginSettingsPage', () => {
       id: '1',
       pluginName: 'discord',
       enabled: true,
-      metadata: null,
       settings: {},
       createdAt: new Date(),
       updatedAt: new Date(),
@@ -125,7 +115,6 @@ describe('PluginSettingsPage', () => {
       id: '1',
       pluginName: 'discord',
       enabled: true,
-      metadata: null,
       settings: { botToken: 'my-secret-token' },
       createdAt: new Date(),
       updatedAt: new Date(),
@@ -142,7 +131,6 @@ describe('PluginSettingsPage', () => {
       id: '1',
       pluginName: 'discord',
       enabled: true,
-      metadata: null,
       settings: {},
       createdAt: new Date(),
       updatedAt: new Date(),
@@ -158,7 +146,6 @@ describe('PluginSettingsPage', () => {
       id: '1',
       pluginName: 'context',
       enabled: true,
-      metadata: null,
       settings: { apiKey: 'my-api-key' },
       createdAt: new Date(),
       updatedAt: new Date(),
@@ -177,33 +164,5 @@ describe('PluginSettingsPage', () => {
     mockFindUnique.mockResolvedValue(null);
     const html = renderToStaticMarkup(await PluginSettingsPage({ params: Promise.resolve({ name: 'discord' }) }));
     expect(html).toContain('data-fields="1"');
-  });
-
-  it('renders ConnectionStatus when PluginConfig metadata has connection field', async () => {
-    mockFindUnique.mockResolvedValue({
-      pluginName: 'discord',
-      enabled: true,
-      settings: null,
-      metadata: { connection: { connected: true, username: 'HarnessBot#1234' } },
-    });
-
-    render(await PluginSettingsPage({ params: Promise.resolve({ name: 'discord' }) }));
-
-    const status = screen.getByTestId('connection-status');
-    expect(status).toBeInTheDocument();
-    expect(status).toHaveAttribute('data-connected', 'true');
-  });
-
-  it('does not render ConnectionStatus when PluginConfig metadata has no connection field', async () => {
-    mockFindUnique.mockResolvedValue({
-      pluginName: 'discord',
-      enabled: true,
-      settings: null,
-      metadata: null,
-    });
-
-    render(await PluginSettingsPage({ params: Promise.resolve({ name: 'discord' }) }));
-
-    expect(screen.queryByTestId('connection-status')).not.toBeInTheDocument();
   });
 });

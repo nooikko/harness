@@ -1,6 +1,5 @@
 import type { Message } from '@harness/database';
 import { Info } from 'lucide-react';
-import { formatModelName } from '../_helpers/format-model-name';
 import { isCrossThreadNotification } from '../_helpers/is-cross-thread-notification';
 import { ActivityChips } from './activity-chips';
 import { MarkdownContent } from './markdown-content';
@@ -63,19 +62,13 @@ export const MessageItem: MessageItemComponent = ({ message, agentRun }) => {
     return (
       <article className='w-full max-w-[80%]' aria-label='Assistant'>
         <MarkdownContent content={message.content} />
-        {agentRun ? (
+        {agentRun && (
           <ActivityChips
             model={agentRun.model}
             inputTokens={agentRun.inputTokens}
             outputTokens={agentRun.outputTokens}
             durationMs={agentRun.durationMs}
           />
-        ) : (
-          message.model && (
-            <span className='mt-1.5 inline-block rounded-md bg-muted px-2 py-0.5 text-[11px] text-muted-foreground'>
-              {formatModelName(message.model)}
-            </span>
-          )
         )}
       </article>
     );

@@ -64,7 +64,6 @@ type PluginHooks = {
   onMessage?:          (threadId, role, content) => Promise<void>
   onBeforeInvoke?:     (threadId, prompt) => Promise<string>       // returns modified prompt
   onAfterInvoke?:      (threadId, result: InvokeResult) => Promise<void>
-  onCommand?:          (threadId, command, args) => Promise<boolean> // DEPRECATED — no plugin implements this
   onBroadcast?:        (event, data) => Promise<void>
   onTaskCreate?:       (threadId, taskId) => Promise<void>
   onTaskComplete?:     (threadId, taskId, result) => Promise<void>
@@ -74,8 +73,6 @@ type PluginHooks = {
   onSettingsChange?:   (pluginName) => Promise<void>
 };
 ```
-
-**`onCommand` is deprecated.** Steps 6-7 (parseCommands + onCommand) have been removed from the pipeline. All commands now use PluginTool/MCP. The hook type remains in PluginHooks for API compatibility and will be removed in a coordinated cleanup.
 
 ---
 

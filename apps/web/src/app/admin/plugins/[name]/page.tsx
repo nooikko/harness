@@ -1,7 +1,6 @@
 import { prisma } from '@harness/database';
 import { notFound } from 'next/navigation';
 import { pluginSettingsRegistry } from '@/generated/plugin-settings-registry';
-import { ConnectionStatus } from './_components/connection-status';
 import { SettingsForm } from './_components/settings-form';
 
 export const dynamic = 'force-dynamic';
@@ -9,15 +8,6 @@ export const dynamic = 'force-dynamic';
 type PageProps = { params: Promise<{ name: string }> };
 
 type PluginSettingsPageComponent = (props: PageProps) => Promise<React.ReactNode>;
-
-type PluginConnectionState = {
-  connected: boolean;
-  username?: string;
-};
-
-type PluginMetadata = {
-  connection?: PluginConnectionState;
-};
 
 const PluginSettingsPage: PluginSettingsPageComponent = async ({ params }) => {
   const { name } = await params;
@@ -40,8 +30,6 @@ const PluginSettingsPage: PluginSettingsPageComponent = async ({ params }) => {
     }
   }
 
-  const metadata = (config?.metadata ?? null) as PluginMetadata | null;
-
   return (
     <div className='max-w-xl space-y-6 p-6'>
       <div>
@@ -53,8 +41,6 @@ const PluginSettingsPage: PluginSettingsPageComponent = async ({ params }) => {
           </div>
         )}
       </div>
-
-      {metadata?.connection !== undefined && <ConnectionStatus pluginName={name} initialState={metadata.connection ?? { connected: false }} />}
 
       <SettingsForm pluginName={name} fields={entry.fields} currentValues={displayValues} disabled={!config?.enabled} />
     </div>

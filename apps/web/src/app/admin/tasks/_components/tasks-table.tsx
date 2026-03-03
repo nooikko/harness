@@ -82,6 +82,7 @@ export const TasksTableInternal = async () => {
               <TableHead>Prompt</TableHead>
               <TableHead>Status</TableHead>
               <TableHead>Iterations</TableHead>
+              <TableHead>Result</TableHead>
               <TableHead>Thread</TableHead>
               <TableHead>Created</TableHead>
             </TableRow>
@@ -95,6 +96,9 @@ export const TasksTableInternal = async () => {
                 </TableCell>
                 <TableCell>
                   {task.currentIteration}/{task.maxIterations}
+                </TableCell>
+                <TableCell className='max-w-xs text-sm text-muted-foreground'>
+                  {task.status === 'completed' && task.result ? (task.result.length > 100 ? `${task.result.slice(0, 100)}...` : task.result) : '—'}
                 </TableCell>
                 <TableCell className='text-sm text-muted-foreground'>{task.thread.name ?? task.thread.id.slice(0, 8)}</TableCell>
                 <TableCell>{formatDate(task.createdAt)}</TableCell>

@@ -104,6 +104,19 @@ describe('formatIdentityHeader', () => {
     expect(result).toContain('A key insight');
   });
 
+  it('includes userContext section when agent has userContext', () => {
+    const agent = makeAgent({ userContext: 'The user prefers dark mode and concise responses.' });
+    const result = formatIdentityHeader(agent, [], { soulMaxChars: 5000, identityMaxChars: 2000 });
+    expect(result).toContain('## User Context');
+    expect(result).toContain('The user prefers dark mode and concise responses.');
+  });
+
+  it('does not include userContext section when userContext is null', () => {
+    const agent = makeAgent({ userContext: null });
+    const result = formatIdentityHeader(agent, [], { soulMaxChars: 5000, identityMaxChars: 2000 });
+    expect(result).not.toContain('## User Context');
+  });
+
   it('includes Chain of Persona instruction', () => {
     const agent = makeAgent({ name: 'Aria' });
     const result = formatIdentityHeader(agent, [], { soulMaxChars: 5000, identityMaxChars: 2000 });
