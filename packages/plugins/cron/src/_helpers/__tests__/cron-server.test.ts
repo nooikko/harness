@@ -13,6 +13,14 @@ type MockCronInstance = {
   _handler: () => Promise<void>;
 };
 
+vi.mock('../schedule-one-shot', () => ({
+  scheduleOneShot: vi.fn().mockReturnValue(setTimeout(() => {}, 0)),
+}));
+
+vi.mock('../resolve-or-create-thread', () => ({
+  resolveOrCreateThread: vi.fn(),
+}));
+
 vi.mock('croner', () => {
   class MockCron {
     stop: ReturnType<typeof vi.fn>;
@@ -36,6 +44,11 @@ vi.mock('croner', () => {
 
 import type { PluginContext } from '@harness/plugin-contract';
 import { createCronServer } from '../cron-server';
+import { resolveOrCreateThread } from '../resolve-or-create-thread';
+import { scheduleOneShot } from '../schedule-one-shot';
+
+const mockScheduleOneShot = vi.mocked(scheduleOneShot);
+const mockResolveOrCreateThread = vi.mocked(resolveOrCreateThread);
 
 type CreateMockDb = (jobs: object[]) => {
   cronJob: {
@@ -86,6 +99,9 @@ describe('createCronServer', () => {
     mockInstances.length = 0;
     throwOnNextConstruct = false;
     mockInitialNextRunValue = new Date('2099-01-01T00:00:00Z');
+    mockScheduleOneShot.mockReturnValue(setTimeout(() => {}, 0));
+    // Default: resolve to the job's threadId (mirrors real behaviour for recurring jobs)
+    mockResolveOrCreateThread.mockImplementation((_db, job) => Promise.resolve((job as { threadId: string }).threadId));
   });
 
   it('returns start and stop functions', () => {
@@ -100,6 +116,7 @@ describe('createCronServer', () => {
         id: 'job-1',
         name: 'Test Job',
         schedule: '* * * * *',
+        fireAt: null,
         prompt: 'do something',
         threadId: 'thread-1',
       },
@@ -121,6 +138,7 @@ describe('createCronServer', () => {
         id: 'job-1',
         name: 'Job A',
         schedule: '0 9 * * *',
+        fireAt: null,
         prompt: 'do A',
         threadId: 'thread-a',
       },
@@ -128,6 +146,7 @@ describe('createCronServer', () => {
         id: 'job-2',
         name: 'Job B',
         schedule: '0 17 * * *',
+        fireAt: null,
         prompt: 'do B',
         threadId: 'thread-b',
       },
@@ -141,12 +160,13 @@ describe('createCronServer', () => {
     expect(mockInstances).toHaveLength(2);
   });
 
-  it('start() skips jobs with null threadId and logs a warning', async () => {
+  it('start() schedules a croner job for a recurring job with null threadId (thread resolved lazily on trigger)', async () => {
     const jobs = [
       {
         id: 'job-1',
         name: 'No Thread Job',
         schedule: '* * * * *',
+        fireAt: null,
         prompt: 'do something',
         threadId: null,
       },
@@ -157,9 +177,9 @@ describe('createCronServer', () => {
     const server = createCronServer();
     await server.start(ctx);
 
-    expect(mockInstances).toHaveLength(0);
-    expect(ctx.logger.warn).toHaveBeenCalledWith(expect.stringContaining('No Thread Job'));
-    expect(ctx.logger.warn).toHaveBeenCalledWith(expect.stringContaining('no threadId'));
+    // The croner job is still registered — thread resolution happens lazily
+    // inside the trigger handler via resolveOrCreateThread, not at schedule time
+    expect(mockInstances).toHaveLength(1);
   });
 
   it('start() sets initial nextRunAt on the CronJob record', async () => {
@@ -168,6 +188,7 @@ describe('createCronServer', () => {
         id: 'job-1',
         name: 'Test Job',
         schedule: '* * * * *',
+        fireAt: null,
         prompt: 'ping',
         threadId: 'thread-1',
       },
@@ -192,6 +213,7 @@ describe('createCronServer', () => {
         id: 'job-1',
         name: 'Test Job',
         schedule: '* * * * *',
+        fireAt: null,
         prompt: 'run the task',
         threadId: 'thread-xyz',
       },
@@ -218,6 +240,7 @@ describe('createCronServer', () => {
         id: 'job-1',
         name: 'Test Job',
         schedule: '* * * * *',
+        fireAt: null,
         prompt: 'ping',
         threadId: 'thread-1',
       },
@@ -253,6 +276,7 @@ describe('createCronServer', () => {
         id: 'job-1',
         name: 'Test Job',
         schedule: '* * * * *',
+        fireAt: null,
         prompt: 'ping',
         threadId: 'thread-1',
       },
@@ -291,6 +315,7 @@ describe('createCronServer', () => {
         id: 'job-1',
         name: 'Job A',
         schedule: '* * * * *',
+        fireAt: null,
         prompt: 'a',
         threadId: 'thread-1',
       },
@@ -298,6 +323,7 @@ describe('createCronServer', () => {
         id: 'job-2',
         name: 'Job B',
         schedule: '* * * * *',
+        fireAt: null,
         prompt: 'b',
         threadId: 'thread-2',
       },
@@ -328,6 +354,7 @@ describe('createCronServer', () => {
         id: 'job-1',
         name: 'Bad Job',
         schedule: 'invalid-cron-expression',
+        fireAt: null,
         prompt: 'ping',
         threadId: 'thread-1',
       },
@@ -351,6 +378,7 @@ describe('createCronServer', () => {
         id: 'job-1',
         name: 'Test Job',
         schedule: '* * * * *',
+        fireAt: null,
         prompt: 'ping',
         threadId: 'thread-1',
       },
@@ -371,6 +399,7 @@ describe('createCronServer', () => {
         id: 'job-1',
         name: 'Test Job',
         schedule: '* * * * *',
+        fireAt: null,
         prompt: 'ping',
         threadId: 'thread-1',
       },
@@ -400,6 +429,7 @@ describe('createCronServer', () => {
         id: 'job-1',
         name: 'Test Job',
         schedule: '* * * * *',
+        fireAt: null,
         prompt: 'ping',
         threadId: 'thread-1',
       },
@@ -429,6 +459,7 @@ describe('createCronServer', () => {
         id: 'job-1',
         name: 'Test Job',
         schedule: '* * * * *',
+        fireAt: null,
         prompt: 'ping',
         threadId: 'thread-1',
       },
@@ -457,6 +488,7 @@ describe('createCronServer', () => {
         id: 'job-1',
         name: 'Finite Job',
         schedule: '* * * * *',
+        fireAt: null,
         prompt: 'ping',
         threadId: 'thread-1',
       },
@@ -485,6 +517,7 @@ describe('createCronServer', () => {
         id: 'job-1',
         name: 'One-shot Job',
         schedule: '* * * * *',
+        fireAt: null,
         prompt: 'ping',
         threadId: 'thread-1',
       },
@@ -512,5 +545,284 @@ describe('createCronServer', () => {
         nextRunAt: null,
       },
     });
+  });
+
+  // --- One-shot job branch coverage ---
+
+  it('start() delegates one-shot jobs to scheduleOneShot and stores the timer handle', async () => {
+    const fireAt = new Date('2099-06-01T00:00:00Z');
+    const jobs = [
+      {
+        id: 'os-1',
+        name: 'One Shot Job',
+        schedule: null,
+        fireAt,
+        prompt: 'fire once',
+        threadId: 'thread-os',
+        agentId: 'agent-1',
+        projectId: null,
+      },
+    ];
+    const db = createMockDb(jobs);
+    const ctx = createMockContext({ db: db as never });
+
+    const server = createCronServer();
+    await server.start(ctx);
+
+    // scheduleOneShot should have been called instead of Cron constructor
+    expect(mockScheduleOneShot).toHaveBeenCalledWith(ctx, jobs[0], expect.any(Function));
+    expect(mockInstances).toHaveLength(0); // no croner instances for one-shot
+    // nextRunAt should be set to fireAt for admin UI
+    expect(db.cronJob.update).toHaveBeenCalledWith({
+      where: { id: 'os-1' },
+      data: { nextRunAt: fireAt },
+    });
+  });
+
+  it('one-shot cleanup callback removes the timer from the internal map (via stop)', async () => {
+    const fireAt = new Date('2099-06-01T00:00:00Z');
+    const jobs = [
+      {
+        id: 'os-cleanup',
+        name: 'Cleanup One Shot',
+        schedule: null,
+        fireAt,
+        prompt: 'fire',
+        threadId: 'thread-c',
+        agentId: 'agent-1',
+        projectId: null,
+      },
+    ];
+    const db = createMockDb(jobs);
+    const ctx = createMockContext({ db: db as never });
+
+    // Capture the cleanup callback passed to scheduleOneShot
+    let capturedCleanup: ((jobId: string) => void) | undefined;
+    mockScheduleOneShot.mockImplementation((_ctx, _job, cleanup) => {
+      capturedCleanup = cleanup;
+      return setTimeout(() => {}, 0);
+    });
+
+    const server = createCronServer();
+    await server.start(ctx);
+
+    // Simulate the one-shot firing and calling cleanup
+    expect(capturedCleanup).toBeDefined();
+    capturedCleanup!('os-cleanup');
+
+    // stop() should not throw — the timer was already cleaned up
+    await expect(server.stop()).resolves.toBeUndefined();
+  });
+
+  it('skips invalid job with neither schedule nor fireAt and logs a warning', async () => {
+    const jobs = [
+      {
+        id: 'os-no-fire',
+        name: 'No FireAt One Shot',
+        schedule: null,
+        fireAt: null,
+        prompt: 'fire',
+        threadId: 'thread-nf',
+        agentId: 'agent-1',
+        projectId: null,
+      },
+    ];
+    const db = createMockDb(jobs);
+    const ctx = createMockContext({ db: db as never });
+
+    const server = createCronServer();
+    await server.start(ctx);
+
+    // validateCronJob returns invalid for schedule=null + fireAt=null, so it's skipped
+    expect(ctx.logger.warn).toHaveBeenCalledWith(expect.stringContaining('skipping invalid job'));
+    expect(mockInstances).toHaveLength(0);
+  });
+
+  it('logs a warning when one-shot nextRunAt update fails with an Error', async () => {
+    const fireAt = new Date('2099-06-01T00:00:00Z');
+    const jobs = [
+      {
+        id: 'os-fail',
+        name: 'Fail One Shot',
+        schedule: null,
+        fireAt,
+        prompt: 'fire',
+        threadId: 'thread-f',
+        agentId: 'agent-1',
+        projectId: null,
+      },
+    ];
+    const db = createMockDb(jobs);
+    db.cronJob.update.mockRejectedValueOnce(new Error('DB write failed'));
+    const ctx = createMockContext({ db: db as never });
+
+    const server = createCronServer();
+    await server.start(ctx);
+
+    expect(ctx.logger.warn).toHaveBeenCalledWith(expect.stringContaining('failed to set nextRunAt for one-shot job'));
+  });
+
+  it('logs a warning when one-shot nextRunAt update fails with a non-Error', async () => {
+    const fireAt = new Date('2099-06-01T00:00:00Z');
+    const jobs = [
+      {
+        id: 'os-fail-str',
+        name: 'Fail String One Shot',
+        schedule: null,
+        fireAt,
+        prompt: 'fire',
+        threadId: 'thread-fs',
+        agentId: 'agent-1',
+        projectId: null,
+      },
+    ];
+    const db = createMockDb(jobs);
+    db.cronJob.update.mockRejectedValueOnce('string DB error');
+    const ctx = createMockContext({ db: db as never });
+
+    const server = createCronServer();
+    await server.start(ctx);
+
+    expect(ctx.logger.warn).toHaveBeenCalledWith(expect.stringContaining('string DB error'));
+  });
+
+  it('stop() clears one-shot timers', async () => {
+    const fireAt = new Date('2099-06-01T00:00:00Z');
+    const jobs = [
+      {
+        id: 'os-stop',
+        name: 'Stoppable One Shot',
+        schedule: null,
+        fireAt,
+        prompt: 'fire',
+        threadId: 'thread-s',
+        agentId: 'agent-1',
+        projectId: null,
+      },
+    ];
+    const db = createMockDb(jobs);
+    const ctx = createMockContext({ db: db as never });
+
+    const server = createCronServer();
+    await server.start(ctx);
+
+    // stop() should clear one-shot timers without error
+    await expect(server.stop()).resolves.toBeUndefined();
+  });
+
+  // --- Recurring trigger: resolveOrCreateThread error branch ---
+
+  it('trigger handler logs error and returns early when resolveOrCreateThread throws an Error', async () => {
+    const jobs = [
+      {
+        id: 'job-resolve-err',
+        name: 'Resolve Error Job',
+        schedule: '* * * * *',
+        fireAt: null,
+        prompt: 'ping',
+        threadId: 'thread-1',
+      },
+    ];
+    const db = createMockDb(jobs);
+    const ctx = createMockContext({ db: db as never });
+
+    mockResolveOrCreateThread.mockRejectedValueOnce(new Error('thread creation failed'));
+
+    const server = createCronServer();
+    await server.start(ctx);
+
+    db.cronJob.update.mockClear();
+
+    const instance = mockInstances[0];
+    if (!instance) {
+      throw new Error('No cron instance created');
+    }
+
+    await instance._handler();
+
+    expect(ctx.logger.error).toHaveBeenCalledWith(expect.stringContaining('failed to resolve thread'));
+    expect(ctx.logger.error).toHaveBeenCalledWith(expect.stringContaining('thread creation failed'));
+    // sendToThread and update should NOT have been called
+    expect(ctx.sendToThread).not.toHaveBeenCalled();
+    expect(db.cronJob.update).not.toHaveBeenCalled();
+  });
+
+  it('trigger handler logs error with string when resolveOrCreateThread throws a non-Error', async () => {
+    const jobs = [
+      {
+        id: 'job-resolve-str',
+        name: 'Resolve String Error Job',
+        schedule: '* * * * *',
+        fireAt: null,
+        prompt: 'ping',
+        threadId: 'thread-1',
+      },
+    ];
+    const db = createMockDb(jobs);
+    const ctx = createMockContext({ db: db as never });
+
+    mockResolveOrCreateThread.mockRejectedValueOnce('string resolve error');
+
+    const server = createCronServer();
+    await server.start(ctx);
+
+    db.cronJob.update.mockClear();
+
+    const instance = mockInstances[0];
+    if (!instance) {
+      throw new Error('No cron instance created');
+    }
+
+    await instance._handler();
+
+    expect(ctx.logger.error).toHaveBeenCalledWith(expect.stringContaining('string resolve error'));
+    expect(ctx.sendToThread).not.toHaveBeenCalled();
+  });
+
+  // --- Initial nextRunAt update: non-Error catch branch ---
+
+  it('logs a warning with string when the initial nextRunAt update fails with a non-Error', async () => {
+    const jobs = [
+      {
+        id: 'job-init-str',
+        name: 'Init String Error',
+        schedule: '* * * * *',
+        fireAt: null,
+        prompt: 'ping',
+        threadId: 'thread-1',
+      },
+    ];
+    const db = createMockDb(jobs);
+    db.cronJob.update.mockRejectedValueOnce('init string error');
+    const ctx = createMockContext({ db: db as never });
+
+    const server = createCronServer();
+    await server.start(ctx);
+
+    expect(ctx.logger.warn).toHaveBeenCalledWith(expect.stringContaining('init string error'));
+  });
+
+  // --- Cron constructor: non-Error catch branch ---
+
+  it('handles non-Error thrown from Cron constructor', async () => {
+    const jobs = [
+      {
+        id: 'job-cron-str',
+        name: 'Cron String Error',
+        schedule: 'bad',
+        fireAt: null,
+        prompt: 'ping',
+        threadId: 'thread-1',
+      },
+    ];
+    const db = createMockDb(jobs);
+    const ctx = createMockContext({ db: db as never });
+
+    throwOnNextConstruct = true;
+
+    const server = createCronServer();
+    await server.start(ctx);
+
+    expect(ctx.logger.error).toHaveBeenCalledWith(expect.stringContaining('Invalid cron expression'));
   });
 });

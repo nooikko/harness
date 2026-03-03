@@ -200,7 +200,8 @@ Plugins can be disabled at runtime via `PluginConfig.enabled` in the database wi
 
 ### cron plugin
 **Lifecycle:** `start` / `stop`
-**Does:** Reads enabled `CronJob` records from DB, schedules with croner (UTC). On trigger: calls `ctx.sendToThread(job.threadId, job.prompt)` and atomically updates `lastRunAt`/`nextRunAt`. Jobs with null `threadId` are skipped with a warning.
+**Tool:** `schedule_task`
+**Does:** Reads enabled `CronJob` records from DB, partitions into recurring (cron expression) and one-shot (`fireAt` datetime) jobs, and schedules with croner (UTC). On trigger: resolves threadId (auto-creates thread if null via lazy thread creation), calls `ctx.sendToThread(threadId, job.prompt)`, and atomically updates `lastRunAt`/`nextRunAt`. One-shot jobs auto-disable after firing (`enabled: false`). The `schedule_task` MCP tool allows agents to create scheduled tasks during conversation — `agentId` and `projectId` are auto-resolved from the current thread.
 
 ### summarization plugin
 **Hook:** `onAfterInvoke`

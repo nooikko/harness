@@ -5,7 +5,7 @@ const { default: CronJobsPage, metadata } = await import('../page');
 
 describe('CronJobsPage', () => {
   it('exports correct metadata title', () => {
-    expect(metadata.title).toBe('Cron Jobs | Admin | Harness Dashboard');
+    expect(metadata.title).toBe('Scheduled Tasks | Admin | Harness Dashboard');
   });
 
   it('exports correct metadata description', () => {
@@ -14,7 +14,7 @@ describe('CronJobsPage', () => {
 
   it('renders the page heading', () => {
     const html = renderToStaticMarkup(<CronJobsPage />);
-    expect(html).toContain('Cron Jobs');
+    expect(html).toContain('Scheduled Tasks');
   });
 
   it('renders the description text', () => {

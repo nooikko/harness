@@ -50,6 +50,7 @@ model Project {
   model        String?
   settings     Json?
   threads      Thread[]
+  cronJobs     CronJob[]
   createdAt    DateTime  @default(now())
   updatedAt    DateTime  @updatedAt
 
@@ -116,8 +117,13 @@ model AgentRun {
 
 model CronJob {
   id        String    @id @default(cuid())
+  agentId   String
+  agent     Agent     @relation(fields: [agentId], references: [id])
+  projectId String?
+  project   Project?  @relation(fields: [projectId], references: [id])
   name      String    @unique
-  schedule  String
+  schedule  String?
+  fireAt    DateTime?
   prompt    String    @db.Text
   enabled   Boolean   @default(true)
   lastRunAt DateTime?
@@ -127,6 +133,7 @@ model CronJob {
   updatedAt DateTime  @updatedAt
 
   @@index([enabled, nextRunAt])
+  @@index([agentId])
 }
 
 model Metric {
@@ -182,6 +189,7 @@ model Agent {
   threads     Thread[]
   memories    AgentMemory[]
   config      AgentConfig?
+  cronJobs    CronJob[]
 
   @@index([slug])
   @@index([enabled])
@@ -213,8 +221,6 @@ model AgentConfig {
   agent             Agent    @relation(fields: [agentId], references: [id])
   memoryEnabled     Boolean  @default(true)
   reflectionEnabled Boolean  @default(false) // Phase 4 — not yet implemented
-  heartbeatEnabled  Boolean  @default(false) // Phase 5 — blocked on cron scheduler
-  heartbeatCron     String? // cron expression when heartbeat is wired
   createdAt         DateTime @default(now())
   updatedAt         DateTime @updatedAt
 }

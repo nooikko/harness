@@ -3,6 +3,7 @@ import { describe, expect, it, vi } from 'vitest';
 
 const mockFindUnique = vi.fn();
 const mockAgentConfigFindUnique = vi.fn();
+const mockCronJobFindMany = vi.fn();
 vi.mock('@harness/database', () => ({
   prisma: {
     agent: {
@@ -10,6 +11,9 @@ vi.mock('@harness/database', () => ({
     },
     agentConfig: {
       findUnique: (...args: unknown[]) => mockAgentConfigFindUnique(...args),
+    },
+    cronJob: {
+      findMany: (...args: unknown[]) => mockCronJobFindMany(...args),
     },
   },
 }));
@@ -34,6 +38,10 @@ vi.mock('../../_components/agent-memory-browser', () => ({
   AgentMemoryBrowser: () => <div data-testid='memory-browser' />,
 }));
 
+vi.mock('../../_components/agent-scheduled-tasks', () => ({
+  AgentScheduledTasks: () => <div data-testid='scheduled-tasks' />,
+}));
+
 const { default: AgentEditPage, generateMetadata } = await import('../page');
 
 const makeParams = (id: string) => Promise.resolve({ 'agent-id': id });
@@ -56,6 +64,7 @@ describe('AgentEditPage', () => {
     mockFindUnique.mockResolvedValue(null);
     mockAgentConfigFindUnique.mockResolvedValue(null);
     mockListAgentMemories.mockResolvedValue([]);
+    mockCronJobFindMany.mockResolvedValue([]);
 
     await expect(AgentEditPage({ params: makeParams('missing-id') })).rejects.toThrow('NEXT_NOT_FOUND');
     expect(mockNotFound).toHaveBeenCalled();
@@ -65,6 +74,7 @@ describe('AgentEditPage', () => {
     mockFindUnique.mockResolvedValue(fakeAgent);
     mockAgentConfigFindUnique.mockResolvedValue(null);
     mockListAgentMemories.mockResolvedValue([]);
+    mockCronJobFindMany.mockResolvedValue([]);
 
     const jsx = await AgentEditPage({ params: makeParams('agent-1') });
     render(jsx as React.ReactElement);
@@ -76,6 +86,7 @@ describe('AgentEditPage', () => {
     mockFindUnique.mockResolvedValue(fakeAgent);
     mockAgentConfigFindUnique.mockResolvedValue(null);
     mockListAgentMemories.mockResolvedValue([]);
+    mockCronJobFindMany.mockResolvedValue([]);
 
     const jsx = await AgentEditPage({ params: makeParams('agent-1') });
     render(jsx as React.ReactElement);
@@ -87,6 +98,7 @@ describe('AgentEditPage', () => {
     mockFindUnique.mockResolvedValue(fakeAgent);
     mockAgentConfigFindUnique.mockResolvedValue(null);
     mockListAgentMemories.mockResolvedValue([]);
+    mockCronJobFindMany.mockResolvedValue([]);
 
     const jsx = await AgentEditPage({ params: makeParams('agent-1') });
     render(jsx as React.ReactElement);

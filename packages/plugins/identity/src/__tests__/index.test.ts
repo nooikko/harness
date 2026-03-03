@@ -22,8 +22,6 @@ type MockAgentConfig = {
   agentId: string;
   memoryEnabled: boolean;
   reflectionEnabled: boolean;
-  heartbeatEnabled: boolean;
-  heartbeatCron: string | null;
   createdAt: Date;
   updatedAt: Date;
 };
@@ -345,8 +343,6 @@ describe('identity plugin', () => {
         agentId: 'agent-1',
         memoryEnabled: false,
         reflectionEnabled: false,
-        heartbeatEnabled: false,
-        heartbeatCron: null,
         createdAt: new Date('2026-01-01T00:00:00Z'),
         updatedAt: new Date('2026-01-01T00:00:00Z'),
       };

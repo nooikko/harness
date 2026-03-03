@@ -22,8 +22,6 @@ describe('loadAgentConfig', () => {
       agentId: 'agent-1',
       memoryEnabled: true,
       reflectionEnabled: false,
-      heartbeatEnabled: false,
-      heartbeatCron: null,
       createdAt: new Date(),
       updatedAt: new Date(),
     };

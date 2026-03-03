@@ -2,218 +2,667 @@
   "master": {
     "tasks": [
       {
-        "id": 1,
-        "title": "Dead code cleanup: onCommand stub and legacy schema models",
-        "description": "Two cleanup items. (1) Add deprecation comments to parse-commands.ts and Steps 6-7 of handleMessage in orchestrator/index.ts documenting that onCommand is intentionally unused — all commands now use PluginTool via tool-server. Do not delete yet. (2) Delete User and Post models from packages/database/prisma/schema.prisma — Prisma template artifacts with zero application references.",
-        "status": "pending",
-        "priority": "medium",
-        "dependencies": [],
-        "subtasks": [
-          {
-            "id": 1,
-            "title": "Mark onCommand pipeline steps as deprecated",
-            "description": "Add JSDoc/inline comments to parse-commands.ts and Steps 6-7 of handleMessage explaining this code path is unused and intentionally preserved as a stub. All commands route through PluginTool/tool-server instead.",
-            "status": "pending",
-            "dependencies": []
-          },
-          {
-            "id": 2,
-            "title": "Remove User and Post models from schema",
-            "description": "Delete User and Post model definitions from packages/database/prisma/schema.prisma. Run pnpm db:push or create migration. Verify zero references to User or Post in application code before deleting.",
-            "status": "pending",
-            "dependencies": []
-          }
-        ],
-        "details": "Verified: onCommand (Steps 6-7 in orchestrator/index.ts) and parse-commands.ts are dead stubs — zero plugin implementations. User and Post confirmed as Prisma template artifacts with zero application references.",
-        "testStrategy": "Grep for User and Post imports after deletion — confirm zero. Confirm no TypeScript errors. Confirm DB migration completes cleanly."
-      },
-      {
-        "id": 2,
-        "title": "Small consistency fixes (MODEL_OPTIONS, audit URL, metrics warning)",
-        "description": "Three small consistency fixes in one PR. (1) Extract MODEL_OPTIONS from manage-thread-modal.tsx and model-selector.tsx into a shared _helpers/model-options.ts. (2) Fix request-audit-delete.ts to use getOrchestratorUrl() helper instead of inline URL construction. (3) Add ctx.logger.warn in metrics plugin when inputTokens/outputTokens/model are missing from InvokeResult.",
-        "status": "pending",
-        "priority": "medium",
-        "dependencies": [],
-        "subtasks": [
-          {
-            "id": 1,
-            "title": "Extract MODEL_OPTIONS to shared helper",
-            "description": "Create apps/web/src/app/(chat)/chat/_helpers/model-options.ts exporting MODEL_OPTIONS. Update manage-thread-modal.tsx and model-selector.tsx to import from it.",
-            "status": "pending",
-            "dependencies": []
-          },
-          {
-            "id": 2,
-            "title": "Fix requestAuditDelete URL pattern",
-            "description": "In apps/web/src/app/(chat)/chat/_actions/request-audit-delete.ts, replace inline orchestrator URL construction with getOrchestratorUrl() helper.",
-            "status": "pending",
-            "dependencies": []
-          },
-          {
-            "id": 3,
-            "title": "Add warning log for missing metrics fields",
-            "description": "In packages/plugins/metrics/src/index.ts, add ctx.logger.warn when inputTokens, outputTokens, or model are absent from InvokeResult and the metrics write is being skipped. Currently silent — cost cap enforcement silently fails when metrics don't write.",
-            "status": "pending",
-            "dependencies": []
-          }
-        ],
-        "details": "Circuit breaker verified as fully implemented (commit dfb7f55, March 1) — removed from this task. These three remain unaddressed.",
-        "testStrategy": "MODEL_OPTIONS: both modal and selector show same options from one source. Audit URL: confirm fetch target uses helper. Metrics: mock a missing-field InvokeResult and verify warn log appears."
-      },
-      {
-        "id": 3,
-        "title": "Add AgentConfig database model",
-        "description": "Add AgentConfig model to packages/database/prisma/schema.prisma. This table stores per-agent feature flags and will hold the heartbeatCron expression when Agent Identity Phase 5 is implemented. Creating it now prevents a mid-feature schema migration when heartbeat arrives.",
-        "status": "pending",
-        "priority": "medium",
-        "dependencies": [],
-        "subtasks": [],
-        "details": "Schema: { id, agentId (unique FK to Agent), memoryEnabled (default true), reflectionEnabled (default false — Phase 4 not yet implemented), heartbeatEnabled (default false — Phase 5 blocked on cron), heartbeatCron (String? — cron expression when heartbeat is wired), createdAt, updatedAt }. Also add reverse relation on Agent model. Run db:generate after schema change.",
-        "testStrategy": "Verify AgentConfig can be created/read/updated via Prisma client. Verify FK constraint with Agent enforces referential integrity."
-      },
-      {
-        "id": 4,
-        "title": "Complete custom thread instructions feature",
-        "description": "Thread.customInstructions field already exists in Prisma schema. UI textarea already exists in manage-thread-modal.tsx but is unwired — stale comment says 'once DB field exists' but the field DOES exist. Three changes needed: server action, UI wiring, orchestrator injection.",
-        "status": "pending",
-        "priority": "medium",
-        "dependencies": [],
-        "subtasks": [
-          {
-            "id": 1,
-            "title": "Create update-thread-instructions server action",
-            "description": "Create apps/web/src/app/(chat)/chat/_actions/update-thread-instructions.ts. Takes threadId and customInstructions string. Calls prisma.thread.update. Same pattern as rename-thread.ts.",
-            "status": "pending",
-            "dependencies": []
-          },
-          {
-            "id": 2,
-            "title": "Wire manage-thread-modal textarea",
-            "description": "In manage-thread-modal.tsx, add controlled state for the instructions field, load initial value from thread prop, call update-thread-instructions on save. Remove the stale TODO comment.",
-            "status": "pending",
-            "dependencies": []
-          },
-          {
-            "id": 3,
-            "title": "Inject customInstructions in prompt assembler",
-            "description": "In apps/orchestrator/src/orchestrator/_helpers/prompt-assembler.ts, when thread.customInstructions is non-null/non-empty, append it to the assembled prompt. Position: after the kind instruction, before the base content. Format as a clearly labeled section.",
-            "status": "pending",
-            "dependencies": []
-          }
-        ],
-        "details": "Verified: Thread.customInstructions column exists in schema. UI field exists in manage-thread-modal.tsx with placeholder text and stale 'DB field does not exist' comment. Neither the action nor the orchestrator injection exists.",
-        "testStrategy": "Set custom instructions on a thread, send a message, verify instructions appear in the assembled prompt (visible in pipeline_step activity records or via logger)."
-      },
-      {
-        "id": 5,
-        "title": "Implement cron scheduler as @harness/plugin-cron",
-        "description": "Implement the missing executor for the cron system. Schema (CronJob), seed data (4 jobs), admin UI (/admin/cron-jobs), thread kind='cron' support, and prompt templates all exist. Only the scheduler is missing. Must be implemented as a plugin (not a top-level module) so it can be disabled via PluginConfig at runtime. ctx.sendToThread is safe to call inside plugin start() hooks.",
-        "status": "pending",
+        "id": "8",
+        "title": "Update Prisma Schema for Scheduled Tasks",
+        "description": "Modify CronJob model to add agentId and projectId fields, add fireAt and make schedule nullable, remove heartbeat fields from AgentConfig",
+        "details": "1. Add required agentId field to CronJob model with FK to Agent\n2. Add optional projectId field to CronJob model with FK to Project\n3. Make schedule field nullable (String?)\n4. Add fireAt field (DateTime?) for one-shot scheduling\n5. Add relations to Agent and Project models (cronJobs CronJob[])\n6. Remove heartbeatEnabled and heartbeatCron from AgentConfig model\n7. Run pnpm db:generate after changes",
+        "testStrategy": "Validate schema changes compile correctly with pnpm db:generate, ensure migration can be applied without data loss",
         "priority": "high",
         "dependencies": [],
+        "status": "done",
         "subtasks": [
           {
             "id": 1,
-            "title": "Create @harness/plugin-cron package",
-            "description": "Create packages/plugins/cron/ with package.json, tsconfig.json, and src/index.ts following the pattern of other plugins. Add to pnpm workspace.",
+            "title": "Update CronJob Model Schema",
+            "description": "Modify the CronJob model in schema.prisma to add agentId field, projectId field, make schedule nullable, and add fireAt field",
+            "dependencies": [],
+            "details": "In packages/database/prisma/schema.prisma lines 117-130, add required agentId String field with FK to Agent, add optional projectId String? field with FK to Project, change schedule String to schedule String?, add fireAt DateTime? field, and add @@index([agentId]) for performance",
             "status": "pending",
-            "dependencies": []
+            "testStrategy": "Run pnpm db:generate to validate schema changes compile without errors",
+            "parentId": "undefined"
           },
           {
             "id": 2,
-            "title": "Add cron library dependency",
-            "description": "Add croner (preferred over node-cron for timezone/UTC offset support) to packages/plugins/cron/package.json. Verify compatibility with Node >= 22.",
+            "title": "Add CronJob Relations to Agent and Project Models",
+            "description": "Add cronJobs relation arrays to both Agent and Project models to establish bidirectional relationships",
+            "dependencies": ["8.1"],
+            "details": "In Agent model (lines 164-188), add cronJobs CronJob[] relation. In Project model (lines 44-57), add cronJobs CronJob[] relation. This enables navigation from Agent/Project to their associated CronJobs",
             "status": "pending",
-            "dependencies": []
+            "testStrategy": "Verify schema compilation with pnpm db:generate after adding relations",
+            "parentId": "undefined"
           },
           {
             "id": 3,
-            "title": "Implement cron-server helper",
-            "description": "Create packages/plugins/cron/src/_helpers/cron-server.ts. On start: query CronJob where enabled=true, schedule each using its cron expression (UTC). On trigger: validate threadId is non-null, call ctx.sendToThread(cronJob.threadId, cronJob.prompt), then atomically update cronJob.lastRunAt and compute nextRunAt. Wrap execution in try/catch — update lastRunAt even on failure. On stop: clear all scheduled jobs.",
+            "title": "Remove Heartbeat Fields from AgentConfig",
+            "description": "Delete heartbeatEnabled and heartbeatCron fields from the AgentConfig model as they are being replaced by the new scheduled tasks system",
+            "dependencies": ["8.2"],
+            "details": "Remove heartbeatEnabled Boolean field (line 216) and heartbeatCron String? field (line 217) from AgentConfig model, along with their related comments about Phase 5",
             "status": "pending",
-            "dependencies": []
+            "testStrategy": "Confirm schema compiles and no references to removed fields exist in codebase",
+            "parentId": "undefined"
           },
           {
             "id": 4,
-            "title": "Implement plugin start/stop lifecycle",
-            "description": "In packages/plugins/cron/src/index.ts, implement start() hook that initializes the cron-server, and stop() hook that tears it down. No onBeforeInvoke/onAfterInvoke needed — this plugin is lifecycle-only. Use ctx.sendToThread (safe in start()) and ctx.db to query CronJob records.",
+            "title": "Update Database Seed Script for Agent Association",
+            "description": "Modify the seed script to create or fetch a default agent and assign it to all seeded CronJobs",
+            "dependencies": ["8.3"],
+            "details": "In packages/database/prisma/seed.ts, modify seedCronJobs function to accept agentId parameter, create/fetch a default agent record, and pass agentId when creating CronJob records in lines 45-50",
             "status": "pending",
-            "dependencies": []
+            "testStrategy": "Run seed script and verify all CronJobs have agentId populated in database",
+            "parentId": "undefined"
           },
           {
             "id": 5,
-            "title": "Register cronPlugin in plugin-registry",
-            "description": "Add cronPlugin to ALL_PLUGINS array in apps/orchestrator/src/plugin-registry/index.ts. Position: after webPlugin (web must start first so HTTP is up before any cron jobs could theoretically fire via HTTP path, though sendToThread is in-memory and safe regardless).",
+            "title": "Generate Updated Prisma Client",
+            "description": "Run pnpm db:generate to regenerate the Prisma client with all schema changes",
+            "dependencies": ["8.1", "8.2", "8.3", "8.4"],
+            "details": "Execute pnpm db:generate from project root to regenerate TypeScript types and client code reflecting all CronJob model changes, new relations, and removed AgentConfig fields",
             "status": "pending",
-            "dependencies": []
+            "testStrategy": "Verify command completes successfully without errors and TypeScript compilation passes",
+            "parentId": "undefined"
           }
         ],
-        "details": "VERIFIED BOOT SEQUENCE: ctx.sendToThread is safe in start() hooks (pipeline.handleMessage is assigned before start() fires). Seeded CronJobs already have valid threadIds pointing to the primary thread. Use atomic prisma.cronJob.update() for lastRunAt/nextRunAt — no read-modify-write. Plugin pattern preferred over top-level module per architectural invariants (enables runtime disable via PluginConfig). All 4 seeded jobs use UTC schedule expressions (MST = UTC-7).",
-        "testStrategy": "Create a test CronJob with a near-future schedule. Verify it fires, sendToThread is called with correct prompt, lastRunAt is updated in DB. Verify disabled jobs do not fire. Verify stop() clears all scheduled jobs cleanly."
+        "updatedAt": "2026-03-03T03:31:16.282Z"
       },
       {
-        "id": 6,
-        "title": "Documentation: CLAUDE.md system inventory and planned-incomplete sections",
-        "description": "Add two new sections to CLAUDE.md to prevent future agents from rebuilding existing systems or missing the state of planned systems.",
-        "status": "pending",
-        "priority": "medium",
-        "dependencies": [5],
+        "id": "9",
+        "title": "Migrate Seed Script for Agent Association",
+        "description": "Update database seed script to assign existing CronJobs to a default agent",
+        "details": "1. Modify packages/database/prisma/seed.ts\n2. Create or fetch a default agent record\n3. Update seedCronJobs function to accept agentId parameter\n4. Pass agentId when creating CronJob records\n5. Ensure all 4 seeded jobs (Morning Digest, Memory Consolidation, Calendar Refresh, Weekly Review) have agentId set",
+        "testStrategy": "Run pnpm db:push and seed script, verify all CronJobs have agentId populated in database",
+        "priority": "high",
+        "dependencies": ["8"],
+        "status": "done",
         "subtasks": [
           {
             "id": 1,
-            "title": "Add 'What Already Exists' section to CLAUDE.md",
-            "description": "Document every fully-implemented subsystem: admin section (/admin with cron-jobs, plugins, threads, agent-runs, tasks), agent management (/agents CRUD + memory browser), usage dashboard (/usage), agent identity system (Phases 1-2 complete: soul injection + episodic memory scoring), summarization plugin (at 50-message threshold), audit-delete flow, delegation with validator and circuit breaker, cron scheduler (after Task 5).",
+            "title": "Create default agent in seed script",
+            "description": "Add a seedDefaultAgent function to create or fetch a default agent record for assigning to CronJobs",
+            "dependencies": [],
+            "details": "Create a seedDefaultAgent function that uses prisma.agent.upsert to ensure a default agent exists. Use a unique slug like 'system-default' for the default agent. Return the agent ID for use in CronJob seeding. Include basic soul/identity fields for the system agent.",
             "status": "pending",
-            "dependencies": []
+            "testStrategy": "Verify default agent is created with correct slug, name, and required fields populated",
+            "parentId": "undefined"
           },
           {
             "id": 2,
-            "title": "Add 'Planned But Incomplete' section to CLAUDE.md",
-            "description": "Document: Agent Identity Phase 3 (vector search — Qdrant is the candidate, NOT pgvector, decision pending), Agent Identity Phase 4 (reflection cycle — schema REFLECTION type exists, trigger logic not implemented), Agent Identity Phase 5 (heartbeat — blocked on AgentConfig table + cron scheduler, both now exist after Tasks 3 and 5). Custom thread instructions (done in Task 4).",
+            "title": "Update seedCronJobs function to accept agentId",
+            "description": "Modify the seedCronJobs function signature to accept agentId parameter and use it in CronJob creation",
+            "dependencies": ["9.1"],
+            "details": "Change seedCronJobs function from (threadId: string) to (threadId: string, agentId: string). Update all prisma.cronJob.upsert calls to include agentId in both update and create clauses. Ensure the agentId field is properly set for all 4 cron jobs.",
             "status": "pending",
-            "dependencies": []
+            "testStrategy": "Verify all CronJob upserts include agentId in both update and create operations",
+            "parentId": "undefined"
+          },
+          {
+            "id": 3,
+            "title": "Update seed execution flow",
+            "description": "Modify the main seed function to create default agent and pass agentId to seedCronJobs",
+            "dependencies": ["9.1", "9.2"],
+            "details": "In the main seed function, call seedDefaultAgent after seedPrimaryThread to get the agentId. Pass both threadId and agentId to the seedCronJobs function. Update console logging to show agent seeding status.",
+            "status": "pending",
+            "testStrategy": "Run seed script and verify console output shows agent creation and all CronJobs are properly linked",
+            "parentId": "undefined"
+          },
+          {
+            "id": 4,
+            "title": "Verify CronJob-Agent relationship",
+            "description": "Ensure all 4 seeded CronJobs (Morning Digest, Memory Consolidation, Calendar Refresh, Weekly Review) have agentId populated",
+            "dependencies": ["9.2", "9.3"],
+            "details": "Add validation after seeding to query all CronJobs and verify each has a non-null agentId. Add console logging to confirm the count of jobs seeded and their agent association. Include error handling if any jobs are missing agentId.",
+            "status": "pending",
+            "testStrategy": "Run pnpm db:push and seed script, query database to verify all 4 CronJobs have agentId field populated with the default agent's ID",
+            "parentId": "undefined"
           }
         ],
-        "details": "Do this LAST so docs reflect actual final state of all other tasks. The admin section and /agents route are fully implemented but mentioned nowhere in CLAUDE.md — biggest source of agent re-implementation.",
-        "testStrategy": "Read CLAUDE.md after changes. Verify a new agent would know: admin exists, /agents exists, heartbeat needs cron, vector search uses Qdrant not pgvector, which identity phases are complete vs. paused."
+        "updatedAt": "2026-03-03T03:32:12.645Z"
       },
       {
-        "id": 7,
-        "title": "Documentation: architectural rules for cron and agent identity state",
-        "description": "Add rule files documenting the cron integration pattern and agent identity system state. Prevents future agents from designing these systems from scratch.",
-        "status": "pending",
-        "priority": "medium",
-        "dependencies": [5],
+        "id": "10",
+        "title": "Enhance Cron Plugin for One-Shot Support",
+        "description": "Update cron-server.ts to handle both recurring and one-shot scheduled tasks",
+        "details": "1. In cron-server.ts start() method, partition jobs by type (schedule vs fireAt)\n2. For recurring jobs: use existing Cron logic\n3. For one-shot jobs: calculate delay from now to fireAt, use setTimeout\n4. After one-shot fires: set enabled=false, update lastRunAt, clear nextRunAt\n5. Add validation to skip jobs with both/neither schedule and fireAt\n6. Log warnings for invalid job configurations",
+        "testStrategy": "Unit test both recurring and one-shot job scheduling, verify one-shot jobs disable after firing, test edge cases (past fireAt times, invalid configs)",
+        "priority": "high",
+        "dependencies": ["8"],
+        "status": "done",
         "subtasks": [
           {
             "id": 1,
-            "title": "Create .claude/rules/cron-scheduler.md",
-            "description": "Document: plugin pattern (not top-level module), how cron-server queries CronJob records, what nextRunAt means, how a trigger becomes a sendToThread call, thread kind='cron' behavior, admin UI at /admin/cron-jobs, the dependency chain for per-agent heartbeat (CronJob system → AgentConfig.heartbeatCron → identity plugin Phase 5). Include boot sequence note: ctx.sendToThread safe only in start() hooks.",
+            "title": "Add job type validation helper function",
+            "description": "Create a helper function to validate and categorize CronJob records by type (recurring vs one-shot)",
+            "dependencies": [],
+            "details": "1. Create packages/plugins/cron/src/_helpers/validate-job-type.ts\n2. Export validateJobType function that takes a CronJob and returns 'recurring'|'one-shot'|'invalid'\n3. Validate: exactly one of schedule or fireAt must be set\n4. Return 'recurring' if schedule is set and fireAt is null\n5. Return 'one-shot' if fireAt is set and schedule is null\n6. Return 'invalid' if both or neither are set\n7. Follow existing patterns: arrow function only, single export per file",
             "status": "pending",
-            "dependencies": []
+            "testStrategy": "Unit test all validation scenarios: valid recurring job (schedule only), valid one-shot job (fireAt only), invalid jobs (both set, neither set, null values)",
+            "parentId": "undefined"
           },
           {
             "id": 2,
-            "title": "Create .claude/rules/agent-identity-state.md",
-            "description": "Document: Phase 1-2 complete (soul injection, episodic memory, importance scoring, dual injection, memory retrieval). Phase 3 paused — vector search via Qdrant (NOT pgvector) when decided. Phase 4 paused — reflection cycle (REFLECTION MemoryType exists in schema). Phase 5 paused — heartbeat blocked on AgentConfig + cron. Plugin ordering: identity runs BEFORE context in onBeforeInvoke chain (registered first in ALL_PLUGINS). AgentConfig table exists for per-agent config.",
+            "title": "Create one-shot job scheduler helper function",
+            "description": "Implement a helper function to handle one-shot job scheduling with setTimeout",
+            "dependencies": ["10.1"],
+            "details": "1. Create packages/plugins/cron/src/_helpers/schedule-one-shot.ts\n2. Export scheduleOneShot function that takes (job: CronJob, ctx: PluginContext, timeoutRefs: Set<NodeJS.Timeout>)\n3. Calculate delay from now to job.fireAt using Date arithmetic\n4. Use setTimeout to schedule execution\n5. On execution: call ctx.sendToThread, update job with enabled=false and lastRunAt=now, clear nextRunAt\n6. Store timeout reference in provided Set for cleanup\n7. Handle past fireAt times (execute immediately or skip with warning)",
             "status": "pending",
-            "dependencies": []
+            "testStrategy": "Unit test delay calculation, immediate execution for past dates, timeout cleanup, database update calls, error handling for sendToThread failures",
+            "parentId": "undefined"
+          },
+          {
+            "id": 3,
+            "title": "Refactor cron-server start method to partition jobs",
+            "description": "Modify the existing start method in cron-server.ts to handle both recurring and one-shot jobs",
+            "dependencies": ["10.1", "10.2"],
+            "details": "1. Import validateJobType and scheduleOneShot helpers\n2. Add timeoutRefs: Set<NodeJS.Timeout> to track one-shot timeouts\n3. Partition jobs into recurring and one-shot arrays using validateJobType\n4. Log warnings for invalid jobs and skip them\n5. Process recurring jobs with existing Cron logic\n6. Process one-shot jobs with scheduleOneShot helper\n7. Update job count logging to show breakdown by type",
+            "status": "pending",
+            "testStrategy": "Unit test job partitioning logic, verify both job types are processed correctly, test invalid job handling, verify logging output includes type breakdown",
+            "parentId": "undefined"
+          },
+          {
+            "id": 4,
+            "title": "Update cron-server stop method for timeout cleanup",
+            "description": "Enhance the stop method to properly clean up both Cron instances and setTimeout references",
+            "dependencies": ["10.2", "10.3"],
+            "details": "1. Clear all timeouts in timeoutRefs Set using clearTimeout\n2. Clear the timeoutRefs Set after cleanup\n3. Keep existing Cron job cleanup logic unchanged\n4. Add logging for cleanup operations\n5. Ensure stop method is idempotent (safe to call multiple times)",
+            "status": "pending",
+            "testStrategy": "Unit test timeout cleanup, verify clearTimeout is called for all stored timeouts, test idempotent behavior, verify existing Cron cleanup still works",
+            "parentId": "undefined"
+          },
+          {
+            "id": 5,
+            "title": "Update existing tests and add one-shot coverage",
+            "description": "Extend cron-server.test.ts to cover new one-shot functionality and validation",
+            "dependencies": ["10.1", "10.2", "10.3", "10.4"],
+            "details": "1. Add test cases for job type validation (recurring, one-shot, invalid)\n2. Add tests for one-shot job scheduling with future fireAt times\n3. Add tests for one-shot jobs with past fireAt times\n4. Add tests for mixed job types in single start() call\n5. Update existing tests to use new job partitioning logic\n6. Mock setTimeout/clearTimeout for deterministic testing\n7. Verify database updates for one-shot job completion",
+            "status": "pending",
+            "testStrategy": "Comprehensive test coverage for all new functionality, verify all edge cases are tested, ensure existing test coverage is maintained, use proper mocking for timing functions",
+            "parentId": "undefined"
           }
         ],
-        "details": "Do this LAST so rules reflect actual final state. These files are loaded into agent context via .claude/rules/ and directly prevent architectural drift.",
-        "testStrategy": "Rules files exist, are accurate, and reference real file paths. An agent reading them should understand the cron wiring and identity phase state without reading source code."
+        "updatedAt": "2026-03-03T03:35:55.949Z"
+      },
+      {
+        "id": "11",
+        "title": "Implement Lazy Thread Creation in Cron Plugin",
+        "description": "Add logic to automatically create threads when CronJob has no threadId",
+        "details": "1. In cron-server.ts, modify job execution logic\n2. Check if threadId is null before firing\n3. If null: create thread with prisma.thread.create using job.agentId and job.projectId\n4. Update CronJob record with new threadId\n5. Use the new threadId for ctx.sendToThread\n6. Add error handling for thread creation failures",
+        "testStrategy": "Test job firing with null threadId creates new thread, verify thread has correct agentId/projectId, test subsequent fires reuse same thread",
+        "priority": "medium",
+        "dependencies": ["10"],
+        "status": "pending",
+        "subtasks": [
+          {
+            "id": 1,
+            "title": "Create resolve-or-create-thread helper function",
+            "description": "Create a new helper function in packages/plugins/cron/src/_helpers/resolve-or-create-thread.ts that checks if threadId exists, and if not, creates a new thread using agentId and projectId from the CronJob",
+            "dependencies": [],
+            "details": "Function should: 1. Accept CronJob and PluginContext parameters 2. Return existing threadId if present 3. If threadId is null but agentId exists, create new thread with prisma.thread.create using job.agentId, job.projectId, kind='cron', name=job.name 4. Update CronJob record with new threadId 5. Return the resolved threadId 6. Include comprehensive error handling for thread creation failures",
+            "status": "pending",
+            "testStrategy": "Unit test with mock PluginContext and CronJob data. Test existing threadId passthrough, new thread creation with valid agentId/projectId, error handling for missing agentId, and database transaction failures",
+            "parentId": "undefined"
+          },
+          {
+            "id": 2,
+            "title": "Modify cron-server.ts to use resolve-or-create-thread",
+            "description": "Update the cron job execution logic in cron-server.ts to use the new resolve-or-create-thread helper instead of skipping jobs with null threadId",
+            "dependencies": ["11.1"],
+            "details": "Replace lines 25-28 in cron-server.ts that currently skip jobs without threadId. Instead: 1. Import resolveOrCreateThread helper 2. Call resolveOrCreateThread(job, ctx) before job scheduling 3. Use the returned threadId for both scheduling and sendToThread calls 4. Maintain existing error handling and logging patterns",
+            "status": "pending",
+            "testStrategy": "Integration test verifying jobs with null threadId get threads created, existing threadIds are preserved, and job execution proceeds normally. Test error scenarios when thread creation fails",
+            "parentId": "undefined"
+          },
+          {
+            "id": 3,
+            "title": "Add agentId and projectId fields to CronJob schema",
+            "description": "Update the CronJob model in packages/database/prisma/schema.prisma to include agentId and projectId fields for thread creation",
+            "dependencies": [],
+            "details": "Add agentId String? and projectId String? fields to CronJob model with appropriate relations to Agent and Project models. Include database indexes for efficient queries. Generate new Prisma migration to update the schema",
+            "status": "pending",
+            "testStrategy": "Test schema validation, verify foreign key constraints work correctly, test that existing CronJob records remain valid after migration",
+            "parentId": "undefined"
+          },
+          {
+            "id": 4,
+            "title": "Update cron-server tests for lazy thread creation",
+            "description": "Modify existing tests in packages/plugins/cron/src/_helpers/__tests__/cron-server.test.ts to cover the new lazy thread creation behavior",
+            "dependencies": ["11.1", "11.2", "11.3"],
+            "details": "Add test cases for: 1. Jobs with null threadId but valid agentId creating new threads 2. Jobs with existing threadId being unchanged 3. Jobs with null threadId and null agentId being skipped 4. Error handling when thread creation fails 5. Verify CronJob records get updated with new threadIds",
+            "status": "pending",
+            "testStrategy": "Mock Prisma operations for thread creation and CronJob updates. Verify correct database calls are made and error scenarios are handled properly. Test that job scheduling continues after successful thread creation",
+            "parentId": "undefined"
+          }
+        ]
+      },
+      {
+        "id": "12",
+        "title": "Create CronJob CRUD Server Actions",
+        "description": "Implement server actions for creating, updating, and deleting CronJobs",
+        "details": "1. Create apps/web/src/app/admin/cron-jobs/_actions/create-cron-job.ts\n2. Create apps/web/src/app/admin/cron-jobs/_actions/update-cron-job.ts\n3. Create apps/web/src/app/admin/cron-jobs/_actions/delete-cron-job.ts\n4. Validate mutual exclusivity of schedule/fireAt in create and update\n5. Add input validation for cron expressions and datetime formats\n6. Use revalidatePath('/admin/cron-jobs') after mutations\n7. Follow existing action patterns from create-agent.ts",
+        "testStrategy": "Unit test each action with valid/invalid inputs, test schedule/fireAt validation, verify database mutations work correctly",
+        "priority": "high",
+        "dependencies": ["8"],
+        "status": "done",
+        "subtasks": [],
+        "updatedAt": "2026-03-03T03:33:05.336Z"
+      },
+      {
+        "id": "13",
+        "title": "Build CronJob List View UI",
+        "description": "Enhance the existing cron-jobs admin page with full CRUD functionality",
+        "details": "1. Update apps/web/src/app/admin/cron-jobs/_components/cron-jobs-table.tsx\n2. Add columns: Agent name (linked), Type badge (Recurring/One-shot), Project, Actions (Edit/Delete)\n3. Display Schedule or Fire At based on job type\n4. Show 'Auto-create' for null threadId\n5. Add 'New Scheduled Task' button at top\n6. Implement delete confirmation dialog\n7. Use existing UI components from 'ui' package",
+        "testStrategy": "Manual testing of table display with mixed job types, verify agent links work, test sorting/filtering, confirm delete dialog works",
+        "priority": "medium",
+        "dependencies": ["12"],
+        "status": "done",
+        "subtasks": [
+          {
+            "id": 1,
+            "title": "Add page header with New Scheduled Task button",
+            "description": "Update the cron-jobs admin page to include a header section with a 'New Scheduled Task' button that links to the create form.",
+            "dependencies": [],
+            "details": "Modify apps/web/src/app/admin/cron-jobs/page.tsx to add a header section similar to the agents page pattern. Import Button and Link from appropriate packages. Add a flex container with the existing h1/description on the left and a 'New Scheduled Task' button on the right that links to /admin/cron-jobs/new. Use Plus icon from lucide-react. Follow the exact pattern from apps/web/src/app/(chat)/agents/page.tsx lines 17-28.",
+            "status": "pending",
+            "testStrategy": "Verify the button renders correctly, links to /admin/cron-jobs/new, and matches the visual style of other admin pages.",
+            "parentId": "undefined"
+          },
+          {
+            "id": 2,
+            "title": "Extend CronJob query to include related Thread and Agent data",
+            "description": "Update the prisma query in cron-jobs-table.tsx to include related Thread (with agent) information for display in the enhanced table.",
+            "dependencies": [1],
+            "details": "Modify the prisma.cronJob.findMany query in CronJobsTableInternal to include the thread relation with its agent. Add: include: { thread: { select: { id: true, name: true, agent: { select: { id: true, name: true, slug: true } } } } }. Update the component's type annotations to reflect the expanded data shape. The CronJob schema shows threadId is nullable, so handle cases where thread is null (display 'Auto-create').",
+            "status": "pending",
+            "testStrategy": "Unit test the query returns expected shape with and without thread associations. Verify null threadId scenarios are handled.",
+            "parentId": "undefined"
+          },
+          {
+            "id": 3,
+            "title": "Add new table columns for Agent, Type badge, and Thread display",
+            "description": "Enhance the table columns to display Agent name (linked), Type badge (Recurring/One-shot based on schema fields), and Thread name or 'Auto-create' indicator.",
+            "dependencies": [2],
+            "details": "Update TableHeader and TableBody in cron-jobs-table.tsx. Add columns: 1) Agent - Link component to /agents/[slug] if thread.agent exists, else show 'N/A'. 2) Type - Badge showing 'Recurring' (schedule field exists) or 'One-shot' (fireAt field when added to schema). Note: current schema only has 'schedule' field, so all current jobs are recurring. 3) Thread - show thread.name if exists, else 'Auto-create' text. Reorder columns: Name, Agent, Type, Schedule/FireAt, Thread, Status, Last Run, Next Run, Actions.",
+            "status": "pending",
+            "testStrategy": "Test table renders all columns correctly. Verify agent links navigate to correct agent page. Test null agent/thread edge cases show appropriate fallback text.",
+            "parentId": "undefined"
+          },
+          {
+            "id": 4,
+            "title": "Add Edit and Delete action buttons to table rows",
+            "description": "Replace the simple Enable/Disable toggle with a more comprehensive Actions column containing Edit link and Delete button.",
+            "dependencies": [3],
+            "details": "Replace the existing form/button in the Actions TableCell. Add a flex container with: 1) Edit button/link using Button variant='ghost' with Pencil icon linking to /admin/cron-jobs/[id]/edit. 2) Delete button using Button variant='ghost' with Trash2 icon that opens delete confirmation dialog. Keep the existing toggle functionality as a third action using Switch component or move it to the Status column. Import Pencil, Trash2 icons from lucide-react. Follow existing UI patterns from the codebase.",
+            "status": "pending",
+            "testStrategy": "Verify Edit link navigates to correct edit page. Confirm Delete button triggers the confirmation dialog. Test toggle still functions correctly.",
+            "parentId": "undefined"
+          },
+          {
+            "id": 5,
+            "title": "Implement delete confirmation dialog for CronJob deletion",
+            "description": "Create a client-side delete confirmation modal following the pattern from delete-thread-modal.tsx that confirms before calling the delete server action.",
+            "dependencies": [4],
+            "details": "Create a new client component apps/web/src/app/admin/cron-jobs/_components/delete-cron-job-dialog.tsx. Use AlertDialog components from @harness/ui (AlertDialog, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle). Props: open, onOpenChange, jobId, jobName. Use useTransition for pending state. On confirm, call the delete-cron-job server action (from Task 12). Display job name in confirmation message. Follow the pattern from apps/web/src/app/(chat)/chat/_components/delete-thread-modal.tsx but simplified (no audit option). Wire the dialog state to the Delete button in the table.",
+            "status": "pending",
+            "testStrategy": "Test dialog opens when Delete button clicked. Verify cancel closes dialog without action. Confirm successful deletion removes row and shows feedback. Test pending state disables buttons.",
+            "parentId": "undefined"
+          }
+        ],
+        "updatedAt": "2026-03-03T03:42:51.148Z"
+      },
+      {
+        "id": "14",
+        "title": "Create CronJob Form Component",
+        "description": "Build a form component for creating and editing CronJobs",
+        "details": "1. Create apps/web/src/app/admin/cron-jobs/_components/cron-job-form.tsx\n2. Form fields: Name, Agent dropdown, Thread dropdown (filtered by agent), Project dropdown, Type toggle (Recurring/One-shot)\n3. Conditional fields: Schedule input (if recurring), Fire At datetime picker (if one-shot)\n4. Prompt textarea, Enabled toggle\n5. Thread dropdown includes 'Auto-create on first run' option\n6. Use React Hook Form with zod validation\n7. Import UI components from 'ui' package",
+        "testStrategy": "Test form validation, verify conditional fields show/hide correctly, test agent-thread filtering, validate form submission with both job types",
+        "priority": "medium",
+        "dependencies": ["12", "13"],
+        "status": "done",
+        "subtasks": [
+          {
+            "id": 1,
+            "title": "Create Zod validation schema for CronJob form",
+            "description": "Define the Zod schema for CronJob form validation with mutual exclusivity between schedule and fireAt fields",
+            "dependencies": [],
+            "details": "Create apps/web/src/app/admin/cron-jobs/_components/_helpers/cron-job-schema.ts exporting a zodSchema that validates: name (string, required, min 1), agentId (string, required), threadId (string, optional, special value '__auto__' for auto-create), projectId (string, optional), type ('recurring' | 'one-shot'), schedule (string, required if type='recurring', validated as cron expression), fireAt (datetime string, required if type='one-shot'), prompt (string, required, min 1), enabled (boolean, default true). Use superRefine for mutual exclusivity validation of schedule/fireAt based on type field.",
+            "status": "pending",
+            "testStrategy": "Create __tests__/cron-job-schema.test.ts to test valid/invalid inputs, mutual exclusivity enforcement, cron expression validation, and type inference.",
+            "parentId": "undefined"
+          },
+          {
+            "id": 2,
+            "title": "Create type toggle component for Recurring/One-shot selection",
+            "description": "Build a reusable type toggle component that switches between Recurring and One-shot job types",
+            "dependencies": [1],
+            "details": "Create apps/web/src/app/admin/cron-jobs/_components/_helpers/job-type-toggle.tsx as a client component. Use two styled buttons or radio group from @harness/ui (Button with variant toggling based on selection). Props: value ('recurring' | 'one-shot'), onChange callback. The component should visually indicate which type is selected using the existing Button component's variant prop (default for selected, outline for unselected). Follow existing patterns from create-agent-form.tsx for state management.",
+            "status": "pending",
+            "testStrategy": "Create __tests__/job-type-toggle.test.tsx testing render, click handling, and visual state changes for both types.",
+            "parentId": "undefined"
+          },
+          {
+            "id": 3,
+            "title": "Build CronJobForm component structure with agent/thread/project dropdowns",
+            "description": "Create the main CronJobForm component with name, agent, thread, and project dropdown fields using shadcn Select components",
+            "dependencies": [1, 2],
+            "details": "Create apps/web/src/app/admin/cron-jobs/_components/cron-job-form.tsx as 'use client' component. Props: initialData (optional CronJob for edit mode), agents (Agent[]), threads (Thread[]), projects (Project[]), onSubmit callback. Use Select, SelectContent, SelectItem, SelectTrigger, SelectValue from @harness/ui. Agent dropdown is required, Thread dropdown filters by selected agentId and includes 'Auto-create on first run' option with value '__auto__'. Use useState for form state following create-agent-form.tsx patterns (not React Hook Form - codebase uses controlled components). Import Label, Input from @harness/ui.",
+            "status": "pending",
+            "testStrategy": "Create __tests__/cron-job-form.test.tsx testing dropdown rendering, agent-thread filtering logic, form state management.",
+            "parentId": "undefined"
+          },
+          {
+            "id": 4,
+            "title": "Add conditional schedule/fireAt fields and prompt textarea",
+            "description": "Implement conditional rendering of schedule input (for recurring) or datetime picker (for one-shot) based on type toggle, plus prompt textarea",
+            "dependencies": [2, 3],
+            "details": "Extend cron-job-form.tsx to include: JobTypeToggle component controlling 'type' state. When type='recurring', show Input for schedule with placeholder '0 14 * * *' and helper text explaining cron format. When type='one-shot', show datetime-local Input for fireAt field. Always show: Textarea (from @harness/ui) for prompt field with monospace font styling, minimum 4 rows. Add enabled toggle using a styled checkbox or button toggle (similar to toggle-cron-job pattern). Include validation error display using the same error styling from create-agent-form.tsx.",
+            "status": "pending",
+            "testStrategy": "Test conditional field visibility based on type selection, validate schedule shows only for recurring and fireAt only for one-shot.",
+            "parentId": "undefined"
+          },
+          {
+            "id": 5,
+            "title": "Implement form submission with validation and error handling",
+            "description": "Wire up form submission to call server action with validation and handle success/error states",
+            "dependencies": [3, 4],
+            "details": "Add form submission handler using useTransition pattern from create-agent-form.tsx. Validate form data against Zod schema before submission. Props should accept onSubmit: (data: CronJobFormData) => Promise<{ success: true } | { error: string }>. Display error messages using the same destructive styling from existing forms. On success, navigate using router.push('/admin/cron-jobs'). Include Cancel button that navigates back. Disable form during submission using isPending state. Support both create and edit modes based on whether initialData is provided.",
+            "status": "pending",
+            "testStrategy": "Test form submission flow, validation error display, success navigation, cancel behavior, and pending state UI.",
+            "parentId": "undefined"
+          },
+          {
+            "id": 6,
+            "title": "Add agentId query parameter support and data prefetching",
+            "description": "Support ?agentId query parameter to pre-select agent and implement proper data loading for dropdowns",
+            "dependencies": [3, 5],
+            "details": "Modify cron-job-form.tsx to accept defaultAgentId prop. When provided, pre-select the agent in the dropdown and auto-filter thread options. The parent page components (new/page.tsx and [id]/edit/page.tsx from Task 15) will read searchParams.agentId and pass it down. Also ensure thread filtering works correctly: when agentId changes, clear threadId selection unless the currently selected thread belongs to the new agent. Add useEffect to handle initial agent pre-selection and thread filtering.",
+            "status": "pending",
+            "testStrategy": "Test agent pre-selection from query param, thread filtering when agent changes, proper clearing of thread selection on agent change.",
+            "parentId": "undefined"
+          }
+        ],
+        "updatedAt": "2026-03-03T03:45:19.071Z"
+      },
+      {
+        "id": "15",
+        "title": "Add CronJob Create/Edit Pages",
+        "description": "Create new and edit pages for CronJob management",
+        "details": "1. Create apps/web/src/app/admin/cron-jobs/new/page.tsx\n2. Create apps/web/src/app/admin/cron-jobs/[id]/edit/page.tsx\n3. New page: render CronJobForm with create action\n4. Edit page: fetch existing job, render CronJobForm with update action\n5. Support query param ?agentId={id} for pre-selecting agent\n6. Add proper loading and error states\n7. Redirect to list view after successful save",
+        "testStrategy": "Test navigation to new/edit pages, verify pre-filled data on edit, test query param handling, confirm redirects work",
+        "priority": "medium",
+        "dependencies": ["14"],
+        "status": "done",
+        "subtasks": [],
+        "updatedAt": "2026-03-03T03:57:31.115Z"
+      },
+      {
+        "id": "16",
+        "title": "Integrate Scheduled Tasks in Agent Detail Page",
+        "description": "Add read-only scheduled tasks section to agent detail page",
+        "details": "1. Modify apps/web/src/app/(chat)/agents/[agent-id]/page.tsx\n2. Add query to fetch CronJobs where agentId matches\n3. Create new section 'Scheduled Tasks' with table\n4. Show same columns as admin table minus Agent column\n5. Add 'Add Scheduled Task' button that navigates to /admin/cron-jobs/new?agentId={id}\n6. Make table read-only (no inline editing)\n7. Style consistently with existing agent page sections",
+        "testStrategy": "Verify scheduled tasks appear for correct agent, test navigation to create page with pre-filled agent, ensure UI consistency",
+        "priority": "low",
+        "dependencies": ["13"],
+        "status": "done",
+        "subtasks": [],
+        "updatedAt": "2026-03-03T03:45:52.710Z"
+      },
+      {
+        "id": "17",
+        "title": "Implement schedule_task MCP Tool",
+        "description": "Create MCP tool for agents to schedule tasks during conversation",
+        "details": "1. Add tool definition to packages/plugins/cron/src/index.ts\n2. Tool name: 'schedule_task' with PluginTool type\n3. Schema: name (string), prompt (string), schedule (string optional), fireAt (string optional), threadId (string optional)\n4. Handler: resolve agentId from meta.threadId → thread.agentId\n5. Resolve projectId from thread.projectId\n6. Default threadId to meta.threadId if not provided\n7. Validate schedule/fireAt mutual exclusivity\n8. Create CronJob record and return confirmation",
+        "testStrategy": "Integration test tool with mock PluginContext, verify agentId/projectId resolution, test validation logic, confirm CronJob creation",
+        "priority": "high",
+        "dependencies": ["10", "11"],
+        "status": "done",
+        "subtasks": [
+          {
+            "id": 1,
+            "title": "Create schedule-task tool definition",
+            "description": "Add the schedule_task tool to the cron plugin's tools array with complete schema definition",
+            "dependencies": [],
+            "details": "In packages/plugins/cron/src/index.ts, create a tools array following the pattern from delegation/time plugins. Define the PluginTool object with name 'schedule_task', description explaining the tool's purpose for scheduling tasks during conversation, and JSON schema with properties: name (string, required), prompt (string, required), schedule (string, optional, cron expression), fireAt (string, optional, ISO datetime), threadId (string, optional, defaults to meta.threadId). Schema type is 'object' with required array containing ['name', 'prompt'].",
+            "status": "pending",
+            "testStrategy": "Unit test the tool schema validates correct inputs and rejects invalid inputs (missing name/prompt, both schedule and fireAt provided)",
+            "parentId": "undefined"
+          },
+          {
+            "id": 2,
+            "title": "Implement thread resolution and validation logic",
+            "description": "Build the initial handler logic to resolve thread context and validate input parameters",
+            "dependencies": [1],
+            "details": "In the schedule_task tool handler: 1) Default threadId to meta.threadId if not provided, 2) Query ctx.db.thread.findUnique with threadId to get thread record with agentId and projectId fields, 3) Validate mutual exclusivity of schedule and fireAt (error if both provided, error if neither provided), 4) Validate schedule format if provided (cron expression), 5) Validate fireAt format if provided (ISO datetime string), 6) Return descriptive error messages for validation failures following the pattern from delegation plugin's input validation.",
+            "status": "pending",
+            "testStrategy": "Unit test schedule/fireAt validation logic (both null, both set, one set), test thread lookup with valid/invalid threadId, test error message formatting",
+            "parentId": "undefined"
+          },
+          {
+            "id": 3,
+            "title": "Extract helper function for next run calculation",
+            "description": "Create a reusable helper to compute nextRunAt from schedule or fireAt",
+            "dependencies": [2],
+            "details": "Create packages/plugins/cron/src/_helpers/compute-next-run.ts exporting a computeNextRun function. Type signature: computeNextRun(schedule: string | null, fireAt: string | null): Date | null. Implementation: if fireAt provided, parse ISO string and return Date object; if schedule provided, use croner library to parse expression and call .nextRun() method to get next execution time; return null if both are null. Add error handling for invalid cron expressions and invalid ISO datetime strings. Follow the one-export-per-helper pattern.",
+            "status": "pending",
+            "testStrategy": "Unit test with valid cron expressions returning correct next run time, test with valid ISO dates, test error handling for invalid inputs, test null handling",
+            "parentId": "undefined"
+          },
+          {
+            "id": 4,
+            "title": "Implement CronJob record creation",
+            "description": "Complete the handler by creating the CronJob database record with all resolved fields",
+            "dependencies": [2, 3],
+            "details": "In the tool handler after validation: 1) Call computeNextRun helper to get nextRunAt value, 2) Execute ctx.db.cronJob.create with data object containing: name (from input), prompt (from input), schedule (from input or empty string if fireAt provided), enabled: true, threadId (resolved), agentId (from thread.agentId), projectId (from thread.projectId), nextRunAt (from computeNextRun). Note: agentId and projectId fields must exist in CronJob schema from task 10. 3) Return success message: 'Scheduled task \"{name}\". Next run: {nextRunAt timestamp formatted}'. Use formatTime helper from time plugin for timestamp formatting.",
+            "status": "pending",
+            "testStrategy": "Integration test with mock PluginContext and database, verify CronJob record created with correct fields, verify agentId/projectId resolution from thread, test return message format",
+            "parentId": "undefined"
+          },
+          {
+            "id": 5,
+            "title": "Add tool to plugin definition and test end-to-end",
+            "description": "Wire the tool into the plugin definition and validate complete integration",
+            "dependencies": [4],
+            "details": "In packages/plugins/cron/src/index.ts, add the tools array to the exported plugin object (same level as name, version, register, start, stop). Follow the pattern from time plugin (line 74) where tools is defined via a createTools function. Verify the tool is properly exported and accessible via the plugin contract. Test that the tool appears in the MCP tool server with name 'cron__schedule_task' (qualified name pattern). Run integration test invoking the tool through the orchestrator to verify thread resolution, database write, and response formatting work correctly end-to-end.",
+            "status": "pending",
+            "testStrategy": "Integration test calling tool through orchestrator tool server, verify tool appears as 'cron__schedule_task', test complete flow from tool invocation to CronJob creation, verify lazy thread creation works if threadId is null in created job",
+            "parentId": "undefined"
+          }
+        ],
+        "updatedAt": "2026-03-03T03:46:33.701Z"
+      },
+      {
+        "id": "18",
+        "title": "Add Tests for Cron Plugin Changes",
+        "description": "Write comprehensive tests for all cron plugin modifications",
+        "details": "1. Update packages/plugins/cron/src/_helpers/__tests__/cron-server.test.ts\n2. Test recurring job scheduling (existing behavior)\n3. Test one-shot job scheduling with setTimeout\n4. Test lazy thread creation when threadId is null\n5. Test schedule_task MCP tool\n6. Test edge cases: past fireAt times, invalid configs, both/neither schedule and fireAt\n7. Mock croner, setTimeout, and Prisma client",
+        "testStrategy": "Run tests with pnpm test, achieve >80% coverage on modified files, ensure all edge cases covered",
+        "priority": "medium",
+        "dependencies": ["10", "11", "17"],
+        "status": "done",
+        "subtasks": [
+          {
+            "id": 1,
+            "title": "Add tests for one-shot job scheduling with setTimeout",
+            "description": "Create comprehensive tests for one-shot scheduled tasks that use fireAt instead of schedule, verifying they fire once and auto-disable",
+            "dependencies": [],
+            "details": "In packages/plugins/cron/src/_helpers/__tests__/cron-server.test.ts, add test cases: (1) 'schedules one-shot job with setTimeout when fireAt is set' - verify setTimeout is called with correct delay, (2) 'one-shot handler fires and disables job' - mock setTimeout, trigger handler, verify enabled=false update and lastRunAt set, (3) 'skips one-shot jobs with past fireAt times' - verify warning logged and job skipped, (4) 'handles jobs with both schedule and fireAt' - verify validation skips job and logs warning. Mock setTimeout globally using vi.useFakeTimers() in beforeEach, restore with vi.useRealTimers() in afterEach. Follow existing test patterns with createMockDb and createMockContext helpers.",
+            "status": "pending",
+            "testStrategy": "Run pnpm test --filter cron to execute tests, verify all new one-shot test cases pass, check coverage includes setTimeout branches",
+            "parentId": "undefined"
+          },
+          {
+            "id": 2,
+            "title": "Add tests for lazy thread creation when threadId is null",
+            "description": "Test automatic thread creation when CronJob has null threadId, verifying thread gets created with correct agentId and projectId",
+            "dependencies": [],
+            "details": "In packages/plugins/cron/src/_helpers/__tests__/cron-server.test.ts, add test cases: (1) 'creates thread when threadId is null and updates CronJob' - mock prisma.thread.create, verify it's called with correct agentId/projectId, verify cronJob.update sets threadId, (2) 'uses created threadId for sendToThread call' - verify ctx.sendToThread receives the newly created threadId, (3) 'reuses existing thread on subsequent fires' - fire handler twice, verify thread.create only called once, (4) 'handles thread creation failure gracefully' - mock thread.create to reject, verify error logged and job execution continues. Add agentId and projectId fields to mock job objects. Extend createMockDb to include thread.create mock returning {id: 'new-thread-id'}.",
+            "status": "pending",
+            "testStrategy": "Run pnpm test --filter cron, verify thread creation logic coverage >80%, ensure all edge cases (null threadId, creation failure) are tested",
+            "parentId": "undefined"
+          },
+          {
+            "id": 3,
+            "title": "Add tests for schedule_task MCP tool",
+            "description": "Create tests for the new schedule_task MCP tool that creates scheduled tasks programmatically",
+            "dependencies": [],
+            "details": "Create new test file packages/plugins/cron/src/__tests__/schedule-task-tool.test.ts. Test the schedule_task tool handler: (1) 'creates recurring job with schedule parameter' - verify prisma.cronJob.create called with correct schedule, prompt, threadId, (2) 'creates one-shot job with fireAt parameter' - verify cronJob.create with fireAt timestamp, (3) 'validates input schema' - test missing required fields (prompt), test mutually exclusive schedule/fireAt, (4) 'returns success response with job ID' - verify tool returns created job.id and confirmation message, (5) 'handles database errors' - mock create to reject, verify error thrown with helpful message. Mock PluginContext with db.cronJob.create. Import tool definition from the plugin's tools array.",
+            "status": "pending",
+            "testStrategy": "Run pnpm test --filter cron, verify schedule_task tool has >80% coverage, test both success and error paths",
+            "parentId": "undefined"
+          },
+          {
+            "id": 4,
+            "title": "Add integration tests for mixed job types",
+            "description": "Test scenarios where recurring and one-shot jobs run together, verifying correct partitioning and execution",
+            "dependencies": [1, 2],
+            "details": "In packages/plugins/cron/src/_helpers/__tests__/cron-server.test.ts, add integration test cases: (1) 'handles mix of recurring and one-shot jobs' - create jobs array with both types, verify Cron instances created for recurring, setTimeout called for one-shot, (2) 'stop() clears both recurring jobs and pending timeouts' - verify stop cancels all scheduled work, (3) 'partitions jobs correctly by schedule vs fireAt presence' - verify neither/both cases are filtered out with warnings. Use vi.useFakeTimers() to control time advancement. Create comprehensive mock data with 2 recurring jobs, 2 one-shot jobs, 1 invalid job (both fields set), 1 invalid job (neither field set).",
+            "status": "pending",
+            "testStrategy": "Run pnpm test --filter cron, verify mixed scenarios work correctly, achieve >80% branch coverage on partitioning logic",
+            "parentId": "undefined"
+          },
+          {
+            "id": 5,
+            "title": "Update existing tests for backward compatibility",
+            "description": "Ensure all existing cron-server tests still pass after modifications and update mocks for new schema fields",
+            "dependencies": [1, 2, 3, 4],
+            "details": "Review and update packages/plugins/cron/src/_helpers/__tests__/cron-server.test.ts: (1) Add agentId and projectId fields to all existing mock job objects (with default values), (2) Verify existing 16 test cases still pass without modification, (3) Update createMockDb helper to include thread.create mock if not present, (4) Run full test suite to ensure no regressions, (5) Update any assertions that depend on exact call counts if new logic adds calls. The existing tests should remain valid since they test recurring jobs (schedule field), which is the original behavior. New fields (fireAt, agentId, projectId) are optional/nullable.",
+            "status": "pending",
+            "testStrategy": "Run pnpm test --filter cron, verify all 16+ existing tests pass, run pnpm test:coverage-gate to ensure >80% coverage threshold met",
+            "parentId": "undefined"
+          }
+        ],
+        "updatedAt": "2026-03-03T03:53:52.243Z"
+      },
+      {
+        "id": "19",
+        "title": "Write Tests for CRUD Server Actions",
+        "description": "Create test files for all new server actions",
+        "details": "1. Create apps/web/src/app/admin/cron-jobs/_actions/__tests__/create-cron-job.test.ts\n2. Create apps/web/src/app/admin/cron-jobs/_actions/__tests__/update-cron-job.test.ts\n3. Create apps/web/src/app/admin/cron-jobs/_actions/__tests__/delete-cron-job.test.ts\n4. Test validation logic for schedule/fireAt\n5. Test database operations with mocked Prisma\n6. Test error handling for constraint violations\n7. Follow testing patterns from existing action tests",
+        "testStrategy": "Use Vitest with mocked dependencies, verify all validation rules enforced, test success and error paths",
+        "priority": "medium",
+        "dependencies": ["12"],
+        "status": "done",
+        "subtasks": [
+          {
+            "id": 1,
+            "title": "Create create-cron-job.test.ts with Success and Validation Tests",
+            "description": "Write comprehensive tests for createCronJob server action covering successful creation and validation logic",
+            "dependencies": [],
+            "details": "Create apps/web/src/app/admin/cron-jobs/_actions/__tests__/create-cron-job.test.ts. Mock @harness/database prisma.cronJob.create and next/cache revalidatePath. Test cases: (1) successful creation with schedule field returns { cronJobId: string }, (2) successful creation with fireAt field, (3) schedule/fireAt mutual exclusivity validation (both provided should error), (4) neither schedule nor fireAt provided should error, (5) invalid cron expression format should error, (6) invalid fireAt datetime format should error, (7) revalidatePath('/admin/cron-jobs') called on success, (8) unique constraint violation returns friendly error message. Follow the pattern from apps/web/src/app/(chat)/chat/_actions/__tests__/create-agent.test.ts with separate describe blocks for validation, success cases, and error handling.",
+            "status": "pending",
+            "testStrategy": "Use vitest with mocked prisma and next/cache, verify all validation rules enforced before database calls, test both success and error return shapes match action contract",
+            "parentId": "undefined"
+          },
+          {
+            "id": 2,
+            "title": "Create update-cron-job.test.ts with Mutation and Validation Tests",
+            "description": "Write comprehensive tests for updateCronJob server action covering updates and schedule/fireAt validation",
+            "dependencies": [],
+            "details": "Create apps/web/src/app/admin/cron-jobs/_actions/__tests__/update-cron-job.test.ts. Mock @harness/database prisma.cronJob.update and next/cache revalidatePath. Test cases: (1) successful update with only changed fields returns { success: true }, (2) update changing from schedule to fireAt (mutual exclusivity swap), (3) update changing from fireAt to schedule, (4) validation error when both schedule and fireAt provided in update, (5) validation error when clearing both schedule and fireAt, (6) update passes correct where clause with cronJobId, (7) revalidatePath('/admin/cron-jobs') called on success, (8) prisma error returns { error: string }, (9) revalidatePath NOT called when prisma throws. Follow the pattern from apps/web/src/app/(chat)/chat/_actions/__tests__/update-agent-config.test.ts.",
+            "status": "pending",
+            "testStrategy": "Mock prisma.cronJob.update, verify mutation logic and validation rules, test that revalidatePath is conditionally called only on success, verify error handling",
+            "parentId": "undefined"
+          },
+          {
+            "id": 3,
+            "title": "Create delete-cron-job.test.ts with Deletion Tests",
+            "description": "Write tests for deleteCronJob server action covering successful deletion and error scenarios",
+            "dependencies": [],
+            "details": "Create apps/web/src/app/admin/cron-jobs/_actions/__tests__/delete-cron-job.test.ts. Mock @harness/database prisma.cronJob.delete and next/cache revalidatePath. Test cases: (1) successful deletion returns { success: true }, (2) prisma.cronJob.delete called with correct where clause { id: cronJobId }, (3) revalidatePath('/admin/cron-jobs') called on success, (4) foreign key constraint violation (job referenced by other records) returns friendly error, (5) record not found error returns appropriate error message, (6) generic database error returns { error: 'Failed to delete cron job' }, (7) revalidatePath NOT called when deletion fails. Use beforeEach to clear all mocks. Follow the concise pattern from apps/web/src/app/admin/cron-jobs/_actions/__tests__/toggle-cron-job.test.ts.",
+            "status": "pending",
+            "testStrategy": "Mock delete operation, test successful deletion flow, verify constraint violation error handling, ensure revalidatePath conditional logic works correctly",
+            "parentId": "undefined"
+          },
+          {
+            "id": 4,
+            "title": "Add Validation Helper Tests for Schedule/FireAt Logic",
+            "description": "Create tests for shared validation logic used by create and update actions to enforce schedule/fireAt mutual exclusivity",
+            "dependencies": [],
+            "details": "If a shared validation helper exists (e.g., validateCronJobInput), create apps/web/src/app/admin/cron-jobs/_actions/__tests__/validate-cron-job-input.test.ts. Test cases: (1) valid schedule with no fireAt passes validation, (2) valid fireAt with no schedule passes validation, (3) both schedule and fireAt provided returns validation error, (4) neither schedule nor fireAt provided returns validation error, (5) malformed cron expression (e.g., '* * * *' with only 4 fields) returns validation error, (6) valid 5-field cron expression passes, (7) valid 6-field cron expression with seconds passes, (8) invalid fireAt format (non-ISO8601 string) returns validation error, (9) fireAt in the past returns validation error (optional). Use vitest with pure function testing (no mocks needed for validation logic).",
+            "status": "pending",
+            "testStrategy": "Test validation logic in isolation without database mocks, ensure all edge cases for mutual exclusivity and format validation are covered, verify error messages are clear and actionable",
+            "parentId": "undefined"
+          },
+          {
+            "id": 5,
+            "title": "Add Integration Tests for Database Constraint Enforcement",
+            "description": "Write integration-style tests verifying database-level constraints for CronJob CRUD operations",
+            "dependencies": [1, 2, 3],
+            "details": "Create apps/web/src/app/admin/cron-jobs/_actions/__tests__/cron-job-constraints.test.ts. Test cases that verify prisma behavior with mocked constraint violations: (1) unique constraint on name field prevents duplicate CronJob names, (2) foreign key constraint on agentId prevents orphaned records when agent is deleted, (3) foreign key constraint on projectId allows null (optional), (4) required fields (name, prompt, agentId) enforced at database level, (5) nullable fields (schedule, fireAt, projectId, threadId) accept null values. Mock prisma methods to throw appropriate Prisma errors (e.g., PrismaClientKnownRequestError with code P2002 for unique violations). Test that action error handlers catch these and return appropriate error messages.",
+            "status": "pending",
+            "testStrategy": "Mock prisma constraint errors using Prisma error codes, verify actions translate database errors into user-friendly messages, ensure all FK and unique constraints are properly handled",
+            "parentId": "undefined"
+          }
+        ],
+        "updatedAt": "2026-03-03T03:42:29.280Z"
+      },
+      {
+        "id": "20",
+        "title": "Update Documentation",
+        "description": "Update all relevant documentation to reflect scheduled tasks implementation",
+        "details": "1. Update CLAUDE.md: remove Phase 5 heartbeat references, add scheduled tasks to 'What Already Exists'\n2. Create/update .claude/rules/scheduled-tasks.md with new system design\n3. Remove heartbeat references from .claude/rules/agent-identity-state.md\n4. Document MCP tool usage in .claude/rules/plugin-system.md\n5. Add migration notes for existing deployments\n6. Document one-shot vs recurring job behavior",
+        "testStrategy": "Manual review of documentation accuracy, verify all heartbeat references removed, ensure examples are correct",
+        "priority": "low",
+        "dependencies": ["8", "17"],
+        "status": "done",
+        "subtasks": [
+          {
+            "id": 1,
+            "title": "Update agent-identity-state.md to rename Phase 5 to Scheduled Tasks",
+            "description": "Rename Phase 5 from 'Per-Agent Heartbeat' to 'Scheduled Tasks via CronJob CRUD' and remove all heartbeat-specific references from the agent identity phases documentation",
+            "dependencies": [],
+            "details": "1. Update Phase 5 section title from 'Per-Agent Heartbeat (PAUSED — intentionally deferred)' to 'Scheduled Tasks via CronJob CRUD (COMPLETE)'\n2. Rewrite Phase 5 description to explain that scheduled tasks are now fully implemented via CronJob CRUD (not per-agent config)\n3. Remove all references to heartbeatEnabled and heartbeatCron fields in the 'What exists' subsection\n4. Update status from PAUSED to COMPLETE in the Phase Summary table (line 243)\n5. Update the AgentConfig Model section (lines 174-191) to remove heartbeatEnabled and heartbeatCron from the schema example\n6. Remove the 'To implement Phase 5' subsection (lines 160-170) as this is now obsolete\n7. Ensure the file reflects that scheduled tasks are implemented through the CronJob model with agentId association, not through AgentConfig",
+            "status": "pending",
+            "testStrategy": "Manual review: verify all heartbeat references removed from Phase 5, confirm Phase 5 status is COMPLETE in summary table, ensure AgentConfig schema example matches actual schema after Task 8 completion",
+            "parentId": "undefined"
+          },
+          {
+            "id": 2,
+            "title": "Update cron-scheduler.md with scheduled tasks design",
+            "description": "Update cron scheduler documentation to reflect the new CronJob schema with agentId/projectId, one-shot support, lazy thread creation, and MCP tool capabilities",
+            "dependencies": [],
+            "details": "1. Remove the entire 'Per-Agent Heartbeat Dependency Chain' section (lines 148-169) as heartbeat concept is replaced by scheduled tasks\n2. Update the 'CronJob Schema' section (lines 123-145) to reflect new fields: agentId (required), projectId (optional), schedule (nullable), fireAt (new field for one-shot)\n3. Add new section documenting one-shot job behavior: fireAt-based scheduling, setTimeout mechanism, auto-disable after firing, lastRunAt update\n4. Add new section documenting lazy thread creation: thread auto-creation when threadId is null, thread inherits agentId and projectId from job, threadId persistence after creation\n5. Update 'How the Scheduler Works' section (lines 31-72) to cover both recurring (croner) and one-shot (setTimeout) paths\n6. Add section documenting the schedule_task MCP tool: name, description, schema, handler behavior, constraint validation (schedule xor fireAt)\n7. Update validation logic documentation to cover new validation cases (both/neither schedule and fireAt, invalid agent references)\n8. Update the 'Seeded Jobs' section to note that jobs now require agentId and are assigned to the default/primary agent",
+            "status": "pending",
+            "testStrategy": "Manual review: verify Per-Agent Heartbeat section removed completely, confirm CronJob schema matches Task 8 changes, verify one-shot and lazy thread creation mechanics are accurately documented, check MCP tool documentation matches implementation from Task 14",
+            "parentId": "undefined"
+          },
+          {
+            "id": 3,
+            "title": "Update CLAUDE.md to reflect scheduled tasks completion",
+            "description": "Update the main project documentation to reflect that scheduled tasks (formerly Phase 5) are now complete and add CronJob CRUD to the 'What Already Exists' section",
+            "dependencies": [],
+            "details": "1. Update 'Planned But Incomplete' section (lines 271-305): remove 'Agent Identity Phase 5 — Per-Agent Heartbeat' subsection (lines 294-298) as it is now complete\n2. Update 'What Already Exists' section, Cron Scheduler subsection (lines 224-230): add documentation of CronJob schema changes (agentId, projectId, schedule nullable, fireAt for one-shot)\n3. Add to 'What Already Exists' section: new subsection documenting CronJob CRUD admin UI at /admin/cron-jobs with create, edit, delete capabilities (not just toggle)\n4. Update Cron Scheduler description to include: one-shot scheduling via fireAt, lazy thread creation when threadId is null, schedule_task MCP tool for agents\n5. Update AgentConfig model documentation (lines 262-267) to remove heartbeatEnabled and heartbeatCron fields from the fields list\n6. Update cron plugin description in Architecture section (line 53) to note support for both recurring and one-shot scheduled tasks",
+            "status": "pending",
+            "testStrategy": "Manual review: verify Phase 5 removed from 'Planned But Incomplete', confirm Cron Scheduler description updated with new capabilities, ensure CronJob CRUD UI added to 'What Already Exists', verify AgentConfig fields list is accurate",
+            "parentId": "undefined"
+          },
+          {
+            "id": 4,
+            "title": "Update plugin-system.md to document schedule_task MCP tool",
+            "description": "Add documentation for the schedule_task MCP tool in the cron plugin section of the plugin system documentation",
+            "dependencies": [],
+            "details": "1. Locate the 'cron plugin' subsection in 'What Each Existing Plugin Owns' (lines 201-203)\n2. Update the cron plugin entry to add 'Tools: schedule_task' alongside the existing Lifecycle hooks\n3. Expand the 'Does:' description to document: tool allows agents to create CronJobs during conversation, supports both recurring (schedule) and one-shot (fireAt) tasks, agentId/projectId auto-resolved from current thread\n4. Add note about tool constraints: schedule xor fireAt required, threadId defaults to current thread if omitted\n5. Ensure formatting matches the existing plugin documentation pattern (hooks/tools/lifecycle on separate lines, concise 'Does:' paragraph)",
+            "status": "pending",
+            "testStrategy": "Manual review: verify schedule_task tool is documented in cron plugin section, confirm constraints and behavior are accurate, ensure formatting matches other plugin entries",
+            "parentId": "undefined"
+          },
+          {
+            "id": 5,
+            "title": "Add migration notes for existing deployments",
+            "description": "Create migration notes section in cron-scheduler.md documenting the schema migration path for existing deployments",
+            "dependencies": [1, 2],
+            "details": "1. Add new 'Migration Notes' section to cron-scheduler.md before the 'Key Files' section\n2. Document schema migration steps: run pnpm db:generate after schema changes, existing CronJobs need agentId populated (seed script handles this for seeded jobs)\n3. Document AgentConfig cleanup: heartbeatEnabled and heartbeatCron fields removed, no data migration needed as these were never actively used\n4. Note that existing deployments must restart orchestrator after schema migration for new job types (one-shot) to be recognized\n5. Document breaking changes: any code referencing AgentConfig.heartbeatEnabled or AgentConfig.heartbeatCron will fail after migration\n6. Add note about seed data: re-running seed script is safe (uses upsert), will populate agentId on existing jobs",
+            "status": "pending",
+            "testStrategy": "Manual review: verify migration steps are complete and accurate, confirm breaking changes are clearly documented, ensure deployment impact is understood",
+            "parentId": "undefined"
+          }
+        ],
+        "updatedAt": "2026-03-03T03:36:24.998Z"
       }
     ],
     "metadata": {
-      "created": "2026-03-02",
-      "updated": "2026-03-02",
-      "description": "Surgical fixes for codebase drift. PRD: .taskmaster/docs/prd-surgical-fixes.md. Verified by 4 deep-trace agents on 2026-03-02.",
-      "verified": {
-        "activity_persistence_duplication": "CLOSED — refactor complete as of sprint 4. Orchestrator writes only kind='text'. Activity plugin owns all other kinds. Zero overlap confirmed.",
-        "sessionid_bug": "CLOSED — fixed 2026-03-01 via commit 2251316 (feat(sprint4a): sync Thread.sessionId on session loss and rotation). Covered by 3 test cases.",
-        "circuit_breaker": "CLOSED — implemented 2026-03-01 via commit dfb7f55 (feat(safety): add orphaned-task recovery, cost cap, and circuit breaker). Full failure categorization, fast-fail on logic errors, quadratic backoff with jitter.",
-        "cron_boot_sequence": "CONFIRMED — implement as plugin (not top-level module). ctx.sendToThread safe in start() hooks. Seeded CronJobs have valid threadIds. Use croner library for timezone support."
-      }
+      "version": "1.0.0",
+      "lastModified": "2026-03-03T03:57:31.116Z",
+      "taskCount": 13,
+      "completedCount": 12,
+      "tags": ["master"]
     }
   }
 }

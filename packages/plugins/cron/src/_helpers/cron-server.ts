@@ -3,6 +3,9 @@
 
 import type { PluginContext } from '@harness/plugin-contract';
 import { Cron } from 'croner';
+import { resolveOrCreateThread } from './resolve-or-create-thread';
+import { scheduleOneShot } from './schedule-one-shot';
+import { validateCronJob } from './validate-cron-job';
 
 export type CronServer = {
   start: (ctx: PluginContext) => Promise<void>;
@@ -13,6 +16,7 @@ type CreateCronServer = () => CronServer;
 
 export const createCronServer: CreateCronServer = () => {
   const scheduledJobs: Cron[] = [];
+  const oneShotTimers: Map<string, ReturnType<typeof setTimeout>> = new Map();
 
   const start = async (ctx: PluginContext): Promise<void> => {
     const jobs = await ctx.db.cronJob.findMany({
@@ -22,15 +26,49 @@ export const createCronServer: CreateCronServer = () => {
     ctx.logger.info(`Cron plugin: scheduling ${jobs.length} enabled job(s)`);
 
     for (const job of jobs) {
-      if (!job.threadId) {
-        ctx.logger.warn(`Cron plugin: skipping job "${job.name}" — no threadId configured`);
+      const validation = validateCronJob(job);
+
+      if (!validation.valid) {
+        ctx.logger.warn(`Cron plugin: skipping invalid job "${job.name}" — ${validation.reason}`);
         continue;
       }
 
-      const threadId = job.threadId;
+      if (validation.type === 'one-shot') {
+        const handle = scheduleOneShot(ctx, job, (jobId) => {
+          oneShotTimers.delete(jobId);
+        });
+        oneShotTimers.set(job.id, handle);
+
+        // Set nextRunAt to fireAt for admin UI visibility
+        if (job.fireAt) {
+          await ctx.db.cronJob
+            .update({
+              where: { id: job.id },
+              data: { nextRunAt: job.fireAt },
+            })
+            .catch((err: unknown) => {
+              ctx.logger.warn(
+                `Cron plugin: failed to set nextRunAt for one-shot job "${job.name}": ${err instanceof Error ? err.message : String(err)}`,
+              );
+            });
+        }
+
+        continue;
+      }
+
+      // Recurring job — schedule with croner
+      const schedule = job.schedule as string;
 
       try {
-        const cronJob = new Cron(job.schedule, { timezone: 'UTC' }, async () => {
+        const cronJob = new Cron(schedule, { timezone: 'UTC' }, async () => {
+          let threadId: string;
+          try {
+            threadId = await resolveOrCreateThread(ctx.db, job);
+          } catch (err) {
+            ctx.logger.error(`Cron plugin: failed to resolve thread for job "${job.name}": ${err instanceof Error ? err.message : String(err)}`);
+            return;
+          }
+
           ctx.logger.info(`Cron plugin: firing job "${job.name}" on thread ${threadId}`);
 
           const firedAt = new Date();
@@ -70,10 +108,10 @@ export const createCronServer: CreateCronServer = () => {
             );
           });
 
-        ctx.logger.info(`Cron plugin: scheduled job "${job.name}" (${job.schedule}) — next run: ${initialNextRun?.toISOString() ?? 'never'}`);
+        ctx.logger.info(`Cron plugin: scheduled job "${job.name}" (${schedule}) — next run: ${initialNextRun?.toISOString() ?? 'never'}`);
       } catch (err) {
         ctx.logger.error(
-          `Cron plugin: failed to schedule job "${job.name}" with expression "${job.schedule}": ${err instanceof Error ? err.message : String(err)}`,
+          `Cron plugin: failed to schedule job "${job.name}" with expression "${schedule}": ${err instanceof Error ? err.message : String(err)}`,
         );
       }
     }
@@ -84,6 +122,11 @@ export const createCronServer: CreateCronServer = () => {
       job.stop();
     }
     scheduledJobs.length = 0;
+
+    for (const timer of oneShotTimers.values()) {
+      clearTimeout(timer);
+    }
+    oneShotTimers.clear();
   };
 
   return { start, stop };

@@ -183,7 +183,7 @@ Do not rebuild any of the following — these subsystems are fully implemented.
 
 ### Admin UI (`/admin` route)
 
-- **`/admin/cron-jobs`** — enable/disable CronJob records, view last/next run times
+- **`/admin/cron-jobs`** — full CRUD for CronJob records (create, edit, delete, enable/disable) with support for recurring and one-shot scheduled tasks (in progress)
 - **`/admin/plugins`** — enable/disable plugins at runtime via PluginConfig (no code change needed)
 - **`/admin/threads`** — thread management UI
 - **`/admin/agent-runs`** — view AgentRun records and token/cost metrics
@@ -203,7 +203,7 @@ Do not rebuild any of the following — these subsystems are fully implemented.
 
 - **Phase 1 complete: soul injection** — agent soul/identity/role loaded from Agent record and injected into every prompt via `onBeforeInvoke`
 - **Phase 2 complete: episodic memory** — AgentMemory records scored by importance, retrieved via recency+importance ranking, injected into prompts
-- **Phases 3–5: paused** — see "Planned But Incomplete" section
+- **Phase 3: paused** (vector search), **Phase 4: partially active** (reflection), **Phase 5: in progress** (scheduled tasks) — see "Planned But Incomplete" section
 - **Plugin ordering:** identity runs BEFORE context in the `onBeforeInvoke` chain (registered first in `ALL_PLUGINS`)
 
 ### Summarization Plugin (`packages/plugins/summarization/`)
@@ -224,8 +224,12 @@ Do not rebuild any of the following — these subsystems are fully implemented.
 ### Cron Scheduler (`packages/plugins/cron/`)
 
 - **`@harness/plugin-cron`** — reads enabled CronJob records, schedules with croner (UTC)
+- Supports both **recurring** (cron expression) and **one-shot** (`fireAt` datetime) scheduled tasks
 - Fires `ctx.sendToThread` on trigger, atomically updates `lastRunAt`/`nextRunAt`
-- Admin UI at `/admin/cron-jobs`
+- One-shot jobs auto-disable after firing (`enabled: false`, `nextRunAt: null`)
+- Lazy thread creation: if `threadId` is null, auto-creates a `kind:'cron'` thread on first fire
+- **MCP tool:** `cron__schedule_task` — agents can create scheduled tasks during conversation
+- Admin UI at `/admin/cron-jobs` with full CRUD (in progress)
 - Thread `kind='cron'` recognized by prompt assembler with specialized instructions
 - 4 seeded CronJobs: Morning Digest, Memory Consolidation, Calendar Refresh, Weekly Review
 
@@ -261,10 +265,11 @@ Do not rebuild any of the following — these subsystems are fully implemented.
 
 ### AgentConfig Model
 
-- Per-agent feature flags in Prisma schema: `memoryEnabled`, `reflectionEnabled`, `heartbeatEnabled`, `heartbeatCron`
-- Schema exists at `packages/database/prisma/schema.prisma` (line 210)
+- Per-agent feature flags in Prisma schema: `memoryEnabled`, `reflectionEnabled`
+- Schema exists at `packages/database/prisma/schema.prisma`
 - No admin UI or server actions exist yet for managing AgentConfig records
 - `memoryEnabled` and `reflectionEnabled` are not yet checked by the identity plugin
+- **Note:** `heartbeatEnabled` and `heartbeatCron` were removed — per-agent scheduled tasks are now modeled as CronJob records with `agentId` FK
 
 ---
 
@@ -276,7 +281,7 @@ These features have schema/UI groundwork but are missing execution logic. Do not
 
 - **What:** UI and server actions for managing `AgentConfig` records per agent
 - **Status:** Schema exists, no UI. The `AgentConfig` model is in the database but there is no admin page or server actions to create/update config records.
-- **Fields:** `memoryEnabled`, `reflectionEnabled`, `heartbeatEnabled`, `heartbeatCron`
+- **Fields:** `memoryEnabled`, `reflectionEnabled`
 
 ### Agent Identity Phase 3 — Vector Search
 
@@ -291,11 +296,11 @@ These features have schema/UI groundwork but are missing execution logic. Do not
 - **Status:** PARTIALLY ACTIVE — the reflection trigger is wired as fire-and-forget in `scoreAndWriteMemory` (fires after each episodic memory write). However: `AgentConfig.reflectionEnabled` is not checked, and REFLECTION memories are not prioritized in the identity header.
 - **Remaining work:** Check `reflectionEnabled` before triggering; give REFLECTION memories a scoring boost in `retrieveMemories`
 
-### Agent Identity Phase 5 — Per-Agent Heartbeat
+### Agent Identity Phase 5 — Scheduled Tasks (CronJob CRUD)
 
-- **What:** Each agent fires a scheduled "heartbeat" message to its own thread
-- **Status:** PAUSED (intentionally deferred) — both blockers resolved (AgentConfig exists, cron plugin running)
-- **Wire-up:** `AgentConfig.heartbeatEnabled` + `AgentConfig.heartbeatCron` -> schedule per-agent croner jobs in cron or identity plugin's `start()` hook
+- **What:** Evolve CronJob into a full scheduled task system with agent association, one-shot support, and CRUD UI
+- **Status:** IN PROGRESS — the heartbeat concept was collapsed into CronJob CRUD. See `docs/plans/2026-03-02-scheduled-tasks-prd.md`
+- **Scope:** Schema changes (agentId, projectId, fireAt, nullable schedule), full CRUD admin UI, MCP tool `cron__schedule_task`, lazy thread creation, one-shot auto-disable
 
 ### onCommand Hook (Deprecated, Pending Removal)
 

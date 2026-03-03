@@ -3,6 +3,7 @@ import type { Metadata } from 'next';
 import { notFound } from 'next/navigation';
 import { listAgentMemories } from '../../chat/_actions/list-agent-memories';
 import { AgentMemoryBrowser } from '../_components/agent-memory-browser';
+import { AgentScheduledTasks } from '../_components/agent-scheduled-tasks';
 import { EditAgentForm } from '../_components/edit-agent-form';
 
 type AgentEditPageProps = {
@@ -20,7 +21,7 @@ export const generateMetadata = async ({ params }: AgentEditPageProps): Promise<
 const AgentEditPage = async ({ params }: AgentEditPageProps) => {
   const { 'agent-id': agentId } = await params;
 
-  const [agent, memories, agentConfig] = await Promise.all([
+  const [agent, memories, agentConfig, cronJobs] = await Promise.all([
     prisma.agent.findUnique({
       where: { id: agentId },
       select: {
@@ -44,6 +45,19 @@ const AgentEditPage = async ({ params }: AgentEditPageProps) => {
         reflectionEnabled: true,
       },
     }),
+    prisma.cronJob.findMany({
+      where: { agentId },
+      orderBy: { name: 'asc' },
+      select: {
+        id: true,
+        name: true,
+        schedule: true,
+        fireAt: true,
+        enabled: true,
+        lastRunAt: true,
+        nextRunAt: true,
+      },
+    }),
   ]);
 
   if (!agent) {
@@ -58,6 +72,7 @@ const AgentEditPage = async ({ params }: AgentEditPageProps) => {
       </div>
       <EditAgentForm agent={agent} agentConfig={agentConfig} />
       <AgentMemoryBrowser agentId={agentId} memories={memories} />
+      <AgentScheduledTasks tasks={cronJobs} agentId={agentId} />
     </div>
   );
 };

@@ -6,7 +6,7 @@ Which identity phases are complete, which are paused, and what each needs to pro
 
 ## Overview
 
-The identity system is implemented as `@harness/plugin-identity`. It uses two hooks: `onBeforeInvoke` (soul + memory injection) and `onAfterInvoke` (episodic memory writing + reflection trigger). Five phases were planned; two are complete, one is partially active, two are paused.
+The identity system is implemented as `@harness/plugin-identity`. It uses two hooks: `onBeforeInvoke` (soul + memory injection) and `onAfterInvoke` (episodic memory writing + reflection trigger). Five phases were planned; two are complete, one is partially active, one is paused, and one is in progress.
 
 File: `packages/plugins/identity/src/index.ts`
 
@@ -146,34 +146,36 @@ Files:
 
 ---
 
-## Phase 5 — Per-Agent Heartbeat (PAUSED — intentionally deferred)
+## Phase 5 — Scheduled Tasks via CronJob CRUD (IN PROGRESS)
 
-**What:** Each agent fires a scheduled "heartbeat" prompt to its own thread on a per-agent cron schedule. Enables agents to proactively consolidate context, update their own memory, or perform maintenance tasks without user interaction.
+**What:** Agents can have scheduled tasks — recurring or one-shot — that fire prompts into threads on a cron schedule or at a specific time. This replaces the original "per-agent heartbeat" concept.
 
-**Status:** PAUSED — both original blockers (AgentConfig schema + cron plugin) are now resolved. Implementation is intentionally deferred, not blocked.
+**Status:** IN PROGRESS — the heartbeat abstraction was collapsed into the existing CronJob system. Every use case (daily digests, follow-up reminders, periodic maintenance) is modeled as a CronJob record with a required `agentId` FK.
 
-**What exists:**
-- `AgentConfig` model in schema with `heartbeatEnabled: Boolean` and `heartbeatCron: String?`
-- `@harness/plugin-cron` is fully implemented and running
-- No admin UI or server actions for AgentConfig yet
+**Design decision:** The original Phase 5 proposed `AgentConfig.heartbeatEnabled` + `AgentConfig.heartbeatCron` for a single heartbeat per agent. This was too narrow — an agent can have many threads and many scheduled tasks. The CronJob model already handles recurring scheduled prompts, so heartbeat was collapsed into CronJob CRUD with these additions:
 
-**To implement Phase 5:**
-```
-1. Read AgentConfig rows where heartbeatEnabled = true and heartbeatCron is non-null
-2. For each agent: find the agent's thread (thread.agentId = agent.id)
-3. Schedule a croner job with heartbeatCron expression
-4. On trigger: ctx.sendToThread(thread.id, heartbeatPrompt)
-```
+- `agentId` (required) — every job runs in context of an agent
+- `projectId` (optional) — auto-created threads inherit this
+- `schedule` (nullable) — null for one-shot jobs
+- `fireAt` (new) — one-shot fire time, mutually exclusive with `schedule`
+- Lazy thread creation — if `threadId` is null, a thread is auto-created on first fire
+- MCP tool `cron__schedule_task` — agents can create scheduled tasks during conversation
 
-This can live in either:
-- The cron plugin's `start()` hook (alongside CronJob-based scheduling), OR
-- The identity plugin's `start()` hook (agent-specific concern, self-contained)
+**What is being implemented:**
+- Schema changes to CronJob (agentId, projectId, fireAt, nullable schedule)
+- Full CRUD admin UI for CronJobs (create, edit, delete — not just toggle)
+- Agent detail page integration (read-only list of scheduled tasks per agent)
+- MCP tool for agents to self-schedule tasks
+- Cron plugin changes for one-shot support and lazy thread creation
+
+See: `docs/plans/2026-03-02-scheduled-tasks-prd.md` for the full design document.
+See: `.claude/rules/cron-scheduler.md` for runtime behavior details.
 
 ---
 
 ## AgentConfig Model (EXISTS IN SCHEMA)
 
-The model exists in `packages/database/prisma/schema.prisma` (line 210). No admin UI or server actions exist yet for managing AgentConfig records.
+The model exists in `packages/database/prisma/schema.prisma`. No admin UI or server actions exist yet for managing AgentConfig records.
 
 Current shape:
 ```prisma
@@ -183,14 +185,14 @@ model AgentConfig {
   agent             Agent    @relation(fields: [agentId], references: [id])
   memoryEnabled     Boolean  @default(true)
   reflectionEnabled Boolean  @default(false) // Phase 4 — not yet checked by plugin
-  heartbeatEnabled  Boolean  @default(false) // Phase 5 — blocked on implementation
-  heartbeatCron     String?                  // cron expression when heartbeat is wired
   createdAt         DateTime @default(now())
   updatedAt         DateTime @updatedAt
 }
 ```
 
-The unique FK to `Agent` means one config per agent. The `Agent` model has `config AgentConfig?` relation (line 184 of schema).
+The unique FK to `Agent` means one config per agent. The `Agent` model has `config AgentConfig?` relation.
+
+**Note:** The `heartbeatEnabled` and `heartbeatCron` fields were removed as part of the scheduled tasks redesign. Per-agent scheduled tasks are now modeled as CronJob records with `agentId` FK instead of per-agent config flags. See Phase 5 above.
 
 **Note:** `memoryEnabled` is not currently checked by the identity plugin. Memory writing happens for all agents with assigned threads regardless of this flag. Wiring this check is a straightforward enhancement to `scoreAndWriteMemory`.
 
@@ -222,6 +224,7 @@ model Agent {
   threads     Thread[]
   memories    AgentMemory[]
   config      AgentConfig?
+  cronJobs    CronJob[]
 
   @@index([slug])
   @@index([enabled])
@@ -240,7 +243,7 @@ model Agent {
 | 2 — Episodic memory | COMPLETE | -- |
 | 3 — Vector search | PAUSED | Qdrant service + backend decision |
 | 4 — Reflection cycle | PARTIALLY ACTIVE | reflectionEnabled not checked; REFLECTION memories not prioritized in header |
-| 5 — Per-agent heartbeat | PAUSED (deferred) | Intentionally deferred; AgentConfig + cron plugin both exist |
+| 5 — Scheduled tasks (CronJob CRUD) | IN PROGRESS | Heartbeat collapsed into CronJob; schema + UI + MCP tool in progress |
 
 ---
 

@@ -5,10 +5,28 @@ const prisma = new PrismaClient();
 
 const PRIMARY_THREAD_SOURCE = 'system';
 const PRIMARY_THREAD_SOURCE_ID = 'primary';
+const SYSTEM_AGENT_SLUG = 'system';
 
-type SeedPrimaryThread = () => Promise<string>;
+type SeedSystemAgent = () => Promise<string>;
 
-const seedPrimaryThread: SeedPrimaryThread = async () => {
+const seedSystemAgent: SeedSystemAgent = async () => {
+  const agent = await prisma.agent.upsert({
+    where: { slug: SYSTEM_AGENT_SLUG },
+    update: {},
+    create: {
+      slug: SYSTEM_AGENT_SLUG,
+      name: 'System',
+      soul: 'You are a system agent that handles automated tasks like cron jobs, digests, and maintenance routines.',
+      identity: 'System automation agent for the Harness orchestrator.',
+    },
+  });
+
+  return agent.id;
+};
+
+type SeedPrimaryThread = (agentId: string) => Promise<string>;
+
+const seedPrimaryThread: SeedPrimaryThread = async (agentId) => {
   const thread = await prisma.thread.upsert({
     where: {
       source_sourceId: {
@@ -23,15 +41,16 @@ const seedPrimaryThread: SeedPrimaryThread = async () => {
       name: 'Primary Assistant',
       kind: 'primary',
       status: 'open',
+      agentId,
     },
   });
 
   return thread.id;
 };
 
-type SeedCronJobs = (threadId: string) => Promise<void>;
+type SeedCronJobs = (threadId: string, agentId: string) => Promise<void>;
 
-const seedCronJobs: SeedCronJobs = async (threadId) => {
+const seedCronJobs: SeedCronJobs = async (threadId, agentId) => {
   const definitions = getCronJobDefinitions();
 
   for (const definition of definitions) {
@@ -48,6 +67,7 @@ const seedCronJobs: SeedCronJobs = async (threadId) => {
         prompt: definition.prompt,
         enabled: definition.enabled,
         threadId,
+        agent: { connect: { id: agentId } },
       },
     });
   }
@@ -58,10 +78,13 @@ type Seed = () => Promise<void>;
 const seed: Seed = async () => {
   console.log('Seeding database...');
 
-  const threadId = await seedPrimaryThread();
+  const agentId = await seedSystemAgent();
+  console.log(`System agent seeded: ${agentId}`);
+
+  const threadId = await seedPrimaryThread(agentId);
   console.log(`Primary thread seeded: ${threadId}`);
 
-  await seedCronJobs(threadId);
+  await seedCronJobs(threadId, agentId);
   console.log(`Cron jobs seeded: ${getCronJobDefinitions().length} jobs`);
 
   console.log('Seed complete.');

@@ -1,6 +1,6 @@
 # Cron Scheduler
 
-How scheduled jobs work end-to-end. How per-agent heartbeat will integrate with this system.
+How scheduled jobs work end-to-end. Covers both recurring cron jobs and one-shot scheduled tasks.
 
 ---
 
@@ -38,23 +38,31 @@ On `start()`:
 1. ctx.db.cronJob.findMany({ where: { enabled: true } })
    — loads all enabled jobs from DB
 
-2. For each job:
+2. Partition jobs into two groups:
+   a. Recurring jobs (schedule is non-null, fireAt is null)
+   b. One-shot jobs (fireAt is non-null, schedule is null)
+   c. Jobs with both or neither are skipped with a warning
+
+3. For each recurring job:
    croner.schedule(job.schedule, handler, { timezone: 'UTC' })
    — schedules using croner library, UTC timezone
 
-3. For each job where job.nextRunAt is null:
-   compute nextRun from schedule, write to DB
+4. For each one-shot job:
+   Calculate delay from now to fireAt
+   If fireAt is in the past, fire immediately
+   Otherwise schedule with setTimeout or croner one-shot
+
+5. For each job where job.nextRunAt is null:
+   compute nextRun from schedule or fireAt, write to DB
    — so admin UI shows accurate next fire time before first trigger
 ```
 
-On trigger:
+On trigger (recurring):
 
 ```
-1. if (!job.threadId):
-   ctx.logger.warn('CronJob has no threadId, skipping', { jobId: job.id })
-   return
+1. Resolve threadId (see "Lazy Thread Creation" below)
 
-2. ctx.sendToThread(job.threadId, job.prompt)
+2. ctx.sendToThread(threadId, job.prompt)
    — runs the full 8-step pipeline, persists assistant response
 
 3. prisma.cronJob.update({
@@ -64,10 +72,25 @@ On trigger:
    — atomic write: both timestamps in one update call
 ```
 
+On trigger (one-shot):
+
+```
+1. Resolve threadId (see "Lazy Thread Creation" below)
+
+2. ctx.sendToThread(threadId, job.prompt)
+   — runs the full 8-step pipeline, persists assistant response
+
+3. prisma.cronJob.update({
+     where: { id: job.id },
+     data: { lastRunAt: now, nextRunAt: null, enabled: false }
+   })
+   — fire once, then auto-disable
+```
+
 On `stop()`:
 
 ```
-cronServer.stop()  — destroys all croner job instances
+cronServer.stop()  — destroys all croner job instances and pending timeouts
 ```
 
 ---
@@ -96,7 +119,9 @@ This instruction is hardcoded in `KIND_INSTRUCTIONS`. Cron threads receive no in
 
 ## Admin UI
 
-`/admin/cron-jobs` allows enable/disable of individual `CronJob` records without code changes.
+`/admin/cron-jobs` provides full CRUD for CronJob records: create, edit, delete, and enable/disable toggle.
+
+The create/edit form includes: name, agent (required dropdown), thread (optional, filtered by agent), project (optional), type toggle (recurring vs one-shot), schedule or fireAt, prompt, and enabled toggle. When thread is omitted, it shows "Auto-create on first run".
 
 Disabled jobs are excluded from `findMany({ where: { enabled: true } })` on the next `start()`. Since the scheduler loads jobs at boot, toggling a job in the admin UI takes effect on orchestrator restart (or a future hot-reload implementation).
 
@@ -107,7 +132,7 @@ Disabled jobs are excluded from `findMany({ where: { enabled: true } })` on the 
 File: `packages/database/prisma/seed.ts`
 Helper: `packages/database/prisma/_helpers/cron-job-definitions.ts`
 
-4 seeded `CronJob` records. All point to the primary thread (`source: 'system'`, `sourceId: 'primary'`, `kind: 'primary'`):
+4 seeded `CronJob` records. All point to the primary thread and are assigned to the default/primary agent:
 
 | Name | Schedule (UTC) | MST Equivalent |
 |------|---------------|----------------|
@@ -128,12 +153,17 @@ File: `packages/database/prisma/schema.prisma`
 model CronJob {
   id        String    @id @default(cuid())
   name      String    @unique
-  schedule  String
+  schedule  String?              // recurring cron expression (null for one-shot)
+  fireAt    DateTime?            // one-shot fire time (null for recurring)
   prompt    String    @db.Text
   enabled   Boolean   @default(true)
   lastRunAt DateTime?
   nextRunAt DateTime?
-  threadId  String?           // null = job is skipped with a warning
+  threadId  String?              // nullable — auto-created on first fire if null
+  agentId   String               // REQUIRED — every job runs in context of an agent
+  agent     Agent    @relation(fields: [agentId], references: [id])
+  projectId String?              // optional — auto-created threads inherit this
+  project   Project? @relation(fields: [projectId], references: [id])
   createdAt DateTime  @default(now())
   updatedAt DateTime  @updatedAt
 
@@ -141,31 +171,93 @@ model CronJob {
 }
 ```
 
-`threadId` is nullable. Jobs with a null `threadId` are skipped at trigger time with a warning log — they will not error the scheduler.
+**Key fields:**
+- `agentId` (required) — every job is associated with an agent. The `Agent` model has a `cronJobs CronJob[]` relation.
+- `projectId` (optional) — when a job auto-creates a thread, the thread inherits this project. The `Project` model has a `cronJobs CronJob[]` relation.
+- `schedule` and `fireAt` are mutually exclusive — one or the other must be non-null. Jobs with both or neither are skipped on startup with a warning.
+- `threadId` is nullable. Jobs with a null `threadId` auto-create a thread on first fire (see "Lazy Thread Creation" below).
 
 ---
 
-## Per-Agent Heartbeat Dependency Chain
+## One-Shot Jobs
 
-Agent Identity Phase 5 will use this system.
+One-shot jobs use `fireAt` instead of `schedule`. They fire exactly once at the specified time.
 
-Current state of dependencies:
+**Behavior on fire:**
+1. Execute the prompt via `ctx.sendToThread`
+2. Set `enabled: false` — the job is auto-disabled after firing
+3. Write `lastRunAt`, clear `nextRunAt` to null
 
-| Dependency | Status |
-|------------|--------|
-| `CronJob` model | Exists in schema |
-| Cron plugin (`@harness/plugin-cron`) | Planned — not yet implemented |
-| `AgentConfig` model | Planned — not yet in schema |
-| `AgentConfig.heartbeatEnabled` | Planned — unblocked once AgentConfig exists |
-| `AgentConfig.heartbeatCron` | Planned — unblocked once AgentConfig exists |
+**Past-due handling:** If `fireAt` is in the past when the scheduler starts, the job fires immediately. This covers orchestrator restarts that happen after a one-shot was due.
 
-Wire-up plan for Phase 5:
-1. Add `AgentConfig` to schema with `heartbeatEnabled: Boolean` and `heartbeatCron: String?`
-2. In the cron plugin's `start()` hook: after loading `CronJob` records, query all agents where `AgentConfig.heartbeatEnabled = true` and `heartbeatCron` is non-null
-3. For each such agent: look up the agent's thread (`thread.agentId = agent.id`), schedule a croner job using `heartbeatCron` that calls `ctx.sendToThread(thread.id, heartbeatPrompt)`
-4. These are ephemeral jobs (not stored in `CronJob` table) — they exist only in memory and are re-created on restart
+**Use cases:**
+- "Remind me at 3pm" — agent creates a one-shot CronJob via `schedule_task` tool
+- "Follow up on this delegation in 2 hours" — one-shot with `fireAt` 2 hours from now
+- "Check on that task tomorrow morning" — one-shot with `fireAt` the next morning
 
-Alternatively, the identity plugin's `start()` hook can independently schedule per-agent heartbeats without requiring the cron plugin, using the same croner library directly.
+---
+
+## Lazy Thread Creation
+
+When a CronJob fires and `threadId` is null, a thread is auto-created:
+
+```
+1. prisma.thread.create({
+     data: {
+       agentId: job.agentId,
+       projectId: job.projectId,
+       kind: 'cron',
+       name: job.name
+     }
+   })
+
+2. prisma.cronJob.update({
+     where: { id: job.id },
+     data: { threadId: newThread.id }
+   })
+
+3. ctx.sendToThread(newThread.id, job.prompt)
+```
+
+Subsequent fires reuse the persisted `threadId`. This enables creating jobs without pre-existing threads — the thread is created on demand when the job first fires.
+
+**Why `projectId` matters:** When a job auto-creates a thread, the thread inherits `projectId` from the CronJob. This ensures memories from cron-triggered conversations land in the correct project scope.
+
+---
+
+## MCP Tool — schedule_task
+
+The cron plugin exposes a `schedule_task` MCP tool (qualified as `cron__schedule_task`) that allows agents to create scheduled tasks during conversation.
+
+```typescript
+{
+  name: 'schedule_task',
+  description: 'Create a scheduled task that fires a prompt into a thread on a recurring schedule or at a specific time',
+  schema: {
+    type: 'object',
+    properties: {
+      name:     { type: 'string', description: 'Descriptive name for the task' },
+      prompt:   { type: 'string', description: 'The prompt to send when the task fires' },
+      schedule: { type: 'string', description: 'Cron expression for recurring tasks (e.g., "0 14 * * *")' },
+      fireAt:   { type: 'string', description: 'ISO datetime for one-shot tasks (e.g., "2026-03-03T15:00:00Z")' },
+      threadId: { type: 'string', description: 'Thread to fire into. Defaults to current thread if omitted.' },
+    },
+    required: ['name', 'prompt'],
+  },
+}
+```
+
+**Auto-resolved fields:**
+- `agentId` — resolved from `meta.threadId` -> `thread.agentId`
+- `projectId` — resolved from `meta.threadId` -> `thread.projectId`
+- `threadId` — defaults to `meta.threadId` (current conversation) if omitted
+
+**Constraints:**
+- Must provide either `schedule` or `fireAt` (not both, not neither)
+- `agentId` is auto-resolved, not user-provided
+- Returns confirmation with job name and next fire time
+
+**Note:** Jobs created via the MCP tool take effect on the next orchestrator restart (same as admin UI changes). Hot-reload is future work.
 
 ---
 
@@ -173,7 +265,7 @@ Alternatively, the identity plugin's `start()` hook can independently schedule p
 
 | File | What it owns |
 |------|-------------|
-| `packages/plugins/cron/src/index.ts` | PluginDefinition — `start`, `stop`, optional tools |
+| `packages/plugins/cron/src/index.ts` | PluginDefinition — `start`, `stop`, `schedule_task` tool |
 | `packages/plugins/cron/src/_helpers/cron-server.ts` | Job loading, croner scheduling, trigger handler |
 | `packages/database/prisma/schema.prisma` | `CronJob` model |
 | `packages/database/prisma/seed.ts` | Seeds primary thread + 4 default cron jobs |
