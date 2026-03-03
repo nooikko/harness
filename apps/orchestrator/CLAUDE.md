@@ -376,7 +376,7 @@ You run inside a message pipeline. Understanding the flow helps you work effecti
 1. **Message received** -- from Discord, web chat, or cron trigger.
 2. **onMessage hooks fire** -- notification only, no modification.
 3. **onBeforeInvoke hooks fire** -- the context plugin injects `context/` files and conversation history into your prompt. This is why you see the `# Context` and `# Conversation History` sections.
-4. **You are invoked** -- `claude -p <assembled-prompt> --model <model> --output-format text`.
+4. **You are invoked** -- via the `@anthropic-ai/claude-agent-sdk` session pool (5 max sessions, 8-min TTL, LRU eviction).
 5. **onAfterInvoke hooks fire** -- logging, metrics.
 6. **pipeline:complete broadcast** -- the pipeline ends. Your response is persisted as the assistant message.
 

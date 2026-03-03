@@ -1,4 +1,5 @@
-// Model pricing resolution — maps model identifiers to per-million-token rates
+// Model pricing resolution — maps model identifiers to per-million-token rates.
+// Shared across all plugins that need cost calculation (metrics, delegation).
 
 /**
  * Model pricing in USD per million tokens.
@@ -55,4 +56,14 @@ export const getModelPricing: GetModelPricing = (model) => {
   }
 
   return DEFAULT_PRICING;
+};
+
+type GetModelCost = (model: string, inputTokens: number, outputTokens: number) => number;
+
+/**
+ * Computes estimated cost in USD from model name and token counts.
+ */
+export const getModelCost: GetModelCost = (model, inputTokens, outputTokens) => {
+  const pricing = getModelPricing(model);
+  return (inputTokens / 1_000_000) * pricing.inputPerMillion + (outputTokens / 1_000_000) * pricing.outputPerMillion;
 };

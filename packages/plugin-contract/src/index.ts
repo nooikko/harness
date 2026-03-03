@@ -9,6 +9,8 @@ import { runHook } from './_helpers/run-hook';
 export { runChainHook, runHook };
 export { decryptValue } from './_helpers/decrypt-value';
 export { encryptValue } from './_helpers/encrypt-value';
+export type { ModelPricing } from './_helpers/model-pricing';
+export { getModelCost, getModelPricing } from './_helpers/model-pricing';
 
 // Inlined from orchestrator config
 export type LogLevel = 'debug' | 'info' | 'warn' | 'error';
@@ -123,6 +125,7 @@ export type PluginContext = {
   broadcast: (event: string, data: unknown) => Promise<void>;
   getSettings: <T extends SettingsFieldDefs>(schema: PluginSettingsSchemaInstance<T>) => Promise<InferSettings<T>>;
   notifySettingsChange: (pluginName: string) => Promise<void>;
+  setActiveTaskId?: (taskId: string | undefined) => void;
 };
 
 export type PluginHooks = {

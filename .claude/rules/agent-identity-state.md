@@ -110,7 +110,7 @@ const ALL_PLUGINS: PluginDefinition[] = [
 
 **What:** Periodic meta-reflection synthesizes patterns across episodic memories into `REFLECTION` type records. High-importance reflections (importance: 8) are injected into prompts alongside episodic memories.
 
-**Status:** PARTIALLY ACTIVE — the reflection trigger IS wired into the live plugin as fire-and-forget in `scoreAndWriteMemory`. `AgentConfig.reflectionEnabled` IS checked — the identity plugin passes `config?.reflectionEnabled ?? true` to `scoreAndWriteMemory`, which guards the reflection trigger at line 99. One gap remains:
+**Status:** PARTIALLY ACTIVE — the reflection trigger IS wired into the live plugin as fire-and-forget in `scoreAndWriteMemory`. `AgentConfig.reflectionEnabled` IS checked — the identity plugin passes `config?.reflectionEnabled ?? false` to `scoreAndWriteMemory`, which guards the reflection trigger at line 99. One gap remains:
 
 1. **REFLECTION memories are not prioritized in the header.** `retrieveMemories` returns memories by recency+importance score. REFLECTION records are treated identically to EPISODIC records — they are not given any special weighting or guaranteed injection.
 
@@ -144,11 +144,11 @@ Files:
 
 ---
 
-## Phase 5 — Scheduled Tasks via CronJob CRUD (IN PROGRESS)
+## Phase 5 — Scheduled Tasks via CronJob CRUD (COMPLETE)
 
 **What:** Agents can have scheduled tasks — recurring or one-shot — that fire prompts into threads on a cron schedule or at a specific time. This replaces the original "per-agent heartbeat" concept.
 
-**Status:** IN PROGRESS — the heartbeat abstraction was collapsed into the existing CronJob system. Every use case (daily digests, follow-up reminders, periodic maintenance) is modeled as a CronJob record with a required `agentId` FK.
+**Status:** COMPLETE — the heartbeat abstraction was collapsed into the existing CronJob system. Every use case (daily digests, follow-up reminders, periodic maintenance) is modeled as a CronJob record with a required `agentId` FK.
 
 **Design decision:** The original Phase 5 proposed `AgentConfig.heartbeatEnabled` + `AgentConfig.heartbeatCron` for a single heartbeat per agent. This was too narrow — an agent can have many threads and many scheduled tasks. The CronJob model already handles recurring scheduled prompts, so heartbeat was collapsed into CronJob CRUD with these additions:
 
@@ -159,21 +159,25 @@ Files:
 - Lazy thread creation — if `threadId` is null, a thread is auto-created on first fire
 - MCP tool `cron__schedule_task` — agents can create scheduled tasks during conversation
 
-**What is being implemented:**
+**What was implemented:**
 - Schema changes to CronJob (agentId, projectId, fireAt, nullable schedule)
-- Full CRUD admin UI for CronJobs (create, edit, delete — not just toggle)
+- Full CRUD admin UI for CronJobs at `/admin/cron-jobs` (create, edit, delete, toggle)
 - Agent detail page integration (read-only list of scheduled tasks per agent)
-- MCP tool for agents to self-schedule tasks
-- Cron plugin changes for one-shot support and lazy thread creation
+- MCP tool `cron__schedule_task` for agents to self-schedule tasks
+- Cron plugin support for one-shot jobs (auto-disable after firing) and lazy thread creation
+
+**Not yet implemented:** Hot-reload of cron jobs — admin UI changes take effect on orchestrator restart only.
 
 See: `docs/plans/2026-03-02-scheduled-tasks-prd.md` for the full design document.
 See: `.claude/rules/cron-scheduler.md` for runtime behavior details.
 
 ---
 
-## AgentConfig Model (EXISTS IN SCHEMA)
+## AgentConfig Model (COMPLETE)
 
-The model exists in `packages/database/prisma/schema.prisma`. No admin UI or server actions exist yet for managing AgentConfig records.
+The model exists in `packages/database/prisma/schema.prisma`. Both UI and server action are wired:
+- **Server action:** `apps/web/src/app/(chat)/chat/_actions/update-agent-config.ts` — upserts AgentConfig for a given agent
+- **UI:** `memoryEnabled` and `reflectionEnabled` checkboxes on the agent edit form (`edit-agent-form.tsx`)
 
 Current shape:
 ```prisma
@@ -192,7 +196,7 @@ The unique FK to `Agent` means one config per agent. The `Agent` model has `conf
 
 Both flags are checked by the identity plugin:
 - **`memoryEnabled`** — checked at line 43 of `packages/plugins/identity/src/index.ts`. If `config?.memoryEnabled === false`, `onAfterInvoke` returns early and no memory is written.
-- **`reflectionEnabled`** — passed as `config?.reflectionEnabled ?? true` to `scoreAndWriteMemory`, which guards the reflection trigger at line 99. Defaults to true when no config exists.
+- **`reflectionEnabled`** — passed as `config?.reflectionEnabled ?? false` to `scoreAndWriteMemory`, which guards the reflection trigger at line 99. Defaults to false when no config exists (matching the schema default).
 
 ---
 
@@ -241,7 +245,7 @@ model Agent {
 | 2 — Episodic memory | COMPLETE | -- |
 | 3 — Vector search | PAUSED | Qdrant service + backend decision |
 | 4 — Reflection cycle | PARTIALLY ACTIVE | REFLECTION memories not prioritized in retrieval (treated same as EPISODIC) |
-| 5 — Scheduled tasks (CronJob CRUD) | IN PROGRESS | Heartbeat collapsed into CronJob; schema + UI + MCP tool in progress |
+| 5 — Scheduled tasks (CronJob CRUD) | COMPLETE | Hot-reload not yet implemented (changes require orchestrator restart) |
 
 ---
 

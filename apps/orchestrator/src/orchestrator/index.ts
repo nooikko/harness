@@ -27,6 +27,7 @@ export type OrchestratorDeps = {
   logger: Logger;
   setActiveThread?: (threadId: string) => void;
   setActiveTraceId?: (traceId: string) => void;
+  setActiveTaskId?: (taskId: string | undefined) => void;
 };
 
 export type HandleMessageResult = {
@@ -131,6 +132,7 @@ export const createOrchestrator: CreateOrchestrator = (deps) => {
     notifySettingsChange: async (pluginName: string) => {
       await runNotifyHooks(allHooks(), 'onSettingsChange', (h) => h.onSettingsChange?.(pluginName), deps.logger);
     },
+    setActiveTaskId: deps.setActiveTaskId,
   };
 
   type BuildPluginContext = (definition: PluginDefinition) => PluginContext;

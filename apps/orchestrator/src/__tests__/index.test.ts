@@ -315,7 +315,7 @@ describe('boot', () => {
       expect(mockCreateSdkInvoker).toHaveBeenCalledWith(expect.not.objectContaining({ sessionConfig: expect.anything() }));
     });
 
-    it('creates the orchestrator with correct deps including setActiveThread and setActiveTraceId', async () => {
+    it('creates the orchestrator with correct deps including setActiveThread, setActiveTraceId, and setActiveTaskId', async () => {
       const config = makeConfig();
       const { logger, invoker } = setupDefaults({ config });
 
@@ -328,6 +328,7 @@ describe('boot', () => {
         logger,
         setActiveThread: expect.any(Function),
         setActiveTraceId: expect.any(Function),
+        setActiveTaskId: expect.any(Function),
       });
     });
 
@@ -363,6 +364,26 @@ describe('boot', () => {
 
       // Call it and verify it does not throw (it mutates the internal contextRef)
       expect(() => createOrchestratorArgs.setActiveTraceId('trace-abc-123')).not.toThrow();
+      // Suppress unused variable warnings for these — they are captured to satisfy vi.mocked
+      void logger;
+      void invoker;
+    });
+
+    it('setActiveTaskId callback updates contextRef.taskId', async () => {
+      const config = makeConfig();
+      const { logger, invoker } = setupDefaults({ config });
+
+      await boot();
+
+      const createOrchestratorArgs = mockCreateOrchestrator.mock.calls[0]![0] as {
+        setActiveTaskId: (taskId: string | undefined) => void;
+      };
+      expect(typeof createOrchestratorArgs.setActiveTaskId).toBe('function');
+
+      // Call it and verify it does not throw (it mutates the internal contextRef)
+      expect(() => createOrchestratorArgs.setActiveTaskId('task-xyz')).not.toThrow();
+      // Also verify clearing works
+      expect(() => createOrchestratorArgs.setActiveTaskId(undefined)).not.toThrow();
       // Suppress unused variable warnings for these — they are captured to satisfy vi.mocked
       void logger;
       void invoker;

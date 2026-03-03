@@ -117,6 +117,54 @@ describe('formatIdentityHeader', () => {
     expect(result).not.toContain('## User Context');
   });
 
+  it('includes role, goal, and backstory when set', () => {
+    const agent = makeAgent({
+      role: 'Senior engineer',
+      goal: 'Ship reliable software',
+      backstory: 'Started coding at age 12',
+    });
+    const result = formatIdentityHeader(agent, [], { soulMaxChars: 5000, identityMaxChars: 2000 });
+    expect(result).toContain('## Role\n\nSenior engineer');
+    expect(result).toContain('## Goal\n\nShip reliable software');
+    expect(result).toContain('## Backstory\n\nStarted coding at age 12');
+  });
+
+  it('omits role, goal, and backstory when null', () => {
+    const agent = makeAgent({ role: null, goal: null, backstory: null });
+    const result = formatIdentityHeader(agent, [], { soulMaxChars: 5000, identityMaxChars: 2000 });
+    expect(result).not.toContain('## Role');
+    expect(result).not.toContain('## Goal');
+    expect(result).not.toContain('## Backstory');
+  });
+
+  it('omits role, goal, and backstory when empty string', () => {
+    const agent = makeAgent({ role: '', goal: '', backstory: '' });
+    const result = formatIdentityHeader(agent, [], { soulMaxChars: 5000, identityMaxChars: 2000 });
+    expect(result).not.toContain('## Role');
+    expect(result).not.toContain('## Goal');
+    expect(result).not.toContain('## Backstory');
+  });
+
+  it('places role/goal/backstory after userContext and before memories', () => {
+    const agent = makeAgent({
+      userContext: 'Prefers concise responses',
+      role: 'Mentor',
+      goal: 'Guide effectively',
+      backstory: 'Years of experience',
+    });
+    const memories = [makeMemory('Had a great session')];
+    const result = formatIdentityHeader(agent, memories, { soulMaxChars: 5000, identityMaxChars: 2000 });
+    const userContextIdx = result.indexOf('## User Context');
+    const roleIdx = result.indexOf('## Role');
+    const goalIdx = result.indexOf('## Goal');
+    const backstoryIdx = result.indexOf('## Backstory');
+    const memoryIdx = result.indexOf('## Relevant Memory');
+    expect(userContextIdx).toBeLessThan(roleIdx);
+    expect(roleIdx).toBeLessThan(goalIdx);
+    expect(goalIdx).toBeLessThan(backstoryIdx);
+    expect(backstoryIdx).toBeLessThan(memoryIdx);
+  });
+
   it('includes Chain of Persona instruction', () => {
     const agent = makeAgent({ name: 'Aria' });
     const result = formatIdentityHeader(agent, [], { soulMaxChars: 5000, identityMaxChars: 2000 });

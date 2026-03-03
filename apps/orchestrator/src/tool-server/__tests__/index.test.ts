@@ -146,6 +146,53 @@ describe('createToolServer', () => {
     expect(result).toEqual({ content: [{ type: 'text', text: 'tool output' }] });
   });
 
+  it('handler includes taskId in meta when contextRef has taskId', async () => {
+    const handler = vi.fn().mockResolvedValue('task output');
+    const tool: PluginTool = {
+      name: 'test-tool',
+      description: 'A test tool',
+      schema: { type: 'object' },
+      handler,
+    };
+    const collected = [{ ...tool, pluginName: 'test', qualifiedName: 'test__test-tool' }];
+    const contextRef = makeContextRef({ threadId: 'thread-42', taskId: 'task-99' });
+
+    createToolServer(collected, contextRef);
+
+    type McpHandler = (input: Record<string, unknown>) => Promise<{ content: Array<{ type: string; text: string }> }>;
+    const mockCallParams = mockCreateSdkMcpServer.mock.calls[0] as unknown as Parameters<typeof createSdkMcpServer>;
+    const mcpTools = mockCallParams[0].tools as unknown as Array<{ handler: McpHandler }>;
+    const mcpTool = mcpTools[0]!;
+
+    await mcpTool.handler({ prompt: 'hello' });
+
+    expect(handler).toHaveBeenCalledWith(contextRef.ctx, { prompt: 'hello' }, expect.objectContaining({ threadId: 'thread-42', taskId: 'task-99' }));
+  });
+
+  it('handler omits taskId from meta when contextRef has no taskId', async () => {
+    const handler = vi.fn().mockResolvedValue('output');
+    const tool: PluginTool = {
+      name: 'test-tool',
+      description: 'A test tool',
+      schema: { type: 'object' },
+      handler,
+    };
+    const collected = [{ ...tool, pluginName: 'test', qualifiedName: 'test__test-tool' }];
+    const contextRef = makeContextRef({ threadId: 'thread-42' });
+
+    createToolServer(collected, contextRef);
+
+    type McpHandler = (input: Record<string, unknown>) => Promise<{ content: Array<{ type: string; text: string }> }>;
+    const mockCallParams = mockCreateSdkMcpServer.mock.calls[0] as unknown as Parameters<typeof createSdkMcpServer>;
+    const mcpTools = mockCallParams[0].tools as unknown as Array<{ handler: McpHandler }>;
+    const mcpTool = mcpTools[0]!;
+
+    await mcpTool.handler({});
+
+    const calledMeta = handler.mock.calls[0]![2] as PluginToolMeta;
+    expect(calledMeta.taskId).toBeUndefined();
+  });
+
   it('handler throws when PluginContext is not initialized', async () => {
     const tool = makeTool('test-tool');
     const collected = [{ ...tool, pluginName: 'test', qualifiedName: 'test__test-tool' }];

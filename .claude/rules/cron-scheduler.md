@@ -63,7 +63,7 @@ On trigger (recurring):
 1. Resolve threadId (see "Lazy Thread Creation" below)
 
 2. ctx.sendToThread(threadId, job.prompt)
-   — runs the full 8-step pipeline, persists assistant response
+   — runs the full pipeline, persists assistant response
 
 3. prisma.cronJob.update({
      where: { id: job.id },
@@ -78,7 +78,7 @@ On trigger (one-shot):
 1. Resolve threadId (see "Lazy Thread Creation" below)
 
 2. ctx.sendToThread(threadId, job.prompt)
-   — runs the full 8-step pipeline, persists assistant response
+   — runs the full pipeline, persists assistant response
 
 3. prisma.cronJob.update({
      where: { id: job.id },

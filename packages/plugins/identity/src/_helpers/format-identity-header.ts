@@ -20,6 +20,18 @@ export const formatIdentityHeader: FormatIdentityHeader = (agent, memories, opti
     parts.push(`## User Context\n\n${agent.userContext}`);
   }
 
+  if (agent.role) {
+    parts.push(`## Role\n\n${agent.role}`);
+  }
+
+  if (agent.goal) {
+    parts.push(`## Goal\n\n${agent.goal}`);
+  }
+
+  if (agent.backstory) {
+    parts.push(`## Backstory\n\n${agent.backstory}`);
+  }
+
   if (memories.length > 0) {
     const memoryLines = memories.map((m) => {
       const date = m.createdAt.toISOString().split('T')[0];

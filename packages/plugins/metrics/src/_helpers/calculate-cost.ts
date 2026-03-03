@@ -1,6 +1,6 @@
 // Cost calculation — computes estimated cost from token counts and model pricing
 
-import { getModelPricing } from './get-model-pricing';
+import { getModelPricing } from '@harness/plugin-contract';
 
 export type CostBreakdown = {
   inputCost: number;

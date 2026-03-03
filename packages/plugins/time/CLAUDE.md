@@ -93,11 +93,9 @@ The format is identical whether the timestamp came from prompt injection or the 
 
 ---
 
-## Plugin runs after context plugin in `onBeforeInvoke` chain
+## Plugin runs after identity and context in `onBeforeInvoke` chain
 
-Plugin registration order in `apps/orchestrator/src/plugin-registry/index.ts` is: `context`, then `time` (among others). The `onBeforeInvoke` hook is a chain hook — each plugin receives the previous plugin's output as its input prompt.
-
-This means: by the time the time plugin sees the prompt, the context plugin has already injected conversation history and context files. Time replacement operates on the fully-assembled, history-injected prompt. This is correct behavior, but be aware that the standalone detection regex must match within that larger assembled string, not just the raw user message.
+The `onBeforeInvoke` chain order is: identity → context → time (among others). The time plugin is the last `onBeforeInvoke` implementor. By the time it sees the prompt, the identity plugin has injected agent soul/memories and the context plugin has injected conversation history and context files. Time replacement operates on the fully-assembled, history-injected prompt. This is correct behavior, but be aware that the standalone detection regex must match within that larger assembled string, not just the raw user message.
 
 ---
 

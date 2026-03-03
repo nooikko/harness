@@ -69,7 +69,7 @@ type PluginHooks = {
   onTaskComplete?:     (threadId, taskId, result) => Promise<void>
   onTaskFailed?:       (threadId, taskId, error) => Promise<void>
   onPipelineStart?:    (threadId) => Promise<void>
-  onPipelineComplete?: (threadId, result: { invokeResult, pipelineSteps, streamEvents, commandsHandled }) => Promise<void>
+  onPipelineComplete?: (threadId, result: { invokeResult, pipelineSteps, streamEvents }) => Promise<void>
   onSettingsChange?:   (pluginName) => Promise<void>
 };
 ```

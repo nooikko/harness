@@ -216,7 +216,7 @@ describe('routes', () => {
           sourceId: 's1',
           name: 'Test Thread',
           kind: 'general',
-          status: 'open',
+          status: 'active',
           lastActivity: new Date().toISOString(),
           createdAt: new Date().toISOString(),
         },

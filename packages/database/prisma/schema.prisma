@@ -18,7 +18,7 @@ model Thread {
   sourceId       String
   name           String?
   kind           String     @default("general")
-  status         String     @default("open")
+  status         String     @default("active")
   sessionId           String?
   model               String?
   customInstructions  String?
@@ -212,7 +212,7 @@ model AgentConfig {
   agentId           String   @unique
   agent             Agent    @relation(fields: [agentId], references: [id])
   memoryEnabled     Boolean  @default(true)
-  reflectionEnabled Boolean  @default(false) // Phase 4 — not yet implemented
+  reflectionEnabled Boolean  @default(false) // Phase 4 — trigger wired, retrieval boost pending
   createdAt         DateTime @default(now())
   updatedAt         DateTime @updatedAt
 }

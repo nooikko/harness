@@ -49,7 +49,7 @@ const makeThread: MakeThread = (overrides) => ({
   sourceId: 'session-1',
   name: 'My Thread',
   kind: 'general',
-  status: 'open',
+  status: 'active',
   sessionId: null,
   model: null,
   customInstructions: null,
@@ -91,7 +91,7 @@ describe('ThreadPage', () => {
   });
 
   it('displays thread kind and status', async () => {
-    mockFindUnique.mockResolvedValue(makeThread({ kind: 'task', status: 'open' }));
+    mockFindUnique.mockResolvedValue(makeThread({ kind: 'task', status: 'active' }));
     mockFindMany.mockResolvedValue([]);
 
     const element = await ThreadPage({
@@ -100,7 +100,7 @@ describe('ThreadPage', () => {
     const html = renderToStaticMarkup(element as React.ReactElement);
 
     expect(html).toContain('task thread');
-    expect(html).toContain('open');
+    expect(html).toContain('active');
   });
 
   it('calls notFound when thread does not exist', async () => {

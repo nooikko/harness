@@ -19,7 +19,7 @@ export const createThread: CreateThread = async (options) => {
       source: 'web',
       sourceId: crypto.randomUUID(),
       kind: 'general',
-      status: 'open',
+      status: 'active',
       model: options?.model,
       agentId: options?.agentId ?? null,
       projectId: options?.projectId,

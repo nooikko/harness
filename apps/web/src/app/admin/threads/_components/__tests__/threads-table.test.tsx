@@ -41,7 +41,7 @@ describe('ThreadsTableInternal', () => {
         sourceId: 'chan_123',
         name: 'Project Discussion',
         kind: 'general',
-        status: 'open',
+        status: 'active',
         parentThreadId: null,
         lastActivity: new Date('2026-02-24T08:00:00Z'),
         createdAt: new Date('2026-02-20T00:00:00Z'),
@@ -66,7 +66,7 @@ describe('ThreadsTableInternal', () => {
     const html = renderToStaticMarkup(element as React.ReactElement);
     expect(html).toContain('Project Discussion');
     expect(html).toContain('general');
-    expect(html).toContain('open');
+    expect(html).toContain('active');
     expect(html).toContain('discord');
     expect(html).toContain('42');
     expect(html).toContain('web/sess_456');
@@ -83,7 +83,7 @@ describe('ThreadsTableInternal', () => {
         sourceId: 'chan_1',
         name: 'Test Thread',
         kind: 'general',
-        status: 'open',
+        status: 'active',
         parentThreadId: null,
         lastActivity: new Date('2026-02-24T08:00:00Z'),
         createdAt: new Date('2026-02-20T00:00:00Z'),
@@ -105,7 +105,7 @@ describe('ThreadsTableInternal', () => {
         sourceId: 'sess_1',
         name: 'Active Thread',
         kind: 'general',
-        status: 'open',
+        status: 'active',
         parentThreadId: null,
         lastActivity: new Date('2026-02-24T08:00:00Z'),
         createdAt: new Date('2026-02-20T00:00:00Z'),
@@ -148,7 +148,7 @@ describe('ThreadsTableInternal', () => {
         sourceId: 'req_789',
         name: null,
         kind: 'general',
-        status: 'open',
+        status: 'active',
         parentThreadId: null,
         lastActivity: new Date('2026-02-24T08:00:00Z'),
         createdAt: new Date('2026-02-20T00:00:00Z'),

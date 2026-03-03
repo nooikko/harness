@@ -107,6 +107,19 @@ describe('ProjectSettingsForm', () => {
     expect(screen.queryByText(/managed by the agent/i)).not.toBeInTheDocument();
   });
 
+  it('renders the model selector with default selected', () => {
+    render(<ProjectSettingsForm project={makeProject()} />);
+    const trigger = screen.getByRole('combobox', { name: /model/i });
+    expect(trigger).toBeInTheDocument();
+    expect(trigger).toHaveTextContent('Default (inherit)');
+  });
+
+  it('renders the model selector with existing model selected', () => {
+    render(<ProjectSettingsForm project={makeProject({ model: 'claude-sonnet-4-6' })} />);
+    const trigger = screen.getByRole('combobox', { name: /model/i });
+    expect(trigger).toHaveTextContent('Sonnet');
+  });
+
   it('calls updateProject with correct arguments on save', async () => {
     render(<ProjectSettingsForm project={makeProject()} />);
     const nameInput = screen.getByLabelText(/^name$/i);
@@ -114,6 +127,22 @@ describe('ProjectSettingsForm', () => {
     fireEvent.click(screen.getByRole('button', { name: /save changes/i }));
     await waitFor(() => {
       expect(mockUpdateProject).toHaveBeenCalledWith('proj-1', expect.objectContaining({ name: 'New Name' }));
+    });
+  });
+
+  it('passes null model when default (inherit) is selected on save', async () => {
+    render(<ProjectSettingsForm project={makeProject()} />);
+    fireEvent.click(screen.getByRole('button', { name: /save changes/i }));
+    await waitFor(() => {
+      expect(mockUpdateProject).toHaveBeenCalledWith('proj-1', expect.objectContaining({ model: null }));
+    });
+  });
+
+  it('passes model value when a specific model is selected on save', async () => {
+    render(<ProjectSettingsForm project={makeProject({ model: 'claude-sonnet-4-6' })} />);
+    fireEvent.click(screen.getByRole('button', { name: /save changes/i }));
+    await waitFor(() => {
+      expect(mockUpdateProject).toHaveBeenCalledWith('proj-1', expect.objectContaining({ model: 'claude-sonnet-4-6' }));
     });
   });
 

@@ -26,7 +26,7 @@ type GetThreadStatusVariant = (status: string) => StatusVariant;
 
 const getThreadStatusVariant: GetThreadStatusVariant = (status) => {
   switch (status) {
-    case 'open':
+    case 'active':
       return 'default';
     case 'closed':
       return 'secondary';

@@ -10,7 +10,7 @@ const makeThread: MakeThread = (overrides) => ({
   sourceId: 'session-1',
   name: null,
   kind: 'general',
-  status: 'open',
+  status: 'active',
   sessionId: null,
   model: null,
   customInstructions: null,

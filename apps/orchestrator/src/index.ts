@@ -80,6 +80,9 @@ export const boot: Boot = async () => {
     setActiveTraceId: (traceId: string) => {
       contextRef.traceId = traceId;
     },
+    setActiveTaskId: (taskId: string | undefined) => {
+      contextRef.taskId = taskId;
+    },
   });
 
   contextRef.ctx = orchestrator.getContext();

@@ -31,6 +31,7 @@ const createMockContext: CreateMockContext = () =>
       claudeTimeout: 30000,
     },
     logger: { info: vi.fn(), warn: vi.fn(), error: vi.fn(), debug: vi.fn() },
+    setActiveTaskId: vi.fn(),
   }) as unknown as PluginContext;
 
 describe('invokeSubAgent', () => {
@@ -202,6 +203,28 @@ describe('invokeSubAgent', () => {
       onMessage: undefined,
       traceId: 'trace-abc-123',
     });
+  });
+
+  it('sets taskId before invoke and clears it after', async () => {
+    const ctx = createMockContext();
+    const setActiveTaskId = ctx.setActiveTaskId as ReturnType<typeof vi.fn>;
+
+    await invokeSubAgent(ctx, 'Do work', 'task-1', 'thread-1', undefined);
+
+    expect(setActiveTaskId).toHaveBeenCalledTimes(2);
+    expect(setActiveTaskId).toHaveBeenNthCalledWith(1, 'task-1');
+    expect(setActiveTaskId).toHaveBeenNthCalledWith(2, undefined);
+  });
+
+  it('clears taskId even when invoke throws', async () => {
+    const ctx = createMockContext();
+    (ctx.invoker.invoke as ReturnType<typeof vi.fn>).mockRejectedValue(new Error('invoke failed'));
+    const setActiveTaskId = ctx.setActiveTaskId as ReturnType<typeof vi.fn>;
+
+    await expect(invokeSubAgent(ctx, 'Do work', 'task-1', 'thread-1', undefined)).rejects.toThrow('invoke failed');
+
+    expect(setActiveTaskId).toHaveBeenNthCalledWith(1, 'task-1');
+    expect(setActiveTaskId).toHaveBeenNthCalledWith(2, undefined);
   });
 
   it('handles undefined error by setting null', async () => {

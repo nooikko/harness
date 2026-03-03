@@ -55,7 +55,7 @@ If you see `P2002` errors at `error` level or unhandled rejections from thread u
 
 ## Connection status broadcasting
 
-When the Discord client connects, disconnects, or encounters an error, the plugin calls `ctx.broadcast('discord:connection', { status, ... })`. It also writes the connection status to `pluginConfig.metadata` in the database.
+When the Discord client connects, disconnects, or encounters an error, the plugin calls `ctx.broadcast('discord:connection', { status, ... })`.
 
 These broadcasts are fire-and-forget — they are not awaited. A failure to broadcast connection status should not abort the connection lifecycle. Do not add `await` to these calls.
 

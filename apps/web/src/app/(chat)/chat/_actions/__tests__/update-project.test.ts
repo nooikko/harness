@@ -100,6 +100,28 @@ describe('updateProject', () => {
     expect(mockRevalidatePath).toHaveBeenCalledWith('/chat');
   });
 
+  it('clears model when null is passed', async () => {
+    mockUpdate.mockResolvedValue({
+      id: 'project-1',
+      name: 'Test',
+      description: null,
+      instructions: null,
+      model: null,
+    });
+
+    await updateProject('project-1', { name: 'Test', model: null });
+
+    expect(mockUpdate).toHaveBeenCalledWith({
+      where: { id: 'project-1' },
+      data: {
+        name: 'Test',
+        description: undefined,
+        instructions: undefined,
+        model: null,
+      },
+    });
+  });
+
   it('propagates errors from prisma', async () => {
     mockUpdate.mockRejectedValue(new Error('Project not found'));
 

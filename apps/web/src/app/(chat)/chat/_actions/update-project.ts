@@ -7,7 +7,7 @@ type UpdateProjectFields = {
   name?: string;
   description?: string;
   instructions?: string;
-  model?: string;
+  model?: string | null;
 };
 
 type UpdateProject = (

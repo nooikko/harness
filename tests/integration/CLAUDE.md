@@ -136,7 +136,13 @@ harness.invoker.invoke.mockImplementation(async (_prompt, opts) => {
 | metrics | `metrics-plugin.test.ts` | ✓ |
 | time | `time-plugin.test.ts` | ✓ |
 | web | `web-plugin.test.ts` | ✓ |
-| validator | — | ✗ missing |
+| validator | `validator-plugin.test.ts` | ✓ |
+| identity | — | ✗ missing |
+| cron | — | ✗ missing |
+| auto-namer | — | ✗ missing |
+| audit | — | ✗ missing |
+| summarization | — | ✗ missing |
+| project | — | ✗ missing |
 
 When adding a new plugin to `packages/plugins/`, add it to `package.json` devDependencies here and create `{plugin-name}-plugin.test.ts`.
 

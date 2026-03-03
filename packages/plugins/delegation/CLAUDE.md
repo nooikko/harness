@@ -60,9 +60,9 @@ src/
     build-iteration-prompt.ts       — constructs prompt with prior feedback
     fire-task-complete-hooks.ts     — runs onTaskComplete hooks and normalizes outcome
     send-thread-notification.ts     — posts structured result notification to parent thread
-query-delegation-cost.ts        — sums metric costs for a task
+    query-delegation-cost.ts        — sums metric costs for a task
     categorize-failure.ts           — classifies invoke errors for retry strategy
     calculate-backoff-ms.ts         — exponential backoff per failure category
-    create-task-thread.ts           — (legacy helper, may be unused — check before editing)
+    record-agent-run.ts             — records AgentRun with token/cost data after sub-agent invocation
     __tests__/                      — unit tests per helper
 ```

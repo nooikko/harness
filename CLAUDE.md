@@ -26,10 +26,14 @@ pnpm --filter database db:migrate  # Create migration files
 # Testing
 pnpm test                   # Run all tests (Vitest via Turbo)
 pnpm test:watch             # Run tests in watch mode
+pnpm test:integration       # Run integration tests (requires Docker for testcontainers)
 pnpm test:coverage-gate     # Pre-commit coverage check + barrel detection
 
 # CI pipeline (what GitHub Actions runs)
 pnpm ci                     # sherif → typecheck → lint → build
+
+# Code generation
+pnpm plugin:generate        # Regenerate plugin settings registry
 
 # Single-package commands
 pnpm --filter web dev       # Dev only the web app
@@ -138,10 +142,13 @@ To skip coverage and only check barrels: `pnpm test:coverage-gate --skip-coverag
 ## Claude Code Hooks
 
 - **block-no-verify** (PreToolUse → Bash): Prevents `git --no-verify`
-- **pre-commit-validate** (PreToolUse → Bash): Blocks `git commit` until typecheck, lint, build, and coverage-gate all pass (5min timeout)
+- **pre-commit-validate** (PreToolUse → Bash): Blocks `git commit` until typecheck, lint, build, and coverage-gate all pass (2min timeout)
+- **block-any-types** (PreToolUse → Bash): Blocks commits with explicit `any` types (`: any`, `as any`, `<any>`, `any[]`) in staged .ts/.tsx files
+- **enforce-commit-message** (PreToolUse → Bash): Enforces conventional commit format (`type(scope): description`)
 - **enforce-kebab-case** (PreToolUse → Write|Edit): Blocks non-kebab-case filenames
 - **biome-check** (PostToolUse → Write|Edit): Auto-runs `npx biome check --write` after file changes
 - **enforce-arrow-functions** (PostToolUse → Write|Edit): Warns when `function` keyword declarations are used in TS/JS files
+- **post-merge-validate** (PostToolUse → Bash): Runs typecheck, lint, build after `git merge` (non-blocking warning)
 - **notify-on-complete** (Notification): Desktop notifications via `notify-send`
 - **worktree-setup** (WorktreeCreate): Creates git worktrees at `.claude/worktrees/` with `pnpm install`
 
@@ -150,19 +157,24 @@ To skip coverage and only check barrels: `pnpm test:coverage-gate --skip-coverag
 Three `.claude/rules/` files document execution paths and constraints for the orchestrator/plugin system. **Read these before recommending changes to the orchestrator or plugin architecture.**
 
 - `.claude/rules/architectural-invariants.md` — innate vs extension principle; decision tree for "where does new behavior go?"; common wrong conclusions
-- `.claude/rules/data-flow.md` — exact execution path from web action → HTTP → sendToThread → handleMessage (8 steps) → WebSocket; all file:line references
+- `.claude/rules/data-flow.md` — exact execution path from web action → HTTP → sendToThread → handleMessage (5 steps) → WebSocket; all file:line references
 - `.claude/rules/plugin-system.md` — PluginDefinition shape, all hooks, PluginContext API, per-plugin summaries; live plugin contract @imported
 
 ## Skills (formerly Commands)
 
+- `/do` — Smart orchestrator: routes tasks to specialist agents with parallel execution
 - `/review` — Adversarial code review (read-only, checklist-based)
 - `/handoff` — Session end: documents progress, saves context to memory
-- `/do` — Smart orchestrator: routes tasks to specialist agents with parallel execution
 - `/catchup` — Session resume: loads context from memory and recent git activity
+- `/pre-flight` — Pre-implementation checklist (9 items) to catch architectural anti-patterns
+- `/engine` — Taskmaster-driven execution engine for task queue processing
+- `/web-design-guidelines` — Reviews UI code for Web Interface Guidelines compliance
+- `/vercel-react-best-practices` — React/Next.js performance optimization guidelines (57 rules)
+- `/vercel-composition-patterns` — React composition patterns (compound components, React 19 APIs)
 
 ## MCP Servers
 
-Configured in `.mcp.json`: context7 (live docs), playwright (E2E testing), github (requires `GITHUB_TOKEN`), taskmaster-ai (task management).
+Configured in `.mcp.json`: serena (codebase tools), context7 (live docs), playwright (E2E testing), github (requires `GITHUB_TOKEN`).
 
 ## Environment Setup
 
@@ -183,7 +195,7 @@ Do not rebuild any of the following — these subsystems are fully implemented.
 
 ### Admin UI (`/admin` route)
 
-- **`/admin/cron-jobs`** — full CRUD for CronJob records (create, edit, delete, enable/disable) with support for recurring and one-shot scheduled tasks (in progress)
+- **`/admin/cron-jobs`** — full CRUD for CronJob records (create, edit, delete, enable/disable) with support for recurring and one-shot scheduled tasks
 - **`/admin/plugins`** — enable/disable plugins at runtime via PluginConfig (no code change needed)
 - **`/admin/threads`** — thread management UI
 - **`/admin/agent-runs`** — view AgentRun records and token/cost metrics
@@ -192,6 +204,8 @@ Do not rebuild any of the following — these subsystems are fully implemented.
 ### Agent Management (`/agents` route)
 
 - **Full CRUD** for Agent records: create, edit, delete
+- **AgentConfig toggles** — `memoryEnabled` and `reflectionEnabled` checkboxes on the agent edit form, persisted via `update-agent-config.ts` server action
+- **Scheduled tasks display** — read-only list of CronJob records on agent detail page, with link to create new tasks
 - **Memory browser** — list and delete AgentMemory records per agent
 - **Server actions** (all in `apps/web/src/app/(chat)/chat/_actions/`): `create-agent.ts`, `update-agent.ts`, `delete-agent.ts`, `list-agents.ts`, `list-agent-memories.ts`, `delete-agent-memory.ts`, `update-agent-config.ts`
 
@@ -203,7 +217,7 @@ Do not rebuild any of the following — these subsystems are fully implemented.
 
 - **Phase 1 complete: soul injection** — agent soul/identity/role loaded from Agent record and injected into every prompt via `onBeforeInvoke`
 - **Phase 2 complete: episodic memory** — AgentMemory records scored by importance, retrieved via recency+importance ranking, injected into prompts
-- **Phase 3: paused** (vector search), **Phase 4: partially active** (reflection), **Phase 5: in progress** (scheduled tasks) — see "Planned But Incomplete" section
+- **Phase 3: paused** (vector search), **Phase 4: partially active** (reflection), **Phase 5: complete** (scheduled tasks via CronJob CRUD) — see "Planned But Incomplete" for remaining items
 - **Plugin ordering:** identity runs BEFORE context in the `onBeforeInvoke` chain (registered first in `ALL_PLUGINS`)
 
 ### Summarization Plugin (`packages/plugins/summarization/`)
@@ -229,7 +243,7 @@ Do not rebuild any of the following — these subsystems are fully implemented.
 - One-shot jobs auto-disable after firing (`enabled: false`, `nextRunAt: null`)
 - Lazy thread creation: if `threadId` is null, auto-creates a `kind:'cron'` thread on first fire
 - **MCP tool:** `cron__schedule_task` — agents can create scheduled tasks during conversation
-- Admin UI at `/admin/cron-jobs` with full CRUD (in progress)
+- Admin UI at `/admin/cron-jobs` with full CRUD (create, edit, delete, toggle)
 - Thread `kind='cron'` recognized by prompt assembler with specialized instructions
 - 4 seeded CronJobs: Morning Digest, Memory Consolidation, Calendar Refresh, Weekly Review
 
@@ -274,13 +288,7 @@ Do not rebuild any of the following — these subsystems are fully implemented.
 
 ## Planned But Incomplete
 
-These features have schema/UI groundwork but are missing execution logic. Do not assume they are done, and do not implement them without reading this context first.
-
-### AgentConfig Admin UI
-
-- **What:** Dedicated admin page for managing `AgentConfig` records
-- **Status:** Server action exists (`update-agent-config.ts`, wired to agent edit form). No standalone admin page — config is managed inline on the agent edit form.
-- **Fields:** `memoryEnabled`, `reflectionEnabled`
+These features have partial implementation but are missing execution logic. Do not assume they are done, and do not implement them without reading this context first.
 
 ### Agent Identity Phase 3 — Vector Search
 
@@ -295,15 +303,16 @@ These features have schema/UI groundwork but are missing execution logic. Do not
 - **Status:** PARTIALLY ACTIVE — the reflection trigger is wired as fire-and-forget in `scoreAndWriteMemory` (fires after each episodic memory write). `AgentConfig.reflectionEnabled` IS checked (passed as parameter, guards the trigger). However, REFLECTION memories are not prioritized in retrieval.
 - **Remaining work:** Give REFLECTION memories a scoring boost in `retrieveMemories` (or guarantee N slots in the returned set)
 
-### Agent Identity Phase 5 — Scheduled Tasks (CronJob CRUD)
+### Cron Job Hot-Reload
 
-- **What:** Evolve CronJob into a full scheduled task system with agent association, one-shot support, and CRUD UI
-- **Status:** IN PROGRESS — the heartbeat concept was collapsed into CronJob CRUD. See `docs/plans/2026-03-02-scheduled-tasks-prd.md`
-- **Scope:** Schema changes (agentId, projectId, fireAt, nullable schedule), full CRUD admin UI, MCP tool `cron__schedule_task`, lazy thread creation, one-shot auto-disable
+- **What:** Allow admin UI changes to cron jobs to take effect without restarting the orchestrator
+- **Status:** NOT STARTED — currently, toggling a job in the admin UI only takes effect on orchestrator restart
+- **Scope:** Reload cron server state when jobs are created/updated/deleted via admin UI or MCP tool
 
-### onCommand Hook (COMPLETED — Fully Removed)
+### Memory Architecture
 
-- `onCommand` has been removed from the `PluginHooks` type in `plugin-contract`
-- `run-hook-with-result.ts` and `run-command-hooks.ts` have been deleted
-- Steps 6-7 (parseCommands + onCommand) were removed from the handleMessage pipeline
-- All commands use PluginTool/MCP — no further cleanup needed
+- **What:** Scope agent memory across threads/projects/channels without cross-contamination
+- **Status:** NOT STARTED — research needed
+- **Core problem:** Same agent runs across multiple threads/projects/channels. Current episodic memory is scoped per-agent (not per-project/thread), so memories from unrelated contexts bleed together.
+- **Key tensions:** Memory isolation vs cross-channel continuity; project memory exists but what about non-project threads?
+- **Constraint:** Single user, NOT multi-tenant. But IS multi-channel, multi-project, multi-agent.

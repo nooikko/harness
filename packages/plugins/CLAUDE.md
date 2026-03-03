@@ -46,11 +46,12 @@ The orchestrator's `plugin-registry` imports each plugin by this name.
 | `onMessage` | Step 1 — message received | No | No |
 | `onBeforeInvoke` | Step 3 — before Claude | Yes (chain) | Yes — returns modified prompt |
 | `onAfterInvoke` | Step 5 — after Claude | No | No |
-| `onPipelineComplete` | After all DB writes in sendToThread | No | No |
-| `onCommand` | Step 7 — /command parsed | Yes (first-wins) | Returns true to consume |
+| `onPipelineStart` | Before handleMessage in sendToThread | No | No |
+| `onPipelineComplete` | After handleMessage in sendToThread | No | No |
 | `onBroadcast` | Any `ctx.broadcast()` call | No | No |
+| `onSettingsChange` | Any `ctx.notifySettingsChange()` call | No | No |
 | `onTaskCreate` | Delegation — task created | No | No |
-| `onTaskComplete` | Delegation — task validated | No | No |
+| `onTaskComplete` | Delegation — task validated | No | No (can throw to reject) |
 | `onTaskFailed` | Delegation — max iterations | No | No |
 
 ---
@@ -99,18 +100,21 @@ New plugins also need to be added as workspace dependencies in `apps/orchestrato
 
 ---
 
-## Current plugins
+## Current plugins (14 total, in registration order)
 
-| Package | Hook(s) | Purpose |
-|---------|---------|---------|
-| `@harness/plugin-context` | `onBeforeInvoke` | Injects context files + conversation history |
-| `@harness/plugin-discord` | `start` / `stop` | Discord gateway adapter |
-| `@harness/plugin-web` | `start` / `stop` / `onBroadcast` | HTTP server, WebSocket broadcaster |
-| `@harness/plugin-delegation` | `onCommand` + tools | `/delegate`, `/checkin` commands |
+| Package | Hook(s) / Lifecycle | Purpose |
+|---------|---------------------|---------|
+| `@harness/plugin-identity` | `onBeforeInvoke` + `onAfterInvoke` | Agent soul + episodic memory injection |
+| `@harness/plugin-activity` | `onPipelineStart` + `onPipelineComplete` | Rich activity persistence (pipeline steps, stream events) |
+| `@harness/plugin-context` | `onBeforeInvoke` | Injects context files + conversation history + project memory |
+| `@harness/plugin-discord` | `start` / `stop` + `onSettingsChange` | Discord gateway adapter |
+| `@harness/plugin-web` | `start` / `stop` + `onBroadcast` | HTTP server, WebSocket broadcaster |
+| `@harness/plugin-cron` | `start` / `stop` + tools | Cron job scheduler, `schedule_task` MCP tool |
+| `@harness/plugin-delegation` | tools | `delegate` + `checkin` MCP tools, background delegation loop |
+| `@harness/plugin-validator` | `onTaskComplete` | Quality-gates delegation outputs via rubric |
 | `@harness/plugin-metrics` | `onAfterInvoke` | Token usage + cost records |
 | `@harness/plugin-summarization` | `onAfterInvoke` | Conversation compression every 50 messages |
 | `@harness/plugin-auto-namer` | `onMessage` | Auto-generates thread title after first message |
 | `@harness/plugin-audit` | `onBroadcast` | Extracts conversation to ThreadAudit then deletes |
-| `@harness/plugin-time` | `onBeforeInvoke` + tools | Injects current timestamp, exposes `current_time` tool |
-| `@harness/plugin-validator` | `onTaskComplete` | Quality-gates delegation outputs via rubric |
-| `@harness/plugin-activity` | `onPipelineComplete` | Persists pipeline steps, thinking blocks, tool calls |
+| `@harness/plugin-time` | `start` + `onBeforeInvoke` + tools | Injects current timestamp, exposes `current_time` tool |
+| `@harness/plugin-project` | tools | `get_project_memory` + `set_project_memory` MCP tools |

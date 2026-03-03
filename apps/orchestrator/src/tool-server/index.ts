@@ -13,6 +13,7 @@ export type ToolContextRef = {
   ctx: PluginContext | null;
   threadId: string;
   traceId?: string;
+  taskId?: string;
 };
 
 type CollectTools = (plugins: PluginDefinition[]) => CollectedTool[];
@@ -49,7 +50,11 @@ export const createToolServer: CreateToolServer = (tools, contextRef) => {
           `Tool "${t.qualifiedName}" called before PluginContext was initialized. This can happen if a tool is called before plugin registration completes.`,
         );
       }
-      const meta: PluginToolMeta = { threadId: contextRef.threadId, traceId: contextRef.traceId };
+      const meta: PluginToolMeta = {
+        threadId: contextRef.threadId,
+        traceId: contextRef.traceId,
+        ...(contextRef.taskId ? { taskId: contextRef.taskId } : {}),
+      };
       const result = await t.handler(contextRef.ctx, input, meta);
       return { content: [{ type: 'text' as const, text: result }] };
     },

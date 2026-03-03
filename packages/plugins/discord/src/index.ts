@@ -1,8 +1,7 @@
 // Discord plugin — registers as a message source and reply sink via Discord.js
 
 import type { PluginContext, PluginDefinition, PluginHooks } from '@harness/plugin-contract';
-import { Client, Events, GatewayIntentBits, type TextChannel } from 'discord.js';
-import { extractChannelId } from './_helpers/extract-channel-id';
+import { Client, Events, GatewayIntentBits } from 'discord.js';
 import { toPipelineMessage } from './_helpers/message-adapter';
 import { settingsSchema } from './_helpers/settings-schema';
 import { shouldProcessMessage } from './_helpers/should-process-message';
@@ -29,37 +28,6 @@ const createClient: CreateClient = (ctx) => {
   });
 
   return client;
-};
-
-type SendDiscordMessage = (client: Client, sourceId: string, content: string, ctx: PluginContext) => Promise<void>;
-
-const sendDiscordMessage: SendDiscordMessage = async (client, sourceId, content, ctx) => {
-  const channelId = extractChannelId(sourceId);
-  if (!channelId) {
-    ctx.logger.warn(`Cannot send message: invalid sourceId "${sourceId}"`);
-    return;
-  }
-
-  const channel = await client.channels.fetch(channelId);
-  if (!channel) {
-    ctx.logger.warn(`Cannot send message: channel "${channelId}" not found`);
-    return;
-  }
-
-  if (!channel.isTextBased()) {
-    ctx.logger.warn(`Cannot send message: channel "${channelId}" is not text-based`);
-    return;
-  }
-
-  // Split long messages into Discord-compliant chunks (2000 char limit)
-  const chunks = splitMessage(content);
-  if (chunks.length === 0) {
-    ctx.logger.warn('Discord plugin: empty message content, skipping send');
-    return;
-  }
-  for (const chunk of chunks) {
-    await (channel as TextChannel).send(chunk);
-  }
 };
 
 const DISCORD_MAX_LENGTH = 2000;
@@ -287,18 +255,6 @@ const stop: StopDiscordPlugin = async (ctx) => {
 const state: DiscordPluginState = {
   client: null,
   connected: false,
-};
-
-type GetSendMessage = (pluginState: DiscordPluginState, ctx: PluginContext) => (sourceId: string, content: string) => Promise<void>;
-
-export const getSendMessage: GetSendMessage = (pluginState, ctx) => {
-  return async (sourceId: string, content: string) => {
-    if (!pluginState.client || !pluginState.connected) {
-      ctx.logger.warn('Discord plugin: cannot send message, client not connected');
-      return;
-    }
-    await sendDiscordMessage(pluginState.client, sourceId, content, ctx);
-  };
 };
 
 export const plugin: PluginDefinition = {

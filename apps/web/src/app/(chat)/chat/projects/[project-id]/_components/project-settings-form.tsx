@@ -1,11 +1,18 @@
 'use client';
 
 import type { Project } from '@harness/database';
-import { Button, Input, Label, Separator, Textarea } from '@harness/ui';
+import { Button, Input, Label, Select, SelectContent, SelectItem, SelectTrigger, SelectValue, Separator, Textarea } from '@harness/ui';
 import { useRouter } from 'next/navigation';
 import { useState, useTransition } from 'react';
 import { deleteProject } from '../../../_actions/delete-project';
 import { updateProject } from '../../../_actions/update-project';
+
+const PROJECT_MODEL_OPTIONS = [
+  { value: '_inherit', label: 'Default (inherit)' },
+  { value: 'claude-haiku-4-5-20251001', label: 'Haiku' },
+  { value: 'claude-sonnet-4-6', label: 'Sonnet' },
+  { value: 'claude-opus-4-6', label: 'Opus' },
+] as const;
 
 type ProjectSettingsFormProps = {
   project: Project;
@@ -20,6 +27,7 @@ export const ProjectSettingsForm: ProjectSettingsFormComponent = ({ project }) =
 
   const [name, setName] = useState(project.name);
   const [description, setDescription] = useState(project.description ?? '');
+  const [model, setModel] = useState(project.model ?? '_inherit');
   const [instructions, setInstructions] = useState(project.instructions ?? '');
   const [saveError, setSaveError] = useState<string | null>(null);
   const [deleteError, setDeleteError] = useState<string | null>(null);
@@ -36,6 +44,7 @@ export const ProjectSettingsForm: ProjectSettingsFormComponent = ({ project }) =
         await updateProject(project.id, {
           name: name.trim(),
           description: description.trim() || undefined,
+          model: model === '_inherit' ? null : model,
           instructions: instructions.trim() || undefined,
         });
         router.refresh();
@@ -79,6 +88,23 @@ export const ProjectSettingsForm: ProjectSettingsFormComponent = ({ project }) =
             placeholder='What is this project about?'
             rows={3}
           />
+        </div>
+
+        <div className='flex flex-col gap-1.5'>
+          <Label htmlFor='proj-model'>Model</Label>
+          <p className='text-xs text-muted-foreground'>Override the default model for threads in this project.</p>
+          <Select value={model} onValueChange={setModel}>
+            <SelectTrigger id='proj-model'>
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              {PROJECT_MODEL_OPTIONS.map((opt) => (
+                <SelectItem key={opt.value} value={opt.value}>
+                  {opt.label}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
         </div>
 
         <div className='flex flex-col gap-1.5'>

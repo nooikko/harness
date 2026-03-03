@@ -45,7 +45,7 @@ export const plugin: PluginDefinition = {
         }
 
         // Fire-and-forget — do not block the pipeline
-        void scoreAndWriteMemory(ctx, agent.id, agent.name, threadId, result.output, config?.reflectionEnabled ?? true);
+        void scoreAndWriteMemory(ctx, agent.id, agent.name, threadId, result.output, config?.reflectionEnabled ?? false);
       },
     };
   },

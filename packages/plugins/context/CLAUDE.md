@@ -4,7 +4,7 @@ Implementation notes and gotchas for the context plugin. Read this before editin
 
 ## Role in the pipeline
 
-This plugin implements `onBeforeInvoke`, which is a chain hook. Each plugin in the chain receives the output of the previous plugin and returns a modified prompt. The context plugin runs **first** in registration order, meaning the time plugin runs after it. History and context files are injected before time substitution happens — this ordering is intentional and must not change.
+This plugin implements `onBeforeInvoke`, which is a chain hook. Each plugin in the chain receives the output of the previous plugin and returns a modified prompt. The `onBeforeInvoke` chain order is: identity (soul injection) → context (history + files) → time (timestamp substitution). The context plugin runs after identity and before time — this ordering is intentional and must not change.
 
 ## The session resumption short-circuit
 

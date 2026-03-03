@@ -28,6 +28,8 @@ const createInvokeResult: CreateInvokeResult = (overrides = {}) => ({
   output: 'Agent completed the work successfully',
   durationMs: 2500,
   exitCode: 0,
+  inputTokens: 100,
+  outputTokens: 50,
   ...overrides,
 });
 
@@ -123,44 +125,40 @@ describe('recordAgentRun', () => {
     });
   });
 
-  it('estimates output tokens from the response text', async () => {
+  it('uses real outputTokens from the invoke result', async () => {
     const ctx = createMockContext();
-    // 40 characters / 4 chars per token = 10 tokens
-    const output = 'A'.repeat(40);
 
     await recordAgentRun(ctx, {
       taskId: 'task-1',
       threadId: 'thread-1',
       model: undefined,
       prompt: 'Do the thing',
-      invokeResult: createInvokeResult({ output }),
+      invokeResult: createInvokeResult({ outputTokens: 200 }),
     });
 
     const agentRunCreate = (ctx.db as unknown as { agentRun: { create: ReturnType<typeof vi.fn> } }).agentRun.create;
     expect(agentRunCreate).toHaveBeenCalledWith({
       data: expect.objectContaining({
-        outputTokens: 10,
+        outputTokens: 200,
       }),
     });
   });
 
-  it('estimates input tokens from the prompt text', async () => {
+  it('uses real inputTokens from the invoke result', async () => {
     const ctx = createMockContext();
-    // 20 characters / 4 chars per token = 5 tokens
-    const prompt = 'B'.repeat(20);
 
     await recordAgentRun(ctx, {
       taskId: 'task-1',
       threadId: 'thread-1',
       model: undefined,
-      prompt,
-      invokeResult: createInvokeResult(),
+      prompt: 'Do the thing',
+      invokeResult: createInvokeResult({ inputTokens: 500 }),
     });
 
     const agentRunCreate = (ctx.db as unknown as { agentRun: { create: ReturnType<typeof vi.fn> } }).agentRun.create;
     expect(agentRunCreate).toHaveBeenCalledWith({
       data: expect.objectContaining({
-        inputTokens: 5,
+        inputTokens: 500,
       }),
     });
   });
@@ -184,28 +182,7 @@ describe('recordAgentRun', () => {
     });
   });
 
-  it('rounds up token estimates', async () => {
-    const ctx = createMockContext();
-    // 5 characters / 4 = 1.25, rounds up to 2
-    const output = 'ABCDE';
-
-    await recordAgentRun(ctx, {
-      taskId: 'task-1',
-      threadId: 'thread-1',
-      model: undefined,
-      prompt: 'Do the thing',
-      invokeResult: createInvokeResult({ output }),
-    });
-
-    const agentRunCreate = (ctx.db as unknown as { agentRun: { create: ReturnType<typeof vi.fn> } }).agentRun.create;
-    expect(agentRunCreate).toHaveBeenCalledWith({
-      data: expect.objectContaining({
-        outputTokens: 2,
-      }),
-    });
-  });
-
-  it('estimates 0 tokens for empty output', async () => {
+  it('falls back to 0 tokens when invokeResult has no token fields', async () => {
     const ctx = createMockContext();
 
     await recordAgentRun(ctx, {
@@ -213,13 +190,15 @@ describe('recordAgentRun', () => {
       threadId: 'thread-1',
       model: undefined,
       prompt: 'Do the thing',
-      invokeResult: createInvokeResult({ output: '' }),
+      invokeResult: createInvokeResult({ inputTokens: undefined, outputTokens: undefined }),
     });
 
     const agentRunCreate = (ctx.db as unknown as { agentRun: { create: ReturnType<typeof vi.fn> } }).agentRun.create;
     expect(agentRunCreate).toHaveBeenCalledWith({
       data: expect.objectContaining({
+        inputTokens: 0,
         outputTokens: 0,
+        costEstimate: 0,
       }),
     });
   });
@@ -340,12 +319,12 @@ describe('recordAgentRun', () => {
       taskId: 'task-1',
       threadId: 'thread-1',
       model: undefined,
-      prompt: 'A'.repeat(40), // 10 tokens
-      invokeResult: createInvokeResult({ output: 'B'.repeat(20) }), // 5 tokens
+      prompt: 'Do the thing',
+      invokeResult: createInvokeResult({ inputTokens: 1000, outputTokens: 500 }),
     });
 
-    expect(result.inputTokens).toBe(10);
-    expect(result.outputTokens).toBe(5);
+    expect(result.inputTokens).toBe(1000);
+    expect(result.outputTokens).toBe(500);
     expect(result.costEstimate).toBeGreaterThan(0);
   });
 

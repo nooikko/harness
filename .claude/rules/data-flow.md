@@ -69,7 +69,8 @@ The separation is clean: `onPipelineStart`/`onPipelineComplete` handle all rich 
 File: `apps/orchestrator/src/orchestrator/index.ts`, function `handleMessage` at line 152
 
 ```
-Step 0: prisma.thread.findUnique(threadId)         line 158 — loads sessionId, model, kind, name, customInstructions
+Step 0: prisma.thread.findUnique(threadId)         line 155 — loads sessionId, model, kind, name, customInstructions, projectId
+        if !model && projectId: prisma.project.findUnique(projectId) — inherits project.model as fallback
 Step 1: runNotifyHooks('onMessage')                line 166 — plugins notified, cannot modify
         pipelineSteps.push('onMessage')
         broadcast('pipeline:step', 'onMessage')    line 169
@@ -83,11 +84,9 @@ Step 5: runNotifyHooks('onAfterInvoke', result)    line 233 — plugins notified
         broadcast('pipeline:step', 'onAfterInvoke') line 242
 ```
 
-Steps 6-7 (parseCommands + onCommand) have been removed from the pipeline. The `commandsHandled` array remains empty in the return shape for API compatibility (line 257).
-
 Note: stream events (thinking blocks, tool calls) are captured via `onMessage` callback passed to `invoker.invoke()` at line 214 — they accumulate in `streamEvents[]` and are returned to `sendToThread`, which passes them to `onPipelineComplete`.
 
-Returns `{ invokeResult, prompt, commandsHandled, pipelineSteps, streamEvents, traceId }` to `sendToThread`.
+Returns `{ invokeResult, prompt, pipelineSteps, streamEvents, traceId }` to `sendToThread`.
 
 ---
 
@@ -146,7 +145,7 @@ Events during one pipeline run (in order):
 3. `pipeline:step` step: `onBeforeInvoke`
 4. `pipeline:step` step: `invoking`, detail: model name
 5. `pipeline:step` step: `onAfterInvoke`, detail: token counts
-6. `pipeline:complete` — commandsHandled[], durationMs
+6. `pipeline:complete` — durationMs
 
 ---
 

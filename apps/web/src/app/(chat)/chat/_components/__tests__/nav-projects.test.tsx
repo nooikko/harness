@@ -46,7 +46,7 @@ const makeThread = (overrides: Partial<Thread> = {}): Thread => ({
   sourceId: 'src-1',
   name: 'Thread One',
   kind: 'general',
-  status: 'open',
+  status: 'active',
   sessionId: null,
   model: null,
   customInstructions: null,

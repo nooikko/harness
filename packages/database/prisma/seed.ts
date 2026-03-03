@@ -40,7 +40,7 @@ const seedPrimaryThread: SeedPrimaryThread = async (agentId) => {
       sourceId: PRIMARY_THREAD_SOURCE_ID,
       name: 'Primary Assistant',
       kind: 'primary',
-      status: 'open',
+      status: 'active',
       agentId,
     },
   });

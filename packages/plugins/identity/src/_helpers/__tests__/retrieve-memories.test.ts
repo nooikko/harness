@@ -103,4 +103,62 @@ describe('retrieveMemories', () => {
     expect(result).toHaveLength(0);
     expect(db.agentMemory.updateMany).not.toHaveBeenCalled();
   });
+
+  it('gives REFLECTION memories a scoring boost over EPISODIC of same recency and importance', async () => {
+    const now = new Date();
+    const episodic = makeMemory({
+      id: 'mem-episodic',
+      type: 'EPISODIC',
+      importance: 8,
+      lastAccessedAt: now,
+    });
+    const reflection = makeMemory({
+      id: 'mem-reflection',
+      type: 'REFLECTION',
+      importance: 8,
+      lastAccessedAt: now,
+    });
+    const db = makeMockDb([episodic, reflection]);
+
+    const result = await retrieveMemories(db as never, 'agent-1', 'query', 10);
+    expect(result[0]?.id).toBe('mem-reflection');
+    expect(result[1]?.id).toBe('mem-episodic');
+  });
+
+  it('guarantees at least 2 REFLECTION memories in the result when they exist', async () => {
+    const now = new Date();
+    const oldDate = new Date(Date.now() - 200 * 3_600_000);
+    // 5 high-scoring episodic memories that would normally fill all slots
+    const episodics = Array.from({ length: 5 }, (_, i) => makeMemory({ id: `ep-${i}`, type: 'EPISODIC', importance: 9, lastAccessedAt: now }));
+    // 2 old reflection memories that would normally be outscored
+    const reflections = [
+      makeMemory({ id: 'refl-1', type: 'REFLECTION', importance: 8, lastAccessedAt: oldDate }),
+      makeMemory({ id: 'refl-2', type: 'REFLECTION', importance: 8, lastAccessedAt: oldDate }),
+    ];
+    const db = makeMockDb([...episodics, ...reflections]);
+
+    const result = await retrieveMemories(db as never, 'agent-1', 'query', 5);
+    const reflectionIds = result.filter((m) => m.type === 'REFLECTION').map((m) => m.id);
+    expect(reflectionIds).toContain('refl-1');
+    expect(reflectionIds).toContain('refl-2');
+    expect(result).toHaveLength(5);
+  });
+
+  it('includes all REFLECTION memories when fewer than 2 exist', async () => {
+    const now = new Date();
+    const oldDate = new Date(Date.now() - 200 * 3_600_000);
+    const episodics = Array.from({ length: 5 }, (_, i) => makeMemory({ id: `ep-${i}`, type: 'EPISODIC', importance: 9, lastAccessedAt: now }));
+    const singleReflection = makeMemory({
+      id: 'refl-only',
+      type: 'REFLECTION',
+      importance: 8,
+      lastAccessedAt: oldDate,
+    });
+    const db = makeMockDb([...episodics, singleReflection]);
+
+    const result = await retrieveMemories(db as never, 'agent-1', 'query', 5);
+    const reflectionIds = result.filter((m) => m.type === 'REFLECTION').map((m) => m.id);
+    expect(reflectionIds).toContain('refl-only');
+    expect(result).toHaveLength(5);
+  });
 });
