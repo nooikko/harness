@@ -1,8 +1,9 @@
-import { describe, expect, it, vi } from 'vitest';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 const mockFindUniqueOrThrow = vi.fn();
 const mockUpdate = vi.fn();
 const mockRevalidatePath = vi.fn();
+const mockNotifyCronReload = vi.fn();
 
 vi.mock('@harness/database', () => ({
   prisma: {
@@ -17,9 +18,18 @@ vi.mock('next/cache', () => ({
   revalidatePath: (...args: unknown[]) => mockRevalidatePath(...args),
 }));
 
+vi.mock('../_helpers/notify-cron-reload', () => ({
+  notifyCronReload: () => mockNotifyCronReload(),
+}));
+
 const { toggleCronJob } = await import('../toggle-cron-job');
 
 describe('toggleCronJob', () => {
+  beforeEach(() => {
+    vi.resetAllMocks();
+    mockNotifyCronReload.mockResolvedValue(undefined);
+  });
+
   it('disables an enabled cron job', async () => {
     mockFindUniqueOrThrow.mockResolvedValue({
       id: 'cj_1',
@@ -52,5 +62,14 @@ describe('toggleCronJob', () => {
       where: { id: 'cj_2' },
       data: { enabled: true },
     });
+  });
+
+  it('calls notifyCronReload after a successful toggle', async () => {
+    mockFindUniqueOrThrow.mockResolvedValue({ id: 'cj_3', enabled: true });
+    mockUpdate.mockResolvedValue({});
+
+    await toggleCronJob('cj_3');
+
+    expect(mockNotifyCronReload).toHaveBeenCalledOnce();
   });
 });

@@ -2,6 +2,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 const mockCreate = vi.fn();
 const mockRevalidatePath = vi.fn();
+const mockNotifyCronReload = vi.fn();
 
 vi.mock('@harness/database', () => ({
   prisma: {
@@ -13,6 +14,10 @@ vi.mock('@harness/database', () => ({
 
 vi.mock('next/cache', () => ({
   revalidatePath: (...args: unknown[]) => mockRevalidatePath(...args),
+}));
+
+vi.mock('../_helpers/notify-cron-reload', () => ({
+  notifyCronReload: () => mockNotifyCronReload(),
 }));
 
 const { createCronJob } = await import('../create-cron-job');
@@ -34,6 +39,7 @@ const validOneShotInput = {
 describe('createCronJob', () => {
   beforeEach(() => {
     vi.resetAllMocks();
+    mockNotifyCronReload.mockResolvedValue(undefined);
   });
 
   it('returns success with id on a valid recurring job (schedule set, no fireAt)', async () => {
@@ -116,6 +122,32 @@ describe('createCronJob', () => {
     });
 
     expect(mockRevalidatePath).not.toHaveBeenCalled();
+  });
+
+  it('calls notifyCronReload after a successful create', async () => {
+    mockCreate.mockResolvedValue({ id: 'cj_notify' });
+
+    await createCronJob(validRecurringInput);
+
+    expect(mockNotifyCronReload).toHaveBeenCalledOnce();
+  });
+
+  it('does not call notifyCronReload on validation error', async () => {
+    await createCronJob({
+      name: '',
+      agentId: 'agent_1',
+      prompt: 'Do something.',
+    });
+
+    expect(mockNotifyCronReload).not.toHaveBeenCalled();
+  });
+
+  it('does not call notifyCronReload when prisma throws', async () => {
+    mockCreate.mockRejectedValue(new Error('Database connection refused'));
+
+    await createCronJob(validRecurringInput);
+
+    expect(mockNotifyCronReload).not.toHaveBeenCalled();
   });
 
   it('returns a duplicate-name error when prisma throws a Unique constraint error', async () => {

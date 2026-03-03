@@ -117,13 +117,34 @@ This instruction is hardcoded in `KIND_INSTRUCTIONS`. Cron threads receive no in
 
 ---
 
+## Hot-Reload
+
+The cron plugin implements `onSettingsChange` to support live reloading of scheduled jobs without orchestrator restart.
+
+**Trigger sources:**
+1. Admin UI — all CRUD actions (create, update, delete, toggle) call `POST /api/plugins/cron/reload` via `notifyCronReload()` helper
+2. MCP tool — `schedule_task` calls `void ctx.notifySettingsChange('cron')` after creating a job
+3. Manual — `POST /api/plugins/cron/reload` endpoint (same as other plugin reloads)
+
+**Reload behavior:**
+1. Stop all running croner job instances
+2. Clear all pending one-shot timers
+3. Re-run `start(ctx)` — queries DB for all enabled jobs and rebuilds the schedule
+
+This is an all-or-nothing reload — individual job updates are not supported. The full job list is always rebuilt from the database.
+
+File: `packages/plugins/cron/src/index.ts`, `onSettingsChange` hook
+File: `apps/web/src/app/admin/cron-jobs/_actions/_helpers/notify-cron-reload.ts`
+
+---
+
 ## Admin UI
 
 `/admin/cron-jobs` provides full CRUD for CronJob records: create, edit, delete, and enable/disable toggle.
 
 The create/edit form includes: name, agent (required dropdown), thread (optional, filtered by agent), project (optional), type toggle (recurring vs one-shot), schedule or fireAt, prompt, and enabled toggle. When thread is omitted, it shows "Auto-create on first run".
 
-Disabled jobs are excluded from `findMany({ where: { enabled: true } })` on the next `start()`. Since the scheduler loads jobs at boot, toggling a job in the admin UI takes effect on orchestrator restart (or a future hot-reload implementation).
+Disabled jobs are excluded from `findMany({ where: { enabled: true } })` on the next `start()`. All admin actions (create, update, delete, toggle) fire a non-blocking `POST /api/plugins/cron/reload` to the orchestrator, which triggers `onSettingsChange('cron')` — the cron plugin stops all running jobs and rebuilds the schedule from the database. Changes take effect immediately without orchestrator restart.
 
 ---
 
@@ -257,7 +278,7 @@ The cron plugin exposes a `schedule_task` MCP tool (qualified as `cron__schedule
 - `agentId` is auto-resolved, not user-provided
 - Returns confirmation with job name and next fire time
 
-**Note:** Jobs created via the MCP tool take effect on the next orchestrator restart (same as admin UI changes). Hot-reload is future work.
+**Hot-reload:** After creating the job, the tool fires `void ctx.notifySettingsChange('cron')` — the cron plugin reloads all jobs from the database immediately. No orchestrator restart needed.
 
 ---
 
@@ -265,7 +286,7 @@ The cron plugin exposes a `schedule_task` MCP tool (qualified as `cron__schedule
 
 | File | What it owns |
 |------|-------------|
-| `packages/plugins/cron/src/index.ts` | PluginDefinition — `start`, `stop`, `schedule_task` tool |
+| `packages/plugins/cron/src/index.ts` | PluginDefinition — `start`, `stop`, `onSettingsChange` (hot-reload), `schedule_task` tool |
 | `packages/plugins/cron/src/_helpers/cron-server.ts` | Job loading, croner scheduling, trigger handler |
 | `packages/database/prisma/schema.prisma` | `CronJob` model |
 | `packages/database/prisma/seed.ts` | Seeds primary thread + 4 default cron jobs |

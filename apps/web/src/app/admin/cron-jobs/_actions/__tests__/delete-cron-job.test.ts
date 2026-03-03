@@ -2,6 +2,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 const mockDelete = vi.fn();
 const mockRevalidatePath = vi.fn();
+const mockNotifyCronReload = vi.fn();
 
 vi.mock('@harness/database', () => ({
   prisma: {
@@ -15,11 +16,16 @@ vi.mock('next/cache', () => ({
   revalidatePath: (...args: unknown[]) => mockRevalidatePath(...args),
 }));
 
+vi.mock('../_helpers/notify-cron-reload', () => ({
+  notifyCronReload: () => mockNotifyCronReload(),
+}));
+
 const { deleteCronJob } = await import('../delete-cron-job');
 
 describe('deleteCronJob', () => {
   beforeEach(() => {
     vi.resetAllMocks();
+    mockNotifyCronReload.mockResolvedValue(undefined);
   });
 
   it('returns success on a valid delete', async () => {
@@ -60,5 +66,21 @@ describe('deleteCronJob', () => {
     await deleteCronJob('cj_missing');
 
     expect(mockRevalidatePath).not.toHaveBeenCalled();
+  });
+
+  it('calls notifyCronReload after a successful delete', async () => {
+    mockDelete.mockResolvedValue({});
+
+    await deleteCronJob('cj_1');
+
+    expect(mockNotifyCronReload).toHaveBeenCalledOnce();
+  });
+
+  it('does not call notifyCronReload when prisma throws', async () => {
+    mockDelete.mockRejectedValue(new Error('Record not found'));
+
+    await deleteCronJob('cj_missing');
+
+    expect(mockNotifyCronReload).not.toHaveBeenCalled();
   });
 });

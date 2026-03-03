@@ -2,6 +2,7 @@
 
 import { prisma } from '@harness/database';
 import { revalidatePath } from 'next/cache';
+import { notifyCronReload } from './_helpers/notify-cron-reload';
 
 type ToggleCronJob = (id: string) => Promise<void>;
 
@@ -12,4 +13,5 @@ export const toggleCronJob: ToggleCronJob = async (id) => {
     data: { enabled: !job.enabled },
   });
   revalidatePath('/admin/cron-jobs');
+  void notifyCronReload();
 };

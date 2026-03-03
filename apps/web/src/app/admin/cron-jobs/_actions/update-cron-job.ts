@@ -2,6 +2,7 @@
 
 import { prisma } from '@harness/database';
 import { revalidatePath } from 'next/cache';
+import { notifyCronReload } from './_helpers/notify-cron-reload';
 
 type UpdateCronJobInput = {
   id: string;
@@ -73,6 +74,7 @@ export const updateCronJob: UpdateCronJob = async (input) => {
       data,
     });
     revalidatePath('/admin/cron-jobs');
+    void notifyCronReload();
     return { success: true };
   } catch (err) {
     if (err instanceof Error && err.message.includes('Unique constraint')) {

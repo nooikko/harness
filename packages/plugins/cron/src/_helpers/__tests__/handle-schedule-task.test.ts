@@ -203,4 +203,30 @@ describe('handleScheduleTask', () => {
 
     expect(result).toContain('Error: prompt is required');
   });
+
+  it('calls ctx.notifySettingsChange with cron after successful job creation', async () => {
+    const ctx = createMockContext();
+
+    await handleScheduleTask(ctx, { name: 'Hot Reload Job', prompt: 'Run task', schedule: '0 9 * * *' }, defaultMeta);
+
+    expect(ctx.notifySettingsChange).toHaveBeenCalledWith('cron');
+  });
+
+  it('does not call ctx.notifySettingsChange when job creation fails due to validation error', async () => {
+    const ctx = createMockContext();
+
+    // Both schedule and fireAt set — validation fails before DB write
+    await handleScheduleTask(
+      ctx,
+      {
+        name: 'Invalid Job',
+        prompt: 'Run task',
+        schedule: '0 9 * * *',
+        fireAt: '2099-01-01T00:00:00Z',
+      },
+      defaultMeta,
+    );
+
+    expect(ctx.notifySettingsChange).not.toHaveBeenCalled();
+  });
 });

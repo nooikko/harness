@@ -54,15 +54,15 @@ describe('cron plugin', () => {
     expect(plugin.version).toBe('1.0.0');
   });
 
-  it('register() returns empty hooks object and logs info', async () => {
+  it('register() returns hooks object with onSettingsChange and logs info', async () => {
     const ctx = createMockContext();
     const hooks = await plugin.register(ctx);
 
-    expect(hooks).toEqual({});
+    expect(hooks).toHaveProperty('onSettingsChange');
     expect(ctx.logger.info).toHaveBeenCalledWith('Cron plugin registered');
   });
 
-  it('register() returns no hook implementations', async () => {
+  it('register() returns no unrelated hook implementations', async () => {
     const ctx = createMockContext();
     const hooks = await plugin.register(ctx);
 
@@ -70,6 +70,78 @@ describe('cron plugin', () => {
     expect(hooks.onBeforeInvoke).toBeUndefined();
     expect(hooks.onAfterInvoke).toBeUndefined();
     expect(hooks.onBroadcast).toBeUndefined();
+  });
+
+  describe('onSettingsChange', () => {
+    it('ignores non-cron plugin names and does not restart the server', async () => {
+      const ctx = createMockContext();
+      const mockStart = vi.fn().mockResolvedValue(undefined);
+      const mockStop = vi.fn().mockResolvedValue(undefined);
+
+      mockCreateCronServer.mockReturnValue({
+        start: mockStart,
+        stop: mockStop,
+      });
+
+      await plugin.start?.(ctx);
+      mockCreateCronServer.mockClear();
+      mockStart.mockClear();
+      mockStop.mockClear();
+
+      const hooks = await plugin.register(ctx);
+      await hooks.onSettingsChange?.('discord');
+
+      expect(mockStop).not.toHaveBeenCalled();
+      expect(mockCreateCronServer).not.toHaveBeenCalled();
+      expect(ctx.logger.info).not.toHaveBeenCalledWith('Cron plugin: reloading scheduled jobs...');
+    });
+
+    it('stops the current server and restarts when pluginName is cron', async () => {
+      const ctx = createMockContext();
+      const mockStart = vi.fn().mockResolvedValue(undefined);
+      const mockStop = vi.fn().mockResolvedValue(undefined);
+
+      mockCreateCronServer.mockReturnValue({
+        start: mockStart,
+        stop: mockStop,
+      });
+
+      await plugin.start?.(ctx);
+
+      const hooks = await plugin.register(ctx);
+      await hooks.onSettingsChange?.('cron');
+
+      expect(mockStop).toHaveBeenCalledOnce();
+      expect(mockCreateCronServer).toHaveBeenCalledTimes(2);
+      expect(mockStart).toHaveBeenCalledTimes(2);
+      expect(ctx.logger.info).toHaveBeenCalledWith('Cron plugin: reloading scheduled jobs...');
+      expect(ctx.logger.info).toHaveBeenCalledWith('Cron plugin: reload complete');
+    });
+
+    it('still restarts when server was never started (stopServer is null)', async () => {
+      // Use a fresh plugin instance to ensure stopServer is null
+      const { plugin: freshPlugin } = await import('../index');
+      const ctx = createMockContext();
+      const mockStart = vi.fn().mockResolvedValue(undefined);
+      const mockStop = vi.fn().mockResolvedValue(undefined);
+
+      mockCreateCronServer.mockReturnValue({
+        start: mockStart,
+        stop: mockStop,
+      });
+
+      const hooks = await freshPlugin.register(ctx);
+
+      // Should not throw even though stopServer is null
+      await expect(hooks.onSettingsChange?.('cron')).resolves.toBeUndefined();
+
+      // stop was not called (nothing to stop), but start was called to reload
+      expect(mockStop).not.toHaveBeenCalled();
+      expect(mockCreateCronServer).toHaveBeenCalledOnce();
+      expect(mockStart).toHaveBeenCalledOnce();
+      expect(ctx.logger.info).toHaveBeenCalledWith('Cron plugin: reloading scheduled jobs...');
+      expect(ctx.logger.info).toHaveBeenCalledWith('Cron plugin: reload complete');
+    });
   });
 
   it('start() creates a cron server and calls server.start()', async () => {

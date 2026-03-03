@@ -106,15 +106,13 @@ const ALL_PLUGINS: PluginDefinition[] = [
 
 ---
 
-## Phase 4 — Reflection Cycle (PARTIALLY ACTIVE)
+## Phase 4 — Reflection Cycle (COMPLETE)
 
 **What:** Periodic meta-reflection synthesizes patterns across episodic memories into `REFLECTION` type records. High-importance reflections (importance: 8) are injected into prompts alongside episodic memories.
 
-**Status:** PARTIALLY ACTIVE — the reflection trigger IS wired into the live plugin as fire-and-forget in `scoreAndWriteMemory`. `AgentConfig.reflectionEnabled` IS checked — the identity plugin passes `config?.reflectionEnabled ?? false` to `scoreAndWriteMemory`, which guards the reflection trigger at line 99. One gap remains:
+**Status:** COMPLETE — reflection trigger is wired as fire-and-forget in `scoreAndWriteMemory`. `AgentConfig.reflectionEnabled` IS checked (defaults to `false`). REFLECTION memories receive a `REFLECTION_BOOST` of 0.3 in scoring and `MIN_REFLECTION_SLOTS` of 2 guaranteed slots in `retrieveMemories`.
 
-1. **REFLECTION memories are not prioritized in the header.** `retrieveMemories` returns memories by recency+importance score. REFLECTION records are treated identically to EPISODIC records — they are not given any special weighting or guaranteed injection.
-
-**What is wired:**
+**How it works:**
 
 File: `packages/plugins/identity/src/_helpers/score-and-write-memory.ts`, lines 92-97
 
@@ -130,17 +128,10 @@ void (async () => {
 
 This runs after every episodic memory write. `checkReflectionTrigger` fires when >=10 unreflected EPISODIC memories exist since the last REFLECTION. `runReflection` uses Haiku to synthesize 3-5 insights and writes them as REFLECTION records with `sourceMemoryIds` linking back to episodic sources.
 
-**What still exists (unchanged):**
-- `MemoryType.REFLECTION` in schema
-- `checkReflectionTrigger` — fires when >=10 unreflected EPISODIC memories exist since last REFLECTION
-- `runReflection` — uses Haiku to synthesize 3-5 insights, writes them as REFLECTION records
-
-Files:
-- `packages/plugins/identity/src/_helpers/check-reflection-trigger.ts`
-- `packages/plugins/identity/src/_helpers/run-reflection.ts`
-
-**To complete Phase 4:**
-1. Give REFLECTION memories a boost in `retrieveMemories` scoring (or guarantee N slots in the returned set)
+**Key files:**
+- `packages/plugins/identity/src/_helpers/check-reflection-trigger.ts` — fires when >=10 unreflected EPISODIC memories exist
+- `packages/plugins/identity/src/_helpers/run-reflection.ts` — Haiku synthesis -> REFLECTION records
+- `packages/plugins/identity/src/_helpers/retrieve-memories.ts` — REFLECTION_BOOST + MIN_REFLECTION_SLOTS
 
 ---
 
@@ -165,8 +156,6 @@ Files:
 - Agent detail page integration (read-only list of scheduled tasks per agent)
 - MCP tool `cron__schedule_task` for agents to self-schedule tasks
 - Cron plugin support for one-shot jobs (auto-disable after firing) and lazy thread creation
-
-**Not yet implemented:** Hot-reload of cron jobs — admin UI changes take effect on orchestrator restart only.
 
 See: `docs/plans/2026-03-02-scheduled-tasks-prd.md` for the full design document.
 See: `.claude/rules/cron-scheduler.md` for runtime behavior details.
@@ -244,8 +233,8 @@ model Agent {
 | 1 — Soul injection | COMPLETE | -- |
 | 2 — Episodic memory | COMPLETE | -- |
 | 3 — Vector search | PAUSED | Qdrant service + backend decision |
-| 4 — Reflection cycle | PARTIALLY ACTIVE | REFLECTION memories not prioritized in retrieval (treated same as EPISODIC) |
-| 5 — Scheduled tasks (CronJob CRUD) | COMPLETE | Hot-reload not yet implemented (changes require orchestrator restart) |
+| 4 — Reflection cycle | COMPLETE | REFLECTION_BOOST=0.3 + MIN_REFLECTION_SLOTS=2 in retrieveMemories |
+| 5 — Scheduled tasks (CronJob CRUD) | COMPLETE | -- |
 
 ---
 

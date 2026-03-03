@@ -243,6 +243,7 @@ Do not rebuild any of the following — these subsystems are fully implemented.
 - One-shot jobs auto-disable after firing (`enabled: false`, `nextRunAt: null`)
 - Lazy thread creation: if `threadId` is null, auto-creates a `kind:'cron'` thread on first fire
 - **MCP tool:** `cron__schedule_task` — agents can create scheduled tasks during conversation
+- **Hot-reload:** `onSettingsChange('cron')` stops all jobs and rebuilds from DB. Admin UI actions and MCP tool both trigger reload automatically — no orchestrator restart needed.
 - Admin UI at `/admin/cron-jobs` with full CRUD (create, edit, delete, toggle)
 - Thread `kind='cron'` recognized by prompt assembler with specialized instructions
 - 4 seeded CronJobs: Morning Digest, Memory Consolidation, Calendar Refresh, Weekly Review
@@ -300,14 +301,7 @@ These features have partial implementation but are missing execution logic. Do n
 ### Agent Identity Phase 4 — Reflection Cycle
 
 - **What:** Periodic meta-reflection that stores `REFLECTION` type AgentMemory records
-- **Status:** PARTIALLY ACTIVE — the reflection trigger is wired as fire-and-forget in `scoreAndWriteMemory` (fires after each episodic memory write). `AgentConfig.reflectionEnabled` IS checked (passed as parameter, guards the trigger). However, REFLECTION memories are not prioritized in retrieval.
-- **Remaining work:** Give REFLECTION memories a scoring boost in `retrieveMemories` (or guarantee N slots in the returned set)
-
-### Cron Job Hot-Reload
-
-- **What:** Allow admin UI changes to cron jobs to take effect without restarting the orchestrator
-- **Status:** NOT STARTED — currently, toggling a job in the admin UI only takes effect on orchestrator restart
-- **Scope:** Reload cron server state when jobs are created/updated/deleted via admin UI or MCP tool
+- **Status:** COMPLETE — reflection trigger fires after episodic memory writes, `AgentConfig.reflectionEnabled` gates the trigger (defaults to false). REFLECTION memories receive a 0.3 scoring boost and 2 guaranteed slots in `retrieveMemories`.
 
 ### Memory Architecture
 

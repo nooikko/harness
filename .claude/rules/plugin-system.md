@@ -196,9 +196,10 @@ Plugins can be disabled at runtime via `PluginConfig.enabled` in the database wi
 **Does:** Connects Discord.js gateway, routes incoming messages to threads via `ctx.db` + `ctx.broadcast`. On `onSettingsChange`, reconnects with updated bot token from settings. Persists connection state to `PluginConfig.metadata`.
 
 ### cron plugin
+**Hook:** `onSettingsChange`
 **Lifecycle:** `start` / `stop`
 **Tool:** `schedule_task`
-**Does:** Reads enabled `CronJob` records from DB, partitions into recurring (cron expression) and one-shot (`fireAt` datetime) jobs, and schedules with croner (UTC). On trigger: resolves threadId (auto-creates thread if null via lazy thread creation), calls `ctx.sendToThread(threadId, job.prompt)`, and atomically updates `lastRunAt`/`nextRunAt`. One-shot jobs auto-disable after firing (`enabled: false`). The `schedule_task` MCP tool allows agents to create scheduled tasks during conversation — `agentId` and `projectId` are auto-resolved from the current thread.
+**Does:** Reads enabled `CronJob` records from DB, partitions into recurring (cron expression) and one-shot (`fireAt` datetime) jobs, and schedules with croner (UTC). On trigger: resolves threadId (auto-creates thread if null via lazy thread creation), calls `ctx.sendToThread(threadId, job.prompt)`, and atomically updates `lastRunAt`/`nextRunAt`. One-shot jobs auto-disable after firing (`enabled: false`). The `schedule_task` MCP tool allows agents to create scheduled tasks during conversation — `agentId` and `projectId` are auto-resolved from the current thread. Supports hot-reload via `onSettingsChange('cron')` — stops all running jobs and rebuilds from DB. Admin UI actions and the MCP tool both trigger reload automatically.
 
 ### summarization plugin
 **Hook:** `onAfterInvoke`

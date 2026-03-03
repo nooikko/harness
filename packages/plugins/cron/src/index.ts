@@ -1,7 +1,7 @@
 // Cron plugin — reads enabled CronJob records and fires them on schedule
-// Lifecycle-only plugin: no hooks, only start/stop
+// Supports hot-reload via onSettingsChange hook
 
-import type { PluginContext, PluginDefinition } from '@harness/plugin-contract';
+import type { PluginContext, PluginDefinition, PluginHooks } from '@harness/plugin-contract';
 import { createCronServer } from './_helpers/cron-server';
 import { handleScheduleTask } from './_helpers/handle-schedule-task';
 
@@ -32,7 +32,23 @@ export const plugin: PluginDefinition = {
   version: '1.0.0',
   register: async (ctx) => {
     ctx.logger.info('Cron plugin registered');
-    return {};
+
+    const hooks: PluginHooks = {
+      onSettingsChange: async (pluginName: string) => {
+        if (pluginName !== 'cron') {
+          return;
+        }
+        ctx.logger.info('Cron plugin: reloading scheduled jobs...');
+        if (stopServer) {
+          await stopServer();
+          stopServer = null;
+        }
+        await start(ctx);
+        ctx.logger.info('Cron plugin: reload complete');
+      },
+    };
+
+    return hooks;
   },
   start,
   stop,

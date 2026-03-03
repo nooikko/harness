@@ -2,6 +2,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 const mockUpdate = vi.fn();
 const mockRevalidatePath = vi.fn();
+const mockNotifyCronReload = vi.fn();
 
 vi.mock('@harness/database', () => ({
   prisma: {
@@ -15,11 +16,16 @@ vi.mock('next/cache', () => ({
   revalidatePath: (...args: unknown[]) => mockRevalidatePath(...args),
 }));
 
+vi.mock('../_helpers/notify-cron-reload', () => ({
+  notifyCronReload: () => mockNotifyCronReload(),
+}));
+
 const { updateCronJob } = await import('../update-cron-job');
 
 describe('updateCronJob', () => {
   beforeEach(() => {
     vi.resetAllMocks();
+    mockNotifyCronReload.mockResolvedValue(undefined);
   });
 
   it('returns success on a valid update', async () => {
@@ -296,5 +302,27 @@ describe('updateCronJob', () => {
 
     expect(result).toEqual({ success: true });
     expect(mockUpdate).toHaveBeenCalled();
+  });
+
+  it('calls notifyCronReload after a successful update', async () => {
+    mockUpdate.mockResolvedValue({});
+
+    await updateCronJob({ id: 'cj_1', enabled: true });
+
+    expect(mockNotifyCronReload).toHaveBeenCalledOnce();
+  });
+
+  it('does not call notifyCronReload on validation error', async () => {
+    await updateCronJob({ id: 'cj_1', name: '   ' });
+
+    expect(mockNotifyCronReload).not.toHaveBeenCalled();
+  });
+
+  it('does not call notifyCronReload when prisma throws', async () => {
+    mockUpdate.mockRejectedValue(new Error('Database connection refused'));
+
+    await updateCronJob({ id: 'cj_1', enabled: true });
+
+    expect(mockNotifyCronReload).not.toHaveBeenCalled();
   });
 });

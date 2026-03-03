@@ -54,6 +54,9 @@ export const handleScheduleTask: HandleScheduleTask = async (ctx, input, meta) =
     },
   });
 
+  // Trigger hot-reload so the new job is picked up by the cron scheduler immediately
+  void ctx.notifySettingsChange('cron');
+
   const nextFire = fireAt ? fireAt.toISOString() : schedule ? `per schedule (${schedule})` : 'unknown';
 
   return `Scheduled task "${job.name}" created (id: ${job.id}). Next fire: ${nextFire}`;
