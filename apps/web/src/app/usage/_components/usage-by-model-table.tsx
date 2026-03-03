@@ -5,34 +5,76 @@ import { Card, CardContent, CardHeader, CardTitle, Skeleton, Table, TableBody, T
 import { Suspense } from 'react';
 import { formatCost, formatTokenCount } from '../_helpers/format-cost';
 
+type ModelUsageRow = {
+  model: string;
+  totalInputTokens: number;
+  totalOutputTokens: number;
+  totalCost: number;
+  runCount: number;
+};
+
+type MetricTags = {
+  model?: string;
+  [key: string]: unknown;
+};
+
 /**
- * Async server component that fetches per-model usage and renders a table.
+ * Async server component that fetches per-model usage from Metric records and renders a table.
+ * Queries token.input, token.output, and token.cost metrics; aggregates by model from tags.
  * Not exported — use UsageByModelTable which wraps this in Suspense.
  */
 /** @internal Exported for testing only — consumers should use UsageByModelTable. */
 export const UsageByModelTableInternal = async () => {
-  const results = await prisma.agentRun.groupBy({
-    by: ['model'],
-    _sum: {
-      inputTokens: true,
-      outputTokens: true,
-      costEstimate: true,
-    },
-    _count: true,
-    orderBy: {
-      _sum: {
-        costEstimate: 'desc',
-      },
-    },
-  });
+  const [inputMetrics, outputMetrics, costMetrics] = await Promise.all([
+    prisma.metric.findMany({
+      where: { name: 'token.input' },
+      select: { value: true, tags: true },
+    }),
+    prisma.metric.findMany({
+      where: { name: 'token.output' },
+      select: { value: true, tags: true },
+    }),
+    prisma.metric.findMany({
+      where: { name: 'token.cost' },
+      select: { value: true, tags: true },
+    }),
+  ]);
 
-  const models = results.map((row) => ({
-    model: row.model,
-    totalInputTokens: row._sum.inputTokens ?? 0,
-    totalOutputTokens: row._sum.outputTokens ?? 0,
-    totalCost: row._sum.costEstimate ?? 0,
-    runCount: row._count,
-  }));
+  const inputByModel = new Map<string, number>();
+  const outputByModel = new Map<string, number>();
+  const costByModel = new Map<string, number>();
+  const runsByModel = new Map<string, number>();
+
+  for (const metric of inputMetrics) {
+    const tags = metric.tags as MetricTags | null;
+    const model = tags?.model ?? 'unknown';
+    inputByModel.set(model, (inputByModel.get(model) ?? 0) + metric.value);
+  }
+
+  for (const metric of outputMetrics) {
+    const tags = metric.tags as MetricTags | null;
+    const model = tags?.model ?? 'unknown';
+    outputByModel.set(model, (outputByModel.get(model) ?? 0) + metric.value);
+  }
+
+  for (const metric of costMetrics) {
+    const tags = metric.tags as MetricTags | null;
+    const model = tags?.model ?? 'unknown';
+    costByModel.set(model, (costByModel.get(model) ?? 0) + metric.value);
+    runsByModel.set(model, (runsByModel.get(model) ?? 0) + 1);
+  }
+
+  const allModels = new Set([...inputByModel.keys(), ...outputByModel.keys(), ...costByModel.keys()]);
+
+  const models: ModelUsageRow[] = Array.from(allModels)
+    .map((model) => ({
+      model,
+      totalInputTokens: inputByModel.get(model) ?? 0,
+      totalOutputTokens: outputByModel.get(model) ?? 0,
+      totalCost: costByModel.get(model) ?? 0,
+      runCount: runsByModel.get(model) ?? 0,
+    }))
+    .sort((a, b) => b.totalCost - a.totalCost);
 
   if (models.length === 0) {
     return (

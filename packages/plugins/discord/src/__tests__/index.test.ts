@@ -2,6 +2,14 @@ import type { PluginContext } from '@harness/plugin-contract';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { plugin, splitMessage } from '../index';
 
+const { mockSendDiscordReply } = vi.hoisted(() => ({
+  mockSendDiscordReply: vi.fn().mockResolvedValue(undefined),
+}));
+
+vi.mock('../_helpers/send-discord-reply', () => ({
+  sendDiscordReply: mockSendDiscordReply,
+}));
+
 // Mock discord.js at the module level -- vi.mock is hoisted, so all references
 // must be defined inside the factory or use vi.hoisted().
 const { mockOn, mockOnce, mockLogin, mockDestroy, mockFetchChannel } = vi.hoisted(() => ({
@@ -658,6 +666,70 @@ describe('discord plugin', () => {
     it('handles empty string', () => {
       const result = splitMessage('');
       expect(result).toEqual([]);
+    });
+  });
+
+  describe('onBroadcast', () => {
+    it('ignores non-pipeline:complete events', async () => {
+      const ctx = createMockContext({ discordToken: 'test-token' });
+      const hooks = await plugin.register(ctx);
+
+      await hooks.onBroadcast!('chat:message', { threadId: 'thread-1' });
+
+      expect(mockSendDiscordReply).not.toHaveBeenCalled();
+    });
+
+    it('skips when client is null (not started)', async () => {
+      const ctx = createMockContext({ discordToken: 'test-token' });
+      const hooks = await plugin.register(ctx);
+
+      await hooks.onBroadcast!('pipeline:complete', { threadId: 'thread-1' });
+
+      expect(mockSendDiscordReply).not.toHaveBeenCalled();
+    });
+
+    it('skips when client exists but not connected', async () => {
+      const ctx = createMockContext({ discordToken: 'test-token' });
+      const hooks = await plugin.register(ctx);
+      // Start the plugin to create a client, but don't simulate the ready event
+      mockLogin.mockResolvedValue('test-token');
+      await plugin.start!(ctx);
+
+      // state.connected is false until the 'ready' event fires
+      await hooks.onBroadcast!('pipeline:complete', { threadId: 'thread-1' });
+
+      expect(mockSendDiscordReply).not.toHaveBeenCalled();
+    });
+
+    it('calls sendDiscordReply when connected and pipeline:complete', async () => {
+      const ctx = createMockContext({ discordToken: 'test-token' });
+      const hooks = await plugin.register(ctx);
+      mockLogin.mockResolvedValue('test-token');
+      await plugin.start!(ctx);
+
+      // Simulate the 'ready' event to set state.connected = true
+      const readyHandler = findHandler<(client: { user: { tag: string } }) => void>(mockOnce, 'ready');
+      readyHandler?.({ user: { tag: 'TestBot#1234' } });
+
+      await hooks.onBroadcast!('pipeline:complete', { threadId: 'thread-1' });
+
+      expect(mockSendDiscordReply).toHaveBeenCalledWith(expect.objectContaining({ threadId: 'thread-1' }));
+    });
+
+    it('catches and logs errors from sendDiscordReply', async () => {
+      const ctx = createMockContext({ discordToken: 'test-token' });
+      const hooks = await plugin.register(ctx);
+      mockLogin.mockResolvedValue('test-token');
+      await plugin.start!(ctx);
+
+      const readyHandler = findHandler<(client: { user: { tag: string } }) => void>(mockOnce, 'ready');
+      readyHandler?.({ user: { tag: 'TestBot#1234' } });
+
+      mockSendDiscordReply.mockRejectedValueOnce(new Error('delivery failed'));
+
+      await hooks.onBroadcast!('pipeline:complete', { threadId: 'thread-1' });
+
+      expect(ctx.logger.error).toHaveBeenCalledWith(expect.stringContaining('delivery failed'));
     });
   });
 });

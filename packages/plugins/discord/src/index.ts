@@ -3,6 +3,7 @@
 import type { PluginContext, PluginDefinition, PluginHooks } from '@harness/plugin-contract';
 import { Client, Events, GatewayIntentBits } from 'discord.js';
 import { toPipelineMessage } from './_helpers/message-adapter';
+import { sendDiscordReply } from './_helpers/send-discord-reply';
 import { settingsSchema } from './_helpers/settings-schema';
 import { shouldProcessMessage } from './_helpers/should-process-message';
 import { stripMentions } from './_helpers/strip-mentions';
@@ -85,6 +86,20 @@ const createRegister: CreateRegister = () => {
     resolvedToken = settings.botToken ?? ctx.config.discordToken;
 
     const hooks: PluginHooks = {
+      onBroadcast: async (event, data) => {
+        if (event !== 'pipeline:complete') {
+          return;
+        }
+        if (!state.client || !state.connected) {
+          return;
+        }
+        const { threadId } = data as { threadId: string };
+        try {
+          await sendDiscordReply({ client: state.client, ctx, threadId, splitMessage });
+        } catch (err) {
+          ctx.logger.error(`discord: failed to deliver reply [thread=${threadId}]: ${err instanceof Error ? err.message : String(err)}`);
+        }
+      },
       onSettingsChange: async (pluginName: string) => {
         if (pluginName !== 'discord') {
           return;
@@ -196,6 +211,9 @@ const start: StartDiscordPlugin = async (ctx) => {
         },
       });
 
+      // Run the Claude pipeline — fire-and-forget, same pattern as web plugin
+      void ctx.sendToThread(thread.id, pipelineMsg.content);
+
       // Feed into pipeline via broadcast
       await ctx.broadcast('discord:message', {
         threadId: thread.id,
@@ -216,6 +234,10 @@ const start: StartDiscordPlugin = async (ctx) => {
             await ctx.db.message.create({
               data: { threadId: existing.id, role: 'user', content: pipelineMsg.content },
             });
+
+            // Run the Claude pipeline — fire-and-forget, same pattern as web plugin
+            void ctx.sendToThread(existing.id, pipelineMsg.content);
+
             await ctx.broadcast('discord:message', {
               threadId: existing.id,
               sourceId: pipelineMsg.sourceId,
