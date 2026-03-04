@@ -33,11 +33,30 @@ export const formatIdentityHeader: FormatIdentityHeader = (agent, memories, opti
   }
 
   if (memories.length > 0) {
-    const memoryLines = memories.map((m) => {
+    const coreMemories = memories.filter((m) => m.scope === 'AGENT' || !m.scope);
+    const projectMemories = memories.filter((m) => m.scope === 'PROJECT');
+    const threadMemories = memories.filter((m) => m.scope === 'THREAD');
+
+    const formatLine = (m: AgentMemory) => {
       const date = m.createdAt.toISOString().split('T')[0];
       return `- [${date}] [${m.type}] ${m.content}`;
-    });
-    parts.push(`## Relevant Memory\n\n${memoryLines.join('\n')}`);
+    };
+
+    const sections: string[] = [];
+
+    if (coreMemories.length > 0) {
+      sections.push(`### Core\n\n${coreMemories.map(formatLine).join('\n')}`);
+    }
+
+    if (projectMemories.length > 0) {
+      sections.push(`### Project Context\n\n${projectMemories.map(formatLine).join('\n')}`);
+    }
+
+    if (threadMemories.length > 0) {
+      sections.push(`### This Conversation\n\n${threadMemories.map(formatLine).join('\n')}`);
+    }
+
+    parts.push(`## Relevant Memory\n\n${sections.join('\n\n')}`);
   }
 
   // Chain of Persona instruction (PCL 2025 — drives character consistency)

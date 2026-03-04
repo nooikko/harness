@@ -7,8 +7,10 @@ const makeMemory = (
     agentId: string;
     content: string;
     type: 'EPISODIC' | 'SEMANTIC' | 'REFLECTION';
+    scope: 'AGENT' | 'PROJECT' | 'THREAD';
     importance: number;
     threadId: string | null;
+    projectId: string | null;
     sourceMemoryIds: string[];
     createdAt: Date;
     lastAccessedAt: Date;
@@ -18,8 +20,10 @@ const makeMemory = (
   agentId: 'agent-1',
   content: 'A memory',
   type: 'EPISODIC' as const,
+  scope: 'AGENT' as const,
   importance: 5,
   threadId: null,
+  projectId: null,
   sourceMemoryIds: [],
   createdAt: new Date('2026-01-01'),
   lastAccessedAt: new Date('2026-01-01'),
@@ -160,5 +164,73 @@ describe('retrieveMemories', () => {
     const reflectionIds = result.filter((m) => m.type === 'REFLECTION').map((m) => m.id);
     expect(reflectionIds).toContain('refl-only');
     expect(result).toHaveLength(5);
+  });
+
+  // ── Scope-filtered retrieval tests ────────────────────────────────────
+
+  it('builds OR filter with all 3 scopes when both projectId and threadId provided', async () => {
+    const db = makeMockDb([]);
+    await retrieveMemories(db as never, 'agent-1', 'query', 10, { projectId: 'proj-1', threadId: 'thread-1' });
+    expect(db.agentMemory.findMany).toHaveBeenCalledWith({
+      where: {
+        OR: [
+          { agentId: 'agent-1', scope: 'AGENT' },
+          { agentId: 'agent-1', scope: 'PROJECT', projectId: 'proj-1' },
+          { agentId: 'agent-1', scope: 'THREAD', threadId: 'thread-1' },
+        ],
+      },
+      orderBy: { lastAccessedAt: 'desc' },
+      take: 100,
+    });
+  });
+
+  it('builds OR filter with AGENT + PROJECT when only projectId provided', async () => {
+    const db = makeMockDb([]);
+    await retrieveMemories(db as never, 'agent-1', 'query', 10, { projectId: 'proj-1' });
+    expect(db.agentMemory.findMany).toHaveBeenCalledWith({
+      where: {
+        OR: [
+          { agentId: 'agent-1', scope: 'AGENT' },
+          { agentId: 'agent-1', scope: 'PROJECT', projectId: 'proj-1' },
+        ],
+      },
+      orderBy: { lastAccessedAt: 'desc' },
+      take: 100,
+    });
+  });
+
+  it('builds OR filter with AGENT + THREAD when only threadId provided', async () => {
+    const db = makeMockDb([]);
+    await retrieveMemories(db as never, 'agent-1', 'query', 10, { threadId: 'thread-1' });
+    expect(db.agentMemory.findMany).toHaveBeenCalledWith({
+      where: {
+        OR: [
+          { agentId: 'agent-1', scope: 'AGENT' },
+          { agentId: 'agent-1', scope: 'THREAD', threadId: 'thread-1' },
+        ],
+      },
+      orderBy: { lastAccessedAt: 'desc' },
+      take: 100,
+    });
+  });
+
+  it('falls back to plain agentId filter when context has both fields null', async () => {
+    const db = makeMockDb([]);
+    await retrieveMemories(db as never, 'agent-1', 'query', 10, { projectId: null, threadId: null });
+    expect(db.agentMemory.findMany).toHaveBeenCalledWith({
+      where: { agentId: 'agent-1' },
+      orderBy: { lastAccessedAt: 'desc' },
+      take: 100,
+    });
+  });
+
+  it('falls back to plain agentId filter when context is undefined', async () => {
+    const db = makeMockDb([]);
+    await retrieveMemories(db as never, 'agent-1', 'query', 10, undefined);
+    expect(db.agentMemory.findMany).toHaveBeenCalledWith({
+      where: { agentId: 'agent-1' },
+      orderBy: { lastAccessedAt: 'desc' },
+      take: 100,
+    });
   });
 });

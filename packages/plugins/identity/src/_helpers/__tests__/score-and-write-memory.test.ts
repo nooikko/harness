@@ -49,41 +49,44 @@ describe('scoreAndWriteMemory', () => {
   });
 
   it('writes memory when importance is exactly 6 (at threshold)', async () => {
-    const ctx = makeCtx('{"importance": 6}', '{"summary": "The agent provided a key insight."}');
+    const ctx = makeCtx('{"importance": 6}', '{"summary": "The agent provided a key insight.", "scope": "AGENT"}');
     await scoreAndWriteMemory(ctx as never, 'agent-1', 'Aria', 'thread-1', 'Some output content.');
     expect(ctx.db.agentMemory.create).toHaveBeenCalledWith({
-      data: {
+      data: expect.objectContaining({
         agentId: 'agent-1',
         content: 'The agent provided a key insight.',
         type: 'EPISODIC',
         importance: 6,
         threadId: 'thread-1',
-      },
+      }),
     });
   });
 
   it('writes memory when importance is above threshold (> 6)', async () => {
-    const ctx = makeCtx('{"importance": 9}', '{"summary": "Critical decision was made."}');
+    const ctx = makeCtx('{"importance": 9}', '{"summary": "Critical decision was made.", "scope": "AGENT"}');
     await scoreAndWriteMemory(ctx as never, 'agent-1', 'Aria', 'thread-1', 'Output about a major decision.');
     expect(ctx.db.agentMemory.create).toHaveBeenCalledWith({
-      data: {
+      data: expect.objectContaining({
         agentId: 'agent-1',
         content: 'Critical decision was made.',
         type: 'EPISODIC',
         importance: 9,
         threadId: 'thread-1',
-      },
+      }),
     });
   });
 
   it('logs debug message after writing memory', async () => {
-    const ctx = makeCtx('{"importance": 8}', '{"summary": "Summary content."}');
+    const ctx = makeCtx('{"importance": 8}', '{"summary": "Summary content.", "scope": "AGENT"}');
     await scoreAndWriteMemory(ctx as never, 'agent-1', 'Aria', 'thread-1', 'Meaningful output.');
-    expect(ctx.logger.debug).toHaveBeenCalledWith('Wrote episodic memory', {
-      agentId: 'agent-1',
-      threadId: 'thread-1',
-      importance: 8,
-    });
+    expect(ctx.logger.debug).toHaveBeenCalledWith(
+      'Wrote episodic memory',
+      expect.objectContaining({
+        agentId: 'agent-1',
+        threadId: 'thread-1',
+        importance: 8,
+      }),
+    );
   });
 
   it('silently returns when importance scoring throws', async () => {
@@ -177,8 +180,8 @@ describe('scoreAndWriteMemory', () => {
     };
 
     it('does not call checkReflectionTrigger when reflectionEnabled is false', async () => {
-      const ctx = makeReflectionCtx('{"importance": 8}', '{"summary": "Important event."}', 15);
-      await scoreAndWriteMemory(ctx as never, 'agent-1', 'Aria', 'thread-1', 'Meaningful output.', false);
+      const ctx = makeReflectionCtx('{"importance": 8}', '{"summary": "Important event.", "scope": "AGENT"}', 15);
+      await scoreAndWriteMemory(ctx as never, 'agent-1', 'Aria', 'thread-1', 'Meaningful output.', { reflectionEnabled: false });
 
       // Memory should still be written
       expect(ctx.db.agentMemory.create).toHaveBeenCalled();
@@ -188,8 +191,8 @@ describe('scoreAndWriteMemory', () => {
     });
 
     it('calls checkReflectionTrigger when reflectionEnabled is true', async () => {
-      const ctx = makeReflectionCtx('{"importance": 8}', '{"summary": "Important event."}', 15);
-      await scoreAndWriteMemory(ctx as never, 'agent-1', 'Aria', 'thread-1', 'Meaningful output.', true);
+      const ctx = makeReflectionCtx('{"importance": 8}', '{"summary": "Important event.", "scope": "AGENT"}', 15);
+      await scoreAndWriteMemory(ctx as never, 'agent-1', 'Aria', 'thread-1', 'Meaningful output.', { reflectionEnabled: true });
 
       // Memory should be written
       expect(ctx.db.agentMemory.create).toHaveBeenCalled();
@@ -199,13 +202,13 @@ describe('scoreAndWriteMemory', () => {
       expect(ctx.db.agentMemory.findFirst).toHaveBeenCalled();
     });
 
-    it('calls checkReflectionTrigger when reflectionEnabled is omitted (defaults to true)', async () => {
-      const ctx = makeReflectionCtx('{"importance": 8}', '{"summary": "Important event."}', 15);
+    it('does not call checkReflectionTrigger when reflectionEnabled is omitted (defaults to false)', async () => {
+      const ctx = makeReflectionCtx('{"importance": 8}', '{"summary": "Important event.", "scope": "AGENT"}', 15);
       await scoreAndWriteMemory(ctx as never, 'agent-1', 'Aria', 'thread-1', 'Meaningful output.');
 
       expect(ctx.db.agentMemory.create).toHaveBeenCalled();
       await new Promise<void>((resolve) => setImmediate(resolve));
-      expect(ctx.db.agentMemory.findFirst).toHaveBeenCalled();
+      expect(ctx.db.agentMemory.findFirst).not.toHaveBeenCalled();
     });
   });
 });

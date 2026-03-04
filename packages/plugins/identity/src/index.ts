@@ -26,8 +26,14 @@ export const plugin: PluginDefinition = {
           return prompt;
         }
 
-        const memories = await retrieveMemories(ctx.db, agent.id, prompt, MEMORY_LIMIT);
-        const header = formatIdentityHeader(agent, memories, { soulMaxChars: SOUL_MAX_CHARS, identityMaxChars: IDENTITY_MAX_CHARS });
+        const memories = await retrieveMemories(ctx.db, agent.id, prompt, MEMORY_LIMIT, {
+          projectId: agent.threadProjectId,
+          threadId,
+        });
+        const header = formatIdentityHeader(agent, memories, {
+          soulMaxChars: SOUL_MAX_CHARS,
+          identityMaxChars: IDENTITY_MAX_CHARS,
+        });
         const anchor = formatIdentityAnchor(agent);
 
         return [header, prompt, anchor].join('\n\n---\n\n');
@@ -45,7 +51,10 @@ export const plugin: PluginDefinition = {
         }
 
         // Fire-and-forget — do not block the pipeline
-        void scoreAndWriteMemory(ctx, agent.id, agent.name, threadId, result.output, config?.reflectionEnabled ?? false);
+        void scoreAndWriteMemory(ctx, agent.id, agent.name, threadId, result.output, {
+          reflectionEnabled: config?.reflectionEnabled ?? false,
+          projectId: agent.threadProjectId,
+        });
       },
     };
   },

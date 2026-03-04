@@ -36,21 +36,21 @@ describe('loadAgent', () => {
 
   it('returns the agent when thread has agentId and agent is enabled', async () => {
     const agent = { id: 'agent-1', slug: 'test', name: 'Test Agent', enabled: true };
-    const db = makeMockDb({ agentId: 'agent-1' }, agent);
+    const db = makeMockDb({ agentId: 'agent-1', projectId: null }, agent);
     const result = await loadAgent(db as never, 'thread-1');
-    expect(result).toEqual(agent);
+    expect(result).toEqual({ ...agent, threadProjectId: null });
     expect(db.thread.findUnique).toHaveBeenCalledWith({
       where: { id: 'thread-1' },
-      select: { agentId: true },
+      select: { agentId: true, projectId: true },
     });
   });
 
   it('queries thread with correct threadId', async () => {
-    const db = makeMockDb({ agentId: 'agent-2' }, { id: 'agent-2', name: 'Agent Two', enabled: true });
+    const db = makeMockDb({ agentId: 'agent-2', projectId: 'proj-1' }, { id: 'agent-2', name: 'Agent Two', enabled: true });
     await loadAgent(db as never, 'thread-abc');
     expect(db.thread.findUnique).toHaveBeenCalledWith({
       where: { id: 'thread-abc' },
-      select: { agentId: true },
+      select: { agentId: true, projectId: true },
     });
   });
 });

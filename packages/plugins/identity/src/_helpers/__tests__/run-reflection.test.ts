@@ -106,7 +106,7 @@ describe('runReflection', () => {
     const memories = [makeMemory('m-1'), makeMemory('m-2')];
     await runReflection(ctx as never, 'agent-1', 'Aria', memories);
 
-    expect(ctx.logger.info).toHaveBeenCalledWith('Reflection complete', { agentId: 'agent-1', insights: 2, sourcedFrom: 2 });
+    expect(ctx.logger.info).toHaveBeenCalledWith('Reflection complete', { agentId: 'agent-1', scope: 'AGENT', insights: 2, sourcedFrom: 2 });
   });
 
   it('extracts JSON from response wrapped in prose or code fences', async () => {
@@ -116,5 +116,49 @@ describe('runReflection', () => {
     expect(ctx.db.agentMemory.createMany).toHaveBeenCalled();
     const { data } = (ctx.db.agentMemory.createMany as ReturnType<typeof vi.fn>).mock.calls[0]![0] as { data: Array<{ content: string }> };
     expect(data[0]!.content).toBe('Key pattern identified');
+  });
+
+  // ── Scope and projectId tests ───────────────────────────────────────
+
+  it('writes AGENT scope when projectId is not provided', async () => {
+    const ctx = makeCtx('{"insights": ["Insight one"]}');
+    await runReflection(ctx as never, 'agent-1', 'Aria', [makeMemory('m-1')]);
+
+    const { data } = (ctx.db.agentMemory.createMany as ReturnType<typeof vi.fn>).mock.calls[0]![0] as {
+      data: Array<{ scope: string; projectId?: string }>;
+    };
+    expect(data[0]!.scope).toBe('AGENT');
+    expect(data[0]).not.toHaveProperty('projectId');
+  });
+
+  it('writes PROJECT scope and projectId when projectId is provided', async () => {
+    const ctx = makeCtx('{"insights": ["Project-specific insight"]}');
+    await runReflection(ctx as never, 'agent-1', 'Aria', [makeMemory('m-1')], 'proj-42');
+
+    const { data } = (ctx.db.agentMemory.createMany as ReturnType<typeof vi.fn>).mock.calls[0]![0] as {
+      data: Array<{ scope: string; projectId?: string }>;
+    };
+    expect(data[0]!.scope).toBe('PROJECT');
+    expect(data[0]!.projectId).toBe('proj-42');
+  });
+
+  it('logs scope in info message for project-scoped reflection', async () => {
+    const ctx = makeCtx('{"insights": ["Insight one"]}');
+    await runReflection(ctx as never, 'agent-1', 'Aria', [makeMemory('m-1')], 'proj-42');
+
+    expect(ctx.logger.info).toHaveBeenCalledWith('Reflection complete', {
+      agentId: 'agent-1',
+      scope: 'PROJECT',
+      insights: 1,
+      sourcedFrom: 1,
+    });
+  });
+
+  it('writes AGENT scope when projectId is null', async () => {
+    const ctx = makeCtx('{"insights": ["Insight one"]}');
+    await runReflection(ctx as never, 'agent-1', 'Aria', [makeMemory('m-1')], null);
+
+    const { data } = (ctx.db.agentMemory.createMany as ReturnType<typeof vi.fn>).mock.calls[0]![0] as { data: Array<{ scope: string }> };
+    expect(data[0]!.scope).toBe('AGENT');
   });
 });

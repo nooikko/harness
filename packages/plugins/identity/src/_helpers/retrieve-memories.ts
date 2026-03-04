@@ -1,4 +1,4 @@
-import type { AgentMemory, PrismaClient } from '@harness/database';
+import type { AgentMemory, Prisma, PrismaClient } from '@harness/database';
 
 const CANDIDATE_POOL = 100;
 const DECAY_RATE = 0.995;
@@ -6,11 +6,38 @@ const MS_PER_HOUR = 3_600_000;
 const REFLECTION_BOOST = 0.3;
 const MIN_REFLECTION_SLOTS = 2;
 
-type RetrieveMemories = (db: PrismaClient, agentId: string, _query: string, limit: number) => Promise<AgentMemory[]>;
+type MemoryContext = {
+  projectId?: string | null;
+  threadId?: string | null;
+};
 
-export const retrieveMemories: RetrieveMemories = async (db, agentId, _query, limit) => {
+type RetrieveMemories = (db: PrismaClient, agentId: string, _query: string, limit: number, context?: MemoryContext) => Promise<AgentMemory[]>;
+
+export const retrieveMemories: RetrieveMemories = async (db, agentId, _query, limit, context) => {
+  // Build scope-aware filter: AGENT memories always, plus PROJECT/THREAD when context provided
+  const scopeFilters: Prisma.AgentMemoryWhereInput[] = [{ agentId, scope: 'AGENT' }];
+
+  if (context?.projectId) {
+    scopeFilters.push({
+      agentId,
+      scope: 'PROJECT',
+      projectId: context.projectId,
+    });
+  }
+
+  if (context?.threadId) {
+    scopeFilters.push({
+      agentId,
+      scope: 'THREAD',
+      threadId: context.threadId,
+    });
+  }
+
+  // Backward compatibility: when no context or both fields null, return all agent memories
+  const where: Prisma.AgentMemoryWhereInput = !context || (!context.projectId && !context.threadId) ? { agentId } : { OR: scopeFilters };
+
   const candidates = await db.agentMemory.findMany({
-    where: { agentId },
+    where,
     orderBy: { lastAccessedAt: 'desc' },
     take: CANDIDATE_POOL,
   });

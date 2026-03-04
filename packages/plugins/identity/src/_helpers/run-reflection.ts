@@ -1,3 +1,4 @@
+import type { MemoryScope } from '@harness/database';
 import type { PluginContext } from '@harness/plugin-contract';
 import { z } from 'zod';
 
@@ -14,9 +15,9 @@ type EpisodicMemory = {
   createdAt: Date;
 };
 
-type RunReflection = (ctx: PluginContext, agentId: string, agentName: string, memories: EpisodicMemory[]) => Promise<void>;
+type RunReflection = (ctx: PluginContext, agentId: string, agentName: string, memories: EpisodicMemory[], projectId?: string | null) => Promise<void>;
 
-export const runReflection: RunReflection = async (ctx, agentId, agentName, memories) => {
+export const runReflection: RunReflection = async (ctx, agentId, agentName, memories, projectId) => {
   const sourceMemoryIds = memories.map((m) => m.id);
 
   const memoriesText = memories.map((m) => `- [${m.createdAt.toISOString().slice(0, 10)}] (importance: ${m.importance}/10) ${m.content}`).join('\n');
@@ -35,22 +36,31 @@ export const runReflection: RunReflection = async (ctx, agentId, agentName, memo
     const parsed = InsightsSchema.parse(JSON.parse(result.output.slice(start, end + 1)));
     insights = parsed.insights;
   } catch (err) {
-    ctx.logger.warn('Reflection synthesis failed', { agentId, error: String(err) });
+    ctx.logger.warn('Reflection synthesis failed', {
+      agentId,
+      error: String(err),
+    });
     return;
   }
+
+  // REFLECTION scope inherits from source: project-scoped source → PROJECT, otherwise → AGENT
+  const scope: MemoryScope = projectId ? 'PROJECT' : 'AGENT';
 
   await ctx.db.agentMemory.createMany({
     data: insights.map((content) => ({
       agentId,
       content,
       type: 'REFLECTION' as const,
+      scope,
       importance: REFLECTION_IMPORTANCE,
       sourceMemoryIds,
+      ...(projectId ? { projectId } : {}),
     })),
   });
 
   ctx.logger.info('Reflection complete', {
     agentId,
+    scope,
     insights: insights.length,
     sourcedFrom: memories.length,
   });

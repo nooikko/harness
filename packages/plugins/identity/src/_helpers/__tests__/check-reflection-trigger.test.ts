@@ -86,9 +86,63 @@ describe('checkReflectionTrigger', () => {
     await checkReflectionTrigger(db as never, 'agent-42');
     expect(db.agentMemory.findFirst).toHaveBeenCalledWith(
       expect.objectContaining({
-        where: { agentId: 'agent-42', type: 'REFLECTION' },
+        where: { agentId: 'agent-42', type: 'REFLECTION', scope: 'AGENT' },
         orderBy: { createdAt: 'desc' },
       }),
     );
+  });
+
+  // ── Project-scoped reflection trigger tests ─────────────────────────
+
+  it('uses PROJECT scope filter when projectId is provided', async () => {
+    const db = makeDb(null, []);
+    await checkReflectionTrigger(db as never, 'agent-1', 'proj-1');
+    expect(db.agentMemory.findFirst).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: { agentId: 'agent-1', type: 'REFLECTION', scope: 'PROJECT', projectId: 'proj-1' },
+      }),
+    );
+    expect(db.agentMemory.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: expect.objectContaining({
+          agentId: 'agent-1',
+          type: 'EPISODIC',
+          scope: 'PROJECT',
+          projectId: 'proj-1',
+        }),
+      }),
+    );
+  });
+
+  it('uses AGENT scope filter when projectId is not provided', async () => {
+    const db = makeDb(null, []);
+    await checkReflectionTrigger(db as never, 'agent-1');
+    expect(db.agentMemory.findFirst).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: expect.objectContaining({ scope: 'AGENT' }),
+      }),
+    );
+    expect(db.agentMemory.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: expect.objectContaining({ scope: 'AGENT' }),
+      }),
+    );
+  });
+
+  it('uses AGENT scope filter when projectId is null', async () => {
+    const db = makeDb(null, []);
+    await checkReflectionTrigger(db as never, 'agent-1', null);
+    expect(db.agentMemory.findFirst).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: expect.objectContaining({ scope: 'AGENT' }),
+      }),
+    );
+  });
+
+  it('triggers project-scoped reflection when 10+ project-scoped memories exist', async () => {
+    const memories = Array.from({ length: 10 }, (_, i) => makeMemory(`mem-${i}`));
+    const db = makeDb(null, memories);
+    const result = await checkReflectionTrigger(db as never, 'agent-1', 'proj-1');
+    expect(result).toEqual({ shouldReflect: true, memories });
   });
 });

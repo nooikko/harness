@@ -216,8 +216,8 @@ Do not rebuild any of the following — these subsystems are fully implemented.
 ### Agent Identity Plugin (`packages/plugins/identity/`)
 
 - **Phase 1 complete: soul injection** — agent soul/identity/role loaded from Agent record and injected into every prompt via `onBeforeInvoke`
-- **Phase 2 complete: episodic memory** — AgentMemory records scored by importance, retrieved via recency+importance ranking, injected into prompts
-- **Phase 3: paused** (vector search), **Phase 4: partially active** (reflection), **Phase 5: complete** (scheduled tasks via CronJob CRUD) — see "Planned But Incomplete" for remaining items
+- **Phase 2 complete: episodic memory** — AgentMemory records scored by importance, retrieved via recency+importance ranking, injected into prompts. **Memory scoping** (AGENT/PROJECT/THREAD) prevents cross-project contamination.
+- **Phase 3: paused** (vector search), **Phase 4: complete** (reflection with scoped reflections), **Phase 5: complete** (scheduled tasks via CronJob CRUD)
 - **Plugin ordering:** identity runs BEFORE context in the `onBeforeInvoke` chain (registered first in `ALL_PLUGINS`)
 
 ### Summarization Plugin (`packages/plugins/summarization/`)
@@ -303,10 +303,6 @@ These features have partial implementation but are missing execution logic. Do n
 - **What:** Periodic meta-reflection that stores `REFLECTION` type AgentMemory records
 - **Status:** COMPLETE — reflection trigger fires after episodic memory writes, `AgentConfig.reflectionEnabled` gates the trigger (defaults to false). REFLECTION memories receive a 0.3 scoring boost and 2 guaranteed slots in `retrieveMemories`.
 
-### Memory Architecture
+### Memory Architecture — COMPLETE
 
-- **What:** Scope agent memory across threads/projects/channels without cross-contamination
-- **Status:** NOT STARTED — research needed
-- **Core problem:** Same agent runs across multiple threads/projects/channels. Current episodic memory is scoped per-agent (not per-project/thread), so memories from unrelated contexts bleed together.
-- **Key tensions:** Memory isolation vs cross-channel continuity; project memory exists but what about non-project threads?
-- **Constraint:** Single user, NOT multi-tenant. But IS multi-channel, multi-project, multi-agent.
+Memory scoping is implemented via a 3-level `MemoryScope` enum (AGENT, PROJECT, THREAD) on the `AgentMemory` model. AGENT memories are always retrieved; PROJECT and THREAD memories are filtered by context. Scope is classified during episodic memory writing via Haiku (piggybacked on existing summarization call, zero additional cost). See `.claude/rules/agent-identity-state.md` for full details.

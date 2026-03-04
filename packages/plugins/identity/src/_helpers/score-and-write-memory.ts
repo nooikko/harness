@@ -1,6 +1,7 @@
 import type { PluginContext } from '@harness/plugin-contract';
 import { z } from 'zod';
 import { checkReflectionTrigger } from './check-reflection-trigger';
+import { classifyMemoryScope } from './classify-memory-scope';
 import { runReflection } from './run-reflection';
 
 const IMPORTANCE_THRESHOLD = 6;
@@ -14,6 +15,7 @@ const ImportanceSchema = z.object({
 
 const SummarySchema = z.object({
   summary: z.string().min(1),
+  scope: z.enum(['AGENT', 'PROJECT', 'THREAD']).optional(),
 });
 
 // Extract the first JSON object from a response that may include prose or code fences.
@@ -37,16 +39,23 @@ const buildScoringSnippet: BuildScoringSnippet = (output) => {
   return `${output.slice(0, SNIPPET_HEAD)}\n\n[...]\n\n${output.slice(-SNIPPET_TAIL)}`;
 };
 
+type ScoreAndWriteMemoryOptions = {
+  reflectionEnabled?: boolean;
+  projectId?: string | null;
+};
+
 type ScoreAndWriteMemory = (
   ctx: PluginContext,
   agentId: string,
   agentName: string,
   threadId: string,
   output: string,
-  reflectionEnabled?: boolean,
+  options?: ScoreAndWriteMemoryOptions,
 ) => Promise<void>;
 
-export const scoreAndWriteMemory: ScoreAndWriteMemory = async (ctx, agentId, agentName, threadId, output, reflectionEnabled = true) => {
+export const scoreAndWriteMemory: ScoreAndWriteMemory = async (ctx, agentId, agentName, threadId, output, options) => {
+  const reflectionEnabled = options?.reflectionEnabled ?? false;
+  const projectId = options?.projectId;
   if (!output || output.trim().length === 0) {
     return;
   }
@@ -70,37 +79,53 @@ export const scoreAndWriteMemory: ScoreAndWriteMemory = async (ctx, agentId, age
     return;
   }
 
-  // Summarize into a compact memory
+  // Summarize into a compact memory + classify scope (piggybacked on same LLM call)
   let content = '';
+  let haikuScope: string | null = null;
   try {
+    const scopeContext = projectId ? ' within a specific project' : '';
     const summary = await ctx.invoker.invoke(
-      `Summarize this AI response as a single memory entry (1-2 sentences, past tense, third person referring to the agent).\nOutput ONLY valid JSON: {"summary": "<1-2 sentence summary>"}\n\n${summarySnippet}`,
+      `Summarize this AI response as a single memory entry (1-2 sentences, past tense, third person referring to the agent).\nAlso classify the scope of this memory:\n- AGENT: personality traits, general preferences, cross-project knowledge\n- PROJECT: project-specific facts, decisions, technical details${scopeContext}\n- THREAD: session-specific context unlikely to matter in other conversations\nOutput ONLY valid JSON: {"summary": "<1-2 sentence summary>", "scope": "AGENT|PROJECT|THREAD"}\n\n${summarySnippet}`,
       { model: 'claude-haiku-4-5-20251001' },
     );
     const parsed = SummarySchema.parse(JSON.parse(extractJson(summary.output)));
     content = parsed.summary;
+    haikuScope = parsed.scope ?? null;
   } catch {
     content = scoringSnippet.slice(0, 200);
   }
+
+  const scope = classifyMemoryScope({
+    projectId,
+    threadId,
+    haikuScope,
+  });
 
   await ctx.db.agentMemory.create({
     data: {
       agentId,
       content,
       type: 'EPISODIC',
+      scope,
       importance,
       threadId,
+      ...(projectId ? { projectId } : {}),
     },
   });
 
-  ctx.logger.debug('Wrote episodic memory', { agentId, threadId, importance });
+  ctx.logger.debug('Wrote episodic memory', {
+    agentId,
+    threadId,
+    importance,
+    scope,
+  });
 
   // Check if reflection should be triggered — fire-and-forget
   if (reflectionEnabled) {
     void (async () => {
-      const trigger = await checkReflectionTrigger(ctx.db, agentId);
+      const trigger = await checkReflectionTrigger(ctx.db, agentId, projectId);
       if (trigger.shouldReflect) {
-        await runReflection(ctx, agentId, agentName, trigger.memories);
+        await runReflection(ctx, agentId, agentName, trigger.memories, projectId);
       }
     })();
   }

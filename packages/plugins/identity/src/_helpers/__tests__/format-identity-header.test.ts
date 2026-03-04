@@ -34,13 +34,15 @@ const makeAgent = (
   ...overrides,
 });
 
-const makeMemory = (content: string, type: 'EPISODIC' | 'SEMANTIC' | 'REFLECTION' = 'EPISODIC') => ({
+const makeMemory = (content: string, type: 'EPISODIC' | 'SEMANTIC' | 'REFLECTION' = 'EPISODIC', scope: 'AGENT' | 'PROJECT' | 'THREAD' = 'AGENT') => ({
   id: 'mem-1',
   agentId: 'agent-1',
   content,
   type,
+  scope,
   importance: 7,
   threadId: null,
+  projectId: null,
   sourceMemoryIds: [],
   createdAt: new Date('2026-02-15T10:00:00Z'),
   lastAccessedAt: new Date('2026-02-15T10:00:00Z'),
@@ -170,5 +172,59 @@ describe('formatIdentityHeader', () => {
     const result = formatIdentityHeader(agent, [], { soulMaxChars: 5000, identityMaxChars: 2000 });
     expect(result).toContain('Before responding, briefly consider');
     expect(result).toContain('Aria');
+  });
+
+  // ── Multi-scope grouping tests ──────────────────────────────────────
+
+  it('groups AGENT memories under "Core" subsection', () => {
+    const agent = makeAgent();
+    const memories = [makeMemory('Agent-level insight', 'EPISODIC', 'AGENT')];
+    const result = formatIdentityHeader(agent, memories, { soulMaxChars: 5000, identityMaxChars: 2000 });
+    expect(result).toContain('### Core');
+    expect(result).toContain('Agent-level insight');
+  });
+
+  it('groups PROJECT memories under "Project Context" subsection', () => {
+    const agent = makeAgent();
+    const memories = [makeMemory('Project-specific finding', 'EPISODIC', 'PROJECT')];
+    const result = formatIdentityHeader(agent, memories, { soulMaxChars: 5000, identityMaxChars: 2000 });
+    expect(result).toContain('### Project Context');
+    expect(result).toContain('Project-specific finding');
+  });
+
+  it('groups THREAD memories under "This Conversation" subsection', () => {
+    const agent = makeAgent();
+    const memories = [makeMemory('Thread-local observation', 'EPISODIC', 'THREAD')];
+    const result = formatIdentityHeader(agent, memories, { soulMaxChars: 5000, identityMaxChars: 2000 });
+    expect(result).toContain('### This Conversation');
+    expect(result).toContain('Thread-local observation');
+  });
+
+  it('renders all three scope subsections when memories span all scopes', () => {
+    const agent = makeAgent();
+    const memories = [
+      makeMemory('Core personality trait', 'REFLECTION', 'AGENT'),
+      makeMemory('Project API pattern', 'EPISODIC', 'PROJECT'),
+      makeMemory('Current task context', 'EPISODIC', 'THREAD'),
+    ];
+    const result = formatIdentityHeader(agent, memories, { soulMaxChars: 5000, identityMaxChars: 2000 });
+    expect(result).toContain('### Core');
+    expect(result).toContain('### Project Context');
+    expect(result).toContain('### This Conversation');
+    // Verify ordering: Core before Project before Thread
+    const coreIdx = result.indexOf('### Core');
+    const projectIdx = result.indexOf('### Project Context');
+    const threadIdx = result.indexOf('### This Conversation');
+    expect(coreIdx).toBeLessThan(projectIdx);
+    expect(projectIdx).toBeLessThan(threadIdx);
+  });
+
+  it('omits scope subsections that have no memories', () => {
+    const agent = makeAgent();
+    const memories = [makeMemory('Only agent memory', 'EPISODIC', 'AGENT')];
+    const result = formatIdentityHeader(agent, memories, { soulMaxChars: 5000, identityMaxChars: 2000 });
+    expect(result).toContain('### Core');
+    expect(result).not.toContain('### Project Context');
+    expect(result).not.toContain('### This Conversation');
   });
 });

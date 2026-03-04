@@ -32,6 +32,7 @@ model Thread {
   agent          Agent?     @relation(fields: [agentId], references: [id])
   projectId      String?
   project        Project?   @relation(fields: [projectId], references: [id])
+  memories       AgentMemory[]
   lastActivity   DateTime   @default(now())
   createdAt      DateTime   @default(now())
   updatedAt      DateTime   @updatedAt
@@ -49,6 +50,7 @@ model Project {
   memory       String?   @db.Text
   model        String?
   threads      Thread[]
+  memories     AgentMemory[]
   cronJobs     CronJob[]
   createdAt    DateTime  @default(now())
   updatedAt    DateTime  @updatedAt
@@ -160,6 +162,12 @@ enum MemoryType {
   REFLECTION
 }
 
+enum MemoryScope {
+  AGENT
+  PROJECT
+  THREAD
+}
+
 model Agent {
   id          String   @id @default(cuid())
   slug        String   @unique
@@ -188,23 +196,30 @@ model Agent {
 }
 
 model AgentMemory {
-  id             String     @id @default(cuid())
+  id             String      @id @default(cuid())
   agentId        String
-  agent          Agent      @relation(fields: [agentId], references: [id], onDelete: Cascade)
+  agent          Agent       @relation(fields: [agentId], references: [id], onDelete: Cascade)
 
-  content        String     @db.Text
-  type           MemoryType @default(EPISODIC)
-  importance     Int        @default(5)
+  content        String      @db.Text
+  type           MemoryType  @default(EPISODIC)
+  scope          MemoryScope @default(AGENT)
+  importance     Int         @default(5)
 
   threadId        String?
+  thread          Thread?     @relation(fields: [threadId], references: [id], onDelete: SetNull)
+  projectId       String?
+  project         Project?    @relation(fields: [projectId], references: [id], onDelete: SetNull)
   sourceMemoryIds String[]
 
-  createdAt      DateTime   @default(now())
-  lastAccessedAt DateTime   @default(now())
+  createdAt      DateTime    @default(now())
+  lastAccessedAt DateTime    @default(now())
 
   @@index([agentId, type])
   @@index([agentId, lastAccessedAt])
   @@index([agentId, importance])
+  @@index([agentId, scope])
+  @@index([agentId, projectId, scope])
+  @@index([agentId, threadId, scope])
 }
 
 model AgentConfig {

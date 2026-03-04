@@ -6,7 +6,7 @@ Which identity phases are complete, which are paused, and what each needs to pro
 
 ## Overview
 
-The identity system is implemented as `@harness/plugin-identity`. It uses two hooks: `onBeforeInvoke` (soul + memory injection) and `onAfterInvoke` (episodic memory writing + reflection trigger). Five phases were planned; two are complete, one is partially active, one is paused, and one is in progress.
+The identity system is implemented as `@harness/plugin-identity`. It uses two hooks: `onBeforeInvoke` (soul + memory injection) and `onAfterInvoke` (episodic memory writing + reflection trigger). Five phases were planned; three are complete, one is paused, and one is complete. Memory scoping (AGENT/PROJECT/THREAD) is implemented across all phases.
 
 File: `packages/plugins/identity/src/index.ts`
 
@@ -51,10 +51,52 @@ CANDIDATE_POOL = 100 // most recent memories scored, top 10 returned
 Memory types defined in schema:
 - `EPISODIC` — normal conversation memories (Phase 2, active)
 - `SEMANTIC` — factual assertions about the world (not yet written by any process)
-- `REFLECTION` — synthesized meta-insights across episodic memories (Phase 4, partially active)
+- `REFLECTION` — synthesized meta-insights across episodic memories (Phase 4, complete)
 
 File: `packages/plugins/identity/src/_helpers/retrieve-memories.ts`
 File: `packages/plugins/identity/src/_helpers/score-and-write-memory.ts`
+
+---
+
+## Memory Scoping (COMPLETE)
+
+**What:** 3-level scope hierarchy prevents cross-project memory contamination while preserving agent-level personality continuity.
+
+**Scopes:**
+- `AGENT` — cross-project personality memories (always retrieved regardless of context)
+- `PROJECT` — project-specific memories (only retrieved when querying within that project)
+- `THREAD` — thread-local memories (only retrieved for that specific thread)
+
+**Schema:**
+```prisma
+enum MemoryScope { AGENT  PROJECT  THREAD }
+
+model AgentMemory {
+  scope      MemoryScope @default(AGENT)
+  projectId  String?     // FK to Project (onDelete: SetNull)
+  threadId   String?     // FK to Thread (onDelete: SetNull)
+  // ... other fields
+}
+```
+
+**How scope is determined:** During episodic memory writing, Haiku is asked to classify scope as part of the existing summarization prompt (zero additional LLM cost). The `classifyMemoryScope` helper validates Haiku's output against available context (e.g., THREAD without a threadId falls back to PROJECT; PROJECT without a projectId falls back to AGENT).
+
+**How retrieval works:** `retrieveMemories` accepts an optional `context?: { projectId?, threadId? }` parameter. When context is provided, it builds an OR filter:
+- Always includes `scope: 'AGENT'`
+- Includes `scope: 'PROJECT', projectId` when projectId is provided
+- Includes `scope: 'THREAD', threadId` when threadId is provided
+
+When no context is provided (backward compatibility), all agent memories are returned regardless of scope.
+
+**Prompt formatting:** `formatIdentityHeader` groups memories into subsections: "### Core" (AGENT), "### Project Context" (PROJECT), "### This Conversation" (THREAD).
+
+**Scoped reflections:** `checkReflectionTrigger` and `runReflection` accept an optional `projectId`. Project-scoped EPISODIC memories trigger project-scoped REFLECTION records. Agent-scoped memories trigger agent-scoped reflections.
+
+**Key files:**
+- `packages/plugins/identity/src/_helpers/classify-memory-scope.ts` — fallback heuristic for scope classification
+- `packages/plugins/identity/src/_helpers/retrieve-memories.ts` — scope-aware OR filter
+- `packages/plugins/identity/src/_helpers/score-and-write-memory.ts` — Haiku scope classification + write
+- `packages/plugins/identity/src/_helpers/format-identity-header.ts` — scope-grouped prompt sections
 
 ---
 
@@ -114,24 +156,24 @@ const ALL_PLUGINS: PluginDefinition[] = [
 
 **How it works:**
 
-File: `packages/plugins/identity/src/_helpers/score-and-write-memory.ts`, lines 92-97
+File: `packages/plugins/identity/src/_helpers/score-and-write-memory.ts`
 
 ```typescript
 // Check if reflection should be triggered — fire-and-forget
 void (async () => {
-  const trigger = await checkReflectionTrigger(ctx.db, agentId);
+  const trigger = await checkReflectionTrigger(ctx.db, agentId, projectId);
   if (trigger.shouldReflect) {
-    await runReflection(ctx, agentId, agentName, trigger.memories);
+    await runReflection(ctx, agentId, agentName, trigger.memories, projectId);
   }
 })();
 ```
 
-This runs after every episodic memory write. `checkReflectionTrigger` fires when >=10 unreflected EPISODIC memories exist since the last REFLECTION. `runReflection` uses Haiku to synthesize 3-5 insights and writes them as REFLECTION records with `sourceMemoryIds` linking back to episodic sources.
+This runs after every episodic memory write. `checkReflectionTrigger` fires when >=10 unreflected EPISODIC memories exist since the last REFLECTION (scoped by project when projectId is provided). `runReflection` uses Haiku to synthesize 3-5 insights and writes them as REFLECTION records with `sourceMemoryIds` linking back to episodic sources. REFLECTION records inherit the scope of their source memories (project-scoped source → PROJECT scope).
 
 **Key files:**
-- `packages/plugins/identity/src/_helpers/check-reflection-trigger.ts` — fires when >=10 unreflected EPISODIC memories exist
-- `packages/plugins/identity/src/_helpers/run-reflection.ts` — Haiku synthesis -> REFLECTION records
-- `packages/plugins/identity/src/_helpers/retrieve-memories.ts` — REFLECTION_BOOST + MIN_REFLECTION_SLOTS
+- `packages/plugins/identity/src/_helpers/check-reflection-trigger.ts` — fires when >=10 unreflected EPISODIC memories exist (project-scoped when projectId provided)
+- `packages/plugins/identity/src/_helpers/run-reflection.ts` — Haiku synthesis -> REFLECTION records (inherits scope from source)
+- `packages/plugins/identity/src/_helpers/retrieve-memories.ts` — REFLECTION_BOOST=0.3 + MIN_REFLECTION_SLOTS=2
 
 ---
 
@@ -231,9 +273,9 @@ model Agent {
 | Phase | Status | Blocker |
 |-------|--------|---------|
 | 1 — Soul injection | COMPLETE | -- |
-| 2 — Episodic memory | COMPLETE | -- |
+| 2 — Episodic memory | COMPLETE | Memory scoping (AGENT/PROJECT/THREAD) implemented |
 | 3 — Vector search | PAUSED | Qdrant service + backend decision |
-| 4 — Reflection cycle | COMPLETE | REFLECTION_BOOST=0.3 + MIN_REFLECTION_SLOTS=2 in retrieveMemories |
+| 4 — Reflection cycle | COMPLETE | Scoped reflections (project + agent level) |
 | 5 — Scheduled tasks (CronJob CRUD) | COMPLETE | -- |
 
 ---
@@ -243,10 +285,12 @@ model Agent {
 | File | What it owns |
 |------|-------------|
 | `packages/plugins/identity/src/index.ts` | PluginDefinition — `onBeforeInvoke` + `onAfterInvoke` |
-| `packages/plugins/identity/src/_helpers/load-agent.ts` | Thread -> Agent lookup (two-query: thread then agent) |
-| `packages/plugins/identity/src/_helpers/retrieve-memories.ts` | Recency+importance scoring, top-N retrieval, lastAccessedAt update |
-| `packages/plugins/identity/src/_helpers/score-and-write-memory.ts` | Haiku importance scoring + summary + EPISODIC write + reflection trigger |
-| `packages/plugins/identity/src/_helpers/check-reflection-trigger.ts` | Counts unreflected EPISODIC memories; returns trigger decision |
-| `packages/plugins/identity/src/_helpers/run-reflection.ts` | Haiku synthesis -> REFLECTION memory records |
-| `packages/database/prisma/schema.prisma` | `Agent`, `AgentMemory`, `AgentConfig`, `MemoryType` enum |
+| `packages/plugins/identity/src/_helpers/load-agent.ts` | Thread -> Agent lookup + threadProjectId extraction |
+| `packages/plugins/identity/src/_helpers/retrieve-memories.ts` | Scope-aware retrieval, recency+importance scoring, REFLECTION boost |
+| `packages/plugins/identity/src/_helpers/score-and-write-memory.ts` | Haiku importance scoring + scope classification + EPISODIC write + reflection trigger |
+| `packages/plugins/identity/src/_helpers/classify-memory-scope.ts` | Fallback heuristic for scope classification (validates Haiku output) |
+| `packages/plugins/identity/src/_helpers/check-reflection-trigger.ts` | Counts unreflected EPISODIC memories; project-scoped when projectId provided |
+| `packages/plugins/identity/src/_helpers/run-reflection.ts` | Haiku synthesis -> REFLECTION records (inherits scope from source) |
+| `packages/plugins/identity/src/_helpers/format-identity-header.ts` | Prompt header with scope-grouped memory sections |
+| `packages/database/prisma/schema.prisma` | `Agent`, `AgentMemory`, `AgentConfig`, `MemoryType`, `MemoryScope` enums |
 | `apps/orchestrator/src/plugin-registry/index.ts` | Plugin ordering — identity must be index 0 |

@@ -50,6 +50,7 @@ const createMockContext: CreateMockContext = (options) => {
             enabled: true,
             createdAt: new Date('2026-01-01T00:00:00Z'),
             updatedAt: new Date('2026-01-01T00:00:00Z'),
+            threadProjectId: null,
           }
         : null;
 
@@ -60,7 +61,7 @@ const createMockContext: CreateMockContext = (options) => {
   return {
     db: {
       thread: {
-        findUnique: vi.fn().mockResolvedValue(agentId ? { agentId } : { agentId: null }),
+        findUnique: vi.fn().mockResolvedValue(agentId ? { agentId, projectId: null } : { agentId: null, projectId: null }),
       },
       agent: {
         findFirst: vi.fn().mockResolvedValue(agent),
@@ -153,8 +154,10 @@ describe('identity plugin', () => {
           agentId: 'agent-1',
           content: 'Aria helped the user deploy their first microservice.',
           type: 'EPISODIC',
+          scope: 'AGENT',
           importance: 8,
           threadId: 'thread-old',
+          projectId: null,
           sourceMemoryIds: [],
           createdAt: new Date('2026-01-15T10:00:00Z'),
           lastAccessedAt: new Date('2026-01-15T10:00:00Z'),
