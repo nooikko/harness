@@ -35,7 +35,7 @@ export const UserProfileMenu: UserProfileMenuComponent = () => (
               </Link>
             </DropdownMenuItem>
             <DropdownMenuItem asChild>
-              <Link href='/usage'>
+              <Link href='/admin/usage'>
                 <BarChart2 className='h-4 w-4' />
                 Usage
               </Link>

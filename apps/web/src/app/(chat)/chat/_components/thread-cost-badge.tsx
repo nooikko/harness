@@ -1,7 +1,7 @@
 import 'server-only';
 
 import { Badge, Skeleton } from '@harness/ui';
-import { formatCost } from '@/app/usage/_helpers/format-cost';
+import { formatCost } from '@/app/admin/usage/_helpers/format-cost';
 import { getThreadCost } from '../_actions/get-thread-cost';
 
 type ThreadCostBadgeProps = {

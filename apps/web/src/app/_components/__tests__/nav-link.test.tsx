@@ -20,9 +20,9 @@ const { NavLink } = await import('../nav-link');
 describe('NavLink', () => {
   it('renders a link with the correct href', () => {
     mockPathname.mockReturnValue('/other');
-    render(<NavLink href='/usage'>Usage</NavLink>);
+    render(<NavLink href='/admin/usage'>Usage</NavLink>);
     const link = screen.getByRole('link', { name: 'Usage' });
-    expect(link).toHaveAttribute('href', '/usage');
+    expect(link).toHaveAttribute('href', '/admin/usage');
   });
 
   it('renders children as link text', () => {
@@ -32,8 +32,8 @@ describe('NavLink', () => {
   });
 
   it('applies active styles when pathname matches href', () => {
-    mockPathname.mockReturnValue('/usage');
-    render(<NavLink href='/usage'>Usage</NavLink>);
+    mockPathname.mockReturnValue('/admin/usage');
+    render(<NavLink href='/admin/usage'>Usage</NavLink>);
     const link = screen.getByRole('link', { name: 'Usage' });
     expect(link.className).toContain('text-foreground');
     expect(link.className).toContain('bg-secondary');
@@ -41,7 +41,7 @@ describe('NavLink', () => {
 
   it('applies inactive styles when pathname does not match href', () => {
     mockPathname.mockReturnValue('/admin');
-    render(<NavLink href='/usage'>Usage</NavLink>);
+    render(<NavLink href='/admin/usage'>Usage</NavLink>);
     const link = screen.getByRole('link', { name: 'Usage' });
     expect(link.className).toContain('text-muted-foreground');
     expect(link.className).not.toContain('bg-secondary ');
@@ -64,15 +64,15 @@ describe('NavLink', () => {
   });
 
   it('treats root href as inactive when pathname is a different route', () => {
-    mockPathname.mockReturnValue('/usage');
+    mockPathname.mockReturnValue('/admin/usage');
     render(<NavLink href='/'>Chat</NavLink>);
     const link = screen.getByRole('link', { name: 'Chat' });
     expect(link.className).toContain('text-muted-foreground');
   });
 
   it('matches non-root href by prefix', () => {
-    mockPathname.mockReturnValue('/usage/details');
-    render(<NavLink href='/usage'>Usage</NavLink>);
+    mockPathname.mockReturnValue('/admin/usage/details');
+    render(<NavLink href='/admin/usage'>Usage</NavLink>);
     const link = screen.getByRole('link', { name: 'Usage' });
     expect(link.className).toContain('text-foreground');
     expect(link.className).toContain('bg-secondary');
