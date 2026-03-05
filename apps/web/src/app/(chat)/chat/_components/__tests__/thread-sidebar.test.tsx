@@ -32,7 +32,6 @@ describe('ThreadSidebar', () => {
   it('renders the sidebar with Suspense boundary', () => {
     const element = ThreadSidebar();
     const html = renderToStaticMarkup(element as React.ReactElement);
-    // Suspense renders the fallback synchronously in static markup
     expect(html).toContain('data-slot="sidebar"');
   });
 });
@@ -44,21 +43,41 @@ describe('ThreadSidebarInternal', () => {
     expect(html).toContain('data-slot="sidebar"');
   });
 
-  it('renders the nav products section', async () => {
+  it('renders the nav links section with Agents', async () => {
     const element = await ThreadSidebarInternal();
     const html = renderToStaticMarkup(<SidebarProvider>{element as React.ReactElement}</SidebarProvider>);
-    expect(html).toContain('Products');
+    expect(html).toContain('Agents');
   });
 
-  it('renders the Projects section', async () => {
+  it('renders the Recents section', async () => {
     const element = await ThreadSidebarInternal();
     const html = renderToStaticMarkup(<SidebarProvider>{element as React.ReactElement}</SidebarProvider>);
-    expect(html).toContain('Projects');
+    expect(html).toContain('Recents');
   });
 
-  it('renders the Direct Chats section', async () => {
+  it('renders the New chat button', async () => {
     const element = await ThreadSidebarInternal();
     const html = renderToStaticMarkup(<SidebarProvider>{element as React.ReactElement}</SidebarProvider>);
-    expect(html).toContain('Direct Chats');
+    expect(html).toContain('New chat');
+  });
+
+  it('renders project groups when projects exist', async () => {
+    const { prisma } = await import('@harness/database');
+    vi.mocked(prisma.project.findMany).mockResolvedValueOnce([
+      {
+        id: 'p1',
+        name: 'Test Project',
+        threads: [],
+        createdAt: new Date(),
+        updatedAt: new Date(),
+        description: null,
+        instructions: null,
+        memory: null,
+        model: null,
+      },
+    ] as never);
+    const element = await ThreadSidebarInternal();
+    const html = renderToStaticMarkup(<SidebarProvider>{element as React.ReactElement}</SidebarProvider>);
+    expect(html).toContain('Test Project');
   });
 });

@@ -23,10 +23,6 @@ vi.mock('next/link', () => ({
   ),
 }));
 
-vi.mock('../new-project-form', () => ({
-  NewProjectForm: () => <button type='button'>New project</button>,
-}));
-
 vi.mock('../new-project-thread-button', () => ({
   NewProjectThreadButton: ({ projectId }: { projectId: string }) => (
     <button type='button' data-project-id={projectId}>
@@ -75,14 +71,10 @@ const makeProject = (overrides: Partial<Project & { threads: Thread[] }> = {}): 
 const renderWithProvider = (ui: React.ReactElement) => render(<SidebarProvider>{ui}</SidebarProvider>);
 
 describe('NavProjects', () => {
-  it('renders the Projects group label', () => {
-    renderWithProvider(<NavProjects projects={[]} />);
-    expect(screen.getByText('Projects')).toBeInTheDocument();
-  });
-
-  it('renders empty state message when no projects', () => {
-    renderWithProvider(<NavProjects projects={[]} />);
-    expect(screen.getByText('No projects yet')).toBeInTheDocument();
+  it('renders nothing when no projects', () => {
+    const { container } = renderWithProvider(<NavProjects projects={[]} />);
+    const menuItems = container.querySelectorAll('[data-slot="sidebar-menu-item"]');
+    expect(menuItems).toHaveLength(0);
   });
 
   it('renders a project by name', () => {

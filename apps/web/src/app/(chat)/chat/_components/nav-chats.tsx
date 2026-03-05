@@ -1,23 +1,9 @@
 'use client';
 
 import type { Thread } from '@harness/database';
-import {
-  Collapsible,
-  CollapsibleContent,
-  CollapsibleTrigger,
-  SidebarGroup,
-  SidebarGroupLabel,
-  SidebarMenu,
-  SidebarMenuButton,
-  SidebarMenuItem,
-  SidebarMenuSub,
-  SidebarMenuSubButton,
-  SidebarMenuSubItem,
-} from '@harness/ui';
-import { ChevronRight, MessageSquare } from 'lucide-react';
-import Link from 'next/link';
+import { SidebarGroup, SidebarGroupLabel, SidebarMenu, SidebarMenuItem } from '@harness/ui';
 import { usePathname } from 'next/navigation';
-import { NewThreadButton } from './new-thread-button';
+import { ThreadListItem } from './thread-list-item';
 
 type NavChatsProps = {
   threads: Thread[];
@@ -30,43 +16,34 @@ export const NavChats: NavChatsComponent = ({ threads }) => {
 
   return (
     <SidebarGroup>
-      <SidebarGroupLabel>Direct Chats</SidebarGroupLabel>
+      <SidebarGroupLabel>Recents</SidebarGroupLabel>
       <SidebarMenu>
-        <Collapsible defaultOpen className='group/collapsible'>
+        {threads.map((thread) => {
+          const href = `/chat/${thread.id}`;
+          const isActive = pathname === href;
+          return (
+            <SidebarMenuItem key={thread.id}>
+              <ThreadListItem
+                thread={{
+                  id: thread.id,
+                  name: thread.name,
+                  source: thread.source,
+                  sourceId: thread.sourceId,
+                  kind: thread.kind,
+                  model: thread.model,
+                  customInstructions: thread.customInstructions,
+                  lastActivity: thread.lastActivity,
+                }}
+                isActive={isActive}
+              />
+            </SidebarMenuItem>
+          );
+        })}
+        {threads.length === 0 && (
           <SidebarMenuItem>
-            <CollapsibleTrigger asChild>
-              <SidebarMenuButton>
-                <MessageSquare />
-                <span>Chats</span>
-                <ChevronRight className='ml-auto transition-transform duration-200 group-data-[state=open]/collapsible:rotate-90' />
-              </SidebarMenuButton>
-            </CollapsibleTrigger>
-            <CollapsibleContent>
-              <SidebarMenuSub>
-                {threads.map((thread) => {
-                  const label = thread.name ?? thread.kind;
-                  const href = `/chat/${thread.id}`;
-                  const isActive = pathname === href;
-                  return (
-                    <SidebarMenuSubItem key={thread.id}>
-                      <SidebarMenuSubButton asChild isActive={isActive}>
-                        <Link href={href}>
-                          <span>{label}</span>
-                        </Link>
-                      </SidebarMenuSubButton>
-                    </SidebarMenuSubItem>
-                  );
-                })}
-                <SidebarMenuSubItem>
-                  <div className='flex items-center gap-2 px-2 py-1'>
-                    <NewThreadButton />
-                    <span className='text-xs text-sidebar-foreground/50'>New chat</span>
-                  </div>
-                </SidebarMenuSubItem>
-              </SidebarMenuSub>
-            </CollapsibleContent>
+            <span className='px-3 py-2 text-xs text-sidebar-foreground/40'>No chats yet</span>
           </SidebarMenuItem>
-        </Collapsible>
+        )}
       </SidebarMenu>
     </SidebarGroup>
   );

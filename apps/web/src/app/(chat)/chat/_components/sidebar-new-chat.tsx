@@ -1,7 +1,7 @@
 'use client';
 
-import { SidebarMenuButton } from '@harness/ui';
-import { ChevronDown, MessageSquarePlus } from 'lucide-react';
+import { Button } from '@harness/ui';
+import { Plus } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import { useEffect, useRef, useState, useTransition } from 'react';
 import { createThread } from '../_actions/create-thread';
@@ -13,9 +13,9 @@ type AgentOption = {
   enabled: boolean;
 };
 
-type NewThreadButtonComponent = () => React.ReactNode;
+type SidebarNewChatComponent = () => React.ReactNode;
 
-export const NewThreadButton: NewThreadButtonComponent = () => {
+export const SidebarNewChat: SidebarNewChatComponent = () => {
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
   const [agents, setAgents] = useState<AgentOption[]>([]);
@@ -28,7 +28,6 @@ export const NewThreadButton: NewThreadButtonComponent = () => {
     });
   }, []);
 
-  // Close picker on outside click
   useEffect(() => {
     if (!showPicker) {
       return;
@@ -45,12 +44,14 @@ export const NewThreadButton: NewThreadButtonComponent = () => {
   const handleCreate = (agentId?: string) => {
     setShowPicker(false);
     startTransition(async () => {
-      const { threadId } = await createThread({ agentId: agentId || undefined });
+      const { threadId } = await createThread({
+        agentId: agentId || undefined,
+      });
       router.push(`/chat/${threadId}`);
     });
   };
 
-  const handleMainClick = () => {
+  const handleClick = () => {
     if (agents.length === 0) {
       handleCreate();
       return;
@@ -59,22 +60,19 @@ export const NewThreadButton: NewThreadButtonComponent = () => {
   };
 
   return (
-    <div className='relative w-full' ref={pickerRef}>
-      <SidebarMenuButton onClick={handleMainClick} disabled={isPending} className='gap-2 w-full'>
-        <MessageSquarePlus className='h-4 w-4 shrink-0' />
-        <span className='flex-1 text-left'>New Chat</span>
-        {agents.length > 0 && (
-          <ChevronDown className={`h-3.5 w-3.5 shrink-0 text-sidebar-foreground/50 transition-transform ${showPicker ? 'rotate-180' : ''}`} />
-        )}
-      </SidebarMenuButton>
+    <div className='relative' ref={pickerRef}>
+      <Button variant='ghost' onClick={handleClick} disabled={isPending} className='w-full justify-start gap-2 text-sm font-normal'>
+        <Plus className='h-4 w-4' />
+        <span>New chat</span>
+      </Button>
 
       {showPicker && (
         <div className='absolute left-0 top-full z-50 mt-1 w-full min-w-[180px] rounded-md border border-border bg-popover shadow-md'>
-          <div className='p-1 flex flex-col gap-0.5'>
+          <div className='flex flex-col gap-0.5 p-1'>
             <button
               type='button'
               onClick={() => handleCreate()}
-              className='flex w-full items-center gap-2 rounded px-2 py-1.5 text-sm text-left hover:bg-accent hover:text-accent-foreground transition-colors'
+              className='flex w-full items-center gap-2 rounded px-2 py-1.5 text-left text-sm transition-colors hover:bg-accent hover:text-accent-foreground'
             >
               No agent
             </button>
@@ -84,7 +82,7 @@ export const NewThreadButton: NewThreadButtonComponent = () => {
                 key={agent.id}
                 type='button'
                 onClick={() => handleCreate(agent.id)}
-                className='flex w-full items-center gap-2 rounded px-2 py-1.5 text-sm text-left hover:bg-accent hover:text-accent-foreground transition-colors'
+                className='flex w-full items-center gap-2 rounded px-2 py-1.5 text-left text-sm transition-colors hover:bg-accent hover:text-accent-foreground'
               >
                 {agent.name}
               </button>

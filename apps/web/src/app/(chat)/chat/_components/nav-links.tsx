@@ -1,20 +1,27 @@
 'use client';
 
-import { SidebarGroup, SidebarGroupLabel, SidebarMenu, SidebarMenuButton, SidebarMenuItem } from '@harness/ui';
-import { Bot } from 'lucide-react';
+import { SidebarGroup, SidebarMenu, SidebarMenuButton, SidebarMenuItem } from '@harness/ui';
+import { Bot, FolderOpen } from 'lucide-react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 
-type NavProductsComponent = () => React.ReactNode;
+type NavLinksComponent = () => React.ReactNode;
 
-export const NavProducts: NavProductsComponent = () => {
+export const NavLinks: NavLinksComponent = () => {
   const pathname = usePathname();
   const isAgentsActive = pathname === '/agents' || pathname.startsWith('/agents/');
 
   return (
-    <SidebarGroup>
-      <SidebarGroupLabel>Products</SidebarGroupLabel>
+    <SidebarGroup className='py-0'>
       <SidebarMenu>
+        <SidebarMenuItem>
+          <SidebarMenuButton asChild className='gap-2'>
+            <Link href='/chat/projects'>
+              <FolderOpen className='h-4 w-4' />
+              <span>Projects</span>
+            </Link>
+          </SidebarMenuButton>
+        </SidebarMenuItem>
         <SidebarMenuItem>
           <SidebarMenuButton asChild isActive={isAgentsActive} className='gap-2'>
             <Link href='/agents'>

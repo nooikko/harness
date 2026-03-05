@@ -22,8 +22,12 @@ vi.mock('next/link', () => ({
   ),
 }));
 
-vi.mock('../new-thread-button', () => ({
-  NewThreadButton: () => <button type='button'>New chat</button>,
+vi.mock('../thread-list-item', () => ({
+  ThreadListItem: ({ thread, isActive }: { thread: { id: string; name: string | null; kind: string }; isActive: boolean }) => (
+    <a href={`/chat/${thread.id}`} data-active={isActive} data-testid={`thread-${thread.id}`}>
+      {thread.name ?? `${thread.kind}`}
+    </a>
+  ),
 }));
 
 vi.mock('@harness/database', () => ({}));
@@ -31,47 +35,48 @@ vi.mock('@harness/database', () => ({}));
 import { usePathname } from 'next/navigation';
 import { NavChats } from '../nav-chats';
 
-const makeThread = (overrides: Partial<{ id: string; name: string | null; kind: string }> = {}) => ({
+const makeThread = (
+  overrides: Partial<{
+    id: string;
+    name: string | null;
+    kind: string;
+    source: string;
+    sourceId: string;
+  }> = {},
+) => ({
   id: 'thread-1',
   name: null,
   kind: 'default',
+  source: 'web',
+  sourceId: 'src-1',
+  model: null,
+  customInstructions: null,
   createdAt: new Date(),
   updatedAt: new Date(),
   lastActivity: new Date(),
   sessionId: null,
-  modelId: null,
   ...overrides,
 });
 
 const renderWithProvider = (ui: React.ReactElement) => render(<SidebarProvider>{ui}</SidebarProvider>);
 
 describe('NavChats', () => {
-  it('renders the Direct Chats group label', () => {
+  it('renders the Recents group label', () => {
     renderWithProvider(<NavChats threads={[]} />);
-    expect(screen.getByText('Direct Chats')).toBeInTheDocument();
+    expect(screen.getByText('Recents')).toBeInTheDocument();
   });
 
-  it('renders the Chats collapsible trigger', () => {
+  it('renders empty state when no threads', () => {
     renderWithProvider(<NavChats threads={[]} />);
-    expect(screen.getByText('Chats')).toBeInTheDocument();
-  });
-
-  it('renders the "New chat" label', () => {
-    renderWithProvider(<NavChats threads={[]} />);
-    const spans = screen.getAllByText('New chat');
-    expect(spans.length).toBeGreaterThanOrEqual(1);
-    const labelSpan = spans.find((el) => el.tagName === 'SPAN');
-    expect(labelSpan).toBeInTheDocument();
-  });
-
-  it('renders an empty thread list with no thread links', () => {
-    renderWithProvider(<NavChats threads={[]} />);
-    const links = screen.queryAllByRole('link');
-    expect(links).toHaveLength(0);
+    expect(screen.getByText('No chats yet')).toBeInTheDocument();
   });
 
   it('renders a thread using its name when name is set', () => {
-    const thread = makeThread({ id: 'abc', name: 'My Thread', kind: 'default' });
+    const thread = makeThread({
+      id: 'abc',
+      name: 'My Thread',
+      kind: 'default',
+    });
     renderWithProvider(<NavChats threads={[thread as never]} />);
     expect(screen.getByText('My Thread')).toBeInTheDocument();
   });
@@ -82,33 +87,22 @@ describe('NavChats', () => {
     expect(screen.getByText('task')).toBeInTheDocument();
   });
 
-  it('renders a link with the correct href for each thread', () => {
-    const thread = makeThread({ id: 'thread-42', name: 'Chat 42', kind: 'default' });
-    renderWithProvider(<NavChats threads={[thread as never]} />);
-    const link = screen.getByRole('link', { name: /Chat 42/i });
-    expect(link).toHaveAttribute('href', '/chat/thread-42');
-  });
-
-  it('marks the active thread link with isActive', () => {
+  it('marks the active thread via ThreadListItem', () => {
     vi.mocked(usePathname).mockReturnValue('/chat/active-id');
-    const active = makeThread({ id: 'active-id', name: 'Active', kind: 'default' });
-    const inactive = makeThread({ id: 'other-id', name: 'Other', kind: 'default' });
+    const active = makeThread({
+      id: 'active-id',
+      name: 'Active',
+      kind: 'default',
+    });
+    const inactive = makeThread({
+      id: 'other-id',
+      name: 'Other',
+      kind: 'default',
+    });
     renderWithProvider(<NavChats threads={[active as never, inactive as never]} />);
 
-    const activeLink = screen.getByRole('link', { name: /Active/i });
-    const inactiveLink = screen.getByRole('link', { name: /Other/i });
-
-    expect(activeLink).toHaveAttribute('data-active', 'true');
-    expect(inactiveLink).toHaveAttribute('data-active', 'false');
-  });
-
-  it('marks no thread as active when pathname does not match', () => {
-    vi.mocked(usePathname).mockReturnValue('/some-other-path');
-    const thread = makeThread({ id: 'thread-1', name: 'Chat', kind: 'default' });
-    renderWithProvider(<NavChats threads={[thread as never]} />);
-
-    const link = screen.getByRole('link', { name: /Chat/i });
-    expect(link).toHaveAttribute('data-active', 'false');
+    expect(screen.getByTestId('thread-active-id')).toHaveAttribute('data-active', 'true');
+    expect(screen.getByTestId('thread-other-id')).toHaveAttribute('data-active', 'false');
   });
 
   it('renders multiple threads', () => {

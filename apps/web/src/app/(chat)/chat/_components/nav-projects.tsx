@@ -6,7 +6,6 @@ import {
   CollapsibleContent,
   CollapsibleTrigger,
   SidebarGroup,
-  SidebarGroupLabel,
   SidebarMenu,
   SidebarMenuButton,
   SidebarMenuItem,
@@ -17,7 +16,6 @@ import {
 import { ChevronRight, FolderOpen, Settings } from 'lucide-react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { NewProjectForm } from './new-project-form';
 import { NewProjectThreadButton } from './new-project-thread-button';
 
 type ProjectWithThreads = Project & { threads: Thread[] };
@@ -32,11 +30,7 @@ export const NavProjects: NavProjectsComponent = ({ projects }) => {
   const pathname = usePathname();
 
   return (
-    <SidebarGroup>
-      <SidebarGroupLabel className='flex items-center justify-between pr-1'>
-        <span>Projects</span>
-        <NewProjectForm />
-      </SidebarGroupLabel>
+    <SidebarGroup className='py-0'>
       <SidebarMenu>
         {projects.map((project) => (
           <Collapsible key={project.id} defaultOpen className='group/collapsible'>
@@ -83,11 +77,6 @@ export const NavProjects: NavProjectsComponent = ({ projects }) => {
             </SidebarMenuItem>
           </Collapsible>
         ))}
-        {projects.length === 0 && (
-          <SidebarMenuItem>
-            <span className='px-3 py-2 text-xs text-sidebar-foreground/40'>No projects yet</span>
-          </SidebarMenuItem>
-        )}
       </SidebarMenu>
     </SidebarGroup>
   );
