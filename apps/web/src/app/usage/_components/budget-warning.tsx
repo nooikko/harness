@@ -57,7 +57,7 @@ export const BudgetWarning: BudgetWarningComponent = ({ currentCost, budgetUsd }
         </span>
       </div>
       <div className='mt-3'>
-        <Progress value={Math.min(usagePercent, 100)} className={!isCritical ? '[&>[data-slot=progress-indicator]]:bg-yellow-500' : undefined} />
+        <Progress value={Math.min(usagePercent, 100)} className={!isCritical ? '*:data-[slot=progress-indicator]:bg-yellow-500' : undefined} />
       </div>
       <p className='mt-1 text-xs text-muted-foreground'>{usagePercent.toFixed(1)}% of budget used</p>
     </Alert>

@@ -71,18 +71,6 @@
           }
         ]
       }
-    ],
-    "WorktreeCreate": [
-      {
-        "matcher": "",
-        "hooks": [
-          {
-            "type": "command",
-            "command": "$CLAUDE_PROJECT_DIR/.claude/hooks/worktree-setup.py",
-            "timeout": 120
-          }
-        ]
-      }
     ]
   },
   "permissions": {
