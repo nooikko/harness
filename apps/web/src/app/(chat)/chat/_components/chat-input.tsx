@@ -18,17 +18,19 @@ import { CommandMenuItem } from '../_helpers/command-menu-item';
 import { CommandNode } from '../_helpers/command-node';
 import { COMMANDS } from '../_helpers/commands';
 import { SubmitPlugin } from '../_helpers/submit-plugin';
+import { AgentSelector } from './agent-selector';
 import { ModelSelector } from './model-selector';
 
 // Static — module-level so Lexical does not warn about a new config reference on every render.
-// Extra scalar fields (description, args, category) are passed through as BeautifulMentionsItem
-// flat properties and exposed to the menu item component via item.data.
+// Extra scalar fields are flat (required by BeautifulMentionsItem type) and stripped
+// in CommandMenuItem before spreading to DOM.
 const MENTION_ITEMS = {
-  '/': COMMANDS.map(({ name, description, args, category }) => ({
+  '/': COMMANDS.map(({ name, description, args, category, pluginName }) => ({
     value: name,
     description,
     args,
     category,
+    pluginName: pluginName ?? '',
   })),
 };
 
@@ -68,6 +70,8 @@ const SendButton = ({ disabled }: SendButtonProps) => {
 type ChatInputProps = {
   threadId: string;
   currentModel: string | null;
+  currentAgentId: string | null;
+  currentAgentName: string | null;
   onSubmit: (text: string) => void;
   disabled?: boolean;
   error?: string | null;
@@ -75,7 +79,7 @@ type ChatInputProps = {
 
 type ChatInputComponent = (props: ChatInputProps) => React.ReactNode;
 
-export const ChatInput: ChatInputComponent = ({ threadId, currentModel, onSubmit, disabled = false, error }) => {
+export const ChatInput: ChatInputComponent = ({ threadId, currentModel, currentAgentId, currentAgentName, onSubmit, disabled = false, error }) => {
   const [menuOpen, setMenuOpen] = useState(false);
 
   // Stable ref so SubmitPlugin's useEffect does not re-register on every render
@@ -123,14 +127,14 @@ export const ChatInput: ChatInputComponent = ({ threadId, currentModel, onSubmit
           className={menuOpen ? 'rounded-b-xl border-x border-b border-border bg-background' : 'rounded-xl border border-border bg-background'}
         >
           {/* Text editing area */}
-          <div className='relative px-3 pt-2 pb-1'>
+          <div className='relative px-3 pt-2 pb-1 [&:focus-within>[aria-hidden]]:hidden'>
             <RichTextPlugin
               contentEditable={
                 <ContentEditable
                   className='max-h-[136px] min-h-[40px] resize-none overflow-y-auto text-sm outline-none'
                   aria-placeholder='Send a message… (/ for commands)'
                   placeholder={
-                    <div className='pointer-events-none absolute left-3 top-3 select-none text-sm text-muted-foreground'>
+                    <div className='pointer-events-none absolute left-3 top-2.5 select-none text-sm text-muted-foreground'>
                       Send a message… (/ for commands)
                     </div>
                   }
@@ -151,9 +155,12 @@ export const ChatInput: ChatInputComponent = ({ threadId, currentModel, onSubmit
             <HistoryPlugin />
             <SubmitPlugin threadId={threadId} onSubmit={stableOnSubmit} disabled={disabled} />
           </div>
-          {/* Controls row: model selector left, send button right */}
+          {/* Controls row: agent + model selectors left, send button right */}
           <div className='flex items-center justify-between px-3 pb-2'>
-            <ModelSelector threadId={threadId} currentModel={currentModel} />
+            <div className='flex items-center gap-2'>
+              <AgentSelector threadId={threadId} currentAgentId={currentAgentId} currentAgentName={currentAgentName} />
+              <ModelSelector threadId={threadId} currentModel={currentModel} />
+            </div>
             <SendButton disabled={disabled} />
           </div>
         </div>

@@ -1,5 +1,5 @@
 import { prisma } from '@harness/database';
-import { Sidebar, SidebarContent, SidebarHeader, SidebarSeparator, Skeleton } from '@harness/ui';
+import { Sidebar, SidebarContent, SidebarSeparator, Skeleton } from '@harness/ui';
 import { Suspense } from 'react';
 import { sortThreads } from '../_helpers/sort-threads';
 import { NavChats } from './nav-chats';
@@ -30,10 +30,8 @@ export const ThreadSidebarInternal = async () => {
 
   return (
     <Sidebar className='w-64 border-r border-border'>
-      <SidebarHeader className='p-3'>
-        <SidebarNewChat />
-      </SidebarHeader>
       <SidebarContent>
+        <SidebarNewChat />
         <NavLinks />
         {projects.length > 0 && (
           <>
@@ -50,11 +48,9 @@ export const ThreadSidebarInternal = async () => {
 
 const ThreadSidebarSkeleton = () => (
   <Sidebar className='w-64 border-r border-border'>
-    <SidebarHeader className='p-3'>
-      <Skeleton className='h-9 w-full rounded-md' />
-    </SidebarHeader>
     <SidebarContent>
       <div className='flex flex-col gap-1 p-2'>
+        <Skeleton className='h-8 w-full rounded-md' />
         {['a', 'b', 'c', 'd', 'e'].map((k) => (
           <Skeleton key={k} className='h-7 w-full rounded-md' />
         ))}

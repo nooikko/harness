@@ -1,6 +1,6 @@
 'use client';
 
-import { Button } from '@harness/ui';
+import { SidebarGroup, SidebarMenu, SidebarMenuButton, SidebarMenuItem } from '@harness/ui';
 import { Plus } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import { useEffect, useRef, useState, useTransition } from 'react';
@@ -60,36 +60,42 @@ export const SidebarNewChat: SidebarNewChatComponent = () => {
   };
 
   return (
-    <div className='relative' ref={pickerRef}>
-      <Button variant='ghost' onClick={handleClick} disabled={isPending} className='w-full justify-start gap-2 text-sm font-normal'>
-        <Plus className='h-4 w-4' />
-        <span>New chat</span>
-      </Button>
+    <SidebarGroup className='mt-2 py-0'>
+      <SidebarMenu>
+        <SidebarMenuItem>
+          <div className='relative' ref={pickerRef}>
+            <SidebarMenuButton onClick={handleClick} disabled={isPending} className='cursor-pointer gap-2'>
+              <Plus className='h-4 w-4' />
+              <span>New chat</span>
+            </SidebarMenuButton>
 
-      {showPicker && (
-        <div className='absolute left-0 top-full z-50 mt-1 w-full min-w-[180px] rounded-md border border-border bg-popover shadow-md'>
-          <div className='flex flex-col gap-0.5 p-1'>
-            <button
-              type='button'
-              onClick={() => handleCreate()}
-              className='flex w-full items-center gap-2 rounded px-2 py-1.5 text-left text-sm transition-colors hover:bg-accent hover:text-accent-foreground'
-            >
-              No agent
-            </button>
-            <div className='my-0.5 border-t border-border' />
-            {agents.map((agent) => (
-              <button
-                key={agent.id}
-                type='button'
-                onClick={() => handleCreate(agent.id)}
-                className='flex w-full items-center gap-2 rounded px-2 py-1.5 text-left text-sm transition-colors hover:bg-accent hover:text-accent-foreground'
-              >
-                {agent.name}
-              </button>
-            ))}
+            {showPicker && (
+              <div className='absolute left-0 top-full z-50 mt-1 w-full min-w-[180px] rounded-md border border-border bg-popover shadow-md'>
+                <div className='flex flex-col gap-0.5 p-1'>
+                  <button
+                    type='button'
+                    onClick={() => handleCreate()}
+                    className='flex w-full items-center gap-2 rounded px-2 py-1.5 text-left text-sm transition-colors hover:bg-accent hover:text-accent-foreground'
+                  >
+                    No agent
+                  </button>
+                  <div className='my-0.5 border-t border-border' />
+                  {agents.map((agent) => (
+                    <button
+                      key={agent.id}
+                      type='button'
+                      onClick={() => handleCreate(agent.id)}
+                      className='flex w-full items-center gap-2 rounded px-2 py-1.5 text-left text-sm transition-colors hover:bg-accent hover:text-accent-foreground'
+                    >
+                      {agent.name}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
           </div>
-        </div>
-      )}
-    </div>
+        </SidebarMenuItem>
+      </SidebarMenu>
+    </SidebarGroup>
   );
 };

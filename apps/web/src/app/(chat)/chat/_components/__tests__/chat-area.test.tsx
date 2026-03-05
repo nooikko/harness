@@ -59,7 +59,7 @@ describe('ChatArea', () => {
 
   it('renders children inside the scroll area', () => {
     render(
-      <ChatArea threadId='thread-1' currentModel={null}>
+      <ChatArea threadId='thread-1' currentModel={null} currentAgentId={null} currentAgentName={null}>
         <div data-testid='child-content'>Message content</div>
       </ChatArea>,
     );
@@ -68,7 +68,7 @@ describe('ChatArea', () => {
 
   it('renders ChatInput with a send button', () => {
     render(
-      <ChatArea threadId='thread-1' currentModel={null}>
+      <ChatArea threadId='thread-1' currentModel={null} currentAgentId={null} currentAgentName={null}>
         {null}
       </ChatArea>,
     );
@@ -77,7 +77,7 @@ describe('ChatArea', () => {
 
   it('renders a scroll anchor element', () => {
     const { container } = render(
-      <ChatArea threadId='thread-1' currentModel={null}>
+      <ChatArea threadId='thread-1' currentModel={null} currentAgentId={null} currentAgentName={null}>
         {null}
       </ChatArea>,
     );
@@ -90,7 +90,7 @@ describe('ChatArea', () => {
     const user = userEvent.setup();
 
     render(
-      <ChatArea threadId='thread-1' currentModel={null}>
+      <ChatArea threadId='thread-1' currentModel={null} currentAgentId={null} currentAgentName={null}>
         {null}
       </ChatArea>,
     );
@@ -105,7 +105,7 @@ describe('ChatArea', () => {
     const user = userEvent.setup();
 
     render(
-      <ChatArea threadId='thread-1' currentModel={null}>
+      <ChatArea threadId='thread-1' currentModel={null} currentAgentId={null} currentAgentName={null}>
         {null}
       </ChatArea>,
     );
@@ -121,7 +121,7 @@ describe('ChatArea', () => {
     const user = userEvent.setup();
 
     render(
-      <ChatArea threadId='thread-1' currentModel={null}>
+      <ChatArea threadId='thread-1' currentModel={null} currentAgentId={null} currentAgentName={null}>
         {null}
       </ChatArea>,
     );
@@ -135,7 +135,7 @@ describe('ChatArea', () => {
     mockUseWs.mockReturnValue({ lastEvent: { threadId: 'thread-1' }, isConnected: true });
 
     render(
-      <ChatArea threadId='thread-1' currentModel={null}>
+      <ChatArea threadId='thread-1' currentModel={null} currentAgentId={null} currentAgentName={null}>
         {null}
       </ChatArea>,
     );
@@ -147,7 +147,7 @@ describe('ChatArea', () => {
     mockUseWs.mockReturnValue({ lastEvent: { threadId: 'thread-other' }, isConnected: true });
 
     render(
-      <ChatArea threadId='thread-1' currentModel={null}>
+      <ChatArea threadId='thread-1' currentModel={null} currentAgentId={null} currentAgentName={null}>
         {null}
       </ChatArea>,
     );
@@ -159,7 +159,7 @@ describe('ChatArea', () => {
     mockUseWs.mockReturnValue({ lastEvent: 'not-an-object', isConnected: true });
 
     render(
-      <ChatArea threadId='thread-1' currentModel={null}>
+      <ChatArea threadId='thread-1' currentModel={null} currentAgentId={null} currentAgentName={null}>
         {null}
       </ChatArea>,
     );
@@ -173,7 +173,7 @@ describe('ChatArea', () => {
     const user = userEvent.setup();
 
     render(
-      <ChatArea threadId='thread-42' currentModel={null}>
+      <ChatArea threadId='thread-42' currentModel={null} currentAgentId={null} currentAgentName={null}>
         {null}
       </ChatArea>,
     );
@@ -186,7 +186,7 @@ describe('ChatArea', () => {
 
   it('does not render PipelineActivity when not thinking', () => {
     render(
-      <ChatArea threadId='thread-1' currentModel={null}>
+      <ChatArea threadId='thread-1' currentModel={null} currentAgentId={null} currentAgentName={null}>
         {null}
       </ChatArea>,
     );
@@ -198,7 +198,7 @@ describe('ChatArea', () => {
     mockSendMessage.mockResolvedValue(undefined);
 
     render(
-      <ChatArea threadId='thread-1' currentModel={null}>
+      <ChatArea threadId='thread-1' currentModel={null} currentAgentId={null} currentAgentName={null}>
         {null}
       </ChatArea>,
     );
@@ -216,7 +216,7 @@ describe('ChatArea', () => {
     mockCheckForResponse.mockResolvedValue(false);
 
     render(
-      <ChatArea threadId='thread-1' currentModel={null}>
+      <ChatArea threadId='thread-1' currentModel={null} currentAgentId={null} currentAgentName={null}>
         {null}
       </ChatArea>,
     );
@@ -234,7 +234,7 @@ describe('ChatArea', () => {
     mockCheckForResponse.mockResolvedValue(true);
 
     render(
-      <ChatArea threadId='thread-1' currentModel={null}>
+      <ChatArea threadId='thread-1' currentModel={null} currentAgentId={null} currentAgentName={null}>
         {null}
       </ChatArea>,
     );

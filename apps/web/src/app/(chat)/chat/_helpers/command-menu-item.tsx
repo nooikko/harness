@@ -5,30 +5,40 @@ import type { BeautifulMentionsMenuItemProps } from 'lexical-beautiful-mentions'
 import { forwardRef } from 'react';
 
 const CommandMenuItem = forwardRef<HTMLLIElement, BeautifulMentionsMenuItemProps>(({ selected, item, ...props }, ref) => {
-  // itemValue is a plugin-internal prop — strip it before spreading to <li>
-  // to avoid the "Unknown prop `itemValue`" React DOM warning.
-  const { itemValue: _itemValue, ...rest } = props as typeof props & {
+  // Strip all custom props before spreading to <li>
+  // to avoid React DOM warnings for unknown attributes.
+  const {
+    itemValue: _itemValue,
+    pluginName: _pluginName,
+    description: _description,
+    args: _args,
+    category: _category,
+    ...rest
+  } = props as typeof props & {
     itemValue?: string;
+    pluginName?: string;
+    description?: string;
+    args?: string;
+    category?: string;
   };
 
   const description = typeof item.data?.description === 'string' ? item.data.description : '';
-  const args = typeof item.data?.args === 'string' ? item.data.args : '';
+  const pluginName = typeof item.data?.pluginName === 'string' ? item.data.pluginName : '';
 
   return (
     <li
       ref={ref}
       className={cn(
-        'flex cursor-pointer items-center gap-3 rounded-sm px-3 py-2 text-sm outline-none transition-colors',
+        'flex cursor-pointer items-center justify-between gap-4 rounded-sm px-3 py-1.5 text-xs outline-none transition-colors',
         selected ? 'bg-accent text-accent-foreground' : 'text-popover-foreground',
       )}
       {...rest}
     >
-      {/* Command + args as one monospace unit so they read as a single signature */}
-      <span className='font-mono'>
+      <span className='flex items-center gap-2 font-mono'>
         <span className='font-semibold'>/{item.value}</span>
-        {args && <span className='font-normal text-muted-foreground'> {args}</span>}
+        {pluginName && <span className='rounded bg-muted px-1 py-0.5 text-[10px] font-normal text-muted-foreground'>{pluginName}</span>}
       </span>
-      {description && <span className='ml-auto truncate text-xs text-muted-foreground'>{description}</span>}
+      {description && <span className='max-w-[50%] truncate text-right text-muted-foreground/70'>{description}</span>}
     </li>
   );
 });

@@ -15,12 +15,14 @@ const POLL_TIMEOUT_MS = 120_000;
 type ChatAreaProps = {
   threadId: string;
   currentModel: string | null;
+  currentAgentId: string | null;
+  currentAgentName: string | null;
   children: React.ReactNode;
 };
 
 type ChatAreaComponent = (props: ChatAreaProps) => React.ReactNode;
 
-export const ChatArea: ChatAreaComponent = ({ threadId, currentModel, children }) => {
+export const ChatArea: ChatAreaComponent = ({ threadId, currentModel, currentAgentId, currentAgentName, children }) => {
   const [error, setError] = useState<string | null>(null);
   const [isThinking, setIsThinking] = useState(false);
   const [isPending, startTransition] = useTransition();
@@ -140,7 +142,15 @@ export const ChatArea: ChatAreaComponent = ({ threadId, currentModel, children }
           <div ref={anchorRef} data-scroll-anchor aria-hidden='true' />
         </div>
       </ScrollArea>
-      <ChatInput threadId={threadId} currentModel={currentModel} onSubmit={handleSubmit} disabled={isPending} error={error} />
+      <ChatInput
+        threadId={threadId}
+        currentModel={currentModel}
+        currentAgentId={currentAgentId}
+        currentAgentName={currentAgentName}
+        onSubmit={handleSubmit}
+        disabled={isPending}
+        error={error}
+      />
     </>
   );
 };

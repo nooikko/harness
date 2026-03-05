@@ -6,7 +6,6 @@ import Link from 'next/link';
 import { useState } from 'react';
 import { DeleteThreadModal } from './delete-thread-modal';
 import { ManageThreadModal } from './manage-thread-modal';
-import { ThreadKindIcon } from './thread-kind-icon';
 
 type ThreadListItemProps = {
   thread: {
@@ -33,10 +32,9 @@ export const ThreadListItem: ThreadListItemComponent = ({ thread, isActive }) =>
   return (
     <>
       <div className='group relative flex w-full items-center'>
-        <SidebarMenuButton asChild isActive={isActive} className='pr-8'>
+        <SidebarMenuButton asChild isActive={isActive} size='sm' className='pr-8'>
           <Link href={`/chat/${thread.id}`}>
-            <ThreadKindIcon kind={thread.kind} className='h-4 w-4 shrink-0' />
-            <span className='truncate'>{displayName}</span>
+            <span className='truncate -tracking-[0.01em]'>{displayName}</span>
           </Link>
         </SidebarMenuButton>
 

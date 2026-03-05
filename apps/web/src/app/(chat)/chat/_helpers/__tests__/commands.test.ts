@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { COMMANDS } from '../commands';
 
 describe('COMMANDS registry', () => {
-  it('contains at least 7 commands', () => {
+  it('contains system, agent, and tool commands', () => {
     expect(COMMANDS.length).toBeGreaterThanOrEqual(7);
   });
 
@@ -12,14 +12,15 @@ describe('COMMANDS registry', () => {
       expect(cmd.name.length).toBeGreaterThan(0);
       expect(typeof cmd.description).toBe('string');
       expect(typeof cmd.args).toBe('string');
-      expect(['input', 'agent', 'system']).toContain(cmd.category);
+      expect(['input', 'agent', 'system', 'tool']).toContain(cmd.category);
     }
   });
 
-  it('includes /current-time as an input command', () => {
+  it('includes /current-time as an auto-discovered tool command', () => {
     const cmd = COMMANDS.find((c) => c.name === 'current-time');
     expect(cmd).toBeDefined();
-    expect(cmd?.category).toBe('input');
+    expect(cmd?.category).toBe('tool');
+    expect(cmd?.pluginName).toBe('time');
   });
 
   it('includes all three system commands', () => {
@@ -32,6 +33,23 @@ describe('COMMANDS registry', () => {
   it("system commands have category 'system'", () => {
     const systemCmds = COMMANDS.filter((c) => c.category === 'system');
     expect(systemCmds.length).toBeGreaterThanOrEqual(3);
+  });
+
+  it('tool commands have pluginName set', () => {
+    const toolCmds = COMMANDS.filter((c) => c.category === 'tool');
+    expect(toolCmds.length).toBeGreaterThanOrEqual(1);
+    for (const cmd of toolCmds) {
+      expect(cmd.pluginName).toBeDefined();
+      expect(typeof cmd.pluginName).toBe('string');
+    }
+  });
+
+  it('includes auto-discovered plugin tools', () => {
+    const names = COMMANDS.map((c) => c.name);
+    expect(names).toContain('delegate');
+    expect(names).toContain('checkin');
+    expect(names).toContain('schedule-task');
+    expect(names).toContain('update-self');
   });
 
   it('no duplicate command names', () => {

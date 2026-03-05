@@ -75,6 +75,10 @@ vi.mock('../../_helpers/commands', () => ({
   COMMANDS: [{ name: 'delegate', description: 'Delegate task', args: '<prompt>', category: 'agent' }],
 }));
 
+vi.mock('../agent-selector', () => ({
+  AgentSelector: () => null,
+}));
+
 vi.mock('../model-selector', () => ({
   ModelSelector: () => null,
 }));
@@ -83,39 +87,48 @@ const { ChatInput } = await import('../chat-input');
 
 describe('ChatInput', () => {
   it('renders the send button', () => {
-    render(<ChatInput threadId='thread-1' currentModel={null} onSubmit={vi.fn()} />);
+    render(<ChatInput threadId='thread-1' currentModel={null} currentAgentId={null} currentAgentName={null} onSubmit={vi.fn()} />);
     expect(screen.getByRole('button', { name: /send message/i })).toBeInTheDocument();
   });
 
   it('shows error message when error prop is provided', () => {
-    render(<ChatInput threadId='thread-1' currentModel={null} onSubmit={vi.fn()} error='Something went wrong' />);
+    render(
+      <ChatInput
+        threadId='thread-1'
+        currentModel={null}
+        currentAgentId={null}
+        currentAgentName={null}
+        onSubmit={vi.fn()}
+        error='Something went wrong'
+      />,
+    );
     expect(screen.getByText('Something went wrong')).toBeInTheDocument();
   });
 
   it('does not show error element when error is null', () => {
-    render(<ChatInput threadId='thread-1' currentModel={null} onSubmit={vi.fn()} error={null} />);
+    render(<ChatInput threadId='thread-1' currentModel={null} currentAgentId={null} currentAgentName={null} onSubmit={vi.fn()} error={null} />);
     expect(screen.queryByText('Something went wrong')).not.toBeInTheDocument();
   });
 
   it('disables the send button when disabled prop is true', () => {
-    render(<ChatInput threadId='thread-1' currentModel={null} onSubmit={vi.fn()} disabled={true} />);
+    render(<ChatInput threadId='thread-1' currentModel={null} currentAgentId={null} currentAgentName={null} onSubmit={vi.fn()} disabled={true} />);
     expect(screen.getByRole('button', { name: /send message/i })).toBeDisabled();
   });
 
   it('enables the send button when disabled prop is false', () => {
-    render(<ChatInput threadId='thread-1' currentModel={null} onSubmit={vi.fn()} disabled={false} />);
+    render(<ChatInput threadId='thread-1' currentModel={null} currentAgentId={null} currentAgentName={null} onSubmit={vi.fn()} disabled={false} />);
     expect(screen.getByRole('button', { name: /send message/i })).not.toBeDisabled();
   });
 
   it('renders the hint text', () => {
-    render(<ChatInput threadId='thread-1' currentModel={null} onSubmit={vi.fn()} />);
+    render(<ChatInput threadId='thread-1' currentModel={null} currentAgentId={null} currentAgentName={null} onSubmit={vi.fn()} />);
     expect(screen.getByText(/Enter to send/)).toBeInTheDocument();
   });
 
   it('dispatches KEY_ENTER_COMMAND when send button is clicked', async () => {
     const user = userEvent.setup();
     mockDispatchCommand.mockClear();
-    render(<ChatInput threadId='thread-1' currentModel={null} onSubmit={vi.fn()} />);
+    render(<ChatInput threadId='thread-1' currentModel={null} currentAgentId={null} currentAgentName={null} onSubmit={vi.fn()} />);
     await user.click(screen.getByRole('button', { name: /send message/i }));
     expect(mockDispatchCommand).toHaveBeenCalledOnce();
   });
@@ -123,7 +136,7 @@ describe('ChatInput', () => {
   it('passes onSubmit prop down to SubmitPlugin', () => {
     MockSubmitPlugin.mockClear();
     const onSubmit = vi.fn();
-    render(<ChatInput threadId='thread-1' currentModel={null} onSubmit={onSubmit} />);
+    render(<ChatInput threadId='thread-1' currentModel={null} currentAgentId={null} currentAgentName={null} onSubmit={onSubmit} />);
     expect(MockSubmitPlugin).toHaveBeenCalled();
     const { onSubmit: passedOnSubmit } = MockSubmitPlugin.mock.calls[0]![0] as {
       onSubmit: (text: string) => void;
@@ -134,7 +147,9 @@ describe('ChatInput', () => {
   });
 
   it('applies open-menu card styling when onMenuOpen is called', async () => {
-    const { container } = render(<ChatInput threadId='thread-1' currentModel={null} onSubmit={vi.fn()} />);
+    const { container } = render(
+      <ChatInput threadId='thread-1' currentModel={null} currentAgentId={null} currentAgentName={null} onSubmit={vi.fn()} />,
+    );
 
     // Before menu opens the card has rounded-xl (all corners)
     expect(container.querySelector('.rounded-xl')).toBeInTheDocument();
