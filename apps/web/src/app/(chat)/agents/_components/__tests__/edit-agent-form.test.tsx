@@ -54,10 +54,15 @@ describe('EditAgentForm', () => {
     expect(screen.getByLabelText(/^name/i)).toHaveValue('My Agent');
   });
 
-  it('shows slug and version', () => {
+  it('shows slug and version metadata', () => {
     render(<EditAgentForm agent={fakeAgent} agentConfig={fakeAgentConfig} />);
     expect(screen.getByText('my-agent')).toBeInTheDocument();
-    expect(screen.getByText(/v3/)).toBeInTheDocument();
+    expect(screen.getByText('v3')).toBeInTheDocument();
+  });
+
+  it('shows version hint in soul section', () => {
+    render(<EditAgentForm agent={fakeAgent} agentConfig={fakeAgentConfig} />);
+    expect(screen.getByText(/v4 on save/)).toBeInTheDocument();
   });
 
   it('pre-fills soul and identity', () => {

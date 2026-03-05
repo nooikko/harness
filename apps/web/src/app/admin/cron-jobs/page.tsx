@@ -1,6 +1,7 @@
 // Cron jobs admin page — manage scheduled orchestrator tasks
 
 import { Button } from '@harness/ui';
+import { Plus } from 'lucide-react';
 import type { Metadata } from 'next';
 import Link from 'next/link';
 import { CronJobsTable } from './_components/cron-jobs-table';
@@ -16,14 +17,14 @@ type CronJobsPageComponent = () => React.ReactNode;
 
 const CronJobsPage: CronJobsPageComponent = () => {
   return (
-    <div className='mx-auto max-w-6xl space-y-6 p-6'>
+    <div className='mx-auto max-w-3xl space-y-2 p-6'>
       <div className='flex items-center justify-between'>
-        <div>
-          <h1 className='text-3xl font-bold'>Scheduled Tasks</h1>
-          <p className='mt-1 text-muted-foreground'>Manage scheduled orchestrator tasks.</p>
-        </div>
-        <Button asChild>
-          <Link href='/admin/cron-jobs/new'>New Scheduled Task</Link>
+        <h1 className='text-lg font-medium'>Scheduled Tasks</h1>
+        <Button variant='ghost' size='sm' asChild>
+          <Link href='/admin/cron-jobs/new'>
+            <Plus className='mr-1 h-3.5 w-3.5' />
+            New
+          </Link>
         </Button>
       </div>
       <CronJobsTable />

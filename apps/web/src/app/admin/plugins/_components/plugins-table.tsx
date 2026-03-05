@@ -1,31 +1,9 @@
-// Plugins table — displays all plugin configurations with toggle controls
+// Plugins list — displays all plugin configurations with toggle controls
 
 import { prisma } from '@harness/database';
-import {
-  Badge,
-  Button,
-  Card,
-  CardContent,
-  CardHeader,
-  CardTitle,
-  Skeleton,
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from '@harness/ui';
+import { Badge, Button, Skeleton } from '@harness/ui';
 import { Suspense } from 'react';
 import { togglePlugin } from '../_actions/toggle-plugin';
-
-type StatusVariant = 'default' | 'secondary';
-
-type GetStatusVariant = (enabled: boolean) => StatusVariant;
-
-const getStatusVariant: GetStatusVariant = (enabled) => {
-  return enabled ? 'default' : 'secondary';
-};
 
 type HasSettings = (settings: unknown) => boolean;
 
@@ -47,61 +25,50 @@ export const PluginsTableInternal = async () => {
 
   if (plugins.length === 0) {
     return (
-      <Card>
-        <CardHeader>
-          <CardTitle>Plugins</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <p className='text-sm text-muted-foreground'>No plugins configured.</p>
-        </CardContent>
-      </Card>
+      <div className='py-12 text-center'>
+        <p className='text-sm text-muted-foreground/60'>No plugins configured.</p>
+      </div>
     );
   }
 
   return (
-    <Card>
-      <CardHeader>
-        <CardTitle>Plugins</CardTitle>
-      </CardHeader>
-      <CardContent>
-        <Table>
-          <TableHeader>
-            <TableRow>
-              <TableHead>Plugin</TableHead>
-              <TableHead>Status</TableHead>
-              <TableHead>Settings</TableHead>
-              <TableHead />
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {plugins.map((plugin) => (
-              <TableRow key={plugin.id}>
-                <TableCell className='font-medium'>{plugin.pluginName}</TableCell>
-                <TableCell>
-                  <Badge variant={getStatusVariant(plugin.enabled)}>{plugin.enabled ? 'Enabled' : 'Disabled'}</Badge>
-                </TableCell>
-                <TableCell className='text-sm text-muted-foreground'>{hasSettings(plugin.settings) ? 'Configured' : 'No settings'}</TableCell>
-                <TableCell>
-                  <form action={togglePlugin.bind(null, plugin.id)}>
-                    <Button variant='outline' size='sm' type='submit'>
-                      {plugin.enabled ? 'Disable' : 'Enable'}
-                    </Button>
-                  </form>
-                </TableCell>
-              </TableRow>
-            ))}
-          </TableBody>
-        </Table>
-      </CardContent>
-    </Card>
+    <div className='flex flex-col'>
+      {plugins.map((plugin, i) => (
+        <div key={plugin.id}>
+          {i > 0 && <div className='mx-1 h-px bg-border/40' />}
+          <div className='group flex items-center justify-between gap-4 px-1 py-4'>
+            <div className='flex items-center gap-2.5'>
+              <span className='text-sm font-medium'>{plugin.pluginName}</span>
+              <Badge variant={plugin.enabled ? 'default' : 'secondary'} className='text-[11px]'>
+                {plugin.enabled ? 'Enabled' : 'Disabled'}
+              </Badge>
+              {hasSettings(plugin.settings) && <span className='text-xs text-muted-foreground/70'>Configured</span>}
+            </div>
+            <div className='opacity-0 transition-opacity group-hover:opacity-100'>
+              <form action={togglePlugin.bind(null, plugin.id)}>
+                <Button variant='ghost' size='sm' type='submit'>
+                  {plugin.enabled ? 'Disable' : 'Enable'}
+                </Button>
+              </form>
+            </div>
+          </div>
+        </div>
+      ))}
+    </div>
   );
 };
 
-const PluginsTableSkeleton = () => <Skeleton className='h-80 w-full' />;
+const PluginsTableSkeleton = () => (
+  <div className='flex flex-col gap-4 py-4'>
+    <Skeleton className='h-10 w-full' />
+    <Skeleton className='h-10 w-full' />
+    <Skeleton className='h-10 w-full' />
+  </div>
+);
 
 /**
- * Drop-in plugins table with built-in Suspense boundary.
- * Streams the table as soon as data is ready; shows a skeleton until then.
+ * Drop-in plugins list with built-in Suspense boundary.
+ * Streams the list as soon as data is ready; shows a skeleton until then.
  */
 export const PluginsTable = () => (
   <Suspense fallback={<PluginsTableSkeleton />}>

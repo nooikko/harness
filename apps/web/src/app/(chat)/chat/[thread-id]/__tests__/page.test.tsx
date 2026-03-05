@@ -39,6 +39,10 @@ vi.mock('../../_components/thread-cost-badge', () => ({
   ThreadCostBadgeSkeleton: () => null,
 }));
 
+vi.mock('../../_components/agent-selector', () => ({
+  AgentSelector: () => null,
+}));
+
 const { default: ThreadPage } = await import('../page');
 
 type MakeThread = (overrides?: Partial<Thread>) => Thread;
@@ -90,8 +94,8 @@ describe('ThreadPage', () => {
     expect(html).toContain('data-slot="skeleton"');
   });
 
-  it('displays thread kind and status', async () => {
-    mockFindUnique.mockResolvedValue(makeThread({ kind: 'task', status: 'active' }));
+  it('renders the thread header with display name', async () => {
+    mockFindUnique.mockResolvedValue(makeThread({ kind: 'task', name: 'My Task' }));
     mockFindMany.mockResolvedValue([]);
 
     const element = await ThreadPage({
@@ -99,8 +103,7 @@ describe('ThreadPage', () => {
     });
     const html = renderToStaticMarkup(element as React.ReactElement);
 
-    expect(html).toContain('task thread');
-    expect(html).toContain('active');
+    expect(html).toContain('My Task');
   });
 
   it('calls notFound when thread does not exist', async () => {

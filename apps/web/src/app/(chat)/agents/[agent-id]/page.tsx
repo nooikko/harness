@@ -66,11 +66,7 @@ const AgentEditPage = async ({ params }: AgentEditPageProps) => {
   }
 
   return (
-    <div className='flex flex-col gap-6 p-6 max-w-3xl'>
-      <div className='flex flex-col gap-1'>
-        <h1 className='text-2xl font-semibold tracking-tight'>{agent.name}</h1>
-        <p className='text-sm text-muted-foreground'>Edit agent configuration and soul definition.</p>
-      </div>
+    <div className='flex w-full flex-col gap-10 p-6'>
       <EditAgentForm agent={agent} agentConfig={agentConfig} />
       <AgentMemoryBrowser agentId={agentId} memories={memories} />
       <AgentScheduledTasks tasks={cronJobs} agentId={agentId} />

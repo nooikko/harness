@@ -14,11 +14,8 @@ type TasksPageComponent = () => React.ReactNode;
 
 const TasksPage: TasksPageComponent = () => {
   return (
-    <div className='mx-auto max-w-6xl space-y-6 p-6'>
-      <div>
-        <h1 className='text-3xl font-bold'>Tasks</h1>
-        <p className='mt-1 text-muted-foreground'>View orchestrator task history and status.</p>
-      </div>
+    <div className='mx-auto max-w-3xl space-y-2 p-6'>
+      <h1 className='text-lg font-medium'>Tasks</h1>
       <TasksTable />
     </div>
   );

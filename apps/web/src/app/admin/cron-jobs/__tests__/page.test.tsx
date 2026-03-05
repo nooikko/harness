@@ -17,11 +17,6 @@ describe('CronJobsPage', () => {
     expect(html).toContain('Scheduled Tasks');
   });
 
-  it('renders the description text', () => {
-    const html = renderToStaticMarkup(<CronJobsPage />);
-    expect(html).toContain('Manage scheduled orchestrator tasks.');
-  });
-
   it('renders Suspense fallback skeleton', () => {
     const html = renderToStaticMarkup(<CronJobsPage />);
     expect(html).toContain('data-slot="skeleton"');

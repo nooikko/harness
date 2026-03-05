@@ -37,7 +37,7 @@ describe('CronJobsTableInternal', () => {
     expect(html).toContain('No scheduled tasks configured.');
   });
 
-  it('renders table with all columns for recurring job', async () => {
+  it('renders list item with metadata for recurring job', async () => {
     mockListCronJobs.mockResolvedValue([
       {
         id: 'cj_1',
@@ -60,16 +60,14 @@ describe('CronJobsTableInternal', () => {
     const html = renderToStaticMarkup(element as React.ReactElement);
     expect(html).toContain('daily-summary');
     expect(html).toContain('0 9 * * *');
-    expect(html).toContain('Recurring');
     expect(html).toContain('Claude');
     expect(html).toContain('Summary Thread');
-    expect(html).toContain('Enabled');
     expect(html).toContain('Disable');
     expect(html).toContain('Edit');
     expect(html).toContain('Delete daily-summary');
   });
 
-  it('renders one-shot job type when fireAt is set', async () => {
+  it('renders one-shot job with formatted fireAt date', async () => {
     mockListCronJobs.mockResolvedValue([
       {
         id: 'cj_2',
@@ -90,9 +88,9 @@ describe('CronJobsTableInternal', () => {
     ]);
     const element = await CronJobsTableInternal();
     const html = renderToStaticMarkup(element as React.ReactElement);
-    expect(html).toContain('One-shot');
+    expect(html).toContain('Mar');
+    expect(html).toContain('15');
     expect(html).toContain('Auto-create');
-    expect(html).toContain('Never');
   });
 
   it('renders disabled job with Enable button', async () => {
@@ -120,7 +118,7 @@ describe('CronJobsTableInternal', () => {
     expect(html).toContain('Enable');
   });
 
-  it('renders dash for null dates and Never for null lastRunAt', async () => {
+  it('omits last-run info when lastRunAt is null', async () => {
     mockListCronJobs.mockResolvedValue([
       {
         id: 'cj_4',
@@ -141,8 +139,9 @@ describe('CronJobsTableInternal', () => {
     ]);
     const element = await CronJobsTableInternal();
     const html = renderToStaticMarkup(element as React.ReactElement);
-    expect(html).toContain('Never');
-    expect(html).toContain('\u2014');
+    expect(html).toContain('no-dates-job');
+    expect(html).toContain('0 * * * *');
+    expect(html).not.toContain('Never');
   });
 
   it('shows truncated threadId when thread has no name', async () => {

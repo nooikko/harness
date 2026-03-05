@@ -17,11 +17,6 @@ describe('ThreadsPage', () => {
     expect(html).toContain('Threads');
   });
 
-  it('renders the description text', () => {
-    const html = renderToStaticMarkup(<ThreadsPage />);
-    expect(html).toContain('View and manage all conversation threads.');
-  });
-
   it('renders Suspense fallback skeleton', () => {
     const html = renderToStaticMarkup(<ThreadsPage />);
     expect(html).toContain('data-slot="skeleton"');

@@ -70,7 +70,7 @@ describe('AgentEditPage', () => {
     expect(mockNotFound).toHaveBeenCalled();
   });
 
-  it('renders the agent name as heading', async () => {
+  it('renders EditAgentForm with agent data', async () => {
     mockFindUnique.mockResolvedValue(fakeAgent);
     mockAgentConfigFindUnique.mockResolvedValue(null);
     mockListAgentMemories.mockResolvedValue([]);
@@ -79,7 +79,7 @@ describe('AgentEditPage', () => {
     const jsx = await AgentEditPage({ params: makeParams('agent-1') });
     render(jsx as React.ReactElement);
 
-    expect(screen.getByRole('heading', { name: 'My Agent' })).toBeInTheDocument();
+    expect(screen.getByTestId('edit-agent-form')).toBeInTheDocument();
   });
 
   it('renders EditAgentForm', async () => {

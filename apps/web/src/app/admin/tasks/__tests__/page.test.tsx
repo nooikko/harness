@@ -17,11 +17,6 @@ describe('TasksPage', () => {
     expect(html).toContain('Tasks');
   });
 
-  it('renders the description text', () => {
-    const html = renderToStaticMarkup(<TasksPage />);
-    expect(html).toContain('View orchestrator task history and status.');
-  });
-
   it('renders Suspense fallback skeleton', () => {
     const html = renderToStaticMarkup(<TasksPage />);
     expect(html).toContain('data-slot="skeleton"');

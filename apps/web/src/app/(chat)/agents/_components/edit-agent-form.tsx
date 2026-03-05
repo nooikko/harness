@@ -1,6 +1,6 @@
 'use client';
 
-import { Alert, AlertDescription, Button, Card, CardContent, CardHeader, CardTitle, Input, Label, Separator, Switch, Textarea } from '@harness/ui';
+import { Alert, AlertDescription, Button, Input, Label, Separator, Switch, Textarea } from '@harness/ui';
 import { useRouter } from 'next/navigation';
 import { useState, useTransition } from 'react';
 import { updateAgent } from '../../chat/_actions/update-agent';
@@ -90,152 +90,180 @@ export const EditAgentForm: EditAgentFormComponent = ({ agent, agentConfig }) =>
   };
 
   return (
-    <Card>
-      <CardHeader className='flex flex-row items-start justify-between gap-4'>
-        <CardTitle>Edit Agent</CardTitle>
-        <div className='flex items-center gap-2'>
-          <span className='text-xs text-muted-foreground'>v{agent.version}</span>
-          <span className='text-xs font-mono text-muted-foreground bg-muted px-2 py-0.5 rounded'>{agent.slug}</span>
+    <form onSubmit={handleSubmit} className='flex flex-col gap-8'>
+      {error && (
+        <Alert variant='destructive'>
+          <AlertDescription>{error}</AlertDescription>
+        </Alert>
+      )}
+      {success && (
+        <Alert>
+          <AlertDescription>Agent updated successfully.</AlertDescription>
+        </Alert>
+      )}
+
+      {/* Header: Name + metadata + status */}
+      <div className='flex flex-col gap-4'>
+        <div className='flex flex-col gap-1.5'>
+          <Label htmlFor='edit-agent-name'>Name</Label>
+          <Input
+            id='edit-agent-name'
+            value={name}
+            onChange={(e: React.ChangeEvent<HTMLInputElement>) => setName(e.target.value)}
+            required
+            className='text-lg font-semibold'
+          />
         </div>
-      </CardHeader>
-      <CardContent>
-        <form onSubmit={handleSubmit} className='flex flex-col gap-6'>
-          {error && (
-            <Alert variant='destructive'>
-              <AlertDescription>{error}</AlertDescription>
-            </Alert>
-          )}
-          {success && (
-            <Alert>
-              <AlertDescription>Agent updated successfully.</AlertDescription>
-            </Alert>
-          )}
-
-          <div className='grid grid-cols-1 gap-4 sm:grid-cols-2'>
-            <div className='flex flex-col gap-1.5'>
-              <Label htmlFor='edit-agent-name'>Name</Label>
-              <Input id='edit-agent-name' value={name} onChange={(e: React.ChangeEvent<HTMLInputElement>) => setName(e.target.value)} required />
-            </div>
-            <div className='flex flex-col gap-1.5'>
-              <Label htmlFor='edit-agent-enabled'>Status</Label>
-              <div className='flex items-center gap-2 h-10'>
-                <Switch id='edit-agent-enabled' checked={enabled} onCheckedChange={setEnabled} />
-                <Label htmlFor='edit-agent-enabled' className='font-normal cursor-pointer'>
-                  Enabled
-                </Label>
-              </div>
-            </div>
+        <div className='flex items-center justify-between'>
+          <div className='flex items-center gap-2 text-xs text-muted-foreground'>
+            <span className='font-mono'>{agent.slug}</span>
+            <span>&middot;</span>
+            <span>v{agent.version}</span>
           </div>
-
-          <div className='flex flex-col gap-1.5'>
-            <Label htmlFor='edit-agent-soul'>
-              Soul
-              <span className='ml-1 text-xs text-muted-foreground'>(SOUL.md content — incrementing version {agent.version + 1} on save)</span>
+          <div className='flex items-center gap-2'>
+            <Switch id='edit-agent-enabled' checked={enabled} onCheckedChange={setEnabled} />
+            <Label htmlFor='edit-agent-enabled' className='font-normal cursor-pointer'>
+              Enabled
             </Label>
-            <Textarea
-              id='edit-agent-soul'
-              value={soul}
-              onChange={(e: React.ChangeEvent<HTMLTextAreaElement>) => setSoul(e.target.value)}
-              required
-              rows={10}
-              className='min-h-[160px] font-mono resize-y'
+          </div>
+        </div>
+      </div>
+
+      {/* Soul */}
+      <div className='flex flex-col gap-2'>
+        <div className='flex items-baseline justify-between'>
+          <Label htmlFor='edit-agent-soul' className='text-xs font-medium uppercase tracking-wider text-muted-foreground'>
+            Soul
+          </Label>
+          <span className='text-xs text-muted-foreground'>
+            SOUL.md &middot; v{agent.version} &rarr; v{agent.version + 1} on save
+          </span>
+        </div>
+        <Textarea
+          id='edit-agent-soul'
+          value={soul}
+          onChange={(e: React.ChangeEvent<HTMLTextAreaElement>) => setSoul(e.target.value)}
+          required
+          rows={12}
+          className='font-mono text-[13px] leading-relaxed resize-y'
+        />
+      </div>
+
+      {/* Identity */}
+      <div className='flex flex-col gap-2'>
+        <div className='flex items-baseline justify-between'>
+          <Label htmlFor='edit-agent-identity' className='text-xs font-medium uppercase tracking-wider text-muted-foreground'>
+            Identity
+          </Label>
+          <span className='text-xs text-muted-foreground'>IDENTITY.md</span>
+        </div>
+        <Textarea
+          id='edit-agent-identity'
+          value={identity}
+          onChange={(e: React.ChangeEvent<HTMLTextAreaElement>) => setIdentity(e.target.value)}
+          required
+          rows={8}
+          className='font-mono text-[13px] leading-relaxed resize-y'
+        />
+      </div>
+
+      {/* User Context */}
+      <div className='flex flex-col gap-2'>
+        <div className='flex flex-col gap-0.5'>
+          <Label htmlFor='edit-agent-user-context' className='text-xs font-medium uppercase tracking-wider text-muted-foreground'>
+            User Context
+          </Label>
+          <p className='text-xs text-muted-foreground'>Information about the user that this agent should always know.</p>
+        </div>
+        <Textarea
+          id='edit-agent-user-context'
+          value={userContext}
+          onChange={(e: React.ChangeEvent<HTMLTextAreaElement>) => setUserContext(e.target.value)}
+          rows={4}
+          className='resize-y'
+        />
+      </div>
+
+      {/* Character: Role, Goal, Backstory */}
+      <div className='flex flex-col gap-4'>
+        <h3 className='text-xs font-medium uppercase tracking-wider text-muted-foreground'>Character</h3>
+        <div className='grid grid-cols-1 gap-4 sm:grid-cols-2'>
+          <div className='flex flex-col gap-1.5'>
+            <Label htmlFor='edit-agent-role' className='text-muted-foreground'>
+              Role
+            </Label>
+            <Input
+              id='edit-agent-role'
+              value={role}
+              onChange={(e: React.ChangeEvent<HTMLInputElement>) => setRole(e.target.value)}
+              placeholder='e.g. Research Assistant'
             />
           </div>
-
           <div className='flex flex-col gap-1.5'>
-            <Label htmlFor='edit-agent-identity'>
-              Identity
-              <span className='ml-1 text-xs text-muted-foreground'>(IDENTITY.md content)</span>
+            <Label htmlFor='edit-agent-goal' className='text-muted-foreground'>
+              Goal
             </Label>
-            <Textarea
-              id='edit-agent-identity'
-              value={identity}
-              onChange={(e: React.ChangeEvent<HTMLTextAreaElement>) => setIdentity(e.target.value)}
-              required
-              rows={8}
-              className='min-h-[120px] font-mono resize-y'
+            <Input
+              id='edit-agent-goal'
+              value={goal}
+              onChange={(e: React.ChangeEvent<HTMLInputElement>) => setGoal(e.target.value)}
+              placeholder='e.g. Help users find information'
             />
           </div>
+        </div>
+        <div className='flex flex-col gap-1.5'>
+          <Label htmlFor='edit-agent-backstory' className='text-muted-foreground'>
+            Backstory
+          </Label>
+          <Textarea
+            id='edit-agent-backstory'
+            value={backstory}
+            onChange={(e: React.ChangeEvent<HTMLTextAreaElement>) => setBackstory(e.target.value)}
+            rows={3}
+            className='resize-y'
+          />
+        </div>
+      </div>
 
-          <div className='flex flex-col gap-1.5'>
-            <Label htmlFor='edit-agent-user-context'>
-              User Context
-              <span className='ml-1 text-xs text-muted-foreground'>(optional — information about the user that this agent should always know)</span>
+      <Separator />
+
+      {/* Configuration */}
+      <div className='flex flex-col gap-4'>
+        <div className='flex flex-col gap-0.5'>
+          <h3 className='text-xs font-medium uppercase tracking-wider text-muted-foreground'>Configuration</h3>
+          <p className='text-xs text-muted-foreground'>Feature flags that control agent behavior at runtime.</p>
+        </div>
+        <div className='flex flex-col gap-3'>
+          <div className='flex cursor-pointer items-center gap-3 rounded-md border border-input px-3 py-2.5 transition-colors hover:bg-accent'>
+            <Switch id='edit-agent-memory-enabled' checked={memoryEnabled} onCheckedChange={setMemoryEnabled} />
+            <Label htmlFor='edit-agent-memory-enabled' className='font-normal cursor-pointer'>
+              <div className='flex flex-col'>
+                <span className='text-sm font-medium'>Episodic Memory</span>
+                <span className='text-xs text-muted-foreground'>Write memories after each conversation</span>
+              </div>
             </Label>
-            <Textarea
-              id='edit-agent-user-context'
-              value={userContext}
-              onChange={(e: React.ChangeEvent<HTMLTextAreaElement>) => setUserContext(e.target.value)}
-              rows={4}
-              className='min-h-[80px] resize-y'
-            />
           </div>
-
-          <div className='grid grid-cols-1 gap-4 sm:grid-cols-3'>
-            <div className='flex flex-col gap-1.5'>
-              <Label htmlFor='edit-agent-role'>
-                Role
-                <span className='ml-1 text-xs text-muted-foreground'>(optional)</span>
-              </Label>
-              <Input id='edit-agent-role' value={role} onChange={(e: React.ChangeEvent<HTMLInputElement>) => setRole(e.target.value)} />
-            </div>
-            <div className='flex flex-col gap-1.5'>
-              <Label htmlFor='edit-agent-goal'>
-                Goal
-                <span className='ml-1 text-xs text-muted-foreground'>(optional)</span>
-              </Label>
-              <Input id='edit-agent-goal' value={goal} onChange={(e: React.ChangeEvent<HTMLInputElement>) => setGoal(e.target.value)} />
-            </div>
-            <div className='flex flex-col gap-1.5 sm:col-span-3'>
-              <Label htmlFor='edit-agent-backstory'>
-                Backstory
-                <span className='ml-1 text-xs text-muted-foreground'>(optional)</span>
-              </Label>
-              <Textarea
-                id='edit-agent-backstory'
-                value={backstory}
-                onChange={(e: React.ChangeEvent<HTMLTextAreaElement>) => setBackstory(e.target.value)}
-                rows={4}
-                className='min-h-[80px] resize-y'
-              />
-            </div>
-          </div>
-
-          <Separator />
-
-          <div className='flex flex-col gap-4'>
-            <div className='flex flex-col gap-1'>
-              <Label>Agent Configuration</Label>
-              <p className='text-xs text-muted-foreground'>Feature flags that control agent behavior at runtime.</p>
-            </div>
-            <div className='grid grid-cols-1 gap-3 sm:grid-cols-2'>
-              <div className='flex items-center gap-2'>
-                <Switch id='edit-agent-memory-enabled' checked={memoryEnabled} onCheckedChange={setMemoryEnabled} />
-                <Label htmlFor='edit-agent-memory-enabled' className='font-normal cursor-pointer'>
-                  Episodic Memory
-                  <span className='ml-1 text-xs text-muted-foreground'>(write memories after each conversation)</span>
-                </Label>
+          <div className='flex cursor-pointer items-center gap-3 rounded-md border border-input px-3 py-2.5 transition-colors hover:bg-accent'>
+            <Switch id='edit-agent-reflection-enabled' checked={reflectionEnabled} onCheckedChange={setReflectionEnabled} />
+            <Label htmlFor='edit-agent-reflection-enabled' className='font-normal cursor-pointer'>
+              <div className='flex flex-col'>
+                <span className='text-sm font-medium'>Reflection Cycle</span>
+                <span className='text-xs text-muted-foreground'>Periodic meta-reflection on memories</span>
               </div>
-              <div className='flex items-center gap-2'>
-                <Switch id='edit-agent-reflection-enabled' checked={reflectionEnabled} onCheckedChange={setReflectionEnabled} />
-                <Label htmlFor='edit-agent-reflection-enabled' className='font-normal cursor-pointer'>
-                  Reflection Cycle
-                  <span className='ml-1 text-xs text-muted-foreground'>(periodic meta-reflection on memories)</span>
-                </Label>
-              </div>
-            </div>
+            </Label>
           </div>
+        </div>
+      </div>
 
-          <div className='flex justify-end gap-3'>
-            <Button type='button' variant='outline' onClick={() => router.push('/agents')} disabled={isPending}>
-              Back to Agents
-            </Button>
-            <Button type='submit' disabled={isPending}>
-              {isPending ? 'Saving...' : 'Save Changes'}
-            </Button>
-          </div>
-        </form>
-      </CardContent>
-    </Card>
+      {/* Save bar */}
+      <div className='flex justify-end gap-3 border-t border-border pt-4'>
+        <Button type='button' variant='outline' onClick={() => router.push('/agents')} disabled={isPending}>
+          Back to Agents
+        </Button>
+        <Button type='submit' disabled={isPending}>
+          {isPending ? 'Saving...' : 'Save Changes'}
+        </Button>
+      </div>
+    </form>
   );
 };

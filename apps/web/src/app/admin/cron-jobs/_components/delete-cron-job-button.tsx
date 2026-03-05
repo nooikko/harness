@@ -26,7 +26,7 @@ export const DeleteCronJobButton: DeleteCronJobButtonComponent = ({ id, name }) 
   };
 
   return (
-    <Button variant='outline' size='sm' onClick={handleClick} disabled={isPending}>
+    <Button variant='ghost' size='sm' className='text-destructive hover:text-destructive' onClick={handleClick} disabled={isPending}>
       {isPending ? 'Deleting...' : 'Delete'}
     </Button>
   );

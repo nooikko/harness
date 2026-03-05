@@ -61,7 +61,6 @@ describe('PluginsTableInternal', () => {
     expect(html).toContain('Configured');
     expect(html).toContain('web');
     expect(html).toContain('Disabled');
-    expect(html).toContain('No settings');
   });
 
   it('renders enable button for disabled plugins', async () => {
@@ -81,7 +80,7 @@ describe('PluginsTableInternal', () => {
     expect(html).toContain('Enable');
   });
 
-  it('shows No settings for empty settings object', async () => {
+  it('does not show Configured for empty settings object', async () => {
     mockFindMany.mockResolvedValue([
       {
         id: 'pc_4',
@@ -95,6 +94,6 @@ describe('PluginsTableInternal', () => {
     ]);
     const element = await PluginsTableInternal();
     const html = renderToStaticMarkup(element as React.ReactElement);
-    expect(html).toContain('No settings');
+    expect(html).not.toContain('Configured');
   });
 });

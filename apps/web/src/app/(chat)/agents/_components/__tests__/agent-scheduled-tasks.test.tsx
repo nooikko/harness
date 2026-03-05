@@ -13,7 +13,7 @@ const baseTask = {
 };
 
 describe('AgentScheduledTasks', () => {
-  it('renders the card title', () => {
+  it('renders the section heading', () => {
     render(<AgentScheduledTasks tasks={[]} agentId='agent-1' />);
     expect(screen.getByText('Scheduled Tasks')).toBeInTheDocument();
   });
@@ -25,7 +25,7 @@ describe('AgentScheduledTasks', () => {
 
   it('renders the Add Scheduled Task link with correct href', () => {
     render(<AgentScheduledTasks tasks={[]} agentId='agent-42' />);
-    const link = screen.getByRole('link', { name: 'Add Scheduled Task' });
+    const link = screen.getByRole('link', { name: 'Add Task' });
     expect(link).toHaveAttribute('href', '/admin/cron-jobs/new?agentId=agent-42');
   });
 

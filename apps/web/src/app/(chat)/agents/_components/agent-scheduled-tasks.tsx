@@ -1,4 +1,4 @@
-import { Badge, Button, Card, CardContent, CardHeader, CardTitle, Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@harness/ui';
+import { Badge, Button, Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@harness/ui';
 import Link from 'next/link';
 
 type ScheduledTask = {
@@ -50,45 +50,43 @@ type AgentScheduledTasksComponent = (props: AgentScheduledTasksProps) => React.R
 
 export const AgentScheduledTasks: AgentScheduledTasksComponent = ({ tasks, agentId }) => {
   return (
-    <Card>
-      <CardHeader className='flex flex-row items-center justify-between'>
-        <CardTitle>Scheduled Tasks</CardTitle>
+    <div className='flex flex-col gap-4'>
+      <div className='flex items-center justify-between'>
+        <h3 className='text-xs font-medium uppercase tracking-wider text-muted-foreground'>Scheduled Tasks</h3>
         <Button asChild size='sm' variant='outline'>
-          <Link href={`/admin/cron-jobs/new?agentId=${agentId}`}>Add Scheduled Task</Link>
+          <Link href={`/admin/cron-jobs/new?agentId=${agentId}`}>Add Task</Link>
         </Button>
-      </CardHeader>
-      <CardContent>
-        {tasks.length === 0 ? (
-          <p className='py-8 text-center text-sm text-muted-foreground'>No scheduled tasks. Create one to automate agent invocations.</p>
-        ) : (
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>Name</TableHead>
-                <TableHead>Type</TableHead>
-                <TableHead>Schedule / Fire At</TableHead>
-                <TableHead>Status</TableHead>
-                <TableHead>Last Run</TableHead>
+      </div>
+      {tasks.length === 0 ? (
+        <p className='py-8 text-center text-sm text-muted-foreground'>No scheduled tasks. Create one to automate agent invocations.</p>
+      ) : (
+        <Table>
+          <TableHeader>
+            <TableRow>
+              <TableHead>Name</TableHead>
+              <TableHead>Type</TableHead>
+              <TableHead>Schedule / Fire At</TableHead>
+              <TableHead>Status</TableHead>
+              <TableHead>Last Run</TableHead>
+            </TableRow>
+          </TableHeader>
+          <TableBody>
+            {tasks.map((task) => (
+              <TableRow key={task.id}>
+                <TableCell className='font-medium'>{task.name}</TableCell>
+                <TableCell>
+                  <Badge variant='outline'>{task.schedule ? 'Recurring' : 'One-shot'}</Badge>
+                </TableCell>
+                <TableCell className='font-mono text-sm'>{formatScheduleOrFireAt(task)}</TableCell>
+                <TableCell>
+                  <Badge variant={task.enabled ? 'default' : 'secondary'}>{task.enabled ? 'Enabled' : 'Disabled'}</Badge>
+                </TableCell>
+                <TableCell className='text-sm text-muted-foreground'>{formatDate(task.lastRunAt)}</TableCell>
               </TableRow>
-            </TableHeader>
-            <TableBody>
-              {tasks.map((task) => (
-                <TableRow key={task.id}>
-                  <TableCell className='font-medium'>{task.name}</TableCell>
-                  <TableCell>
-                    <Badge variant='outline'>{task.schedule ? 'Recurring' : 'One-shot'}</Badge>
-                  </TableCell>
-                  <TableCell className='font-mono text-sm'>{formatScheduleOrFireAt(task)}</TableCell>
-                  <TableCell>
-                    <Badge variant={task.enabled ? 'default' : 'secondary'}>{task.enabled ? 'Enabled' : 'Disabled'}</Badge>
-                  </TableCell>
-                  <TableCell className='text-sm text-muted-foreground'>{formatDate(task.lastRunAt)}</TableCell>
-                </TableRow>
-              ))}
-            </TableBody>
-          </Table>
-        )}
-      </CardContent>
-    </Card>
+            ))}
+          </TableBody>
+        </Table>
+      )}
+    </div>
   );
 };

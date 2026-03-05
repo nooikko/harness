@@ -17,11 +17,6 @@ describe('AgentRunsPage', () => {
     expect(html).toContain('Agent Runs');
   });
 
-  it('renders the description text', () => {
-    const html = renderToStaticMarkup(<AgentRunsPage />);
-    expect(html).toContain('View model invocations, token usage, and costs per run.');
-  });
-
   it('renders Suspense fallback skeleton', () => {
     const html = renderToStaticMarkup(<AgentRunsPage />);
     expect(html).toContain('data-slot="skeleton"');

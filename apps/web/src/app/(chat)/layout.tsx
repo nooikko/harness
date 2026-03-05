@@ -20,7 +20,7 @@ const ChatLayout: ChatLayoutComponent = ({ children }) => {
       <ThreadNameRefresher />
       <ThreadSidebar />
       <SidebarInset>
-        <main className='flex flex-1 flex-col overflow-hidden'>{children}</main>
+        <main className='flex flex-1 flex-col overflow-y-auto'>{children}</main>
       </SidebarInset>
     </SidebarProvider>
   );

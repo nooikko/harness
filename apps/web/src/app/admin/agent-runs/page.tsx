@@ -14,11 +14,8 @@ type AgentRunsPageComponent = () => React.ReactNode;
 
 const AgentRunsPage: AgentRunsPageComponent = () => {
   return (
-    <div className='mx-auto max-w-6xl space-y-6 p-6'>
-      <div>
-        <h1 className='text-3xl font-bold'>Agent Runs</h1>
-        <p className='mt-1 text-muted-foreground'>View model invocations, token usage, and costs per run.</p>
-      </div>
+    <div className='mx-auto max-w-3xl space-y-2 p-6'>
+      <h1 className='text-lg font-medium'>Agent Runs</h1>
       <AgentRunsTable />
     </div>
   );

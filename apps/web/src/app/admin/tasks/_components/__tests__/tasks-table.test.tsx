@@ -68,7 +68,7 @@ describe('TasksTableInternal', () => {
     expect(html).toContain('thread_2');
   });
 
-  it('renders result column with truncated text for long results', async () => {
+  it('renders result inline for completed tasks', async () => {
     const longResult = 'A'.repeat(150);
     mockFindMany.mockResolvedValue([
       {
@@ -86,12 +86,10 @@ describe('TasksTableInternal', () => {
     ]);
     const element = await TasksTableInternal();
     const html = renderToStaticMarkup(element as React.ReactElement);
-    expect(html).toContain('A'.repeat(100));
-    expect(html).toContain('...');
-    expect(html).not.toContain('A'.repeat(150));
+    expect(html).toContain(longResult);
   });
 
-  it('renders dash for result when task is not completed', async () => {
+  it('does not render result for non-completed tasks', async () => {
     mockFindMany.mockResolvedValue([
       {
         id: 'task_6',
@@ -108,7 +106,8 @@ describe('TasksTableInternal', () => {
     ]);
     const element = await TasksTableInternal();
     const html = renderToStaticMarkup(element as React.ReactElement);
-    expect(html).toContain('\u2014');
+    expect(html).toContain('running');
+    expect(html).not.toContain('truncate');
   });
 
   it('renders thread id slice when thread has no name', async () => {

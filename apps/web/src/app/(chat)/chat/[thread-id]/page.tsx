@@ -1,11 +1,8 @@
 import { prisma } from '@harness/database';
 import { notFound } from 'next/navigation';
-import { Suspense } from 'react';
 import { ChatArea } from '../_components/chat-area';
 import { MessageList } from '../_components/message-list';
 import { PrewarmTrigger } from '../_components/prewarm-trigger';
-import { ThreadCostBadge, ThreadCostBadgeSkeleton } from '../_components/thread-cost-badge';
-import { ThreadKindIcon } from '../_components/thread-kind-icon';
 
 type ThreadPageProps = {
   params: Promise<{ 'thread-id': string }>;
@@ -23,6 +20,7 @@ const ThreadPage: ThreadPageComponent = async ({ params }) => {
 
   const thread = await prisma.thread.findUnique({
     where: { id: threadId },
+    include: { agent: { select: { id: true, name: true } } },
   });
 
   if (!thread) {
@@ -33,20 +31,16 @@ const ThreadPage: ThreadPageComponent = async ({ params }) => {
 
   return (
     <div className='flex h-full flex-col'>
-      <header className='flex items-center gap-3 border-b border-border px-6 py-3'>
-        <ThreadKindIcon kind={thread.kind} className='h-5 w-5 text-muted-foreground' />
-        <div className='flex-1'>
-          <h1 className='text-lg font-semibold'>{displayName}</h1>
-          <p className='text-xs text-muted-foreground'>
-            {thread.kind} thread &middot; {thread.status}
-          </p>
-        </div>
-        <Suspense fallback={<ThreadCostBadgeSkeleton />}>
-          <ThreadCostBadge threadId={threadId} />
-        </Suspense>
+      <header className='flex items-center border-b border-border px-6 py-3'>
+        <h1 className='text-sm font-medium'>{displayName}</h1>
       </header>
       <PrewarmTrigger threadId={threadId} />
-      <ChatArea threadId={threadId} currentModel={thread.model}>
+      <ChatArea
+        threadId={threadId}
+        currentModel={thread.model}
+        currentAgentId={thread.agent?.id ?? null}
+        currentAgentName={thread.agent?.name ?? null}
+      >
         <MessageList threadId={threadId} />
       </ChatArea>
     </div>

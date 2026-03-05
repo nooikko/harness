@@ -14,11 +14,8 @@ type ThreadsPageComponent = () => React.ReactNode;
 
 const ThreadsPage: ThreadsPageComponent = () => {
   return (
-    <div className='mx-auto max-w-6xl space-y-6 p-6'>
-      <div>
-        <h1 className='text-3xl font-bold'>Threads</h1>
-        <p className='mt-1 text-muted-foreground'>View and manage all conversation threads.</p>
-      </div>
+    <div className='mx-auto max-w-3xl space-y-2 p-6'>
+      <h1 className='text-lg font-medium'>Threads</h1>
       <ThreadsTable />
     </div>
   );
