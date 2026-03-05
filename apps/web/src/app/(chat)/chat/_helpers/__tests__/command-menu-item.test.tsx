@@ -23,12 +23,12 @@ describe('CommandMenuItem', () => {
     expect(screen.getByText('Run a sub-agent task')).toBeInTheDocument();
   });
 
-  it('shows args when item.data.args is a string', () => {
-    render(<CommandMenuItem selected={false} label='delegate' itemValue='delegate' item={makeItem({ data: { args: '<task description>' } })} />);
-    expect(screen.getByText('<task description>')).toBeInTheDocument();
+  it('shows pluginName badge when item.data.pluginName is a string', () => {
+    render(<CommandMenuItem selected={false} label='delegate' itemValue='delegate' item={makeItem({ data: { pluginName: 'delegation' } })} />);
+    expect(screen.getByText('delegation')).toBeInTheDocument();
   });
 
-  it('renders neither description nor args spans when data is absent', () => {
+  it('renders neither description nor pluginName when data is absent', () => {
     const { container } = render(
       <CommandMenuItem
         selected={false}

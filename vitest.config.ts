@@ -21,6 +21,7 @@ export default defineConfig({
       'packages/plugins/time',
       'packages/plugins/cron',
       'packages/plugins/project',
+      'packages/plugins/music',
       'packages/database',
     ],
     coverage: {
