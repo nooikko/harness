@@ -1,6 +1,6 @@
 'use client';
 
-import { Button, Card, CardContent, CardHeader, CardTitle, Input, Label } from '@harness/ui';
+import { Alert, AlertDescription, Button, Card, CardContent, CardHeader, CardTitle, Input, Label, Textarea } from '@harness/ui';
 import { useRouter } from 'next/navigation';
 import { useState, useTransition } from 'react';
 import { createAgent } from '../../chat/_actions/create-agent';
@@ -71,7 +71,11 @@ export const CreateAgentForm: CreateAgentFormComponent = () => {
       </CardHeader>
       <CardContent>
         <form onSubmit={handleSubmit} className='flex flex-col gap-6'>
-          {error && <p className='rounded-md bg-destructive/10 px-3 py-2 text-sm text-destructive'>{error}</p>}
+          {error && (
+            <Alert variant='destructive'>
+              <AlertDescription>{error}</AlertDescription>
+            </Alert>
+          )}
 
           <div className='grid grid-cols-1 gap-4 sm:grid-cols-2'>
             <div className='flex flex-col gap-1.5'>
@@ -106,14 +110,14 @@ export const CreateAgentForm: CreateAgentFormComponent = () => {
               Soul
               <span className='ml-1 text-xs text-muted-foreground'>(SOUL.md content — core personality)</span>
             </Label>
-            <textarea
+            <Textarea
               id='agent-soul'
               value={soul}
               onChange={(e: React.ChangeEvent<HTMLTextAreaElement>) => setSoul(e.target.value)}
               placeholder="# Soul&#10;&#10;Describe this agent's fundamental nature, values, and personality..."
               required
               rows={10}
-              className='flex min-h-[160px] w-full rounded-md border border-input bg-background px-3 py-2 text-sm font-mono ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 resize-y'
+              className='min-h-[160px] font-mono resize-y'
             />
           </div>
 
@@ -122,14 +126,14 @@ export const CreateAgentForm: CreateAgentFormComponent = () => {
               Identity
               <span className='ml-1 text-xs text-muted-foreground'>(IDENTITY.md content — who this agent is)</span>
             </Label>
-            <textarea
+            <Textarea
               id='agent-identity'
               value={identity}
               onChange={(e: React.ChangeEvent<HTMLTextAreaElement>) => setIdentity(e.target.value)}
               placeholder="# Identity&#10;&#10;Describe this agent's identity, responsibilities, and how it presents itself..."
               required
               rows={8}
-              className='flex min-h-[120px] w-full rounded-md border border-input bg-background px-3 py-2 text-sm font-mono ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 resize-y'
+              className='min-h-[120px] font-mono resize-y'
             />
           </div>
 
@@ -163,13 +167,13 @@ export const CreateAgentForm: CreateAgentFormComponent = () => {
                 Backstory
                 <span className='ml-1 text-xs text-muted-foreground'>(optional)</span>
               </Label>
-              <textarea
+              <Textarea
                 id='agent-backstory'
                 value={backstory}
                 onChange={(e: React.ChangeEvent<HTMLTextAreaElement>) => setBackstory(e.target.value)}
                 placeholder='Additional background context for this agent...'
                 rows={4}
-                className='flex min-h-[80px] w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 resize-y'
+                className='min-h-[80px] resize-y'
               />
             </div>
           </div>

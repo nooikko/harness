@@ -1,7 +1,7 @@
 'use client';
 
 import type { MemoryType } from '@harness/database';
-import { Badge, Button, Card, CardContent, CardHeader, CardTitle } from '@harness/ui';
+import { Badge, Button, Card, CardContent, CardHeader, CardTitle, Tabs, TabsList, TabsTrigger } from '@harness/ui';
 import { useRouter } from 'next/navigation';
 import { useState, useTransition } from 'react';
 import { deleteAgentMemory } from '../../chat/_actions/delete-agent-memory';
@@ -98,22 +98,16 @@ export const AgentMemoryBrowser: AgentMemoryBrowserComponent = ({ agentId, memor
       </CardHeader>
       <CardContent className='flex flex-col gap-4'>
         {/* Filter tabs */}
-        <div className='flex gap-1 border-b'>
-          {tabs.map((tab) => (
-            <button
-              key={tab}
-              type='button'
-              onClick={() => setActiveFilter(tab)}
-              className={[
-                'px-3 py-1.5 text-sm font-medium transition-colors border-b-2 -mb-px',
-                activeFilter === tab ? 'border-foreground text-foreground' : 'border-transparent text-muted-foreground hover:text-foreground',
-              ].join(' ')}
-            >
-              {tab === 'ALL' ? 'All' : MEMORY_TYPE_LABELS[tab]}
-              <span className='ml-1.5 text-xs text-muted-foreground'>{counts[tab]}</span>
-            </button>
-          ))}
-        </div>
+        <Tabs value={activeFilter} onValueChange={(value) => setActiveFilter(value as FilterTab)}>
+          <TabsList>
+            {tabs.map((tab) => (
+              <TabsTrigger key={tab} value={tab}>
+                {tab === 'ALL' ? 'All' : MEMORY_TYPE_LABELS[tab]}
+                <span className='ml-1.5 text-xs text-muted-foreground'>{counts[tab]}</span>
+              </TabsTrigger>
+            ))}
+          </TabsList>
+        </Tabs>
 
         {/* Memory list */}
         {filtered.length === 0 ? (

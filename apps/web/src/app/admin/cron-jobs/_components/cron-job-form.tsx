@@ -1,6 +1,8 @@
 'use client';
 
 import {
+  Alert,
+  AlertDescription,
   Button,
   Card,
   CardContent,
@@ -14,6 +16,7 @@ import {
   SelectTrigger,
   SelectValue,
   Separator,
+  Switch,
   Textarea,
 } from '@harness/ui';
 import { useRouter } from 'next/navigation';
@@ -150,9 +153,15 @@ export const CronJobForm: CronJobFormComponent = ({ mode, agents, threads, proje
       </CardHeader>
       <CardContent>
         <form onSubmit={handleSubmit} className='flex flex-col gap-6'>
-          {error && <p className='rounded-md bg-destructive/10 px-3 py-2 text-sm text-destructive'>{error}</p>}
+          {error && (
+            <Alert variant='destructive'>
+              <AlertDescription>{error}</AlertDescription>
+            </Alert>
+          )}
           {success && (
-            <p className='rounded-md bg-green-500/10 px-3 py-2 text-sm text-green-700 dark:text-green-400'>Cron job updated successfully.</p>
+            <Alert>
+              <AlertDescription>Cron job updated successfully.</AlertDescription>
+            </Alert>
           )}
 
           {/* Name */}
@@ -299,16 +308,10 @@ export const CronJobForm: CronJobFormComponent = ({ mode, agents, threads, proje
 
           {/* Enabled */}
           <div className='flex items-center gap-2'>
-            <input
-              id='cron-job-enabled'
-              type='checkbox'
-              checked={enabled}
-              onChange={(e: React.ChangeEvent<HTMLInputElement>) => setEnabled(e.target.checked)}
-              className='h-4 w-4 rounded border border-input'
-            />
-            <label htmlFor='cron-job-enabled' className='cursor-pointer text-sm'>
+            <Switch id='cron-job-enabled' checked={enabled} onCheckedChange={setEnabled} />
+            <Label htmlFor='cron-job-enabled' className='font-normal cursor-pointer'>
               Enabled
-            </label>
+            </Label>
           </div>
 
           {/* Actions */}

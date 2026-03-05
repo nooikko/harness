@@ -1,6 +1,6 @@
 'use client';
 
-import { Button, Input, Label } from '@harness/ui';
+import { Alert, AlertDescription, Button, Input, Label, Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@harness/ui';
 import { useActionState } from 'react';
 import type { PluginSettingsField } from '@/generated/plugin-settings-registry';
 import { savePluginSettings } from '../_actions/save-plugin-settings';
@@ -37,15 +37,23 @@ export const SettingsForm: SettingsFormComponent = ({ pluginName, fields, curren
   return (
     <form action={formAction} className='space-y-6'>
       {hasRequired && (
-        <div className='rounded-md border border-yellow-200 bg-yellow-50 p-3 text-sm text-yellow-800'>
-          Fields marked with <span className='font-semibold'>*</span> are required for this plugin to function.
-        </div>
+        <Alert>
+          <AlertDescription>
+            Fields marked with <span className='font-semibold'>*</span> are required for this plugin to function.
+          </AlertDescription>
+        </Alert>
       )}
 
-      {state?.error && <div className='rounded-md border border-destructive/20 bg-destructive/10 p-3 text-sm text-destructive'>{state.error}</div>}
+      {state?.error && (
+        <Alert variant='destructive'>
+          <AlertDescription>{state.error}</AlertDescription>
+        </Alert>
+      )}
 
       {state?.success && (
-        <div className='rounded-md border border-green-200 bg-green-50 p-3 text-sm text-green-800'>Settings saved successfully.</div>
+        <Alert>
+          <AlertDescription>Settings saved successfully.</AlertDescription>
+        </Alert>
       )}
 
       {fields.map((field) => (
@@ -56,19 +64,18 @@ export const SettingsForm: SettingsFormComponent = ({ pluginName, fields, curren
           </Label>
           {field.description && <p className='text-sm text-muted-foreground'>{field.description}</p>}
           {field.type === 'select' && field.options ? (
-            <select
-              id={field.name}
-              name={field.name}
-              defaultValue={currentValues[field.name] ?? String(field.default ?? '')}
-              disabled={disabled}
-              className='w-full rounded-md border border-input bg-background px-3 py-2 text-sm'
-            >
-              {field.options.map((opt) => (
-                <option key={opt.value} value={opt.value}>
-                  {opt.label}
-                </option>
-              ))}
-            </select>
+            <Select name={field.name} defaultValue={currentValues[field.name] ?? String(field.default ?? '')} disabled={disabled}>
+              <SelectTrigger id={field.name}>
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {field.options.map((opt) => (
+                  <SelectItem key={opt.value} value={opt.value}>
+                    {opt.label}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
           ) : (
             <Input
               id={field.name}

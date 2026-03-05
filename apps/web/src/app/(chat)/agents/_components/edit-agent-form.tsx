@@ -1,6 +1,6 @@
 'use client';
 
-import { Button, Card, CardContent, CardHeader, CardTitle, Input, Label, Separator } from '@harness/ui';
+import { Alert, AlertDescription, Button, Card, CardContent, CardHeader, CardTitle, Input, Label, Separator, Switch, Textarea } from '@harness/ui';
 import { useRouter } from 'next/navigation';
 import { useState, useTransition } from 'react';
 import { updateAgent } from '../../chat/_actions/update-agent';
@@ -100,8 +100,16 @@ export const EditAgentForm: EditAgentFormComponent = ({ agent, agentConfig }) =>
       </CardHeader>
       <CardContent>
         <form onSubmit={handleSubmit} className='flex flex-col gap-6'>
-          {error && <p className='rounded-md bg-destructive/10 px-3 py-2 text-sm text-destructive'>{error}</p>}
-          {success && <p className='rounded-md bg-green-500/10 px-3 py-2 text-sm text-green-700 dark:text-green-400'>Agent updated successfully.</p>}
+          {error && (
+            <Alert variant='destructive'>
+              <AlertDescription>{error}</AlertDescription>
+            </Alert>
+          )}
+          {success && (
+            <Alert>
+              <AlertDescription>Agent updated successfully.</AlertDescription>
+            </Alert>
+          )}
 
           <div className='grid grid-cols-1 gap-4 sm:grid-cols-2'>
             <div className='flex flex-col gap-1.5'>
@@ -111,16 +119,10 @@ export const EditAgentForm: EditAgentFormComponent = ({ agent, agentConfig }) =>
             <div className='flex flex-col gap-1.5'>
               <Label htmlFor='edit-agent-enabled'>Status</Label>
               <div className='flex items-center gap-2 h-10'>
-                <input
-                  id='edit-agent-enabled'
-                  type='checkbox'
-                  checked={enabled}
-                  onChange={(e: React.ChangeEvent<HTMLInputElement>) => setEnabled(e.target.checked)}
-                  className='h-4 w-4 rounded border border-input'
-                />
-                <label htmlFor='edit-agent-enabled' className='text-sm cursor-pointer'>
+                <Switch id='edit-agent-enabled' checked={enabled} onCheckedChange={setEnabled} />
+                <Label htmlFor='edit-agent-enabled' className='font-normal cursor-pointer'>
                   Enabled
-                </label>
+                </Label>
               </div>
             </div>
           </div>
@@ -130,13 +132,13 @@ export const EditAgentForm: EditAgentFormComponent = ({ agent, agentConfig }) =>
               Soul
               <span className='ml-1 text-xs text-muted-foreground'>(SOUL.md content — incrementing version {agent.version + 1} on save)</span>
             </Label>
-            <textarea
+            <Textarea
               id='edit-agent-soul'
               value={soul}
               onChange={(e: React.ChangeEvent<HTMLTextAreaElement>) => setSoul(e.target.value)}
               required
               rows={10}
-              className='flex min-h-[160px] w-full rounded-md border border-input bg-background px-3 py-2 text-sm font-mono ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 resize-y'
+              className='min-h-[160px] font-mono resize-y'
             />
           </div>
 
@@ -145,13 +147,13 @@ export const EditAgentForm: EditAgentFormComponent = ({ agent, agentConfig }) =>
               Identity
               <span className='ml-1 text-xs text-muted-foreground'>(IDENTITY.md content)</span>
             </Label>
-            <textarea
+            <Textarea
               id='edit-agent-identity'
               value={identity}
               onChange={(e: React.ChangeEvent<HTMLTextAreaElement>) => setIdentity(e.target.value)}
               required
               rows={8}
-              className='flex min-h-[120px] w-full rounded-md border border-input bg-background px-3 py-2 text-sm font-mono ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 resize-y'
+              className='min-h-[120px] font-mono resize-y'
             />
           </div>
 
@@ -160,12 +162,12 @@ export const EditAgentForm: EditAgentFormComponent = ({ agent, agentConfig }) =>
               User Context
               <span className='ml-1 text-xs text-muted-foreground'>(optional — information about the user that this agent should always know)</span>
             </Label>
-            <textarea
+            <Textarea
               id='edit-agent-user-context'
               value={userContext}
               onChange={(e: React.ChangeEvent<HTMLTextAreaElement>) => setUserContext(e.target.value)}
               rows={4}
-              className='flex min-h-[80px] w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 resize-y'
+              className='min-h-[80px] resize-y'
             />
           </div>
 
@@ -189,12 +191,12 @@ export const EditAgentForm: EditAgentFormComponent = ({ agent, agentConfig }) =>
                 Backstory
                 <span className='ml-1 text-xs text-muted-foreground'>(optional)</span>
               </Label>
-              <textarea
+              <Textarea
                 id='edit-agent-backstory'
                 value={backstory}
                 onChange={(e: React.ChangeEvent<HTMLTextAreaElement>) => setBackstory(e.target.value)}
                 rows={4}
-                className='flex min-h-[80px] w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 resize-y'
+                className='min-h-[80px] resize-y'
               />
             </div>
           </div>
@@ -208,30 +210,18 @@ export const EditAgentForm: EditAgentFormComponent = ({ agent, agentConfig }) =>
             </div>
             <div className='grid grid-cols-1 gap-3 sm:grid-cols-2'>
               <div className='flex items-center gap-2'>
-                <input
-                  id='edit-agent-memory-enabled'
-                  type='checkbox'
-                  checked={memoryEnabled}
-                  onChange={(e: React.ChangeEvent<HTMLInputElement>) => setMemoryEnabled(e.target.checked)}
-                  className='h-4 w-4 rounded border border-input'
-                />
-                <label htmlFor='edit-agent-memory-enabled' className='text-sm cursor-pointer'>
+                <Switch id='edit-agent-memory-enabled' checked={memoryEnabled} onCheckedChange={setMemoryEnabled} />
+                <Label htmlFor='edit-agent-memory-enabled' className='font-normal cursor-pointer'>
                   Episodic Memory
                   <span className='ml-1 text-xs text-muted-foreground'>(write memories after each conversation)</span>
-                </label>
+                </Label>
               </div>
               <div className='flex items-center gap-2'>
-                <input
-                  id='edit-agent-reflection-enabled'
-                  type='checkbox'
-                  checked={reflectionEnabled}
-                  onChange={(e: React.ChangeEvent<HTMLInputElement>) => setReflectionEnabled(e.target.checked)}
-                  className='h-4 w-4 rounded border border-input'
-                />
-                <label htmlFor='edit-agent-reflection-enabled' className='text-sm cursor-pointer'>
+                <Switch id='edit-agent-reflection-enabled' checked={reflectionEnabled} onCheckedChange={setReflectionEnabled} />
+                <Label htmlFor='edit-agent-reflection-enabled' className='font-normal cursor-pointer'>
                   Reflection Cycle
                   <span className='ml-1 text-xs text-muted-foreground'>(periodic meta-reflection on memories)</span>
-                </label>
+                </Label>
               </div>
             </div>
           </div>

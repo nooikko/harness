@@ -114,23 +114,24 @@ describe('SettingsForm', () => {
     expect(input.value).toBe('30');
   });
 
-  it('renders select field with options', () => {
+  it('renders select field with trigger', () => {
     render(<SettingsForm pluginName='test-plugin' fields={[selectField]} currentValues={{}} />);
-    expect(screen.getByRole('combobox')).toBeDefined();
-    expect(screen.getByText('GPT-4')).toBeDefined();
-    expect(screen.getByText('GPT-3.5')).toBeDefined();
+    const trigger = screen.getByRole('combobox');
+    expect(trigger).toBeDefined();
+    // Default value is displayed in the trigger's select-value span
+    expect(trigger.textContent).toContain('GPT-4');
   });
 
   it('uses current value for select field when provided', () => {
     render(<SettingsForm pluginName='test-plugin' fields={[selectField]} currentValues={{ model: 'gpt-3.5' }} />);
-    const select = screen.getByRole('combobox') as HTMLSelectElement;
-    expect(select.value).toBe('gpt-3.5');
+    const trigger = screen.getByRole('combobox');
+    expect(trigger.textContent).toContain('GPT-3.5');
   });
 
   it('uses default value for select field when no current value', () => {
     render(<SettingsForm pluginName='test-plugin' fields={[selectField]} currentValues={{}} />);
-    const select = screen.getByRole('combobox') as HTMLSelectElement;
-    expect(select.value).toBe('gpt-4');
+    const trigger = screen.getByRole('combobox');
+    expect(trigger.textContent).toContain('GPT-4');
   });
 
   it('disables select field when disabled prop is true', () => {

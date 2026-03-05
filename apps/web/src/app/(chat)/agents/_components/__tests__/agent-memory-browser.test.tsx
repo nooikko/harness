@@ -67,7 +67,7 @@ describe('AgentMemoryBrowser', () => {
     ];
     render(<AgentMemoryBrowser agentId='agent-1' memories={memories} />);
 
-    await user.click(screen.getByRole('button', { name: /^Episodic/ }));
+    await user.click(screen.getByRole('tab', { name: /^Episodic/ }));
 
     expect(screen.getByText('Episodic memory')).toBeInTheDocument();
     expect(screen.queryByText('Semantic memory')).not.toBeInTheDocument();
@@ -78,7 +78,7 @@ describe('AgentMemoryBrowser', () => {
     const memories = [makeMemory({ type: 'EPISODIC' })];
     render(<AgentMemoryBrowser agentId='agent-1' memories={memories} />);
 
-    await user.click(screen.getByRole('button', { name: /^Semantic/ }));
+    await user.click(screen.getByRole('tab', { name: /^Semantic/ }));
 
     expect(screen.getByText(/no semantic memories/i)).toBeInTheDocument();
   });
