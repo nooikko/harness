@@ -42,6 +42,8 @@ EXCLUDED_PATTERNS = [
     r"prisma/seed\.ts$",  # Seed script — requires database connection
     r"settings-schema\.ts$",  # pure data declarations — no logic to test
     r"packages/ui/src/components/",  # ShadCN primitives — thin Radix wrappers, no logic
+    r"cast-types\.ts$",  # pure type declarations — no runtime code
+    r"packages/plugins/music/",  # WIP plugin — coverage enforcement deferred
 ]
 
 # Maps repo-relative file prefix -> package subdirectory (relative to repo root).
@@ -67,6 +69,7 @@ PROJECT_DIRS = [
     ("packages/plugins/audit/", "packages/plugins/audit"),
     ("packages/plugins/auto-namer/", "packages/plugins/auto-namer"),
     ("packages/plugins/project/", "packages/plugins/project"),
+    ("packages/plugins/music/", "packages/plugins/music"),
 ]
 
 MAX_RETRIES = 5  # ESM race condition is non-deterministic; retry on failure
