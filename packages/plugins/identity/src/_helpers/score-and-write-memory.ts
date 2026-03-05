@@ -4,7 +4,7 @@ import { checkReflectionTrigger } from './check-reflection-trigger';
 import { classifyMemoryScope } from './classify-memory-scope';
 import { runReflection } from './run-reflection';
 
-const IMPORTANCE_THRESHOLD = 6;
+const DEFAULT_IMPORTANCE_THRESHOLD = 6;
 const SNIPPET_HEAD = 250;
 const SNIPPET_TAIL = 250;
 const SUMMARY_MAX_CHARS = 1500;
@@ -42,6 +42,8 @@ const buildScoringSnippet: BuildScoringSnippet = (output) => {
 type ScoreAndWriteMemoryOptions = {
   reflectionEnabled?: boolean;
   projectId?: string | null;
+  importanceThreshold?: number;
+  reflectionThreshold?: number;
 };
 
 type ScoreAndWriteMemory = (
@@ -56,6 +58,8 @@ type ScoreAndWriteMemory = (
 export const scoreAndWriteMemory: ScoreAndWriteMemory = async (ctx, agentId, agentName, threadId, output, options) => {
   const reflectionEnabled = options?.reflectionEnabled ?? false;
   const projectId = options?.projectId;
+  const importanceThreshold = options?.importanceThreshold ?? DEFAULT_IMPORTANCE_THRESHOLD;
+  const reflectionThreshold = options?.reflectionThreshold;
   if (!output || output.trim().length === 0) {
     return;
   }
@@ -75,7 +79,7 @@ export const scoreAndWriteMemory: ScoreAndWriteMemory = async (ctx, agentId, age
     return; // Don't fail the pipeline on importance scoring errors
   }
 
-  if (importance < IMPORTANCE_THRESHOLD) {
+  if (importance < importanceThreshold) {
     return;
   }
 
@@ -123,7 +127,7 @@ export const scoreAndWriteMemory: ScoreAndWriteMemory = async (ctx, agentId, age
   // Check if reflection should be triggered — fire-and-forget
   if (reflectionEnabled) {
     void (async () => {
-      const trigger = await checkReflectionTrigger(ctx.db, agentId, projectId);
+      const trigger = await checkReflectionTrigger(ctx.db, agentId, projectId, reflectionThreshold);
       if (trigger.shouldReflect) {
         await runReflection(ctx, agentId, agentName, trigger.memories, projectId);
       }

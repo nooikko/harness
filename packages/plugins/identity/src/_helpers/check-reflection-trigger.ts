@@ -1,6 +1,6 @@
 import type { Prisma, PrismaClient } from '@harness/database';
 
-const REFLECTION_THRESHOLD = 10;
+const DEFAULT_REFLECTION_THRESHOLD = 10;
 
 type ReflectionCandidate = {
   id: string;
@@ -11,9 +11,15 @@ type ReflectionCandidate = {
 
 type ReflectionTriggerResult = { shouldReflect: false } | { shouldReflect: true; memories: ReflectionCandidate[] };
 
-type CheckReflectionTrigger = (db: PrismaClient, agentId: string, projectId?: string | null) => Promise<ReflectionTriggerResult>;
+type CheckReflectionTrigger = (
+  db: PrismaClient,
+  agentId: string,
+  projectId?: string | null,
+  reflectionThreshold?: number,
+) => Promise<ReflectionTriggerResult>;
 
-export const checkReflectionTrigger: CheckReflectionTrigger = async (db, agentId, projectId) => {
+export const checkReflectionTrigger: CheckReflectionTrigger = async (db, agentId, projectId, reflectionThreshold) => {
+  const threshold = reflectionThreshold ?? DEFAULT_REFLECTION_THRESHOLD;
   // Scope filter: when projectId provided, only count project-scoped memories
   // When absent, only count agent-scoped memories (cross-project reflections)
   const scopeFilter: Prisma.AgentMemoryWhereInput = projectId ? { scope: 'PROJECT', projectId } : { scope: 'AGENT' };
@@ -42,7 +48,7 @@ export const checkReflectionTrigger: CheckReflectionTrigger = async (db, agentId
     orderBy: { createdAt: 'asc' },
   });
 
-  if (unreflectedMemories.length < REFLECTION_THRESHOLD) {
+  if (unreflectedMemories.length < threshold) {
     return { shouldReflect: false };
   }
 

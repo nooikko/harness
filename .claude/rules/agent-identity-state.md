@@ -6,7 +6,7 @@ Which identity phases are complete, which are paused, and what each needs to pro
 
 ## Overview
 
-The identity system is implemented as `@harness/plugin-identity`. It uses two hooks: `onBeforeInvoke` (soul + memory injection) and `onAfterInvoke` (episodic memory writing + reflection trigger). Five phases were planned; three are complete, one is paused, and one is complete. Memory scoping (AGENT/PROJECT/THREAD) is implemented across all phases.
+The identity system is implemented as `@harness/plugin-identity`. It uses two hooks: `onBeforeInvoke` (soul + memory injection + bootstrap) and `onAfterInvoke` (episodic memory writing + reflection trigger), plus one MCP tool (`update_self`). Five phases were planned; three are complete, one is paused, and one is complete. Memory scoping (AGENT/PROJECT/THREAD) is implemented across all phases. Bootstrap onboarding is complete.
 
 File: `packages/plugins/identity/src/index.ts`
 
@@ -218,6 +218,7 @@ model AgentConfig {
   agent             Agent    @relation(fields: [agentId], references: [id])
   memoryEnabled     Boolean  @default(true)
   reflectionEnabled Boolean  @default(false)
+  bootstrapped      Boolean  @default(false)
   createdAt         DateTime @default(now())
   updatedAt         DateTime @updatedAt
 }
@@ -225,9 +226,10 @@ model AgentConfig {
 
 The unique FK to `Agent` means one config per agent. The `Agent` model has `config AgentConfig?` relation.
 
-Both flags are checked by the identity plugin:
-- **`memoryEnabled`** — checked at line 43 of `packages/plugins/identity/src/index.ts`. If `config?.memoryEnabled === false`, `onAfterInvoke` returns early and no memory is written.
-- **`reflectionEnabled`** — passed as `config?.reflectionEnabled ?? false` to `scoreAndWriteMemory`, which guards the reflection trigger at line 99. Defaults to false when no config exists (matching the schema default).
+All three flags are checked by the identity plugin:
+- **`memoryEnabled`** — If `config?.memoryEnabled === false`, `onAfterInvoke` returns early and no memory is written.
+- **`reflectionEnabled`** — passed as `config?.reflectionEnabled ?? false` to `scoreAndWriteMemory`, which guards the reflection trigger. Defaults to false when no config exists (matching the schema default).
+- **`bootstrapped`** — If `config?.bootstrapped === false`, `onBeforeInvoke` prepends a bootstrap prompt that instructs the agent to discover its identity through conversation. Set to `true` by the `identity__update_self` MCP tool.
 
 ---
 
@@ -268,6 +270,29 @@ model Agent {
 
 ---
 
+## Bootstrap Onboarding (COMPLETE)
+
+**What:** Default agent discovers its own identity through natural conversation on first interaction.
+
+**Seed data:** A default agent is seeded with slug `'default'`, name `'Assistant'`, generic soul/identity, and `AgentConfig.bootstrapped: false`. This is separate from the System agent (which handles automation). New threads with no explicit agent auto-assign the default agent via `createThread`.
+
+**How it works:**
+1. When `AgentConfig.bootstrapped === false`, the identity plugin injects a bootstrap prompt before the normal soul header
+2. The bootstrap prompt instructs the agent to introduce itself, ask the user for a name and personality (one question at a time), and explore role/values
+3. When ready, the agent calls `identity__update_self` to write its new name, soul, identity, role, goal, and/or backstory to the Agent record
+4. The tool sets `bootstrapped: true` — the bootstrap prompt stops firing on subsequent invocations
+
+**MCP Tool:** `identity__update_self` — always available, not just during bootstrap. Users can ask the agent to change its personality anytime. The tool resolves `agentId` from `meta.threadId`, updates only the fields provided, generates a slug from the name, and upserts `AgentConfig` with `bootstrapped: true`.
+
+**Thread creation:** `createThread` in `apps/web/src/app/(chat)/chat/_actions/create-thread.ts` auto-assigns the default agent (by looking up `slug: 'default'`). If the default agent was deleted, threads are created without an agent (graceful fallback).
+
+**Key files:**
+- `packages/plugins/identity/src/_helpers/format-bootstrap-prompt.ts` — bootstrap prompt template
+- `packages/plugins/identity/src/_helpers/update-agent-self.ts` — `update_self` tool handler
+- `packages/database/prisma/seed.ts` — seeds default agent + AgentConfig
+
+---
+
 ## Phase Summary
 
 | Phase | Status | Blocker |
@@ -284,7 +309,7 @@ model Agent {
 
 | File | What it owns |
 |------|-------------|
-| `packages/plugins/identity/src/index.ts` | PluginDefinition — `onBeforeInvoke` + `onAfterInvoke` |
+| `packages/plugins/identity/src/index.ts` | PluginDefinition — `onBeforeInvoke` + `onAfterInvoke` + `update_self` tool |
 | `packages/plugins/identity/src/_helpers/load-agent.ts` | Thread -> Agent lookup + threadProjectId extraction |
 | `packages/plugins/identity/src/_helpers/retrieve-memories.ts` | Scope-aware retrieval, recency+importance scoring, REFLECTION boost |
 | `packages/plugins/identity/src/_helpers/score-and-write-memory.ts` | Haiku importance scoring + scope classification + EPISODIC write + reflection trigger |
@@ -292,5 +317,7 @@ model Agent {
 | `packages/plugins/identity/src/_helpers/check-reflection-trigger.ts` | Counts unreflected EPISODIC memories; project-scoped when projectId provided |
 | `packages/plugins/identity/src/_helpers/run-reflection.ts` | Haiku synthesis -> REFLECTION records (inherits scope from source) |
 | `packages/plugins/identity/src/_helpers/format-identity-header.ts` | Prompt header with scope-grouped memory sections |
+| `packages/plugins/identity/src/_helpers/format-bootstrap-prompt.ts` | Bootstrap prompt template for first-time agent setup |
+| `packages/plugins/identity/src/_helpers/update-agent-self.ts` | `update_self` MCP tool handler — agent writes its own identity |
 | `packages/database/prisma/schema.prisma` | `Agent`, `AgentMemory`, `AgentConfig`, `MemoryType`, `MemoryScope` enums |
 | `apps/orchestrator/src/plugin-registry/index.ts` | Plugin ordering — identity must be index 0 |

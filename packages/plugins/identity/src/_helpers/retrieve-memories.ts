@@ -1,9 +1,9 @@
 import type { AgentMemory, Prisma, PrismaClient } from '@harness/database';
 
-const CANDIDATE_POOL = 100;
-const DECAY_RATE = 0.995;
+const DEFAULT_CANDIDATE_POOL = 100;
+const DEFAULT_DECAY_RATE = 0.995;
 const MS_PER_HOUR = 3_600_000;
-const REFLECTION_BOOST = 0.3;
+const DEFAULT_REFLECTION_BOOST = 0.3;
 const MIN_REFLECTION_SLOTS = 2;
 
 type MemoryContext = {
@@ -11,9 +11,25 @@ type MemoryContext = {
   threadId?: string | null;
 };
 
-type RetrieveMemories = (db: PrismaClient, agentId: string, _query: string, limit: number, context?: MemoryContext) => Promise<AgentMemory[]>;
+export type RetrievalConfig = {
+  candidatePool?: number;
+  decayRate?: number;
+  reflectionBoost?: number;
+};
 
-export const retrieveMemories: RetrieveMemories = async (db, agentId, _query, limit, context) => {
+type RetrieveMemories = (
+  db: PrismaClient,
+  agentId: string,
+  _query: string,
+  limit: number,
+  context?: MemoryContext,
+  config?: RetrievalConfig,
+) => Promise<AgentMemory[]>;
+
+export const retrieveMemories: RetrieveMemories = async (db, agentId, _query, limit, context, config) => {
+  const CANDIDATE_POOL = config?.candidatePool ?? DEFAULT_CANDIDATE_POOL;
+  const DECAY_RATE = config?.decayRate ?? DEFAULT_DECAY_RATE;
+  const REFLECTION_BOOST = config?.reflectionBoost ?? DEFAULT_REFLECTION_BOOST;
   // Build scope-aware filter: AGENT memories always, plus PROJECT/THREAD when context provided
   const scopeFilters: Prisma.AgentMemoryWhereInput[] = [{ agentId, scope: 'AGENT' }];
 

@@ -228,6 +228,7 @@ model AgentConfig {
   agent             Agent    @relation(fields: [agentId], references: [id])
   memoryEnabled     Boolean  @default(true)
   reflectionEnabled Boolean  @default(false) // Phase 4 — trigger wired, retrieval boost pending
+  bootstrapped      Boolean  @default(false)
   createdAt         DateTime @default(now())
   updatedAt         DateTime @updatedAt
 }

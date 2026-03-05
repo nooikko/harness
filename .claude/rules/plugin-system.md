@@ -161,7 +161,8 @@ Plugins can be disabled at runtime via `PluginConfig.enabled` in the database wi
 
 ### identity plugin
 **Hooks:** `onBeforeInvoke`, `onAfterInvoke`
-**Does:** Injects agent soul, identity, and memories into prompts (dual injection: header before message, anchor after). After invocation, scores response importance and writes `EPISODIC` AgentMemory records. Also triggers reflection cycle (fire-and-forget) when enough unreflected memories accumulate.
+**Tool:** `update_self`
+**Does:** Injects agent soul, identity, and memories into prompts (dual injection: header before message, anchor after). When `AgentConfig.bootstrapped === false`, also injects a bootstrap prompt that guides conversational identity discovery. After invocation, scores response importance and writes `EPISODIC` AgentMemory records. Also triggers reflection cycle (fire-and-forget) when enough unreflected memories accumulate. The `update_self` MCP tool lets the agent write its own name, soul, identity, role, goal, and backstory — and sets `bootstrapped: true`.
 **Key behavior:** No-op if thread has no assigned agent (`thread.agentId` null or agent not enabled).
 
 ### activity plugin
