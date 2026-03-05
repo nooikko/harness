@@ -113,6 +113,8 @@ export {
   useSidebar,
 } from './components/sidebar';
 export { Skeleton } from './components/skeleton';
+export { Switch } from './components/switch';
 export { Table, TableBody, TableCaption, TableCell, TableFooter, TableHead, TableHeader, TableRow } from './components/table';
+export { Tabs, TabsContent, TabsList, TabsTrigger } from './components/tabs';
 export { Textarea } from './components/textarea';
 export { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from './components/tooltip';
