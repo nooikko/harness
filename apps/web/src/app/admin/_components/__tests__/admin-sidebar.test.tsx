@@ -1,8 +1,11 @@
+import { SidebarProvider } from '@harness/ui';
 import { render, screen } from '@testing-library/react';
-import { describe, expect, it, vi } from 'vitest';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
+
+const mockPathname = vi.fn<() => string>();
 
 vi.mock('next/navigation', () => ({
-  usePathname: () => '/admin/cron-jobs',
+  usePathname: () => mockPathname(),
 }));
 
 vi.mock('next/link', () => ({
@@ -15,46 +18,59 @@ vi.mock('next/link', () => ({
 
 const { AdminSidebar } = await import('../admin-sidebar');
 
+const renderWithProvider = (ui: React.ReactElement) => render(<SidebarProvider>{ui}</SidebarProvider>);
+
 describe('AdminSidebar', () => {
-  it("renders a nav element with 'Admin navigation' aria-label", () => {
-    render(<AdminSidebar />);
-    expect(screen.getByRole('navigation', { name: 'Admin navigation' })).toBeInTheDocument();
+  beforeEach(() => {
+    mockPathname.mockReturnValue('/admin/cron-jobs');
   });
 
-  it("renders the 'Admin' heading", () => {
-    render(<AdminSidebar />);
-    expect(screen.getByRole('heading', { name: 'Admin' })).toBeInTheDocument();
+  it('renders a sidebar with the Admin group label', () => {
+    renderWithProvider(<AdminSidebar />);
+    expect(screen.getByText('Admin')).toBeInTheDocument();
   });
 
   it('renders the Cron Jobs link', () => {
-    render(<AdminSidebar />);
+    renderWithProvider(<AdminSidebar />);
     expect(screen.getByRole('link', { name: 'Cron Jobs' })).toHaveAttribute('href', '/admin/cron-jobs');
   });
 
   it('renders the Plugins link', () => {
-    render(<AdminSidebar />);
+    renderWithProvider(<AdminSidebar />);
     expect(screen.getByRole('link', { name: 'Plugins' })).toHaveAttribute('href', '/admin/plugins');
   });
 
   it('renders the Tasks link', () => {
-    render(<AdminSidebar />);
+    renderWithProvider(<AdminSidebar />);
     expect(screen.getByRole('link', { name: 'Tasks' })).toHaveAttribute('href', '/admin/tasks');
   });
 
   it('renders the Agent Runs link', () => {
-    render(<AdminSidebar />);
+    renderWithProvider(<AdminSidebar />);
     expect(screen.getByRole('link', { name: 'Agent Runs' })).toHaveAttribute('href', '/admin/agent-runs');
   });
 
   it('renders the Threads link', () => {
-    render(<AdminSidebar />);
+    renderWithProvider(<AdminSidebar />);
     expect(screen.getByRole('link', { name: 'Threads' })).toHaveAttribute('href', '/admin/threads');
   });
 
-  it('renders all 5 navigation links', () => {
-    render(<AdminSidebar />);
-    const nav = screen.getByRole('navigation', { name: 'Admin navigation' });
-    const links = nav.querySelectorAll('a');
-    expect(links).toHaveLength(5);
+  it('renders the Usage link', () => {
+    renderWithProvider(<AdminSidebar />);
+    expect(screen.getByRole('link', { name: 'Usage' })).toHaveAttribute('href', '/admin/usage');
+  });
+
+  it('renders all 6 navigation links', () => {
+    renderWithProvider(<AdminSidebar />);
+    const links = screen.getAllByRole('link');
+    expect(links).toHaveLength(6);
+  });
+
+  it('renders an SVG icon for each nav item', () => {
+    renderWithProvider(<AdminSidebar />);
+    const links = screen.getAllByRole('link');
+    for (const link of links) {
+      expect(link.querySelector('svg')).toBeInTheDocument();
+    }
   });
 });

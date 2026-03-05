@@ -1,25 +1,43 @@
 'use client';
 
-import { Separator } from '@harness/ui';
-import { Activity, Clock, MessageSquare, Plug, SquareCheck } from 'lucide-react';
-import { AdminNavLink } from './admin-nav-link';
+import { Sidebar, SidebarContent, SidebarGroup, SidebarGroupLabel, SidebarMenu, SidebarMenuButton, SidebarMenuItem } from '@harness/ui';
+import { BarChart3, Calendar, CheckSquare, MessageSquare, Play, Puzzle } from 'lucide-react';
+import Link from 'next/link';
+import { usePathname } from 'next/navigation';
+
+const NAV_ITEMS = [
+  { href: '/admin/cron-jobs', label: 'Cron Jobs', icon: Calendar },
+  { href: '/admin/plugins', label: 'Plugins', icon: Puzzle },
+  { href: '/admin/tasks', label: 'Tasks', icon: CheckSquare },
+  { href: '/admin/agent-runs', label: 'Agent Runs', icon: Play },
+  { href: '/admin/threads', label: 'Threads', icon: MessageSquare },
+  { href: '/admin/usage', label: 'Usage', icon: BarChart3 },
+];
 
 type AdminSidebarComponent = () => React.ReactNode;
 
 export const AdminSidebar: AdminSidebarComponent = () => {
+  const pathname = usePathname();
+
   return (
-    <aside className='flex h-full w-60 shrink-0 flex-col border-r border-border bg-muted/30'>
-      <div className='px-4 py-3'>
-        <h2 className='text-sm font-semibold text-foreground'>Admin</h2>
-      </div>
-      <Separator />
-      <nav className='flex flex-col gap-1 p-3' aria-label='Admin navigation'>
-        <AdminNavLink href='/admin/cron-jobs' icon={Clock} label='Cron Jobs' />
-        <AdminNavLink href='/admin/plugins' icon={Plug} label='Plugins' />
-        <AdminNavLink href='/admin/tasks' icon={SquareCheck} label='Tasks' />
-        <AdminNavLink href='/admin/agent-runs' icon={Activity} label='Agent Runs' />
-        <AdminNavLink href='/admin/threads' icon={MessageSquare} label='Threads' />
-      </nav>
-    </aside>
+    <Sidebar className='w-64 border-r border-border'>
+      <SidebarContent>
+        <SidebarGroup>
+          <SidebarGroupLabel>Admin</SidebarGroupLabel>
+          <SidebarMenu>
+            {NAV_ITEMS.map(({ href, label, icon: Icon }) => (
+              <SidebarMenuItem key={href}>
+                <SidebarMenuButton asChild isActive={pathname.startsWith(href)} className='gap-2'>
+                  <Link href={href}>
+                    <Icon className='h-4 w-4' />
+                    <span>{label}</span>
+                  </Link>
+                </SidebarMenuButton>
+              </SidebarMenuItem>
+            ))}
+          </SidebarMenu>
+        </SidebarGroup>
+      </SidebarContent>
+    </Sidebar>
   );
 };

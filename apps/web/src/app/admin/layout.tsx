@@ -1,3 +1,4 @@
+import { SidebarInset, SidebarProvider } from '@harness/ui';
 import type { Metadata } from 'next';
 import { AdminSidebar } from './_components/admin-sidebar';
 
@@ -14,10 +15,12 @@ type AdminLayoutComponent = (props: AdminLayoutProps) => React.ReactNode;
 
 const AdminLayout: AdminLayoutComponent = ({ children }) => {
   return (
-    <div className='flex h-full flex-1'>
+    <SidebarProvider>
       <AdminSidebar />
-      <main className='flex-1 overflow-auto'>{children}</main>
-    </div>
+      <SidebarInset>
+        <main className='flex flex-1 flex-col overflow-y-auto'>{children}</main>
+      </SidebarInset>
+    </SidebarProvider>
   );
 };
 
