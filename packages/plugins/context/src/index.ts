@@ -11,10 +11,11 @@ import { formatContextSection } from './_helpers/format-context-section';
 import { formatHistorySection } from './_helpers/format-history-section';
 import { formatSummarySection } from './_helpers/format-summary-section';
 import { loadHistory } from './_helpers/history-loader';
+import { settingsSchema } from './_helpers/settings-schema';
 
-const HISTORY_LIMIT_WITH_SUMMARY = 25;
-const HISTORY_LIMIT_DEFAULT = 50;
-const SUMMARY_LOOKBACK = 2;
+const DEFAULT_HISTORY_LIMIT_WITH_SUMMARY = 25;
+const DEFAULT_HISTORY_LIMIT = 50;
+const DEFAULT_SUMMARY_LOOKBACK = 2;
 
 export type ContextPluginOptions = {
   contextDir?: string;
@@ -48,9 +49,19 @@ const createRegister: CreateRegister = (options) => {
       cache,
     };
 
+    let settings = await ctx.getSettings(settingsSchema);
+
     ctx.logger.info('Context plugin registered', { contextDir });
 
     return {
+      onSettingsChange: async (pluginName: string) => {
+        if (pluginName !== 'context') {
+          return;
+        }
+        settings = await ctx.getSettings(settingsSchema);
+        ctx.logger.info('Context plugin: settings reloaded');
+      },
+
       onBeforeInvoke: async (threadId, prompt) => {
         // Read context files from disk using dynamic discovery
         const contextResult = readContextFiles(contextDir, readerOptions);
@@ -94,6 +105,10 @@ const createRegister: CreateRegister = (options) => {
         let summarySection = '';
         let historySection = '';
 
+        const summaryLookback = settings.summaryLookback ?? DEFAULT_SUMMARY_LOOKBACK;
+        const histLimitWithSummary = settings.historyLimitWithSummary ?? DEFAULT_HISTORY_LIMIT_WITH_SUMMARY;
+        const histLimitDefault = settings.historyLimit ?? DEFAULT_HISTORY_LIMIT;
+
         if (thread?.sessionId) {
           ctx.logger.info(`Skipping history injection for resumed session [thread=${threadId}]`);
         } else if (dbAvailable) {
@@ -101,12 +116,12 @@ const createRegister: CreateRegister = (options) => {
           const summaries = await ctx.db.message.findMany({
             where: { threadId, kind: 'summary' },
             orderBy: { createdAt: 'desc' },
-            take: SUMMARY_LOOKBACK,
+            take: summaryLookback,
             select: { content: true, createdAt: true },
           });
 
           const hasSummaries = summaries.length > 0;
-          const rawLimit = historyLimit ?? (hasSummaries ? HISTORY_LIMIT_WITH_SUMMARY : HISTORY_LIMIT_DEFAULT);
+          const rawLimit = historyLimit ?? (hasSummaries ? histLimitWithSummary : histLimitDefault);
 
           if (hasSummaries) {
             // Inject summaries oldest-first so Claude reads them in chronological order
@@ -134,6 +149,7 @@ export const register: PluginDefinition['register'] = createRegister();
 export const plugin: PluginDefinition = {
   name,
   version,
+  settingsSchema,
   register,
 };
 
@@ -142,5 +158,6 @@ type CreateContextPlugin = (options?: ContextPluginOptions) => PluginDefinition;
 export const createContextPlugin: CreateContextPlugin = (options) => ({
   name,
   version,
+  settingsSchema,
   register: createRegister(options),
 });

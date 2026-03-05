@@ -12,10 +12,8 @@ import { queryDelegationCost } from './query-delegation-cost';
 import { sendThreadNotification } from './send-thread-notification';
 import { type DelegationOptions, setupDelegationTask } from './setup-delegation-task';
 
-// Maximum USD spend allowed for a single delegation chain.
-// Stops the loop before runaway Opus usage drains the budget.
-// Override with DELEGATION_COST_CAP_USD env var.
-const DELEGATION_COST_CAP_USD = Number(process.env.DELEGATION_COST_CAP_USD ?? '5');
+// Default cost cap — can be overridden via plugin settings or costCapUsd env var.
+const DEFAULT_COST_CAP_USD = Number(process.env.costCapUsd ?? '5');
 
 export type DelegationResult = {
   taskId: string;
@@ -31,6 +29,7 @@ type RunDelegationLoop = (ctx: PluginContext, allHooks: PluginHooks[], options: 
 
 export const runDelegationLoop: RunDelegationLoop = async (ctx, allHooks, options) => {
   const maxIterations = options.maxIterations ?? DEFAULT_MAX_ITERATIONS;
+  const costCapUsd = options.costCapUsd ?? DEFAULT_COST_CAP_USD;
 
   const { threadId, taskId } = await setupDelegationTask(ctx, allHooks, options);
 
@@ -103,13 +102,13 @@ export const runDelegationLoop: RunDelegationLoop = async (ctx, allHooks, option
 
       // Cost cap check before retrying
       const spentAfterFailure = await queryDelegationCost(ctx.db, taskId);
-      if (spentAfterFailure >= DELEGATION_COST_CAP_USD) {
+      if (spentAfterFailure >= costCapUsd) {
         ctx.logger.warn(`Delegation: cost cap hit for task ${taskId}`, {
           spent: spentAfterFailure,
-          cap: DELEGATION_COST_CAP_USD,
+          cap: costCapUsd,
         });
-        await ctx.broadcast('task:cost-cap', { taskId, threadId, spent: spentAfterFailure, cap: DELEGATION_COST_CAP_USD });
-        feedback = `Task stopped: exceeded cost budget of $${DELEGATION_COST_CAP_USD.toFixed(2)} (spent $${spentAfterFailure.toFixed(2)})`;
+        await ctx.broadcast('task:cost-cap', { taskId, threadId, spent: spentAfterFailure, cap: costCapUsd });
+        feedback = `Task stopped: exceeded cost budget of $${costCapUsd.toFixed(2)} (spent $${spentAfterFailure.toFixed(2)})`;
         break;
       }
 
@@ -197,13 +196,13 @@ export const runDelegationLoop: RunDelegationLoop = async (ctx, allHooks, option
 
     // Cost cap check before next iteration
     const spentAfterRejection = await queryDelegationCost(ctx.db, taskId);
-    if (spentAfterRejection >= DELEGATION_COST_CAP_USD) {
+    if (spentAfterRejection >= costCapUsd) {
       ctx.logger.warn(`Delegation: cost cap hit for task ${taskId}`, {
         spent: spentAfterRejection,
-        cap: DELEGATION_COST_CAP_USD,
+        cap: costCapUsd,
       });
-      await ctx.broadcast('task:cost-cap', { taskId, threadId, spent: spentAfterRejection, cap: DELEGATION_COST_CAP_USD });
-      feedback = `Task stopped: exceeded cost budget of $${DELEGATION_COST_CAP_USD.toFixed(2)} (spent $${spentAfterRejection.toFixed(2)})`;
+      await ctx.broadcast('task:cost-cap', { taskId, threadId, spent: spentAfterRejection, cap: costCapUsd });
+      feedback = `Task stopped: exceeded cost budget of $${costCapUsd.toFixed(2)} (spent $${spentAfterRejection.toFixed(2)})`;
       break;
     }
   }

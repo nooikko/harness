@@ -3,6 +3,10 @@
 
 import type { PluginContext, PluginDefinition, PluginHooks } from '@harness/plugin-contract';
 import { buildExtractionPrompt } from './_helpers/build-extraction-prompt';
+import { settingsSchema } from './_helpers/settings-schema';
+
+const DEFAULT_MESSAGE_LIMIT = 200;
+const DEFAULT_DUPLICATE_GUARD_SECONDS = 60;
 
 type DeleteThreadSafely = (ctx: PluginContext, threadId: string) => Promise<void>;
 
@@ -15,9 +19,9 @@ const deleteThreadSafely: DeleteThreadSafely = async (ctx, threadId) => {
   await ctx.db.thread.delete({ where: { id: threadId } });
 };
 
-type RunAuditInBackground = (ctx: PluginContext, threadId: string) => Promise<void>;
+type RunAuditInBackground = (ctx: PluginContext, threadId: string, messageLimit: number) => Promise<void>;
 
-const runAuditInBackground: RunAuditInBackground = async (ctx, threadId) => {
+const runAuditInBackground: RunAuditInBackground = async (ctx, threadId, messageLimit) => {
   try {
     // Load thread metadata
     const thread = await ctx.db.thread.findUnique({
@@ -25,11 +29,11 @@ const runAuditInBackground: RunAuditInBackground = async (ctx, threadId) => {
       select: { name: true, source: true, kind: true },
     });
 
-    // Load text messages (cap at 200 for token limits)
+    // Load text messages (capped at messageLimit for token limits)
     const messages = await ctx.db.message.findMany({
       where: { threadId, kind: 'text', role: { in: ['user', 'assistant'] } },
       orderBy: { createdAt: 'asc' },
-      take: 200,
+      take: messageLimit,
       select: { role: true, content: true },
     });
 
@@ -63,28 +67,42 @@ const runAuditInBackground: RunAuditInBackground = async (ctx, threadId) => {
 export const plugin: PluginDefinition = {
   name: 'audit',
   version: '1.0.0',
+  settingsSchema,
   register: async (ctx: PluginContext): Promise<PluginHooks> => {
     ctx.logger.info('Audit plugin registered');
 
+    let settings = await ctx.getSettings(settingsSchema);
+
     return {
+      onSettingsChange: async (pluginName: string) => {
+        if (pluginName !== 'audit') {
+          return;
+        }
+        settings = await ctx.getSettings(settingsSchema);
+        ctx.logger.info('Audit plugin: settings reloaded');
+      },
+
       onBroadcast: async (event, data) => {
         if (event !== 'audit:requested') {
           return;
         }
         const { threadId } = data as { threadId: string };
 
-        // Duplicate guard: skip if an audit was already created in last 60 seconds
+        const duplicateGuardMs = (settings.duplicateGuardSeconds ?? DEFAULT_DUPLICATE_GUARD_SECONDS) * 1000;
+
+        // Duplicate guard: skip if an audit was already created within the guard window
         const recent = await ctx.db.threadAudit.findFirst({
           where: {
             threadId,
-            extractedAt: { gte: new Date(Date.now() - 60_000) },
+            extractedAt: { gte: new Date(Date.now() - duplicateGuardMs) },
           },
         });
         if (recent) {
           return;
         }
 
-        void runAuditInBackground(ctx, threadId);
+        const messageLimit = settings.messageLimit ?? DEFAULT_MESSAGE_LIMIT;
+        void runAuditInBackground(ctx, threadId, messageLimit);
       },
     };
   },

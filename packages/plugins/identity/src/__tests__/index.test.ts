@@ -22,6 +22,7 @@ type MockAgentConfig = {
   agentId: string;
   memoryEnabled: boolean;
   reflectionEnabled: boolean;
+  bootstrapped: boolean;
   createdAt: Date;
   updatedAt: Date;
 };
@@ -346,6 +347,7 @@ describe('identity plugin', () => {
         agentId: 'agent-1',
         memoryEnabled: false,
         reflectionEnabled: false,
+        bootstrapped: true,
         createdAt: new Date('2026-01-01T00:00:00Z'),
         updatedAt: new Date('2026-01-01T00:00:00Z'),
       };
@@ -363,6 +365,65 @@ describe('identity plugin', () => {
       expect(mockInvoker).not.toHaveBeenCalled();
       const mockCreate = (ctx.db as never as { agentMemory: { create: ReturnType<typeof vi.fn> } }).agentMemory.create;
       expect(mockCreate).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('bootstrap prompt injection', () => {
+    it('includes bootstrap text when config.bootstrapped is false', async () => {
+      const config: MockAgentConfig = {
+        id: 'cfg-1',
+        agentId: 'agent-1',
+        memoryEnabled: true,
+        reflectionEnabled: false,
+        bootstrapped: false,
+        createdAt: new Date('2026-01-01T00:00:00Z'),
+        updatedAt: new Date('2026-01-01T00:00:00Z'),
+      };
+
+      const ctx = createMockContext({ agentConfig: config });
+      const hooks = await plugin.register(ctx);
+
+      const result = await hooks.onBeforeInvoke?.('thread-1', 'Hello');
+
+      expect(result).toContain('Bootstrap');
+      expect(result).toContain('First-Time Setup');
+    });
+
+    it('does not include bootstrap text when config.bootstrapped is true', async () => {
+      const config: MockAgentConfig = {
+        id: 'cfg-1',
+        agentId: 'agent-1',
+        memoryEnabled: true,
+        reflectionEnabled: false,
+        bootstrapped: true,
+        createdAt: new Date('2026-01-01T00:00:00Z'),
+        updatedAt: new Date('2026-01-01T00:00:00Z'),
+      };
+
+      const ctx = createMockContext({ agentConfig: config });
+      const hooks = await plugin.register(ctx);
+
+      const result = await hooks.onBeforeInvoke?.('thread-1', 'Hello');
+
+      expect(result).not.toContain('Bootstrap');
+      expect(result).not.toContain('First-Time Setup');
+    });
+
+    it('does not include bootstrap text when config is null', async () => {
+      const ctx = createMockContext({ agentConfig: null });
+      const hooks = await plugin.register(ctx);
+
+      const result = await hooks.onBeforeInvoke?.('thread-1', 'Hello');
+
+      expect(result).not.toContain('Bootstrap');
+      expect(result).not.toContain('First-Time Setup');
+    });
+  });
+
+  describe('tools', () => {
+    it('exposes an update_self tool', () => {
+      expect(plugin.tools).toHaveLength(1);
+      expect(plugin.tools?.[0]?.name).toBe('update_self');
     });
   });
 });

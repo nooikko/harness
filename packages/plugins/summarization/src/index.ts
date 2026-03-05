@@ -1,26 +1,33 @@
 // Summarization plugin — periodically summarizes thread history to prevent token overflow
 
-import type { PluginContext, PluginDefinition } from '@harness/plugin-contract';
+import type { PluginContext, PluginDefinition, PluginHooks } from '@harness/plugin-contract';
 import { countThreadMessages } from './_helpers/count-thread-messages';
 import { generateSummary } from './_helpers/generate-summary';
+import { settingsSchema } from './_helpers/settings-schema';
 
-const SUMMARY_TRIGGER_COUNT = 50;
-const DUPLICATE_GUARD_MS = 60_000;
+const DEFAULT_TRIGGER_COUNT = 50;
+const DEFAULT_DUPLICATE_GUARD_SECONDS = 60;
 
-type SummarizeInBackground = (ctx: PluginContext, threadId: string, messageCount: number) => Promise<void>;
+type SummarizeInBackground = (
+  ctx: PluginContext,
+  threadId: string,
+  messageCount: number,
+  duplicateGuardMs: number,
+  customPrompt?: string,
+) => Promise<void>;
 
-const summarizeInBackground: SummarizeInBackground = async (ctx, threadId, messageCount) => {
+const summarizeInBackground: SummarizeInBackground = async (ctx, threadId, messageCount, duplicateGuardMs, customPrompt) => {
   try {
-    // Duplicate guard: skip if a summary was created within the last 60s
+    // Duplicate guard: skip if a summary was created within the guard window
     const recentSummary = await ctx.db.message.findFirst({
       where: { threadId, kind: 'summary' },
       orderBy: { createdAt: 'desc' },
     });
-    if (recentSummary && Date.now() - recentSummary.createdAt.getTime() < DUPLICATE_GUARD_MS) {
+    if (recentSummary && Date.now() - recentSummary.createdAt.getTime() < duplicateGuardMs) {
       return;
     }
 
-    const summaryContent = await generateSummary(ctx, threadId, messageCount);
+    const summaryContent = await generateSummary(ctx, threadId, messageCount, customPrompt);
 
     await ctx.db.message.create({
       data: {
@@ -45,17 +52,33 @@ const summarizeInBackground: SummarizeInBackground = async (ctx, threadId, messa
 export const plugin: PluginDefinition = {
   name: 'summarization',
   version: '1.0.0',
+  settingsSchema,
   register: async (ctx) => {
     ctx.logger.info('Summarization plugin registered');
 
-    return {
+    let settings = await ctx.getSettings(settingsSchema);
+
+    const hooks: PluginHooks = {
+      onSettingsChange: async (pluginName: string) => {
+        if (pluginName !== 'summarization') {
+          return;
+        }
+        settings = await ctx.getSettings(settingsSchema);
+        ctx.logger.info('Summarization plugin: settings reloaded');
+      },
+
       onAfterInvoke: async (threadId) => {
+        const triggerCount = settings.triggerCount ?? DEFAULT_TRIGGER_COUNT;
+        const duplicateGuardMs = (settings.duplicateGuardSeconds ?? DEFAULT_DUPLICATE_GUARD_SECONDS) * 1000;
+
         const count = await countThreadMessages(ctx.db, threadId);
-        if (count > 0 && count % SUMMARY_TRIGGER_COUNT === 0) {
+        if (count > 0 && count % triggerCount === 0) {
           // Fire-and-forget — do NOT await
-          void summarizeInBackground(ctx, threadId, count);
+          void summarizeInBackground(ctx, threadId, count, duplicateGuardMs, settings.customPrompt);
         }
       },
     };
+
+    return hooks;
   },
 };

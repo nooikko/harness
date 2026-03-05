@@ -12,9 +12,14 @@ export type CronServer = {
   stop: () => Promise<void>;
 };
 
-type CreateCronServer = () => CronServer;
+export type CronServerOptions = {
+  timezone?: string;
+};
 
-export const createCronServer: CreateCronServer = () => {
+type CreateCronServer = (options?: CronServerOptions) => CronServer;
+
+export const createCronServer: CreateCronServer = (options) => {
+  const timezone = options?.timezone || 'UTC';
   const scheduledJobs: Cron[] = [];
   const oneShotTimers: Map<string, ReturnType<typeof setTimeout>> = new Map();
 
@@ -60,7 +65,7 @@ export const createCronServer: CreateCronServer = () => {
       const schedule = job.schedule as string;
 
       try {
-        const cronJob = new Cron(schedule, { timezone: 'UTC' }, async () => {
+        const cronJob = new Cron(schedule, { timezone }, async () => {
           let threadId: string;
           try {
             threadId = await resolveOrCreateThread(ctx.db, job);

@@ -5,6 +5,7 @@
 import type { PluginContext, PluginDefinition, PluginHooks, PluginTool } from '@harness/plugin-contract';
 import { type DelegationResult, runDelegationLoop } from './_helpers/delegation-loop';
 import { handleCheckin } from './_helpers/handle-checkin';
+import { settingsSchema } from './_helpers/settings-schema';
 import type { DelegationOptions } from './_helpers/setup-delegation-task';
 
 export type { DelegationOptions, DelegationResult };
@@ -15,6 +16,8 @@ const createRegister: CreateRegister = () => {
   const register = async (ctx: PluginContext): Promise<PluginHooks> => {
     ctx.logger.info('Delegation plugin registered');
 
+    let settings = await ctx.getSettings(settingsSchema);
+
     // Store setHooks on the plugin state so the orchestrator can call it after all plugins
     // register — the tool handler uses state.currentHooks to pass allHooks to runDelegationLoop.
     type SetHooks = (hooks: PluginHooks[]) => void;
@@ -22,8 +25,17 @@ const createRegister: CreateRegister = () => {
       state.currentHooks = hooks;
     };
     state.setHooks = setHooks;
+    state.getSettings = () => settings;
 
-    return {};
+    return {
+      onSettingsChange: async (pluginName: string) => {
+        if (pluginName !== 'delegation') {
+          return;
+        }
+        settings = await ctx.getSettings(settingsSchema);
+        ctx.logger.info('Delegation plugin: settings reloaded');
+      },
+    };
   };
 
   return register;
@@ -32,11 +44,13 @@ const createRegister: CreateRegister = () => {
 export type DelegationPluginState = {
   setHooks: ((hooks: PluginHooks[]) => void) | null;
   currentHooks: PluginHooks[] | null;
+  getSettings: (() => { maxIterations?: number; costCapUsd?: number }) | null;
 };
 
 const state: DelegationPluginState = {
   setHooks: null,
   currentHooks: null,
+  getSettings: null,
 };
 
 export { state };
@@ -70,11 +84,14 @@ const delegateTools: PluginTool[] = [
         return 'Error: prompt is required for delegation.';
       }
 
+      const pluginSettings = state.getSettings?.() ?? {};
+
       runDelegationLoop(ctx, state.currentHooks ?? [], {
         prompt,
         parentThreadId: meta.threadId,
         model: input.model as string | undefined,
-        maxIterations: input.maxIterations as number | undefined,
+        maxIterations: (input.maxIterations as number | undefined) ?? pluginSettings.maxIterations,
+        costCapUsd: pluginSettings.costCapUsd,
         traceId: meta.traceId,
       }).catch((err) => {
         ctx.logger.error(`Delegation tool failed: ${err instanceof Error ? err.message : String(err)}`);
@@ -110,6 +127,7 @@ const delegateTools: PluginTool[] = [
 export const plugin: PluginDefinition = {
   name: 'delegation',
   version: '1.0.0',
+  settingsSchema,
   register: createRegister(),
   tools: delegateTools,
 };
@@ -119,6 +137,7 @@ type CreateDelegationPlugin = () => PluginDefinition;
 export const createDelegationPlugin: CreateDelegationPlugin = () => ({
   name: 'delegation',
   version: '1.0.0',
+  settingsSchema,
   register: createRegister(),
   tools: delegateTools,
 });

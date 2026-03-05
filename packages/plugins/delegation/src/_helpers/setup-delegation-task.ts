@@ -8,6 +8,7 @@ export type DelegationOptions = {
   prompt: string;
   parentThreadId: string;
   maxIterations?: number;
+  costCapUsd?: number;
   model?: string;
   traceId?: string;
 };

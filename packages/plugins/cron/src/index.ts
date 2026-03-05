@@ -4,6 +4,7 @@
 import type { PluginContext, PluginDefinition, PluginHooks } from '@harness/plugin-contract';
 import { createCronServer } from './_helpers/cron-server';
 import { handleScheduleTask } from './_helpers/handle-schedule-task';
+import { settingsSchema } from './_helpers/settings-schema';
 
 type StopFn = () => Promise<void>;
 
@@ -13,7 +14,9 @@ let stopServer: StopFn | null = null;
 type StartCronPlugin = NonNullable<PluginDefinition['start']>;
 
 const start: StartCronPlugin = async (ctx: PluginContext): Promise<void> => {
-  const server = createCronServer();
+  const settings = await ctx.getSettings(settingsSchema);
+  const timezone = settings.timezone || 'UTC';
+  const server = createCronServer({ timezone });
   stopServer = server.stop;
   await server.start(ctx);
 };
@@ -30,6 +33,7 @@ const stop: StopCronPlugin = async (_ctx: PluginContext): Promise<void> => {
 export const plugin: PluginDefinition = {
   name: 'cron',
   version: '1.0.0',
+  settingsSchema,
   register: async (ctx) => {
     ctx.logger.info('Cron plugin registered');
 

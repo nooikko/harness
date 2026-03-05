@@ -19,6 +19,89 @@ export type PluginSettingsEntry = {
 
 export const pluginSettingsRegistry: PluginSettingsEntry[] = [
   {
+    "pluginName": "validator",
+    "fields": [
+      {
+        "name": "customRubric",
+        "type": "string",
+        "label": "Custom Validation Rubric",
+        "description": "Override the default validation rubric prompt used to evaluate delegated task outputs. Leave empty for the default rubric."
+      }
+    ]
+  },
+  {
+    "pluginName": "summarization",
+    "fields": [
+      {
+        "name": "triggerCount",
+        "type": "number",
+        "label": "Trigger Count",
+        "description": "Number of messages between automatic summarizations. Lower values summarize more frequently.",
+        "default": 50
+      },
+      {
+        "name": "duplicateGuardSeconds",
+        "type": "number",
+        "label": "Duplicate Guard (seconds)",
+        "description": "Minimum seconds between summaries to prevent double-summarization.",
+        "default": 60
+      },
+      {
+        "name": "customPrompt",
+        "type": "string",
+        "label": "Custom Summarization Prompt",
+        "description": "Override the default summarization prompt. The conversation history will be appended after this text."
+      }
+    ]
+  },
+  {
+    "pluginName": "identity",
+    "fields": [
+      {
+        "name": "importanceThreshold",
+        "type": "number",
+        "label": "Importance Threshold",
+        "description": "Minimum importance score (1-10) for a memory to be saved. Lower values store more memories.",
+        "default": 6
+      },
+      {
+        "name": "memoryLimit",
+        "type": "number",
+        "label": "Memory Limit",
+        "description": "Maximum number of memories injected into each prompt. Higher values use more context window.",
+        "default": 10
+      },
+      {
+        "name": "candidatePool",
+        "type": "number",
+        "label": "Candidate Pool",
+        "description": "Number of recent memories scored before selecting the top N. Larger pools find better matches but cost more.",
+        "default": 100
+      },
+      {
+        "name": "decayRate",
+        "type": "number",
+        "label": "Decay Rate",
+        "description": "Hourly recency decay factor (0-1). Values closer to 1 keep old memories relevant longer. Default 0.995 = ~50% decay over 6 days.",
+        "default": 0.995
+      },
+      {
+        "name": "reflectionThreshold",
+        "type": "number",
+        "label": "Reflection Threshold",
+        "description": "Number of unreflected episodic memories before a reflection cycle triggers.",
+        "default": 10
+      },
+      {
+        "name": "reflectionBoost",
+        "type": "number",
+        "label": "Reflection Boost",
+        "description": "Extra score added to REFLECTION-type memories during retrieval. Higher values prioritize reflections over episodic memories.",
+        "default": 0.3
+      }
+    ]
+  },
+  {
     "pluginName": "discord",
     "fields": [
       {
@@ -28,6 +111,100 @@ export const pluginSettingsRegistry: PluginSettingsEntry[] = [
         "description": "Discord bot token from the Developer Portal. Stored encrypted at rest.",
         "secret": true,
         "required": true
+      }
+    ]
+  },
+  {
+    "pluginName": "delegation",
+    "fields": [
+      {
+        "name": "maxIterations",
+        "type": "number",
+        "label": "Max Iterations",
+        "description": "Maximum number of invoke-validate cycles per delegation before accepting the result.",
+        "default": 5
+      },
+      {
+        "name": "costCapUsd",
+        "type": "number",
+        "label": "Cost Cap (USD)",
+        "description": "Maximum cost in USD for a single delegation. The loop aborts if this limit is exceeded.",
+        "default": 5
+      }
+    ]
+  },
+  {
+    "pluginName": "cron",
+    "fields": [
+      {
+        "name": "timezone",
+        "type": "string",
+        "label": "Timezone",
+        "description": "IANA timezone for cron schedule evaluation (e.g. America/Phoenix, UTC). Defaults to UTC.",
+        "default": "UTC"
+      }
+    ]
+  },
+  {
+    "pluginName": "context",
+    "fields": [
+      {
+        "name": "historyLimit",
+        "type": "number",
+        "label": "History Limit",
+        "description": "Maximum messages loaded into context when no summaries exist.",
+        "default": 50
+      },
+      {
+        "name": "historyLimitWithSummary",
+        "type": "number",
+        "label": "History Limit (with summary)",
+        "description": "Maximum messages loaded when summaries are available. Lower than the default to save context window for the summary.",
+        "default": 25
+      },
+      {
+        "name": "summaryLookback",
+        "type": "number",
+        "label": "Summary Lookback",
+        "description": "Maximum number of prior summaries injected into the prompt.",
+        "default": 2
+      },
+      {
+        "name": "maxFileSizeKb",
+        "type": "number",
+        "label": "Max File Size (KB)",
+        "description": "Maximum size in KB for individual context files before truncation.",
+        "default": 50
+      }
+    ]
+  },
+  {
+    "pluginName": "auto-namer",
+    "fields": [
+      {
+        "name": "customPrompt",
+        "type": "string",
+        "label": "Custom Naming Prompt",
+        "description": "Override the default thread naming prompt. The user message will be appended. Leave empty for the default prompt."
+      }
+    ]
+  },
+  {
+    "pluginName": "audit",
+    "fields": [
+      {
+        "name": "messageLimit",
+        "type": "number",
+        "label": "Message Extraction Limit",
+        "description": "Maximum number of messages extracted during an audit. Higher values capture more history but use more tokens.",
+        "default": 200
+      },
+      {
+        "name": "duplicateGuardSeconds",
+        "type": "number",
+        "label": "Duplicate Guard (seconds)",
+        "description": "Minimum seconds between audit extractions for the same thread.",
+        "default": 60
       }
     ]
   }

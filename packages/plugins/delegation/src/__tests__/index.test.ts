@@ -64,11 +64,30 @@ describe('delegation plugin', () => {
     expect(plugin.version).toBe('1.0.0');
   });
 
-  it('registers and returns empty hooks (no text command routing needed — tools handle delegation)', async () => {
+  it('registers and returns hooks with onSettingsChange', async () => {
     const ctx = createMockContext();
     const hooks = await plugin.register(ctx);
 
-    expect(hooks).toEqual({});
+    expect(hooks).toEqual({ onSettingsChange: expect.any(Function) });
+  });
+
+  it('reloads settings when onSettingsChange fires for delegation', async () => {
+    const ctx = createMockContext();
+    const hooks = await plugin.register(ctx);
+
+    await hooks.onSettingsChange!('delegation');
+
+    expect(ctx.getSettings).toHaveBeenCalledTimes(2);
+    expect(ctx.logger.info).toHaveBeenCalledWith('Delegation plugin: settings reloaded');
+  });
+
+  it('ignores onSettingsChange for other plugins', async () => {
+    const ctx = createMockContext();
+    const hooks = await plugin.register(ctx);
+
+    await hooks.onSettingsChange!('identity');
+
+    expect(ctx.getSettings).toHaveBeenCalledTimes(1);
   });
 
   it('logs registration message', async () => {

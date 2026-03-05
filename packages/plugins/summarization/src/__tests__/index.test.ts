@@ -25,7 +25,7 @@ const createMockContext: CreateMockContext = () =>
     logger: { info: vi.fn(), warn: vi.fn(), error: vi.fn(), debug: vi.fn() },
     sendToThread: vi.fn(),
     broadcast: vi.fn(),
-    getSettings: vi.fn(),
+    getSettings: vi.fn().mockResolvedValue({}),
     notifySettingsChange: vi.fn(),
   }) as never;
 

@@ -3,12 +3,13 @@
 
 import type { PluginContext, PluginDefinition, PluginHooks } from '@harness/plugin-contract';
 import { generateThreadName } from './_helpers/generate-thread-name';
+import { settingsSchema } from './_helpers/settings-schema';
 
-type GenerateNameInBackground = (ctx: PluginContext, threadId: string, content: string) => Promise<void>;
+type GenerateNameInBackground = (ctx: PluginContext, threadId: string, content: string, customPrompt?: string) => Promise<void>;
 
-const generateNameInBackground: GenerateNameInBackground = async (ctx, threadId, content) => {
+const generateNameInBackground: GenerateNameInBackground = async (ctx, threadId, content, customPrompt) => {
   try {
-    const name = await generateThreadName(ctx, content);
+    const name = await generateThreadName(ctx, content, customPrompt);
     if (!name) {
       return;
     }
@@ -22,10 +23,21 @@ const generateNameInBackground: GenerateNameInBackground = async (ctx, threadId,
 export const plugin: PluginDefinition = {
   name: 'auto-namer',
   version: '1.0.0',
+  settingsSchema,
   register: async (ctx: PluginContext): Promise<PluginHooks> => {
     ctx.logger.info('Auto-namer plugin registered');
 
+    let settings = await ctx.getSettings(settingsSchema);
+
     return {
+      onSettingsChange: async (pluginName: string) => {
+        if (pluginName !== 'auto-namer') {
+          return;
+        }
+        settings = await ctx.getSettings(settingsSchema);
+        ctx.logger.info('Auto-namer plugin: settings reloaded');
+      },
+
       onMessage: async (threadId, role, content) => {
         // Only process user messages
         if (role !== 'user') {
@@ -50,7 +62,7 @@ export const plugin: PluginDefinition = {
         }
 
         // Fire and forget — runs in parallel with main pipeline
-        void generateNameInBackground(ctx, threadId, content);
+        void generateNameInBackground(ctx, threadId, content, settings.customPrompt);
       },
     };
   },

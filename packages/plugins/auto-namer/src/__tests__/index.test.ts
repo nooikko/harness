@@ -15,6 +15,8 @@ const makeMockCtx = () => ({
   logger: { info: vi.fn(), warn: vi.fn(), error: vi.fn(), debug: vi.fn() },
   config: {},
   sendToThread: vi.fn(),
+  getSettings: vi.fn().mockResolvedValue({}),
+  notifySettingsChange: vi.fn(),
   invoker: {
     invoke: vi.fn().mockResolvedValue({ output: 'Generated Name' }),
   },

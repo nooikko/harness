@@ -3,6 +3,7 @@
 import type { PluginContext, PluginDefinition, PluginHooks } from '@harness/plugin-contract';
 import { buildRubricPrompt } from './_helpers/build-rubric-prompt';
 import { parseVerdict } from './_helpers/parse-verdict';
+import { settingsSchema } from './_helpers/settings-schema';
 
 type CreateRegister = () => PluginDefinition['register'];
 
@@ -10,7 +11,17 @@ const createRegister: CreateRegister = () => {
   const register = async (ctx: PluginContext): Promise<PluginHooks> => {
     ctx.logger.info('Validator plugin registered');
 
+    let settings = await ctx.getSettings(settingsSchema);
+
     return {
+      onSettingsChange: async (pluginName: string) => {
+        if (pluginName !== 'validator') {
+          return;
+        }
+        settings = await ctx.getSettings(settingsSchema);
+        ctx.logger.info('Validator plugin: settings reloaded');
+      },
+
       onTaskComplete: async (threadId, taskId, result) => {
         const task = await ctx.db.orchestratorTask.findUnique({
           where: { id: taskId },
@@ -27,6 +38,7 @@ const createRegister: CreateRegister = () => {
           result,
           iteration: task.currentIteration,
           maxIterations: task.maxIterations,
+          customRubric: settings.customRubric,
         });
 
         const invokeResult = await ctx.invoker.invoke(rubricPrompt, {
@@ -58,5 +70,6 @@ const createRegister: CreateRegister = () => {
 export const plugin: PluginDefinition = {
   name: 'validator',
   version: '1.0.0',
+  settingsSchema,
   register: createRegister(),
 };

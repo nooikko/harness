@@ -23,6 +23,8 @@ const makeMockCtx = () => ({
   logger: { info: vi.fn(), warn: vi.fn(), error: vi.fn(), debug: vi.fn() },
   config: {},
   sendToThread: vi.fn(),
+  getSettings: vi.fn().mockResolvedValue({}),
+  notifySettingsChange: vi.fn(),
 });
 
 describe('audit plugin', () => {
@@ -96,6 +98,27 @@ describe('audit plugin', () => {
       }),
     );
     expect(ctx.db.thread.delete).toHaveBeenCalledWith({ where: { id: 't-2' } });
+  });
+
+  it('reloads settings when onSettingsChange fires for audit', async () => {
+    const ctx = makeMockCtx();
+    const hooks = await plugin.register(ctx as never);
+
+    await hooks.onSettingsChange!('audit');
+
+    // getSettings called once on register + once on reload
+    expect(ctx.getSettings).toHaveBeenCalledTimes(2);
+    expect(ctx.logger.info).toHaveBeenCalledWith('Audit plugin: settings reloaded');
+  });
+
+  it('ignores onSettingsChange for other plugins', async () => {
+    const ctx = makeMockCtx();
+    const hooks = await plugin.register(ctx as never);
+
+    await hooks.onSettingsChange!('discord');
+
+    // getSettings called only once on register
+    expect(ctx.getSettings).toHaveBeenCalledTimes(1);
   });
 
   it('logs error and broadcasts audit:failed on exception', async () => {
