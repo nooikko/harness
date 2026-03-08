@@ -1,11 +1,16 @@
 'use client';
 
+import * as DialogPrimitive from '@radix-ui/react-dialog';
 import { Command as CommandPrimitive } from 'cmdk';
 import { SearchIcon } from 'lucide-react';
-import type * as React from 'react';
+import { AnimatePresence, motion } from 'motion/react';
+import * as React from 'react';
 
 import { cn } from '../index';
-import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from './dialog';
+
+const spring = { type: 'spring' as const, stiffness: 400, damping: 28 };
+
+// ─── Command root ─────────────────────────────────────────────────────────────
 
 const Command = ({ className, ...props }: React.ComponentProps<typeof CommandPrimitive>) => (
   <CommandPrimitive
@@ -15,35 +20,93 @@ const Command = ({ className, ...props }: React.ComponentProps<typeof CommandPri
   />
 );
 
-type CommandDialogProps = React.ComponentProps<typeof Dialog> & {
+// ─── CommandDialog — self-contained modal (own animation, upper-center position) ──
+
+type CommandDialogProps = React.ComponentProps<typeof DialogPrimitive.Root> & {
   title?: string;
   description?: string;
   className?: string;
 };
 
 const CommandDialog = ({
-  title = 'Command Palette',
-  description = 'Search for a command to run...',
   children,
+  open: controlledOpen,
+  onOpenChange: controlledChange,
+  title = 'Command palette',
+  description = 'Search for commands and actions',
   className,
   ...props
-}: CommandDialogProps) => (
-  <Dialog {...props}>
-    <DialogHeader className='sr-only'>
-      <DialogTitle>{title}</DialogTitle>
-      <DialogDescription>{description}</DialogDescription>
-    </DialogHeader>
-    <DialogContent className={cn('overflow-hidden p-0', className)} showCloseButton={false}>
-      <Command className='**:[[cmdk-group-heading]]:text-muted-foreground **:[[cmdk-group-heading]]:px-2 **:[[cmdk-group-heading]]:font-medium **:[[cmdk-group]]:px-2 [&_[cmdk-group]:not([hidden])_~[cmdk-group]]:pt-0 [&_[cmdk-input-wrapper]_svg]:h-5 [&_[cmdk-input-wrapper]_svg]:w-5 **:[[cmdk-input]]:h-12 **:[[cmdk-item]]:px-2 **:[[cmdk-item]]:py-3 [&_[cmdk-item]_svg]:h-5 [&_[cmdk-item]_svg]:w-5'>
-        {children}
-      </Command>
-    </DialogContent>
-  </Dialog>
-);
+}: CommandDialogProps) => {
+  const [internalOpen, setInternalOpen] = React.useState(false);
+  const [mounted, setMounted] = React.useState(false);
+  const open = controlledOpen ?? internalOpen;
+  const handleChange = (next: boolean) => {
+    setInternalOpen(next);
+    controlledChange?.(next);
+  };
+
+  React.useEffect(() => {
+    if (open) {
+      setMounted(true);
+    }
+  }, [open]);
+
+  return (
+    <DialogPrimitive.Root open={open} onOpenChange={handleChange} data-slot='command-dialog' {...props}>
+      {mounted && (
+        <DialogPrimitive.Portal>
+          <AnimatePresence>
+            {open && (
+              <motion.div
+                key='command-backdrop'
+                className='fixed inset-0 z-50 bg-black/50 backdrop-blur-[2px]'
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                exit={{ opacity: 0 }}
+                transition={{ duration: 0.18 }}
+              />
+            )}
+          </AnimatePresence>
+          <DialogPrimitive.Content
+            data-slot='command-dialog-content'
+            forceMount
+            className='fixed inset-0 z-50 flex items-start justify-center pt-[15vh] outline-none'
+            style={{ pointerEvents: 'none' }}
+          >
+            <DialogPrimitive.Title className='sr-only'>{title}</DialogPrimitive.Title>
+            <DialogPrimitive.Description className='sr-only'>{description}</DialogPrimitive.Description>
+            <AnimatePresence onExitComplete={() => setMounted(false)}>
+              {open && (
+                <motion.div
+                  key='command-panel'
+                  className={cn('overflow-hidden rounded-xl border border-border', className)}
+                  style={{
+                    width: 520,
+                    pointerEvents: 'auto',
+                    background: 'var(--surface-page)',
+                    boxShadow: 'var(--shadow-lg)',
+                  }}
+                  initial={{ opacity: 0, scale: 0.95, y: -16 }}
+                  animate={{ opacity: 1, scale: 1, y: 0 }}
+                  exit={{ opacity: 0, scale: 0.95 }}
+                  transition={spring}
+                >
+                  <Command>{children}</Command>
+                </motion.div>
+              )}
+            </AnimatePresence>
+          </DialogPrimitive.Content>
+        </DialogPrimitive.Portal>
+      )}
+    </DialogPrimitive.Root>
+  );
+};
+
+// ─── Composable sub-components ────────────────────────────────────────────────
 
 const CommandInput = ({ className, ...props }: React.ComponentProps<typeof CommandPrimitive.Input>) => (
-  <div data-slot='command-input-wrapper' className='flex h-9 items-center gap-2 border-b px-3'>
-    <SearchIcon className='size-4 shrink-0 opacity-50' />
+  <div data-slot='command-input-wrapper' className='flex h-10 items-center gap-2 border-b border-border px-3'>
+    <SearchIcon className='size-4 shrink-0 text-muted-foreground' />
     <CommandPrimitive.Input
       data-slot='command-input'
       className={cn(
@@ -64,7 +127,7 @@ const CommandList = ({ className, ...props }: React.ComponentProps<typeof Comman
 );
 
 const CommandEmpty = ({ ...props }: React.ComponentProps<typeof CommandPrimitive.Empty>) => (
-  <CommandPrimitive.Empty data-slot='command-empty' className='py-6 text-center text-sm' {...props} />
+  <CommandPrimitive.Empty data-slot='command-empty' className='py-6 text-center text-sm text-muted-foreground' {...props} />
 );
 
 const CommandGroup = ({ className, ...props }: React.ComponentProps<typeof CommandPrimitive.Group>) => (
