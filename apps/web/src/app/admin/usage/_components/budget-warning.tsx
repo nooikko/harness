@@ -44,7 +44,7 @@ export const BudgetWarning: BudgetWarningComponent = ({ currentCost, budgetUsd }
 
   return (
     <Alert
-      variant={isCritical ? 'destructive' : 'default'}
+      variant={isCritical ? 'destructive' : 'warning'}
       className={!isCritical ? 'border-yellow-500 bg-yellow-50 dark:bg-yellow-950' : undefined}
       data-testid='budget-warning'
     >

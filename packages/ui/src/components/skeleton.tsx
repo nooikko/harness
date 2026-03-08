@@ -1,9 +1,8 @@
 import type * as React from 'react';
-
 import { cn } from '../index';
 
 const Skeleton = ({ className, ...props }: React.ComponentProps<'div'>) => (
-  <div data-slot='skeleton' className={cn('bg-accent animate-pulse rounded-md', className)} {...props} />
+  <div data-slot='skeleton' className={cn('bg-muted animate-pulse rounded-md', className)} {...props} />
 );
 
 export { Skeleton };
