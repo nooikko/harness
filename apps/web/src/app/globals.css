@@ -76,6 +76,25 @@
   --sidebar-accent-foreground: 30 15% 15%;
   --sidebar-border: 35 15% 88%;
   --sidebar-ring: 210 40% 42%;
+
+  /* ─── Design system tokens (migrated from apps/design) ────────── */
+  --font-mono: "JetBrains Mono", "Fira Code", monospace;
+
+  --surface-page:    oklch(1.000 0.000 285);
+  --surface-card:    oklch(0.980 0.005 285);
+  --surface-hover:   oklch(0.945 0.013 285);
+
+  --border-subtle:   oklch(0.920 0.012 285);
+  --border-strong:   oklch(0.820 0.025 285);
+
+  --text-primary:    oklch(0.160 0.010 285);
+  --text-secondary:  oklch(0.440 0.015 285);
+  --text-tertiary:   oklch(0.640 0.010 285);
+
+  --radius-pill:     999px;
+
+  --shadow-md: 0 2px 8px oklch(0.160 0.010 285 / 0.08), 0 1px 2px oklch(0.160 0.010 285 / 0.04);
+  --shadow-lg: 0 8px 24px oklch(0.160 0.010 285 / 0.10), 0 2px 6px oklch(0.160 0.010 285 / 0.05);
 }
 
 .dark {
