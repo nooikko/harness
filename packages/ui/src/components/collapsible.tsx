@@ -34,9 +34,12 @@ const CollapsibleTrigger = ({ ...props }: React.ComponentProps<typeof Collapsibl
   <CollapsiblePrimitive.CollapsibleTrigger data-slot='collapsible-trigger' {...props} />
 );
 
-type CollapsibleContentProps = { className?: string; children?: React.ReactNode };
+type CollapsibleContentProps = React.ComponentProps<typeof motion.div> & {
+  className?: string;
+  children?: React.ReactNode;
+};
 
-const CollapsibleContent = ({ className, children }: CollapsibleContentProps) => {
+const CollapsibleContent = ({ className, children, ...props }: CollapsibleContentProps) => {
   const { open } = React.useContext(CollapsibleContext);
   return (
     <AnimatePresence initial={false}>
@@ -48,6 +51,7 @@ const CollapsibleContent = ({ className, children }: CollapsibleContentProps) =>
           animate={{ height: 'auto', opacity: 1 }}
           exit={{ height: 0, opacity: 0 }}
           transition={{ duration: 0.22, ease: [0.16, 1, 0.3, 1] }}
+          {...props}
         >
           {children}
         </motion.div>

@@ -5,8 +5,8 @@ import type * as React from 'react';
 import { cn } from '../index';
 
 const Table = ({ className, ...props }: React.ComponentProps<'table'>) => (
-  <div data-slot='table-container' className={cn('relative w-full overflow-x-auto rounded-lg border border-border', className)}>
-    <table data-slot='table' className='w-full min-w-full caption-bottom text-xs' {...props} />
+  <div data-slot='table-container' className='relative w-full overflow-x-auto rounded-lg border border-border'>
+    <table data-slot='table' className={cn('w-full min-w-full caption-bottom text-xs', className)} {...props} />
   </div>
 );
 
