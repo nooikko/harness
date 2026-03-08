@@ -121,7 +121,7 @@ export const EditAgentForm: EditAgentFormComponent = ({ agent, agentConfig }) =>
             <span>v{agent.version}</span>
           </div>
           <div className='flex items-center gap-2'>
-            <Switch id='edit-agent-enabled' checked={enabled} onCheckedChange={setEnabled} />
+            <Switch id='edit-agent-enabled' aria-label='Enabled' checked={enabled} onCheckedChange={setEnabled} />
             <Label htmlFor='edit-agent-enabled' className='font-normal cursor-pointer'>
               Enabled
             </Label>
@@ -235,7 +235,7 @@ export const EditAgentForm: EditAgentFormComponent = ({ agent, agentConfig }) =>
         </div>
         <div className='flex flex-col gap-3'>
           <div className='flex cursor-pointer items-center gap-3 rounded-md border border-input px-3 py-2.5 transition-colors hover:bg-accent'>
-            <Switch id='edit-agent-memory-enabled' checked={memoryEnabled} onCheckedChange={setMemoryEnabled} />
+            <Switch id='edit-agent-memory-enabled' aria-label='Episodic Memory' checked={memoryEnabled} onCheckedChange={setMemoryEnabled} />
             <Label htmlFor='edit-agent-memory-enabled' className='font-normal cursor-pointer'>
               <div className='flex flex-col'>
                 <span className='text-sm font-medium'>Episodic Memory</span>
@@ -244,7 +244,12 @@ export const EditAgentForm: EditAgentFormComponent = ({ agent, agentConfig }) =>
             </Label>
           </div>
           <div className='flex cursor-pointer items-center gap-3 rounded-md border border-input px-3 py-2.5 transition-colors hover:bg-accent'>
-            <Switch id='edit-agent-reflection-enabled' checked={reflectionEnabled} onCheckedChange={setReflectionEnabled} />
+            <Switch
+              id='edit-agent-reflection-enabled'
+              aria-label='Reflection Cycle'
+              checked={reflectionEnabled}
+              onCheckedChange={setReflectionEnabled}
+            />
             <Label htmlFor='edit-agent-reflection-enabled' className='font-normal cursor-pointer'>
               <div className='flex flex-col'>
                 <span className='text-sm font-medium'>Reflection Cycle</span>

@@ -59,7 +59,7 @@ describe('CronJobForm', () => {
 
   it('renders the enabled checkbox', () => {
     render(<CronJobForm {...defaultProps} />);
-    expect(screen.getByLabelText('Enabled')).toBeInTheDocument();
+    expect(screen.getByRole('switch', { name: 'Enabled' })).toBeInTheDocument();
   });
 
   it('renders the Recurring button as default schedule type', () => {
@@ -116,7 +116,7 @@ describe('CronJobForm', () => {
     expect(screen.getByLabelText('Name')).toHaveValue('Morning Digest');
     expect(screen.getByLabelText('Prompt')).toHaveValue('Summarize the day');
     expect(screen.getByLabelText('Schedule')).toHaveValue('0 14 * * *');
-    expect(screen.getByLabelText('Enabled')).toBeChecked();
+    expect(screen.getByRole('switch', { name: 'Enabled' })).toHaveAttribute('aria-checked', 'true');
   });
 
   it('shows one-shot type when defaultValues has fireAt', () => {
@@ -139,10 +139,10 @@ describe('CronJobForm', () => {
 
   it('allows toggling the enabled checkbox', () => {
     render(<CronJobForm {...defaultProps} />);
-    const checkbox = screen.getByLabelText('Enabled');
-    expect(checkbox).toBeChecked();
+    const checkbox = screen.getByRole('switch', { name: 'Enabled' });
+    expect(checkbox).toHaveAttribute('aria-checked', 'true');
     fireEvent.click(checkbox);
-    expect(checkbox).not.toBeChecked();
+    expect(checkbox).toHaveAttribute('aria-checked', 'false');
   });
 
   it('allows typing in the name input', () => {
@@ -321,7 +321,7 @@ describe('CronJobForm', () => {
         }}
       />,
     );
-    expect(screen.getByLabelText('Enabled')).not.toBeChecked();
+    expect(screen.getByRole('switch', { name: 'Enabled' })).toHaveAttribute('aria-checked', 'false');
   });
 
   it('strips __auto__ sentinel from threadId before submitting', async () => {

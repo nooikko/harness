@@ -9,14 +9,18 @@ type SwitchProps = {
   id?: string;
   disabled?: boolean;
   className?: string;
+  'aria-label'?: string;
+  'aria-labelledby'?: string;
 };
 
-const Switch = ({ checked, onCheckedChange, id, disabled, className }: SwitchProps) => (
+const Switch = ({ checked, onCheckedChange, id, disabled, className, 'aria-label': ariaLabel, 'aria-labelledby': ariaLabelledby }: SwitchProps) => (
   <motion.div
     id={id}
     role='switch'
     aria-checked={checked}
     aria-disabled={disabled}
+    aria-label={ariaLabel}
+    aria-labelledby={ariaLabelledby}
     onClick={() => !disabled && onCheckedChange(!checked)}
     animate={{ backgroundColor: checked ? 'var(--accent)' : 'var(--border-strong)' }}
     transition={{ duration: 0.15 }}

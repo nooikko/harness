@@ -121,11 +121,11 @@ describe('EditAgentForm', () => {
     const user = userEvent.setup();
     render(<EditAgentForm agent={fakeAgent} agentConfig={fakeAgentConfig} />);
 
-    const checkbox = screen.getByLabelText('Enabled');
-    expect(checkbox).toBeChecked();
+    const checkbox = screen.getByRole('switch', { name: 'Enabled' });
+    expect(checkbox).toHaveAttribute('aria-checked', 'true');
 
     await user.click(checkbox);
-    expect(checkbox).not.toBeChecked();
+    expect(checkbox).toHaveAttribute('aria-checked', 'false');
   });
 
   it('Back to Agents navigates to /agents', async () => {
@@ -180,29 +180,29 @@ describe('EditAgentForm', () => {
     const user = userEvent.setup();
     render(<EditAgentForm agent={fakeAgent} agentConfig={fakeAgentConfig} />);
 
-    const checkbox = screen.getByLabelText(/episodic memory/i);
-    expect(checkbox).toBeChecked();
+    const checkbox = screen.getByRole('switch', { name: /episodic memory/i });
+    expect(checkbox).toHaveAttribute('aria-checked', 'true');
 
     await user.click(checkbox);
-    expect(checkbox).not.toBeChecked();
+    expect(checkbox).toHaveAttribute('aria-checked', 'false');
   });
 
   it('toggles reflectionEnabled checkbox', async () => {
     const user = userEvent.setup();
     render(<EditAgentForm agent={fakeAgent} agentConfig={fakeAgentConfig} />);
 
-    const checkbox = screen.getByLabelText(/reflection cycle/i);
-    expect(checkbox).not.toBeChecked();
+    const checkbox = screen.getByRole('switch', { name: /reflection cycle/i });
+    expect(checkbox).toHaveAttribute('aria-checked', 'false');
 
     await user.click(checkbox);
-    expect(checkbox).toBeChecked();
+    expect(checkbox).toHaveAttribute('aria-checked', 'true');
   });
 
   it('submits toggled memoryEnabled value to updateAgentConfig', async () => {
     const user = userEvent.setup();
     render(<EditAgentForm agent={fakeAgent} agentConfig={fakeAgentConfig} />);
 
-    await user.click(screen.getByLabelText(/episodic memory/i));
+    await user.click(screen.getByRole('switch', { name: /episodic memory/i }));
     await user.click(screen.getByRole('button', { name: /save changes/i }));
 
     await waitFor(() => {
@@ -213,8 +213,8 @@ describe('EditAgentForm', () => {
   it('uses default values when agentConfig is null', () => {
     render(<EditAgentForm agent={fakeAgent} agentConfig={null} />);
 
-    expect(screen.getByLabelText(/episodic memory/i)).toBeChecked();
-    expect(screen.getByLabelText(/reflection cycle/i)).not.toBeChecked();
+    expect(screen.getByRole('switch', { name: /episodic memory/i })).toHaveAttribute('aria-checked', 'true');
+    expect(screen.getByRole('switch', { name: /reflection cycle/i })).toHaveAttribute('aria-checked', 'false');
   });
 
   it('updates name field on change', async () => {

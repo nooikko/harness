@@ -308,7 +308,7 @@ export const CronJobForm: CronJobFormComponent = ({ mode, agents, threads, proje
 
           {/* Enabled */}
           <div className='flex items-center gap-2'>
-            <Switch id='cron-job-enabled' checked={enabled} onCheckedChange={setEnabled} />
+            <Switch id='cron-job-enabled' aria-label='Enabled' checked={enabled} onCheckedChange={setEnabled} />
             <Label htmlFor='cron-job-enabled' className='font-normal cursor-pointer'>
               Enabled
             </Label>
