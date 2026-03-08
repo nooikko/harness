@@ -1,7 +1,6 @@
 import { AnimatePresence, motion } from 'motion/react';
 import * as React from 'react';
-import { Badge } from '../components/badge';
-import { Progress } from '../components/progress';
+import { Badge, Progress } from 'ui';
 
 // ─── Music Widget ─────────────────────────────────────────────────────────────
 

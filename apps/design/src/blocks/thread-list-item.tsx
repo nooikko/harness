@@ -1,7 +1,6 @@
 import { motion } from 'motion/react';
 import * as React from 'react';
-import { Badge } from '../components/badge';
-import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from '../components/dropdown-menu';
+import { Badge, DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from 'ui';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 

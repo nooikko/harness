@@ -16,9 +16,7 @@ import type {
 import { BeautifulMentionNode, BeautifulMentionsPlugin } from 'lexical-beautiful-mentions';
 import type { ElementType } from 'react';
 import * as React from 'react';
-import { Button } from '../components/button';
-import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '../components/dropdown-menu';
-import { Popover, PopoverContent, PopoverTrigger } from '../components/popover';
+import { Button, DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger, Popover, PopoverContent, PopoverTrigger } from 'ui';
 
 // ─── Command chip (rendered inside editor after selection) ────────────────────
 

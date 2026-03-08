@@ -31,10 +31,12 @@ export { Button, buttonVariants } from './components/button';
 
 export { Card, CardAction, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from './components/card';
 export { Collapsible, CollapsibleContent, CollapsibleTrigger } from './components/collapsible';
+export type { CommandFooterHint, CommandFooterProps } from './components/command';
 export {
   Command,
   CommandDialog,
   CommandEmpty,
+  CommandFooter,
   CommandGroup,
   CommandInput,
   CommandItem,

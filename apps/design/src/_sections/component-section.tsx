@@ -2,8 +2,8 @@ import { ChevronDownIcon, CopyIcon, PencilIcon, PlusCircleIcon, XIcon } from 'lu
 import { motion } from 'motion/react';
 import type React from 'react';
 import { useState } from 'react';
-import { Alert } from '../components/alert';
 import {
+  Alert,
   AlertDialog,
   AlertDialogAction,
   AlertDialogCancel,
@@ -13,28 +13,65 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
   AlertDialogTrigger,
-} from '../components/alert-dialog';
-import { Badge } from '../components/badge';
-import { Button } from '../components/button';
-import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '../components/card';
-import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '../components/collapsible';
-import { CommandDialog, CommandEmpty, CommandFooter, CommandGroup, CommandInput, CommandItem, CommandList } from '../components/command';
-import { Dialog, DialogClose, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from '../components/dialog';
-import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from '../components/dropdown-menu';
-import { Input } from '../components/input';
-import { Kbd } from '../components/kbd';
-import { Label } from '../components/label';
-import { Popover, PopoverContent, PopoverTrigger } from '../components/popover';
-import { Progress } from '../components/progress';
-import { ScrollArea } from '../components/scroll-area';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../components/select';
-import { Separator } from '../components/separator';
-import { Skeleton } from '../components/skeleton';
-import { Switch } from '../components/switch';
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '../components/table';
-import { Tabs, TabsList, TabsTrigger } from '../components/tabs';
-import { Textarea } from '../components/textarea';
-import { Tooltip } from '../components/tooltip';
+  Badge,
+  Button,
+  Card,
+  CardContent,
+  CardDescription,
+  CardFooter,
+  CardHeader,
+  CardTitle,
+  Collapsible,
+  CollapsibleContent,
+  CollapsibleTrigger,
+  CommandDialog,
+  CommandEmpty,
+  CommandFooter,
+  CommandGroup,
+  CommandInput,
+  CommandItem,
+  CommandList,
+  Dialog,
+  DialogClose,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+  Input,
+  Kbd,
+  Label,
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+  Progress,
+  ScrollArea,
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+  Separator,
+  Skeleton,
+  Switch,
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+  Tabs,
+  TabsList,
+  TabsTrigger,
+  Textarea,
+  Tooltip,
+} from 'ui';
 
 // ─── Shared ───────────────────────────────────────────────────────────────────
 const SectionLabel = ({ children }: { children: React.ReactNode }) => (

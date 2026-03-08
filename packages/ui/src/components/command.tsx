@@ -5,8 +5,8 @@ import { Command as CommandPrimitive } from 'cmdk';
 import { SearchIcon } from 'lucide-react';
 import { AnimatePresence, motion } from 'motion/react';
 import * as React from 'react';
-
 import { cn } from '../index';
+import { Kbd } from './kbd';
 
 const spring = { type: 'spring' as const, stiffness: 400, damping: 28 };
 
@@ -160,4 +160,41 @@ const CommandShortcut = ({ className, ...props }: React.ComponentProps<'span'>) 
   <span data-slot='command-shortcut' className={cn('text-muted-foreground ml-auto text-xs tracking-widest', className)} {...props} />
 );
 
-export { Command, CommandDialog, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList, CommandSeparator, CommandShortcut };
+// ─── CommandFooter — design system addition, not in shadcn ───────────────────
+
+type CommandFooterHint = [key: string, label: string];
+
+type CommandFooterProps = {
+  hints?: CommandFooterHint[];
+};
+
+const CommandFooter = ({
+  hints = [
+    ['↵', 'Select'],
+    ['↑↓', 'Navigate'],
+    ['Esc', 'Close'],
+  ],
+}: CommandFooterProps) => (
+  <div className='flex gap-4 border-t border-border px-3.5 py-2'>
+    {hints.map(([key, label]) => (
+      <div key={label} className='flex items-center gap-1.5 text-[11px] text-muted-foreground'>
+        <Kbd>{key}</Kbd>
+        {label}
+      </div>
+    ))}
+  </div>
+);
+
+export {
+  Command,
+  CommandDialog,
+  CommandEmpty,
+  CommandFooter,
+  CommandGroup,
+  CommandInput,
+  CommandItem,
+  CommandList,
+  CommandSeparator,
+  CommandShortcut,
+};
+export type { CommandFooterProps, CommandFooterHint };
