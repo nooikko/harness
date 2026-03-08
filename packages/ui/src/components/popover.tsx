@@ -1,33 +1,96 @@
 'use client';
 
 import * as PopoverPrimitive from '@radix-ui/react-popover';
+import { AnimatePresence, motion } from 'motion/react';
 import * as React from 'react';
 
-import { cn } from '..';
+const spring = { type: 'spring' as const, stiffness: 400, damping: 28 };
 
-const Popover = PopoverPrimitive.Root;
+// ─── Context ───────────────────────────────────────────────────────────────────
 
-const PopoverTrigger = PopoverPrimitive.Trigger;
+type PopoverContextValue = { open: boolean };
+const PopoverContext = React.createContext<PopoverContextValue>({ open: false });
 
-const PopoverAnchor = PopoverPrimitive.Anchor;
+// ─── Root ──────────────────────────────────────────────────────────────────────
 
-const PopoverContent = React.forwardRef<
-  React.ComponentRef<typeof PopoverPrimitive.Content>,
-  React.ComponentPropsWithoutRef<typeof PopoverPrimitive.Content>
->(({ className, align = 'center', sideOffset = 4, ...props }, ref) => (
-  <PopoverPrimitive.Portal>
-    <PopoverPrimitive.Content
-      ref={ref}
-      align={align}
-      sideOffset={sideOffset}
-      className={cn(
-        'z-50 w-72 rounded-md border border-border bg-popover p-4 text-popover-foreground shadow-md outline-none data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 data-[state=closed]:zoom-out-95 data-[state=open]:zoom-in-95 data-[side=bottom]:slide-in-from-top-2 data-[side=left]:slide-in-from-right-2 data-[side=right]:slide-in-from-left-2 data-[side=top]:slide-in-from-bottom-2',
-        className,
+const Popover = ({
+  children,
+  open: controlledOpen,
+  onOpenChange: controlledChange,
+  ...props
+}: React.ComponentProps<typeof PopoverPrimitive.Root>) => {
+  const [internalOpen, setInternalOpen] = React.useState(false);
+  const open = controlledOpen ?? internalOpen;
+  const handleOpenChange = (next: boolean) => {
+    setInternalOpen(next);
+    controlledChange?.(next);
+  };
+  return (
+    <PopoverContext.Provider value={{ open }}>
+      <PopoverPrimitive.Root data-slot='popover' open={open} onOpenChange={handleOpenChange} {...props}>
+        {children}
+      </PopoverPrimitive.Root>
+    </PopoverContext.Provider>
+  );
+};
+
+const PopoverTrigger = ({ ...props }: React.ComponentProps<typeof PopoverPrimitive.Trigger>) => (
+  <PopoverPrimitive.Trigger data-slot='popover-trigger' {...props} />
+);
+
+const PopoverAnchor = ({ ...props }: React.ComponentProps<typeof PopoverPrimitive.Anchor>) => (
+  <PopoverPrimitive.Anchor data-slot='popover-anchor' {...props} />
+);
+
+// ─── Content ───────────────────────────────────────────────────────────────────
+
+type PopoverContentProps = React.ComponentProps<typeof PopoverPrimitive.Content> & {
+  width?: number;
+  padding?: number;
+};
+
+const PopoverContent = ({ children, sideOffset = 8, align = 'start', width = 240, padding = 16, style, ...props }: PopoverContentProps) => {
+  const { open } = React.useContext(PopoverContext);
+  return (
+    <AnimatePresence>
+      {open && (
+        <PopoverPrimitive.Portal forceMount>
+          <PopoverPrimitive.Content
+            data-slot='popover-content'
+            forceMount
+            sideOffset={sideOffset}
+            align={align}
+            style={{ zIndex: 50, outline: 'none' }}
+            {...props}
+          >
+            <motion.div
+              initial={{ opacity: 0, scale: 0.95 }}
+              animate={{ opacity: 1, scale: 1 }}
+              exit={{ opacity: 0, scale: 0.95 }}
+              transition={spring}
+              style={{
+                transformOrigin: 'top left',
+                width,
+                background: 'var(--surface-page)',
+                border: '1px solid var(--border)',
+                borderRadius: 'var(--radius-lg)',
+                boxShadow: 'var(--shadow-md)',
+                padding,
+                overflow: 'hidden',
+                ...style,
+              }}
+            >
+              {children}
+            </motion.div>
+          </PopoverPrimitive.Content>
+        </PopoverPrimitive.Portal>
       )}
-      {...props}
-    />
-  </PopoverPrimitive.Portal>
-));
-PopoverContent.displayName = PopoverPrimitive.Content.displayName;
+    </AnimatePresence>
+  );
+};
 
-export { Popover, PopoverTrigger, PopoverContent, PopoverAnchor };
+const PopoverClose = ({ ...props }: React.ComponentProps<typeof PopoverPrimitive.Close>) => (
+  <PopoverPrimitive.Close data-slot='popover-close' {...props} />
+);
+
+export { Popover, PopoverAnchor, PopoverClose, PopoverContent, PopoverTrigger };
