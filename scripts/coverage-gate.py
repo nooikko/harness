@@ -44,6 +44,7 @@ EXCLUDED_PATTERNS = [
     r"packages/ui/src/components/",  # ShadCN primitives — thin Radix wrappers, no logic
     r"cast-types\.ts$",  # pure type declarations — no runtime code
     r"packages/plugins/music/",  # WIP plugin — coverage enforcement deferred
+    r"apps/design/",  # design playground — no unit test coverage required
 ]
 
 # Maps repo-relative file prefix -> package subdirectory (relative to repo root).

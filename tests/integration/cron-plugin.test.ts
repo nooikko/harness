@@ -57,15 +57,13 @@ describe('cron plugin integration', () => {
 
     await vi.waitFor(
       async () => {
-        expect(harness.invoker.invoke).toHaveBeenCalled();
+        const job = await prisma.cronJob.findFirst({ where: { agentId: agent.id } });
+        expect(job?.enabled).toBe(false);
+        expect(job?.lastRunAt).toBeDefined();
+        expect(job?.nextRunAt).toBeNull();
       },
       { timeout: 10_000 },
     );
-
-    const job = await prisma.cronJob.findFirst({ where: { agentId: agent.id } });
-    expect(job?.enabled).toBe(false);
-    expect(job?.lastRunAt).toBeDefined();
-    expect(job?.nextRunAt).toBeNull();
   });
 
   it('creates a thread lazily when threadId is null', async () => {

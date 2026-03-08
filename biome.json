@@ -31,7 +31,8 @@
       "!**/yarn.lock",
       "!**/pnpm-lock.yaml",
       "!**/turbo",
-      "!**/*.css"
+      "!**/*.css",
+      "!**/components-backup"
     ],
     "ignoreUnknown": false
   },

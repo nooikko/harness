@@ -1,0 +1,123 @@
+@import "tailwindcss";
+
+/* Bridge design tokens → ShadCN/Tailwind color names */
+@theme {
+  --color-background:            oklch(1.000 0.000 285);
+  --color-foreground:            oklch(0.160 0.010 285);
+  --color-card:                  oklch(0.980 0.005 285);
+  --color-card-foreground:       oklch(0.160 0.010 285);
+  --color-popover:               oklch(0.980 0.005 285);
+  --color-popover-foreground:    oklch(0.160 0.010 285);
+  --color-primary:               oklch(0.540 0.165 285);
+  --color-primary-foreground:    oklch(1.000 0.000 285);
+  --color-secondary:             oklch(0.920 0.020 285);
+  --color-secondary-foreground:  oklch(0.160 0.010 285);
+  --color-muted:                 oklch(0.945 0.013 285);
+  --color-muted-foreground:      oklch(0.440 0.015 285);
+  --color-accent:                oklch(0.955 0.035 285);
+  --color-accent-foreground:     oklch(0.540 0.165 285);
+  --color-destructive:           oklch(0.545 0.135 20);
+  --color-destructive-foreground: oklch(1.000 0.000 285);
+  --color-border:                oklch(0.878 0.018 285);
+  --color-border-strong:         oklch(0.820 0.025 285);
+  --color-input:                 oklch(0.878 0.018 285);
+  --color-ring:                  oklch(0.540 0.165 285);
+
+  /* Semantic status colors */
+  --color-success:               oklch(0.580 0.115 150);
+  --color-warning:               oklch(0.680 0.105 70);
+
+  /* Radius — ShadCN components use rounded-md / rounded-lg / rounded-sm */
+  --radius: 0.5rem;
+}
+
+@layer base {
+  *, *::before, *::after {
+    box-sizing: border-box;
+    margin: 0;
+    padding: 0;
+  }
+}
+
+:root {
+  /* ─── Typography ──────────────────────────────────────────── */
+  --font-sans: "Figtree", system-ui, sans-serif;
+  --font-mono: "JetBrains Mono", "Fira Code", monospace;
+
+  /* ─── Surface Scale (light mode) ─────────────────────────── */
+  /* Each step is meaningfully distinct — not just slightly off */
+  --surface-page:    oklch(1.000 0.000 285);   /* #ffffff — chat, main content */
+  --surface-sidebar: oklch(0.965 0.008 285);   /* sidebar bg, slightly cool-white */
+  --surface-card:    oklch(0.980 0.005 285);   /* cards on page — subtle lift */
+  --surface-hover:   oklch(0.945 0.013 285);   /* hover states */
+  --surface-active:  oklch(0.920 0.020 285);   /* active / selected */
+
+  /* ─── Borders & Dividers ──────────────────────────────────── */
+  --border-subtle: oklch(0.920 0.012 285);     /* sidebar/content divider */
+  --border:        oklch(0.878 0.018 285);     /* card borders, input borders */
+  --border-strong: oklch(0.820 0.025 285);     /* focused inputs, prominent dividers */
+
+  /* ─── Accent Purple ───────────────────────────────────────── */
+  --accent:          oklch(0.540 0.165 285);   /* primary action — still purple, less punchy */
+  --accent-hover:    oklch(0.500 0.180 285);   /* button hover */
+  --accent-subtle:   oklch(0.955 0.035 285);   /* selected row bg, tag bg */
+  --accent-muted:    oklch(0.780 0.090 285);   /* secondary badges, soft indicators */
+  --accent-fg:       oklch(1.000 0.000 285);   /* text on accent */
+
+  /* ─── Text ────────────────────────────────────────────────── */
+  --text-primary:   oklch(0.160 0.010 285);    /* near-black with purple warmth */
+  --text-secondary: oklch(0.440 0.015 285);    /* muted labels, metadata */
+  --text-tertiary:  oklch(0.640 0.010 285);    /* very muted, timestamps, placeholders */
+  --text-on-accent: oklch(1.000 0.000 285);    /* white on purple bg */
+
+  /* ─── Semantic ────────────────────────────────────────────── */
+  --success:     oklch(0.580 0.115 150);   /* sage green — soft, not lime */
+  --warning:     oklch(0.680 0.105 70);    /* muted amber — warm, not neon */
+  --destructive: oklch(0.545 0.135 20);    /* dusty rose-red — not alarming */
+
+  /* ─── Radius ──────────────────────────────────────────────── */
+  --radius-sm:  4px;
+  --radius-md:  8px;
+  --radius-lg:  12px;
+  --radius-xl:  16px;
+  --radius-pill: 999px;
+
+  /* ─── Shadow ──────────────────────────────────────────────── */
+  --shadow-sm: 0 1px 2px oklch(0.160 0.010 285 / 0.06);
+  --shadow-md: 0 2px 8px oklch(0.160 0.010 285 / 0.08), 0 1px 2px oklch(0.160 0.010 285 / 0.04);
+  --shadow-lg: 0 8px 24px oklch(0.160 0.010 285 / 0.10), 0 2px 6px oklch(0.160 0.010 285 / 0.05);
+
+  /* ─── Motion ──────────────────────────────────────────────── */
+  --ease-spring: cubic-bezier(0.34, 1.56, 0.64, 1);   /* slight overshoot — "alive" */
+  --ease-out:    cubic-bezier(0.16, 1, 0.3, 1);        /* fast-out, gradual settle */
+  --ease-in-out: cubic-bezier(0.65, 0, 0.35, 1);       /* considered, symmetric */
+
+  --duration-fast:   120ms;
+  --duration-base:   200ms;
+  --duration-slow:   320ms;
+  --duration-enter:  240ms;
+  --duration-exit:   160ms;
+}
+
+body {
+  font-family: var(--font-sans);
+  background: var(--surface-sidebar);
+  color: var(--text-primary);
+  font-size: 14px;
+  line-height: 1.5;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+/* Slash-command menu — repositioned via CSS vars published by ChatInput's cardRef */
+.mention-menu-anchor {
+  z-index: 50;
+}
+
+.mention-menu-anchor > ul {
+  position: fixed !important;
+  bottom: calc(100vh - var(--chat-input-top, 200px)) !important;
+  top: auto !important;
+  left: var(--chat-input-left, 0px) !important;
+  width: var(--chat-input-width, 100%) !important;
+}
