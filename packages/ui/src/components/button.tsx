@@ -1,26 +1,30 @@
+'use client';
+
 import { Slot } from '@radix-ui/react-slot';
 import { cva, type VariantProps } from 'class-variance-authority';
+import type { TargetAndTransition } from 'motion/react';
+import { motion } from 'motion/react';
 import * as React from 'react';
-
 import { cn } from '../index';
 
-const buttonVariants = cva(
-  'inline-flex items-center justify-center gap-2 whitespace-nowrap rounded text-sm font-medium ring-offset-background transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 [&_svg]:pointer-events-none [&_svg]:size-4 [&_svg]:shrink-0',
+export const buttonVariants = cva(
+  // No border classes in base — variants control their own border
+  'inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-md text-sm font-medium font-[inherit] cursor-pointer select-none outline-none transition-colors disabled:pointer-events-none disabled:opacity-50',
   {
     variants: {
       variant: {
-        default: 'bg-primary text-primary-foreground hover:bg-primary/90',
-        destructive: 'bg-destructive text-destructive-foreground hover:bg-destructive/90',
-        outline: 'border border-input bg-background hover:bg-accent hover:text-accent-foreground',
-        secondary: 'bg-secondary text-secondary-foreground hover:bg-secondary/80',
-        ghost: 'hover:bg-accent hover:text-accent-foreground',
-        link: 'text-primary underline-offset-4 hover:underline',
+        default: 'bg-primary text-primary-foreground border-0 hover:bg-primary/90',
+        destructive: 'bg-destructive text-destructive-foreground border-0 hover:bg-destructive/90',
+        ghost: 'border border-border text-muted-foreground bg-transparent hover:bg-muted hover:text-foreground',
+        secondary: 'bg-secondary text-secondary-foreground border-0 hover:bg-secondary/80',
+        outline: 'border border-primary bg-transparent text-primary hover:bg-accent',
+        link: 'text-primary underline-offset-4 hover:underline bg-transparent border-0',
       },
       size: {
-        default: 'h-10 px-4 py-2',
-        sm: 'h-9 rounded px-3',
-        lg: 'h-11 rounded px-8',
-        icon: 'h-10 w-10',
+        default: 'h-8 px-3',
+        sm: 'h-7 px-2.5 text-xs',
+        lg: 'h-9 px-4',
+        icon: 'h-8 w-8 p-0',
       },
     },
     defaultVariants: {
@@ -30,14 +34,42 @@ const buttonVariants = cva(
   },
 );
 
-export interface ButtonProps extends React.ButtonHTMLAttributes<HTMLButtonElement>, VariantProps<typeof buttonVariants> {
-  asChild?: boolean;
-}
+export type ButtonVariant = NonNullable<VariantProps<typeof buttonVariants>['variant']>;
+export type ButtonSize = NonNullable<VariantProps<typeof buttonVariants>['size']>;
 
-const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(({ className, variant, size, asChild = false, ...props }, ref) => {
-  const Comp = asChild ? Slot : 'button';
-  return <Comp className={cn(buttonVariants({ variant, size, className }))} ref={ref} {...props} />;
-});
+// Subtle lift on hover — moves button + text together as a unit
+const HOVER_SCALE: Partial<Record<ButtonVariant, TargetAndTransition>> = {
+  default: { y: -1 },
+  destructive: { y: -1 },
+};
+
+const springTransition = { type: 'spring' as const, stiffness: 300, damping: 28 };
+
+export type ButtonProps = React.ButtonHTMLAttributes<HTMLButtonElement> &
+  VariantProps<typeof buttonVariants> & {
+    asChild?: boolean;
+  };
+
+const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(
+  ({ className, variant = 'default', size = 'default', asChild = false, ...props }, ref) => {
+    const classes = cn(buttonVariants({ variant, size, className }));
+
+    if (asChild) {
+      return <Slot ref={ref} className={classes} {...props} />;
+    }
+
+    return (
+      <motion.button
+        ref={ref}
+        className={classes}
+        whileHover={variant ? HOVER_SCALE[variant] : undefined}
+        whileTap={{ scale: 0.97 }}
+        transition={springTransition}
+        {...(props as React.ComponentProps<typeof motion.button>)}
+      />
+    );
+  },
+);
 Button.displayName = 'Button';
 
-export { Button, buttonVariants };
+export { Button };

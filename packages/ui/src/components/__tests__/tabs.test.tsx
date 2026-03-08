@@ -60,8 +60,15 @@ describe('Tabs', () => {
   });
 
   it('merges custom className on TabsList', () => {
-    renderTabs();
-    expect(screen.getByTestId('list').className).toContain('inline-flex');
+    render(
+      <Tabs defaultValue='a'>
+        <TabsList data-testid='list' className='custom-list'>
+          <TabsTrigger value='a'>A</TabsTrigger>
+        </TabsList>
+        <TabsContent value='a'>C</TabsContent>
+      </Tabs>,
+    );
+    expect(screen.getByTestId('list').className).toContain('custom-list');
   });
 
   it('merges custom className on TabsContent', () => {

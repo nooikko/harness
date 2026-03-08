@@ -4,18 +4,18 @@ import { Progress } from '../progress';
 
 describe('Progress', () => {
   it('renders with progressbar role', () => {
-    render(<Progress value={50} />);
+    render(<Progress value={0.5} />);
     expect(screen.getByRole('progressbar')).toBeInTheDocument();
   });
 
   it('reflects the value attribute', () => {
-    render(<Progress value={75} />);
+    render(<Progress value={0.75} />);
     const bar = screen.getByRole('progressbar');
     expect(bar).toHaveAttribute('aria-valuenow', '75');
   });
 
   it('merges custom className', () => {
-    render(<Progress value={0} className='h-4' />);
-    expect(screen.getByRole('progressbar').className).toContain('h-4');
+    const { container } = render(<Progress value={0} className='h-4' />);
+    expect(container.firstChild).toHaveClass('h-4');
   });
 });

@@ -1,35 +1,113 @@
 'use client';
 
-import * as TabsPrimitive from '@radix-ui/react-tabs';
-import type * as React from 'react';
-
+import { motion } from 'motion/react';
+import * as React from 'react';
 import { cn } from '../index';
 
-const Tabs = ({ className, ...props }: React.ComponentProps<typeof TabsPrimitive.Root>) => (
-  <TabsPrimitive.Root data-slot='tabs' className={cn('flex flex-col gap-2', className)} {...props} />
-);
+type TabsContextValue = { value: string; onValueChange: (value: string) => void };
+const TabsContext = React.createContext<TabsContextValue>({ value: '', onValueChange: () => {} });
 
-const TabsList = ({ className, ...props }: React.ComponentProps<typeof TabsPrimitive.List>) => (
-  <TabsPrimitive.List
+type TabsProps = React.ComponentProps<'div'> & {
+  value?: string;
+  defaultValue?: string;
+  onValueChange?: (value: string) => void;
+};
+
+const Tabs = ({ children, value: controlledValue, onValueChange: controlledChange, defaultValue, className, ...props }: TabsProps) => {
+  const [internalValue, setInternalValue] = React.useState(defaultValue ?? '');
+  const value = controlledValue ?? internalValue;
+  const handleChange = (next: string) => {
+    setInternalValue(next);
+    controlledChange?.(next);
+  };
+  return (
+    <TabsContext.Provider value={{ value, onValueChange: handleChange }}>
+      <div data-slot='tabs' className={cn('flex flex-col gap-2', className)} {...props}>
+        {children}
+      </div>
+    </TabsContext.Provider>
+  );
+};
+
+const TabsList = ({ className, style, ...props }: React.ComponentProps<'div'>) => (
+  <div
     data-slot='tabs-list'
-    className={cn('bg-muted text-muted-foreground inline-flex h-9 w-fit items-center justify-center rounded-lg p-[3px]', className)}
+    role='tablist'
+    className={className}
+    style={{
+      position: 'relative',
+      display: 'flex',
+      borderBottom: '1px solid var(--border-subtle)',
+      ...style,
+    }}
     {...props}
   />
 );
 
-const TabsTrigger = ({ className, ...props }: React.ComponentProps<typeof TabsPrimitive.Trigger>) => (
-  <TabsPrimitive.Trigger
-    data-slot='tabs-trigger'
-    className={cn(
-      "data-[state=active]:bg-background data-[state=active]:text-foreground focus-visible:border-ring focus-visible:ring-ring/50 inline-flex items-center justify-center gap-1.5 rounded-md px-2 py-1 text-sm font-medium whitespace-nowrap transition-[color,box-shadow] outline-none focus-visible:ring-[3px] disabled:pointer-events-none disabled:opacity-50 data-[state=active]:shadow-sm [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-4",
-      className,
-    )}
-    {...props}
-  />
-);
+type TabsTriggerProps = React.ComponentProps<'button'> & { value: string };
 
-const TabsContent = ({ className, ...props }: React.ComponentProps<typeof TabsPrimitive.Content>) => (
-  <TabsPrimitive.Content data-slot='tabs-content' className={cn('flex-1 outline-none', className)} {...props} />
-);
+const TabsTrigger = ({ className, value, children, style, ...props }: TabsTriggerProps) => {
+  const { value: activeValue, onValueChange } = React.useContext(TabsContext);
+  const isActive = activeValue === value;
+  return (
+    <motion.button
+      data-slot='tabs-trigger'
+      type='button'
+      role='tab'
+      aria-selected={isActive}
+      data-state={isActive ? 'active' : 'inactive'}
+      onClick={() => onValueChange(value)}
+      whileTap={{ scale: 0.97 }}
+      transition={{ duration: 0.1 }}
+      className={cn('disabled:pointer-events-none disabled:opacity-50', className)}
+      style={{
+        position: 'relative',
+        padding: '8px 16px',
+        background: 'none',
+        border: 'none',
+        fontSize: 13,
+        fontWeight: isActive ? 600 : 400,
+        color: isActive ? 'var(--text-primary)' : 'var(--text-tertiary)',
+        cursor: 'pointer',
+        fontFamily: 'inherit',
+        outline: 'none',
+        transition: 'color 0.12s',
+        ...style,
+      }}
+      {...(props as React.ComponentProps<typeof motion.button>)}
+    >
+      {children}
+      {isActive && (
+        <motion.div
+          layoutId='tab-indicator'
+          transition={{ type: 'spring', stiffness: 400, damping: 30 }}
+          style={{
+            position: 'absolute',
+            bottom: -1,
+            left: 0,
+            right: 0,
+            height: 2,
+            background: 'var(--accent)',
+            borderRadius: 'var(--radius-pill)',
+          }}
+        />
+      )}
+    </motion.button>
+  );
+};
+
+type TabsContentProps = React.ComponentProps<'div'> & { value: string };
+
+const TabsContent = ({ className, value, children, ...props }: TabsContentProps) => {
+  const { value: activeValue } = React.useContext(TabsContext);
+  if (activeValue !== value) {
+    return null;
+  }
+  return (
+    <div data-slot='tabs-content' role='tabpanel' className={cn('flex-1 outline-none', className)} {...props}>
+      {children}
+    </div>
+  );
+};
 
 export { Tabs, TabsContent, TabsList, TabsTrigger };

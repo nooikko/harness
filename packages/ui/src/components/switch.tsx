@@ -1,26 +1,50 @@
 'use client';
 
-import * as SwitchPrimitive from '@radix-ui/react-switch';
-import type * as React from 'react';
-
+import { motion } from 'motion/react';
 import { cn } from '../index';
 
-const Switch = ({ className, ...props }: React.ComponentProps<typeof SwitchPrimitive.Root>) => (
-  <SwitchPrimitive.Root
-    data-slot='switch'
-    className={cn(
-      'peer data-[state=checked]:bg-primary data-[state=unchecked]:bg-input focus-visible:border-ring focus-visible:ring-ring/50 inline-flex h-[1.15rem] w-8 shrink-0 items-center rounded-full border border-transparent shadow-xs transition-colors outline-none focus-visible:ring-[3px] disabled:cursor-not-allowed disabled:opacity-50',
-      className,
-    )}
-    {...props}
+type SwitchProps = {
+  checked: boolean;
+  onCheckedChange: (checked: boolean) => void;
+  id?: string;
+  disabled?: boolean;
+  className?: string;
+};
+
+const Switch = ({ checked, onCheckedChange, id, disabled, className }: SwitchProps) => (
+  <motion.div
+    id={id}
+    role='switch'
+    aria-checked={checked}
+    aria-disabled={disabled}
+    onClick={() => !disabled && onCheckedChange(!checked)}
+    animate={{ backgroundColor: checked ? 'var(--accent)' : 'var(--border-strong)' }}
+    transition={{ duration: 0.15 }}
+    className={cn(className)}
+    style={{
+      width: 40,
+      height: 22,
+      borderRadius: 'var(--radius-pill)',
+      cursor: disabled ? 'not-allowed' : 'pointer',
+      position: 'relative',
+      flexShrink: 0,
+      opacity: disabled ? 0.5 : 1,
+    }}
   >
-    <SwitchPrimitive.Thumb
-      data-slot='switch-thumb'
-      className={cn(
-        'bg-background pointer-events-none block size-4 rounded-full ring-0 transition-transform data-[state=checked]:translate-x-[calc(100%-2px)] data-[state=unchecked]:translate-x-0',
-      )}
+    <motion.div
+      animate={{ x: checked ? 20 : 2 }}
+      transition={{ type: 'spring', stiffness: 500, damping: 30 }}
+      style={{
+        position: 'absolute',
+        top: 2,
+        width: 18,
+        height: 18,
+        borderRadius: '50%',
+        background: 'white',
+        boxShadow: '0 1px 3px oklch(0 0 0 / 0.15)',
+      }}
     />
-  </SwitchPrimitive.Root>
+  </motion.div>
 );
 
 export { Switch };

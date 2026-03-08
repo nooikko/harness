@@ -1,43 +1,47 @@
 import { fireEvent, render, screen } from '@testing-library/react';
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import { Switch } from '../switch';
 
 describe('Switch', () => {
-  it('renders with data-slot attribute', () => {
-    render(<Switch data-testid='sw' />);
-    expect(screen.getByTestId('sw')).toHaveAttribute('data-slot', 'switch');
+  it('renders with switch role', () => {
+    render(<Switch checked={false} onCheckedChange={() => {}} data-testid='sw' />);
+    expect(screen.getByRole('switch')).toBeInTheDocument();
   });
 
   it('renders unchecked by default', () => {
-    render(<Switch data-testid='sw' />);
-    expect(screen.getByTestId('sw')).toHaveAttribute('data-state', 'unchecked');
+    render(<Switch checked={false} onCheckedChange={() => {}} />);
+    expect(screen.getByRole('switch')).toHaveAttribute('aria-checked', 'false');
   });
 
-  it('renders checked when defaultChecked', () => {
-    render(<Switch data-testid='sw' defaultChecked />);
-    expect(screen.getByTestId('sw')).toHaveAttribute('data-state', 'checked');
+  it('renders checked when checked=true', () => {
+    render(<Switch checked={true} onCheckedChange={() => {}} />);
+    expect(screen.getByRole('switch')).toHaveAttribute('aria-checked', 'true');
   });
 
-  it('toggles on click', () => {
-    render(<Switch data-testid='sw' />);
-    const sw = screen.getByTestId('sw');
-    fireEvent.click(sw);
-    expect(sw).toHaveAttribute('data-state', 'checked');
+  it('calls onCheckedChange on click', () => {
+    const onChange = vi.fn();
+    render(<Switch checked={false} onCheckedChange={onChange} />);
+    fireEvent.click(screen.getByRole('switch'));
+    expect(onChange).toHaveBeenCalledWith(true);
   });
 
   it('merges custom className', () => {
-    render(<Switch data-testid='sw' className='my-custom' />);
-    expect(screen.getByTestId('sw').className).toContain('my-custom');
+    render(<Switch checked={false} onCheckedChange={() => {}} className='my-custom' />);
+    expect(screen.getByRole('switch').className).toContain('my-custom');
   });
 
-  it('renders thumb with data-slot', () => {
-    render(<Switch data-testid='sw' />);
-    const thumb = screen.getByTestId('sw').querySelector("[data-slot='switch-thumb']");
+  it('renders thumb element', () => {
+    const { container } = render(<Switch checked={false} onCheckedChange={() => {}} />);
+    const thumb = container.querySelector('div > div');
     expect(thumb).toBeTruthy();
   });
 
   it('supports disabled state', () => {
-    render(<Switch data-testid='sw' disabled />);
-    expect(screen.getByTestId('sw')).toBeDisabled();
+    const onChange = vi.fn();
+    render(<Switch checked={false} onCheckedChange={onChange} disabled />);
+    const sw = screen.getByRole('switch');
+    expect(sw).toHaveAttribute('aria-disabled', 'true');
+    fireEvent.click(sw);
+    expect(onChange).not.toHaveBeenCalled();
   });
 });

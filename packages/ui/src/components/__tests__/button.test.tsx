@@ -34,7 +34,7 @@ describe('Button', () => {
     render(<Button size='lg'>Large</Button>);
 
     const button = screen.getByRole('button', { name: 'Large' });
-    expect(button.className).toContain('h-11');
+    expect(button.className).toContain('h-9');
   });
 
   it('merges custom className', () => {

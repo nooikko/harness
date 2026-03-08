@@ -72,6 +72,7 @@ export {
   DropdownMenuTrigger,
 } from './components/dropdown-menu';
 export { Input } from './components/input';
+export { Kbd } from './components/kbd';
 export { Label } from './components/label';
 export { Popover, PopoverAnchor, PopoverClose, PopoverContent, PopoverTrigger } from './components/popover';
 export { Progress } from './components/progress';
@@ -118,4 +119,4 @@ export { Switch } from './components/switch';
 export { Table, TableBody, TableCaption, TableCell, TableFooter, TableHead, TableHeader, TableRow } from './components/table';
 export { Tabs, TabsContent, TabsList, TabsTrigger } from './components/tabs';
 export { Textarea } from './components/textarea';
-export { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from './components/tooltip';
+export { Tooltip } from './components/tooltip';
