@@ -1,11 +1,9 @@
 #!/usr/bin/env python3
 """
-PreToolUse hook: Block git commits if tests, lint, or typecheck haven't passed.
+PreToolUse hook: Block git commits if type-check, lint, or build fail.
 
-Intercepts `git commit` commands and verifies that the CI pipeline passes
-before allowing the commit. Runs pnpm typecheck, lint, and build.
-
-This hook blocks the commit (exit 2) if any check fails.
+Full quality gate: runs pnpm type-check, lint, and build before allowing commit.
+Exit 2 = block the tool call.
 """
 import json
 import os
@@ -17,19 +15,13 @@ try:
 except json.JSONDecodeError:
     sys.exit(0)
 
-tool_name = input_data.get("tool_name", "")
-if tool_name != "Bash":
+if input_data.get("tool_name") != "Bash":
     sys.exit(0)
 
 command = input_data.get("tool_input", {}).get("command", "")
-if not command:
+if not command or "git commit" not in command:
     sys.exit(0)
 
-# Only intercept git commit commands
-if "git commit" not in command:
-    sys.exit(0)
-
-# Skip if this is an amend with no changes (message-only amend)
 if "--allow-empty" in command:
     sys.exit(0)
 
@@ -61,10 +53,9 @@ for name, cmd in checks:
         failed.append((name, f"command not found: {cmd[0]}"))
 
 if failed:
-    print("❌ Commit blocked. The following checks failed:\n", file=sys.stderr)
+    print("Commit blocked. The following checks failed:\n", file=sys.stderr)
     for name, error in failed:
-        print(f"  ✗ {name}:", file=sys.stderr)
-        # Print first 10 lines of error output
+        print(f"  x {name}:", file=sys.stderr)
         for line in error.split("\n")[:10]:
             print(f"    {line}", file=sys.stderr)
         print("", file=sys.stderr)

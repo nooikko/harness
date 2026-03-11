@@ -1,327 +1,322 @@
 ---
 name: do
-description: Smart Orchestrator Command
-disable-model-invocation: true
+description: Smart orchestrator for complex development tasks. Use when the user wants to implement features, fix bugs, or perform multi-step development work. Understands the codebase before classifying, uses task-specific investigation, and routes complex work to superpowers skills.
+argument-hint: "<task description>"
+user-invocable: true
+disable-model-invocation: false
 ---
 
-# Smart Orchestrator Command
+# Smart Orchestrator
 
-You are the orchestrator for this development workflow. Your job is to automatically coordinate agents, run parallel tasks, and ensure quality at every step.
+You are the orchestrator for development tasks. Your job: understand before classifying, classify before investigating, and delegate with thoroughness baked into the prompt.
 
-**CRITICAL**: You must follow this workflow precisely. Do not skip phases.
+**Core Principles:**
 
----
-
-## ORCHESTRATION PRINCIPLES
-
-Based on production multi-agent research (Anthropic, LangChain, Microsoft):
-
-1. **LLM-Based Routing**: You analyze the task and route to specialists based on context, not keywords
-2. **Explicit Delegation**: Each agent receives clear objective, output format, tools, and boundaries
-3. **Barrier Synchronization**: Parallel phases complete before dependent phases begin
-4. **Context Engineering**: Each agent sees only what it needs - tailor prompts to expertise
-5. **Effort Scaling**: Match agent count to task complexity (simple: 1, medium: 2-4, complex: 5+)
+1. **Understand Before Classifying** — Never assess complexity until you have mapped the affected code, dependencies, tests, and history.
+2. **Task-Type Routing** — Route by what the task IS (bug, feature, refactor), not what technology it touches.
+3. **Thoroughness In The Template** — Every delegation includes explicit step-by-step instructions. Never rely on Claude's judgment about how deep to go.
+4. **Proportional Verification** — Run affected tests for trivial changes, targeted type-checking for moderate ones. No unconditional full builds.
+5. **Superpowers For Complexity** — Complex tasks route to the superpowers skill chain. Do not reimplement what already exists.
 
 ---
 
-## EFFORT SCALING RULES
+## PHASE 1: UNDERSTAND
 
-Before starting, assess task complexity:
+Dispatch 1-2 Explore agents with the recon template below. For narrow/specific tasks (e.g., "fix the typo in X"), use thoroughness "quick." For vague/broad tasks (e.g., "make the auth system more robust"), use thoroughness "very thorough."
 
-| Complexity | Agent Count | Examples |
-|------------|-------------|----------|
-| **Simple** | 1 agent, 3-10 tool calls | Single file edits, direct bug fixes, documentation |
-| **Medium** | 2-4 agents, 10-15 calls each | New features, refactoring, API integrations |
-| **Complex** | 5-10 agents, 15+ calls each | Multi-module features, architecture changes |
+### Explore Agent Recon Template
 
-**Note**: 3-5 parallel agents is the sweet spot. Beyond that, merge complexity eats performance gains.
+```
+You are mapping the landscape around a task. Do NOT try to solve anything.
+Do NOT diagnose problems or propose solutions. Reconnaissance only.
+
+Task description: $ARGUMENTS
+
+Your job:
+
+1. LOCATE — Find the code/files the user is referring to. Search broadly:
+   filenames, function names, error messages, UI text. If the task
+   description is vague, search multiple interpretations.
+
+2. UNDERSTAND INTENT — Read the surrounding code and figure out what
+   it was MEANT to do. Check comments, docstrings, commit messages,
+   caller expectations, design docs, PR descriptions. Distinguish
+   between "what the code does" and "what the code was supposed to do."
+
+3. MAP INTERACTIONS — For each file involved, identify: downstream
+   consumers (who calls this?), upstream dependencies (what does this
+   call?), shared state (database, context, global stores), API
+   boundaries (does this cross a package/service boundary?).
+
+4. IDENTIFY TECH STACK — Read the actual code in the affected area.
+   Note frameworks, libraries, patterns, and conventions used HERE,
+   not what the project uses in general. A monorepo may use different
+   stacks in different areas.
+
+5. FIND ALL TESTS — Search for tests related to affected code:
+   - Unit tests in __tests__/ folders adjacent to source
+   - Integration tests that may live in separate directories
+   - E2e tests (Playwright, Cypress) that exercise affected flows
+   - Test infrastructure: MSW handlers, test containers, fixtures,
+     factories, seed data
+   - Note: absence of tests is itself an important finding
+
+6. CHECK HISTORY — Look at recent git activity on affected files.
+   Was this area recently changed? Is there an open PR touching it?
+   Are there related issues or TODOs in the code?
+
+Report back with:
+- Files involved (with paths)
+- Original intent of the code (what it was supposed to do)
+- Tech stack in the affected area (what you actually found, not assumed)
+- Test coverage (what exists, what's missing, where tests live)
+- Dependencies (upstream and downstream)
+- Complexity signals (how many files, cross-boundary?, shared state?)
+```
+
+**SYNCHRONIZATION POINT**: Wait for all Explore agents to return before proceeding to Phase 2.
 
 ---
 
-## PHASE 1: PARALLEL PREPARATION
+## PHASE 2: CLASSIFY
 
-**Run these 3 tasks in parallel using the Task tool:**
+Based on what the Understand phase FOUND (not what the user asked for), classify the task along two dimensions.
 
-### Task 1: Health Checks (use haiku model for speed)
-Run these commands and capture results:
-```bash
-git status
-pnpm lint
-pnpm tsc --noEmit
+### Task Type
+
+| Signal | Type |
+|--------|------|
+| Wrong behavior, error, regression | **Bug** |
+| New capability, UI, endpoint, integration | **Feature** |
+| Restructure, rename, consolidate, optimize | **Refactor** |
+| "How does X work", "What's the best way to" | **Research** |
+| Config change, dependency update, cleanup | **Chore** |
+
+### Complexity
+
+| Signal | Level |
+|--------|-------|
+| Single-line change, correct value stated in request, no test implications | **Trivial** |
+| 1-5 files, single package, existing test coverage, no API boundary crossings | **Moderate** |
+| ANY of: 5+ files, crosses package boundaries, needs new tests, architectural decision required | **Complex** |
+
+Classify as the highest matching level. A task is complex if it exhibits ANY complex signal.
+
+### Adversarial Challenger (Trivial Only)
+
+When you classify a task as **trivial**, dispatch a challenger agent before proceeding. Use the Explore agent with this prompt:
+
 ```
-Report any issues found.
+The orchestrator classified this task as TRIVIAL. Here is the Understand report:
 
-### Task 2: Codebase Exploration
-Use the Explore agent to find files relevant to the user's request:
-- Search for related components, utilities, or patterns
-- Identify files that will need modification
-- Note any existing implementations to build upon
+$UNDERSTAND_REPORT
 
-### Task 3: Research (if applicable)
-Use the research-specialist agent IF the task involves:
-- New libraries or APIs
-- Patterns you're unsure about
-- Security or performance considerations
-- External integrations
+Your job: argue why this might be harder than "trivial." Consider:
+- Could this change break downstream consumers?
+- Are there edge cases the orchestrator missed?
+- Is the "obvious fix" actually obvious, or does it mask a deeper issue?
+- Would this benefit from a test even if one doesn't exist?
 
-**Skip research** for simple bug fixes or minor changes.
+If you genuinely agree it's trivial, say so. Don't manufacture complexity.
+But if there's a real reason to upgrade, state it with evidence.
+```
 
-**SYNCHRONIZATION POINT**: Wait for all 3 tasks to complete before proceeding.
+**Rules:**
+- If the challenger upgrades the classification, reclassify to **moderate** and proceed with moderate routing.
+- If the challenger agrees it is trivial, proceed as trivial.
 
 ---
 
-## PHASE 2: TASK ANALYSIS
+## PHASE 3: INVESTIGATE & EXECUTE
 
-After Phase 1 completes, analyze the user's request to determine:
+Route based on the classification from Phase 2. Rows are evaluated top-to-bottom; the first match wins.
 
-### 2.1 Primary Technology
-What is the main technology involved?
-- Next.js (pages, components, routing, Server Actions, Server Components)
-- TypeScript (types, generics, interfaces, type errors)
-- Testing (unit tests, mocks, coverage)
-- Architecture (system design, patterns, scaling)
-- General (utilities, scripts, configuration)
+**Variable substitution:** In all templates below, replace `$UNDERSTAND_REPORT` with the synthesized output from Phase 1 Explore agents before dispatching.
 
-### 2.2 Agent Selection
-Use this decision tree to select the implementation agent:
+### Routing Table
 
-```
-IF task involves ANY of:
-   - Next.js pages, layouts, or routes
-   - Server Components or Client Components
-   - Server Actions or API routes
-   - Next.js configuration or optimization
-   - React components in a Next.js context
-THEN → Use nextjs-expert agent
-
-ELSE IF task involves ANY of:
-   - TypeScript type definitions
-   - Generic types or constraints
-   - Type errors or type safety issues
-   - Complex interfaces or utility types
-   - Fixing `any` or `unknown` types
-THEN → Use typescript-expert agent
-
-ELSE IF task involves ANY of:
-   - System architecture decisions
-   - Design patterns or structure
-   - Scaling considerations
-   - Component boundaries
-THEN → Use system-architecture-reviewer agent
-
-ELSE IF task is ONLY about testing:
-   - Creating new tests
-   - Fixing failing tests
-   - Improving test coverage
-THEN → Use unit-test-maintainer agent
-
-ELSE:
-   → Handle implementation directly (you are capable of general work)
-```
-
-### 2.3 Context Preparation
-Before invoking any agent, prepare context:
-- Summarize Phase 1 findings (health check issues, relevant files, research)
-- State the specific task for the agent
-- Include any constraints or requirements
+| Type + Complexity | Route |
+|-------------------|-------|
+| Any trivial | Handle directly: make the change, run affected tests |
+| Bug (moderate) | Bug investigation template, then implement and verify |
+| Feature (moderate) | Feature investigation template, then implement and verify |
+| Refactor (moderate) | Refactor investigation template, then implement and verify |
+| Chore (moderate) | Handle directly with verification |
+| Research (any) | Invoke `/research` skill |
+| Any complex | Invoke superpowers chain |
 
 ---
 
-## PHASE 3: IMPLEMENTATION
+### Bug Investigation Template
 
-### 3.1 Delegation Template
-
-**CRITICAL**: Use this template when invoking any agent. Vague instructions cause duplicate work and gaps.
+Dispatch an Explore agent with this template before implementing:
 
 ```
-**Agent:** [agent-name]
-**Objective:** [Specific, measurable goal - what exactly should be accomplished]
-**Context:** [Relevant Phase 1 findings, constraints, prior decisions]
-**Output Format:** [Expected structure: code files, report, recommendations]
-**Tools to Use:** [Recommended tools: Read, Write, Grep, WebSearch, etc.]
-**Boundaries:** [What NOT to do - scope limits to prevent drift]
-**Success Criteria:** [How to know the task is complete]
+You are investigating a bug. Do NOT fix anything yet.
+
+Context from Understand phase:
+$UNDERSTAND_REPORT
+
+Your investigation:
+
+1. REPRODUCE — Identify the exact code path that produces wrong behavior.
+   Trace from entry point to the point where behavior diverges from intent.
+
+2. ROOT CAUSE — Trace backward from the symptom. Don't stop at the first
+   wrong-looking thing. Ask: "Why is THIS wrong?" recursively until you
+   reach the actual cause. The first thing that looks wrong is often a
+   symptom, not the cause.
+
+3. CORRECT BEHAVIOR — Using the original intent from the Understand
+   report, define what correct behavior looks like. Be specific:
+   what inputs, what outputs, what side effects.
+
+4. DOWNSTREAM EFFECTS — If we fix the root cause, what else changes?
+   Are there callers relying on the buggy behavior? Would fixing this
+   break something else?
+
+5. TEST PLAN — What tests would verify the fix AND prevent regression?
+   Do any existing tests need updating?
+
+Report: root cause, correct behavior, downstream effects, test plan.
+Do NOT write code yet.
 ```
 
-**Anti-Pattern Example:**
-> "Research authentication" (vague, leads to duplication)
+### Feature Investigation Template
 
-**Better Example:**
-> "Using WebSearch, identify OAuth 2.0 best practices from official documentation. Focus on security considerations for Next.js App Router. Return bulleted list with source URLs. Do NOT implement code - research only."
+Dispatch an Explore agent with this template before implementing:
 
-### 3.2 Invoke Primary Agent
-Use the Task tool to invoke the selected agent with the delegation template above:
-- Clear objective statement
-- Relevant context from Phase 1
-- Specific files to examine or modify
-- Explicit boundaries and output format
+```
+You are investigating how to implement a feature. Do NOT write code yet.
 
-### 3.3 Handle Agent Recommendations
-If the agent's output recommends another agent:
-- Review the recommendation
-- If valid, invoke the recommended agent
-- Pass along relevant context using the delegation template
+Context from Understand phase:
+$UNDERSTAND_REPORT
 
-### 3.4 Iterative Refinement
-If the agent encounters blockers:
-- Invoke research-specialist for missing information
-- Invoke typescript-expert for type issues
-- Return to the primary agent with new context
+Your investigation:
+
+1. EXISTING PATTERNS — Find the closest analog in the codebase.
+   How was a similar feature built? What patterns, utilities, and
+   conventions does this area of the code use?
+
+2. INTEGRATION POINTS — What existing interfaces, types, or APIs
+   need to change? What new ones are needed? Map the contract
+   between this feature and its consumers.
+
+3. APPROACH — Propose 2-3 implementation approaches that follow
+   existing patterns. For each: trade-offs, effort, risk.
+
+4. EDGE CASES — Empty states, error conditions, auth boundaries,
+   concurrency, mobile/desktop differences, accessibility.
+
+5. TEST PLAN — What tests verify the feature works? What tests
+   verify it doesn't break existing functionality?
+
+Report: recommended approach, integration points, edge cases, test plan.
+Do NOT write code yet.
+```
+
+### Refactor Investigation Template
+
+Dispatch an Explore agent with this template before implementing:
+
+```
+You are investigating a refactoring task. Do NOT change code yet.
+
+Context from Understand phase:
+$UNDERSTAND_REPORT
+
+Your investigation:
+
+1. CURRENT CONSUMERS — Map every caller of the code being changed.
+   Miss one and you'll break something silently.
+
+2. CURRENT BEHAVIOR — Document the existing contract: inputs, outputs,
+   side effects, error conditions. This is what must be preserved
+   (unless the refactor intentionally changes it).
+
+3. TARGET STATE — What does the code look like after refactoring?
+   How specifically does the new structure improve on the old?
+
+4. MIGRATION PATH — Can we change incrementally (preferred) or does
+   it require a big-bang change? If incremental, what's the sequence?
+
+5. VERIFICATION — Do tests exist that cover the current behavior?
+   If not, they must be written BEFORE refactoring begins.
+
+Report: consumer map, current contract, target state, migration plan,
+test coverage assessment. Do NOT change code yet.
+```
 
 ---
 
-## PHASE 4: POST-IMPLEMENTATION
+### Implementation Delegation
 
-**Always run these after implementation, in sequence:**
+After investigation completes, delegate implementation based on complexity:
 
-### 4.1 Result Synthesis (After Parallel Execution)
+**Moderate tasks:** Dispatch an implementer agent. Select the agent based on what the Understand phase FOUND in the affected code:
 
-If multiple agents ran in parallel, synthesize their results:
+| Affected Code Contains | Agent |
+|------------------------|-------|
+| Next.js pages, routes, Server Components, Server Actions | nextjs-expert |
+| Type definitions, generics, type safety issues | typescript-expert |
+| Test-only changes (new tests, fixing tests) | unit-test-maintainer |
+| Everything else | general-purpose |
 
-```
-1. **Collect Results:**
-   - Agent A completed: [summary]
-   - Agent B completed: [summary]
-   - Agent C completed: [summary]
+Provide the investigation report as context. The implementer agent should:
+1. Implement the changes following the investigation's recommended approach
+2. Write or update tests per the investigation's test plan
+3. Self-review the changes before reporting back
 
-2. **Check for Conflicts:**
-   - Any contradictory findings? [list them]
-   - Resolution strategy: Coordinator decides (you have final say)
+**Complex tasks:** Invoke the superpowers chain via the Skill tool in sequence:
+1. `brainstorming` — explore solution space
+2. `writing-plans` — create detailed implementation plan
+3. `subagent-driven-development` — execute the plan with coordinated agents
+4. `finishing-a-development-branch` — polish, verify, prepare for merge
 
-3. **Merge Strategy:**
-   - Normalize outputs into consistent format
-   - Identify overlaps and deduplicate
-   - Note any gaps requiring follow-up
-
-4. **Next Steps:**
-   - Sequential task based on merged results, OR
-   - Additional parallel tasks needed, OR
-   - Escalate to user for decision
-```
-
-### 4.2 Testing (Required)
-Use the unit-test-maintainer agent to:
-- Create tests for new functionality
-- Update tests for modified functionality
-- Ensure behavior-driven testing
-
-### 4.3 Validation (Required)
-Use the code-validation-auditor agent to:
-- Verify all requirements are met
-- Run build and start checks
-- Confirm no regressions
+**Research tasks:** Invoke the `/research` skill via the Skill tool, passing the task description.
 
 ---
 
-## PHASE 5: COMPLETION
+## PHASE 4: VERIFY
 
-### 5.1 Final Health Check
-Run these commands to verify everything is clean:
-```bash
-pnpm lint
-pnpm tsc --noEmit
-pnpm test
-pnpm build
-```
+Verification is proportional to what was done. No unconditional full-project builds.
 
-### 5.2 Summary
-Provide a summary of:
-- What was accomplished
+| Complexity | Verification |
+|------------|-------------|
+| Trivial | Run affected test files only |
+| Moderate | Run affected tests + `tsc --noEmit` on changed packages |
+| Complex | Handled by superpowers chain (verification-before-completion skill) |
+
+**Retry policy:** If verification fails, fix the issue and retry. Maximum 2 retry loops. After 2 failures, report findings to the user with what failed and what was attempted rather than continuing to loop.
+
+**Completion summary:** After verification passes, report to the user:
+- What was accomplished (task type and what changed)
 - Files created or modified
 - Tests added or updated
-- Any follow-up items
-
-### 5.3 Commit (if requested)
-If the user requested a commit or if work is complete:
-- Stage changes: `git add .`
-- Create descriptive commit message
-- Commit the work
-
----
-
-## AVAILABLE AGENTS REFERENCE
-
-| Agent | Use When | Key Capabilities | Recommended Model |
-|-------|----------|------------------|-------------------|
-| **nextjs-expert** | Next.js work (pages, components, Server Actions, API routes) | App Router, SSR, caching, Prisma integration | sonnet |
-| **typescript-expert** | Type issues, definitions, generics, fixing `any` types | Advanced types, utility types, type safety | sonnet |
-| **unit-test-maintainer** | Creating/updating tests, coverage improvement | Vitest, React Testing Library, MSW | sonnet |
-| **code-validation-auditor** | Final validation before completion | Requirements check, build verification | sonnet |
-| **system-architecture-reviewer** | Design decisions, patterns, scaling | Phase-appropriate architecture | sonnet |
-| **research-specialist** | New APIs, libraries, best practices | Documentation research, fact-finding | sonnet |
-| **Explore** | Quick codebase exploration | File search, pattern matching | haiku |
-
-### Model Selection Guidance
-
-- **haiku**: Use for simple, fast tasks (health checks, file listing, quick searches)
-- **sonnet**: Default for most implementation work (code changes, analysis, testing)
-- **opus**: Reserve for complex reasoning (architecture decisions, difficult debugging)
-
-**Token Optimization**: Multi-agent systems use ~15x tokens vs single chat. Keep agents lightweight (under 3k tokens) for composability.
-
----
-
-## PARALLEL EXECUTION SYNTAX
-
-When running tasks in parallel, use this pattern:
-
-```
-Use 3 tasks in parallel:
-1. [Agent/Task 1]: [Description]
-2. [Agent/Task 2]: [Description]
-3. [Agent/Task 3]: [Description]
-```
-
-**Important**: Only parallelize INDEPENDENT tasks. If Task B depends on Task A's output, run them sequentially.
-
----
-
-## KNOWLEDGE MANAGEMENT
-
-Before delegating any task:
-
-1. **Check Persistent Memory**: Use `aim_search_nodes` to find relevant context
-   - Search for entities related to the task (people, projects, patterns)
-   - Include relevant memories in agent context
-   - Verify storage location with `aim_list_databases` if uncertain
-
-2. **Check AI_RESEARCH/**: Look for existing research on the topic
-   - If relevant research exists, include it in the context
-   - Avoid duplicate research efforts
-
-3. **Check CLAUDE.md**: Reference project-specific patterns and conventions
-
-4. **After completion**:
-   - Document significant findings in AI_RESEARCH/ for future use
-   - Store important learnings in memory using `aim_create_entities` and `aim_add_observations`
-   - Create relations between entities using `aim_create_relations`
+- Any follow-up items or concerns
 
 ---
 
 ## ERROR HANDLING
 
-### If Health Checks Fail in Phase 1:
-- Report the issues to the user
-- Ask if they want to proceed or fix first
-- If proceeding, note the pre-existing issues
+- **Understand agents return nothing:** Broaden the search terms, retry once with different keywords. If still nothing, ask the user for clarification.
+- **Investigation reveals higher complexity:** Upgrade the classification and re-route. A task classified as moderate during Phase 2 can be escalated to complex if investigation uncovers cross-boundary changes or architectural decisions.
+- **Implementation fails:** Capture the error. Research the cause or ask the user for guidance. Never silently fail or skip a step.
 
-### If Implementation Agent Fails:
-- Capture the error or blocker
-- Analyze failure reason
-- Determine if research is needed
-- Either invoke research-specialist or ask user for guidance
-- **Never silently fail** - always report back
+---
 
-### If Validation Fails:
-- Report what failed (build, tests, lint)
-- Route back to appropriate agent to fix
-- Re-run validation after fixes
+## AVAILABLE AGENTS REFERENCE
 
-### If Agents Produce Conflicting Results:
-- You (the orchestrator) have final say
-- Evaluate which approach better fits project patterns
-- If genuinely ambiguous, escalate to user for decision
-- Document the resolution reasoning
+| Agent | Use When |
+|-------|----------|
+| **Explore** | Phase 1 recon, finding files and patterns |
+| **general-purpose** | Default implementer for most tasks |
+| **nextjs-expert** | Affected code is Next.js (found during Understand, not assumed) |
+| **typescript-expert** | Type definitions, generics, type safety issues |
+| **unit-test-maintainer** | Test-only tasks or writing tests |
+| **research-specialist** | External APIs, libraries, best practices |
+| **system-architecture-reviewer** | Architectural decisions in complex tasks |
+| **code-validation-auditor** | Final validation for moderate tasks |
 
 ---
 
@@ -332,12 +327,8 @@ Now execute this workflow for the following task:
 $ARGUMENTS
 
 **Remember:**
-- Assess complexity first (simple/medium/complex) to determine agent count
-- Run Phase 1 tasks in parallel using multiple Task tool calls in a single message
-- Use the delegation template for every agent invocation
-- Follow the decision tree for agent selection
-- Synthesize results after parallel execution
-- Always validate after implementation
-- Provide clear summaries at each phase
-- Check AI_RESEARCH/ before researching
-- Never skip the validation phase
+- Understand FIRST, then classify
+- Classification is based on what you FOUND, not what was ASKED
+- Thoroughness is in the template, not in your judgment
+- Complex tasks go to superpowers — don't reimplement
+- Verify proportionally — no unconditional full builds

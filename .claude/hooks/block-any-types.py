@@ -19,8 +19,7 @@ try:
 except json.JSONDecodeError:
     sys.exit(0)
 
-tool_name = input_data.get("tool_name", "")
-if tool_name != "Bash":
+if input_data.get("tool_name") != "Bash":
     sys.exit(0)
 
 command = input_data.get("tool_input", {}).get("command", "")
@@ -29,7 +28,6 @@ if not command or "git commit" not in command:
 
 project_dir = os.environ.get("CLAUDE_PROJECT_DIR", os.getcwd())
 
-# Get staged files
 try:
     result = subprocess.run(
         ["git", "diff", "--cached", "--name-only", "--diff-filter=ACMR"],
@@ -48,8 +46,7 @@ except Exception:
 if not staged_files:
     sys.exit(0)
 
-# Patterns that indicate explicit `any` usage in TypeScript
-# Matches: `: any`, `as any`, `<any>`, `<any,`, `any[]`, `any | `, ` | any`
+# Patterns that indicate explicit `any` usage
 ANY_PATTERN = re.compile(
     r"""
     (?::\s*any\b)        |  # type annotation  : any
@@ -62,7 +59,6 @@ ANY_PATTERN = re.compile(
     re.VERBOSE,
 )
 
-# Lines to skip (comments, strings are harder — focus on obvious cases)
 COMMENT_LINE = re.compile(r"^\s*(?://|/?\*|\*)")
 
 violations = []
@@ -72,7 +68,6 @@ for filepath in staged_files:
     if not os.path.isfile(abs_path):
         continue
 
-    # Get only the staged content (not working tree)
     try:
         staged_content = subprocess.run(
             ["git", "show", f":{filepath}"],
@@ -93,7 +88,7 @@ for filepath in staged_files:
 
 if violations:
     print(
-        "❌ Commit blocked — explicit `any` types found:\n", file=sys.stderr
+        "Commit blocked: explicit `any` types found:\n", file=sys.stderr
     )
     for filepath, line_num, text in violations[:20]:
         print(f"  {filepath}:{line_num}", file=sys.stderr)

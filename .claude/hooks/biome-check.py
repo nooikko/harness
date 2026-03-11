@@ -2,9 +2,8 @@
 """
 PostToolUse hook: Run Biome check on files after Write/Edit.
 
-Fires after Write or Edit completes on Biome-supported file types.
-Runs `npx biome check --write` on the single file.
-Non-blocking: always exits 0, but prints warnings on Biome errors.
+Runs `npx biome check --write` on supported file types.
+Non-blocking: always exits 0.
 """
 import json
 import os
@@ -41,16 +40,16 @@ try:
         timeout=25,
     )
     if result.returncode != 0:
-        print(f"⚠ Biome check reported issues for {os.path.basename(file_path)}:", file=sys.stderr)
+        print(f"Biome check issues for {os.path.basename(file_path)}:", file=sys.stderr)
         if result.stderr.strip():
             print(result.stderr.strip(), file=sys.stderr)
         if result.stdout.strip():
             print(result.stdout.strip(), file=sys.stderr)
 except FileNotFoundError:
-    print("⚠ Biome not found — skipping check", file=sys.stderr)
+    print("Biome not found, skipping check", file=sys.stderr)
 except subprocess.TimeoutExpired:
-    print("⚠ Biome check timed out", file=sys.stderr)
+    print("Biome check timed out", file=sys.stderr)
 except Exception as e:
-    print(f"⚠ Biome check failed: {e}", file=sys.stderr)
+    print(f"Biome check failed: {e}", file=sys.stderr)
 
 sys.exit(0)

@@ -2,10 +2,8 @@
 """
 PostToolUse hook: Warn when function keyword declarations are used.
 
-Checks written/edited TypeScript files for `function` keyword declarations
-and warns. This is a style enforcement — arrow functions are preferred.
-
-Exits 0 always (post-tool, non-blocking) but prints warnings.
+Checks written/edited TypeScript files for `function` keyword and warns.
+Non-blocking: always exits 0.
 """
 import json
 import os
@@ -32,12 +30,11 @@ if ext not in (".ts", ".tsx", ".js", ".jsx"):
 if not os.path.isfile(file_path):
     sys.exit(0)
 
-# Skip config files, test setup, and generated files
 basename = os.path.basename(file_path)
 skip_patterns = [
     "config", ".config.", "next.config", "vitest.config",
-    "tsup.config", "tailwind.config", "postcss.config",
-    "generated", ".d.ts",
+    "tailwind.config", "postcss.config",
+    "generated", ".d.ts", "instrumentation",
 ]
 if any(pat in basename for pat in skip_patterns):
     sys.exit(0)
@@ -48,9 +45,6 @@ try:
 except Exception:
     sys.exit(0)
 
-# Pattern: function declarations (not inside strings/comments)
-# Matches: function foo(, async function foo(, export function foo(
-# Does NOT match: // function, * function (jsdoc), "function"
 func_pattern = re.compile(
     r"^[\s]*(export\s+)?(export\s+default\s+)?(async\s+)?function\s+\w+",
 )
@@ -58,20 +52,17 @@ func_pattern = re.compile(
 violations = []
 for i, line in enumerate(lines, 1):
     stripped = line.strip()
-    # Skip comments
     if stripped.startswith("//") or stripped.startswith("*") or stripped.startswith("/*"):
         continue
     if func_pattern.match(line):
         violations.append((i, stripped[:80]))
 
 if violations:
-    print(f"⚠ Arrow function style violation in {basename}:", file=sys.stderr)
+    print(f"Arrow function style: {basename}:", file=sys.stderr)
     for line_num, text in violations[:5]:
         print(f"  Line {line_num}: {text}", file=sys.stderr)
     if len(violations) > 5:
         print(f"  ... and {len(violations) - 5} more", file=sys.stderr)
-    print("", file=sys.stderr)
-    print("Use arrow functions: const foo = () => { ... }", file=sys.stderr)
-    print("Not: function foo() { ... }", file=sys.stderr)
+    print("  Prefer: const foo = () => { ... }", file=sys.stderr)
 
 sys.exit(0)
