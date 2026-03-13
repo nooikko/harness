@@ -1,36 +1,12 @@
-// Tasks list — displays orchestrator tasks with status and iteration info
+// Tasks table — delegation monitoring with status dots, progress, and thread links
 
 import { prisma } from '@harness/database';
-import { Badge, Skeleton } from '@harness/ui';
+import { Progress, Skeleton, Table, TableBody, TableCell, TableHead, TableHeader, TableRow, Tooltip } from '@harness/ui';
+import { ListChecks } from 'lucide-react';
+import Link from 'next/link';
 import { Suspense } from 'react';
-
-type StatusVariant = 'default' | 'secondary' | 'destructive' | 'outline';
-
-type GetTaskStatusVariant = (status: string) => StatusVariant;
-
-const getTaskStatusVariant: GetTaskStatusVariant = (status) => {
-  switch (status) {
-    case 'running':
-      return 'default';
-    case 'completed':
-      return 'secondary';
-    case 'failed':
-      return 'destructive';
-    default:
-      return 'outline';
-  }
-};
-
-type FormatDate = (date: Date) => string;
-
-const formatDate: FormatDate = (date) => {
-  return date.toLocaleDateString('en-US', {
-    month: 'short',
-    day: 'numeric',
-    hour: '2-digit',
-    minute: '2-digit',
-  });
-};
+import { RelativeTime } from '../../_components/relative-time';
+import { StatusDot } from '../../_components/status-dot';
 
 /** @internal Exported for testing only — consumers should use TasksTable. */
 export const TasksTableInternal = async () => {
@@ -46,49 +22,86 @@ export const TasksTableInternal = async () => {
 
   if (tasks.length === 0) {
     return (
-      <div className='py-12 text-center'>
-        <p className='text-sm text-muted-foreground/60'>No tasks found.</p>
+      <div className='flex flex-col items-center justify-center gap-3 py-20 text-center'>
+        <ListChecks className='h-8 w-8 text-muted-foreground/30' />
+        <div className='flex flex-col gap-1'>
+          <p className='text-sm text-muted-foreground'>No delegation tasks yet</p>
+          <p className='text-xs text-muted-foreground/60'>Tasks appear here when agents delegate work to sub-agents.</p>
+        </div>
       </div>
     );
   }
 
   return (
-    <div className='flex flex-col'>
-      {tasks.map((task, i) => {
-        const promptPreview = task.prompt.length > 120 ? `${task.prompt.slice(0, 120)}...` : task.prompt;
-        return (
-          <div key={task.id}>
-            {i > 0 && <div className='mx-1 h-px bg-border/40' />}
-            <div className='flex items-start justify-between gap-4 px-1 py-4'>
-              <div className='min-w-0 flex-1 space-y-1.5'>
-                <div className='flex items-center gap-2.5'>
-                  <span className='text-sm'>{promptPreview}</span>
-                  <Badge variant={getTaskStatusVariant(task.status)} className='shrink-0 text-[11px]'>
-                    {task.status}
-                  </Badge>
-                </div>
-                <div className='flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-muted-foreground/70'>
-                  <span>
-                    {task.currentIteration}/{task.maxIterations} iterations
+    <Table>
+      <TableHeader>
+        <TableRow>
+          <TableHead>Task</TableHead>
+          <TableHead>Thread</TableHead>
+          <TableHead>Progress</TableHead>
+          <TableHead>Status</TableHead>
+          <TableHead>Created</TableHead>
+        </TableRow>
+      </TableHeader>
+      <TableBody>
+        {tasks.map((task) => {
+          const promptPreview = task.prompt.length > 80 ? `${task.prompt.slice(0, 80)}\u2026` : task.prompt;
+          const progressPercent = task.maxIterations > 0 ? (task.currentIteration / task.maxIterations) * 100 : 0;
+
+          return (
+            <TableRow key={task.id}>
+              <TableCell variant='primary' className='max-w-xs'>
+                {task.prompt.length > 80 ? (
+                  <Tooltip content={task.prompt}>
+                    <span className='block truncate'>{promptPreview}</span>
+                  </Tooltip>
+                ) : (
+                  <span>{promptPreview}</span>
+                )}
+              </TableCell>
+              <TableCell>
+                <Link href={`/chat/${task.thread.id}`} className='hover:underline'>
+                  {task.thread.name ?? task.thread.id.slice(0, 8)}
+                </Link>
+              </TableCell>
+              <TableCell>
+                <div className='flex items-center gap-2'>
+                  <Progress value={progressPercent} className='h-1.5 w-16' />
+                  <span className='tabular-nums text-muted-foreground'>
+                    {task.currentIteration}/{task.maxIterations}
                   </span>
-                  <span>{task.thread.name ?? task.thread.id.slice(0, 8)}</span>
-                  <span>{formatDate(task.createdAt)}</span>
-                  {task.status === 'completed' && task.result && <span className='max-w-xs truncate'>{task.result}</span>}
                 </div>
-              </div>
-            </div>
-          </div>
-        );
-      })}
-    </div>
+              </TableCell>
+              <TableCell>
+                <StatusDot status={task.status} pulse={task.status === 'running'} />
+              </TableCell>
+              <TableCell>
+                <RelativeTime date={task.createdAt} />
+              </TableCell>
+            </TableRow>
+          );
+        })}
+      </TableBody>
+    </Table>
   );
 };
 
 const TasksTableSkeleton = () => (
-  <div className='flex flex-col gap-4 py-4'>
-    <Skeleton className='h-12 w-full' />
-    <Skeleton className='h-12 w-full' />
-    <Skeleton className='h-12 w-full' />
+  <div className='rounded-lg border border-border'>
+    <div className='flex items-center gap-4 border-b border-border px-3.5 py-2'>
+      {Array.from({ length: 5 }).map((_, i) => (
+        <Skeleton key={i} className='h-3 w-20' />
+      ))}
+    </div>
+    {Array.from({ length: 6 }).map((_, i) => (
+      <div key={i} className='flex items-center gap-4 border-b border-border/50 px-3.5 py-3'>
+        <Skeleton className='h-3 w-48' />
+        <Skeleton className='h-3 w-24' />
+        <Skeleton className='h-1.5 w-16 rounded-full' />
+        <Skeleton className='h-3 w-16' />
+        <Skeleton className='h-3 w-14' />
+      </div>
+    ))}
   </div>
 );
 

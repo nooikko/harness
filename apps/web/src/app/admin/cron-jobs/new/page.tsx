@@ -1,7 +1,6 @@
 import { prisma } from '@harness/database';
-import { ArrowLeft } from 'lucide-react';
 import type { Metadata } from 'next';
-import Link from 'next/link';
+import { AdminBreadcrumb } from '../../_components/admin-breadcrumb';
 import { CronJobForm } from '../_components/cron-job-form';
 
 export const metadata: Metadata = {
@@ -35,15 +34,17 @@ const NewCronJobPage: NewCronJobPageComponent = async ({ searchParams }) => {
   ]);
 
   return (
-    <div className='mx-auto max-w-3xl space-y-6 p-6'>
-      <div className='flex flex-col gap-1'>
-        <Link href='/admin/cron-jobs' className='inline-flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground'>
-          <ArrowLeft className='h-4 w-4' />
-          Back to Scheduled Tasks
-        </Link>
-        <h1 className='text-2xl font-semibold tracking-tight'>New Scheduled Task</h1>
+    <div className='mx-auto flex w-full max-w-5xl flex-col gap-6 px-6 py-8 animate-[fade-in_150ms_ease-out]'>
+      <div className='flex flex-col gap-2'>
+        <AdminBreadcrumb />
+        <div>
+          <h1 className='text-lg font-semibold tracking-tight'>New Scheduled Task</h1>
+          <p className='text-sm text-muted-foreground'>Create a recurring or one-shot scheduled task for an agent.</p>
+        </div>
       </div>
-      <CronJobForm mode='create' agents={agents} threads={threads} projects={projects} defaultValues={agentId ? { agentId } : undefined} />
+      <div className='max-w-2xl'>
+        <CronJobForm mode='create' agents={agents} threads={threads} projects={projects} defaultValues={agentId ? { agentId } : undefined} />
+      </div>
     </div>
   );
 };

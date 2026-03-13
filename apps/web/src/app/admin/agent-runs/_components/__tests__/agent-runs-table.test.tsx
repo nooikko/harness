@@ -11,6 +11,29 @@ vi.mock('@harness/database', () => ({
   },
 }));
 
+vi.mock('../../../_components/relative-time', () => ({
+  RelativeTime: ({ date }: { date: Date }) => <time>{date.toISOString()}</time>,
+}));
+
+vi.mock('../../../_components/status-dot', () => ({
+  StatusDot: ({ status, pulse }: { status: string; pulse?: boolean }) => (
+    <span data-testid='status-dot' data-status={status} data-pulse={pulse}>
+      {status}
+    </span>
+  ),
+}));
+
+vi.mock('../../../_helpers/humanize-model-name', () => ({
+  humanizeModelName: (id: string) => {
+    const map: Record<string, string> = {
+      'claude-opus-4-6': 'Opus 4.6',
+      'claude-sonnet-4-6': 'Sonnet 4.6',
+      'claude-haiku-4': 'Haiku 4',
+    };
+    return map[id] ?? id;
+  },
+}));
+
 const { AgentRunsTable, AgentRunsTableInternal } = await import('../agent-runs-table');
 
 describe('AgentRunsTable', () => {
@@ -26,10 +49,10 @@ describe('AgentRunsTableInternal', () => {
     mockFindMany.mockResolvedValue([]);
     const element = await AgentRunsTableInternal();
     const html = renderToStaticMarkup(element as React.ReactElement);
-    expect(html).toContain('No agent runs found.');
+    expect(html).toContain('No agent runs yet');
   });
 
-  it('renders table with agent run data', async () => {
+  it('renders table with agent run data and human model names', async () => {
     mockFindMany.mockResolvedValue([
       {
         id: 'run_1',
@@ -64,13 +87,14 @@ describe('AgentRunsTableInternal', () => {
     ]);
     const element = await AgentRunsTableInternal();
     const html = renderToStaticMarkup(element as React.ReactElement);
-    expect(html).toContain('claude-opus-4-6');
+    expect(html).toContain('data-slot="table"');
+    expect(html).toContain('Opus 4.6');
     expect(html).toContain('completed');
     expect(html).toContain('12,500');
     expect(html).toContain('3,200');
     expect(html).toContain('$0.1875');
     expect(html).toContain('Code Review');
-    expect(html).toContain('claude-sonnet-4-6');
+    expect(html).toContain('Sonnet 4.6');
     expect(html).toContain('running');
     expect(html).toContain('thread_2');
   });
@@ -98,11 +122,58 @@ describe('AgentRunsTableInternal', () => {
     expect(html).toContain('$0.0001');
   });
 
-  it('renders failed status with destructive variant', async () => {
+  it('renders duration as seconds', async () => {
     mockFindMany.mockResolvedValue([
       {
-        id: 'run_4',
-        threadId: 'thread_4',
+        id: 'run_dur',
+        threadId: 'thread_dur',
+        taskId: null,
+        model: 'claude-opus-4-6',
+        inputTokens: 1000,
+        outputTokens: 500,
+        costEstimate: 0.01,
+        durationMs: 10500,
+        status: 'completed',
+        error: null,
+        startedAt: new Date('2026-02-24T09:00:00Z'),
+        completedAt: new Date('2026-02-24T09:00:10Z'),
+        thread: { id: 'thread_dur', name: 'Duration Test' },
+      },
+    ]);
+    const element = await AgentRunsTableInternal();
+    const html = renderToStaticMarkup(element as React.ReactElement);
+    expect(html).toContain('10.0s');
+  });
+
+  it('shows dash for duration when run is in progress', async () => {
+    mockFindMany.mockResolvedValue([
+      {
+        id: 'run_running',
+        threadId: 'thread_r',
+        taskId: null,
+        model: 'claude-opus-4-6',
+        inputTokens: 0,
+        outputTokens: 0,
+        costEstimate: 0,
+        durationMs: 0,
+        status: 'running',
+        error: null,
+        startedAt: new Date('2026-02-24T09:00:00Z'),
+        completedAt: null,
+        thread: { id: 'thread_r', name: 'Running' },
+      },
+    ]);
+    const element = await AgentRunsTableInternal();
+    const html = renderToStaticMarkup(element as React.ReactElement);
+    expect(html).toContain('\u2014');
+    expect(html).toContain('data-pulse="true"');
+  });
+
+  it('uses StatusDot for status display', async () => {
+    mockFindMany.mockResolvedValue([
+      {
+        id: 'run_status',
+        threadId: 'thread_s',
         taskId: null,
         model: 'claude-opus-4-6',
         inputTokens: 0,
@@ -113,12 +184,36 @@ describe('AgentRunsTableInternal', () => {
         error: 'Connection timeout',
         startedAt: new Date('2026-02-24T09:00:00Z'),
         completedAt: null,
-        thread: { id: 'thread_4', name: 'Failed Run' },
+        thread: { id: 'thread_s', name: 'Failed Run' },
       },
     ]);
     const element = await AgentRunsTableInternal();
     const html = renderToStaticMarkup(element as React.ReactElement);
-    expect(html).toContain('failed');
-    expect(html).toContain('data-variant="destructive"');
+    expect(html).toContain('data-testid="status-dot"');
+    expect(html).toContain('data-status="failed"');
+  });
+
+  it('renders thread link to chat page', async () => {
+    mockFindMany.mockResolvedValue([
+      {
+        id: 'run_link',
+        threadId: 'thread_link',
+        taskId: null,
+        model: 'claude-opus-4-6',
+        inputTokens: 100,
+        outputTokens: 50,
+        costEstimate: 0.01,
+        durationMs: 1000,
+        status: 'completed',
+        error: null,
+        startedAt: new Date('2026-02-24T09:00:00Z'),
+        completedAt: new Date('2026-02-24T09:00:01Z'),
+        thread: { id: 'thread_link', name: 'Linked Thread' },
+      },
+    ]);
+    const element = await AgentRunsTableInternal();
+    const html = renderToStaticMarkup(element as React.ReactElement);
+    expect(html).toContain('/chat/thread_link');
+    expect(html).toContain('Linked Thread');
   });
 });

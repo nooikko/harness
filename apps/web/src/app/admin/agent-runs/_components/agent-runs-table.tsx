@@ -1,47 +1,33 @@
-// Agent runs list — displays model invocations with token and cost data
+// Agent runs table — compact monitoring view with human model names, token counts, and status dots
 
 import { prisma } from '@harness/database';
-import { Badge, Skeleton } from '@harness/ui';
+import { Skeleton, Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@harness/ui';
+import { Activity } from 'lucide-react';
+import Link from 'next/link';
 import { Suspense } from 'react';
-
-type StatusVariant = 'default' | 'secondary' | 'destructive' | 'outline';
-
-type GetRunStatusVariant = (status: string) => StatusVariant;
-
-const getRunStatusVariant: GetRunStatusVariant = (status) => {
-  switch (status) {
-    case 'running':
-      return 'default';
-    case 'completed':
-      return 'secondary';
-    case 'failed':
-      return 'destructive';
-    default:
-      return 'outline';
-  }
-};
+import { RelativeTime } from '../../_components/relative-time';
+import { StatusDot } from '../../_components/status-dot';
+import { humanizeModelName } from '../../_helpers/humanize-model-name';
 
 type FormatTokens = (count: number) => string;
 
-const formatTokens: FormatTokens = (count) => {
-  return count.toLocaleString();
-};
+const formatTokens: FormatTokens = (count) => count.toLocaleString();
 
 type FormatCost = (cost: number) => string;
 
-const formatCost: FormatCost = (cost) => {
-  return `$${cost.toFixed(4)}`;
-};
+const formatCost: FormatCost = (cost) => `$${cost.toFixed(4)}`;
 
-type FormatDate = (date: Date) => string;
+type FormatDuration = (start: Date, end: Date | null) => string;
 
-const formatDate: FormatDate = (date) => {
-  return date.toLocaleDateString('en-US', {
-    month: 'short',
-    day: 'numeric',
-    hour: '2-digit',
-    minute: '2-digit',
-  });
+const formatDuration: FormatDuration = (start, end) => {
+  if (!end) {
+    return '\u2014';
+  }
+  const ms = end.getTime() - start.getTime();
+  if (ms < 1000) {
+    return `${ms}ms`;
+  }
+  return `${(ms / 1000).toFixed(1)}s`;
 };
 
 /** @internal Exported for testing only — consumers should use AgentRunsTable. */
@@ -58,46 +44,77 @@ export const AgentRunsTableInternal = async () => {
 
   if (runs.length === 0) {
     return (
-      <div className='py-12 text-center'>
-        <p className='text-sm text-muted-foreground/60'>No agent runs found.</p>
+      <div className='flex flex-col items-center justify-center gap-3 py-20 text-center'>
+        <Activity className='h-8 w-8 text-muted-foreground/30' />
+        <div className='flex flex-col gap-1'>
+          <p className='text-sm text-muted-foreground'>No agent runs yet</p>
+          <p className='text-xs text-muted-foreground/60'>Runs appear here when agents process messages.</p>
+        </div>
       </div>
     );
   }
 
   return (
-    <div className='flex flex-col'>
-      {runs.map((run, i) => (
-        <div key={run.id}>
-          {i > 0 && <div className='mx-1 h-px bg-border/40' />}
-          <div className='flex items-start justify-between gap-4 px-1 py-4'>
-            <div className='min-w-0 flex-1 space-y-1.5'>
-              <div className='flex items-center gap-2.5'>
-                <span className='font-mono text-sm'>{run.model}</span>
-                <Badge variant={getRunStatusVariant(run.status)} className='text-[11px]'>
-                  {run.status}
-                </Badge>
-              </div>
-              <div className='flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-muted-foreground/70'>
-                <span>
-                  {formatTokens(run.inputTokens)} in / {formatTokens(run.outputTokens)} out
-                </span>
-                <span className='font-mono'>{formatCost(run.costEstimate)}</span>
-                <span>{run.thread.name ?? run.thread.id.slice(0, 8)}</span>
-                <span>{formatDate(run.startedAt)}</span>
-              </div>
-            </div>
-          </div>
-        </div>
-      ))}
-    </div>
+    <Table>
+      <TableHeader>
+        <TableRow>
+          <TableHead>Thread</TableHead>
+          <TableHead>Model</TableHead>
+          <TableHead className='text-right'>Input</TableHead>
+          <TableHead className='text-right'>Output</TableHead>
+          <TableHead className='text-right'>Cost</TableHead>
+          <TableHead className='text-right'>Duration</TableHead>
+          <TableHead>Status</TableHead>
+          <TableHead>Time</TableHead>
+        </TableRow>
+      </TableHeader>
+      <TableBody>
+        {runs.map((run) => (
+          <TableRow key={run.id}>
+            <TableCell variant='primary'>
+              <Link href={`/chat/${run.thread.id}`} className='hover:underline'>
+                {run.thread.name ?? run.thread.id.slice(0, 8)}
+              </Link>
+            </TableCell>
+            <TableCell>{humanizeModelName(run.model)}</TableCell>
+            <TableCell className='text-right tabular-nums'>{formatTokens(run.inputTokens)}</TableCell>
+            <TableCell className='text-right tabular-nums'>{formatTokens(run.outputTokens)}</TableCell>
+            <TableCell variant='mono' className='text-right'>
+              {formatCost(run.costEstimate)}
+            </TableCell>
+            <TableCell className='text-right tabular-nums'>{formatDuration(run.startedAt, run.completedAt)}</TableCell>
+            <TableCell>
+              <StatusDot status={run.status} pulse={run.status === 'running'} />
+            </TableCell>
+            <TableCell>
+              <RelativeTime date={run.startedAt} />
+            </TableCell>
+          </TableRow>
+        ))}
+      </TableBody>
+    </Table>
   );
 };
 
 const AgentRunsTableSkeleton = () => (
-  <div className='flex flex-col gap-4 py-4'>
-    <Skeleton className='h-12 w-full' />
-    <Skeleton className='h-12 w-full' />
-    <Skeleton className='h-12 w-full' />
+  <div className='rounded-lg border border-border'>
+    <div className='flex items-center gap-4 border-b border-border px-3.5 py-2'>
+      {Array.from({ length: 8 }).map((_, i) => (
+        <Skeleton key={i} className='h-3 w-16' />
+      ))}
+    </div>
+    {Array.from({ length: 10 }).map((_, i) => (
+      <div key={i} className='flex items-center gap-4 border-b border-border/50 px-3.5 py-2.5'>
+        <Skeleton className='h-3 w-28' />
+        <Skeleton className='h-3 w-16' />
+        <Skeleton className='h-3 w-12' />
+        <Skeleton className='h-3 w-12' />
+        <Skeleton className='h-3 w-14' />
+        <Skeleton className='h-3 w-10' />
+        <Skeleton className='h-3 w-16' />
+        <Skeleton className='h-3 w-12' />
+      </div>
+    ))}
   </div>
 );
 

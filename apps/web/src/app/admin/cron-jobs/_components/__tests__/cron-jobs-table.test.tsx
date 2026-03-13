@@ -15,8 +15,26 @@ vi.mock('../../_actions/delete-cron-job', () => ({
   deleteCronJob: vi.fn(),
 }));
 
-vi.mock('../delete-cron-job-button', () => ({
-  DeleteCronJobButton: ({ name }: { name: string }) => <button type='button'>{`Delete ${name}`}</button>,
+vi.mock('../cron-job-toggle', () => ({
+  CronJobToggle: ({ id, enabled }: { id: string; enabled: boolean }) => (
+    <span data-testid='cron-toggle' data-id={id} data-enabled={enabled}>
+      {enabled ? 'on' : 'off'}
+    </span>
+  ),
+}));
+
+vi.mock('../../../_components/relative-time', () => ({
+  RelativeTime: ({ date }: { date: Date }) => <time>{date.toISOString()}</time>,
+}));
+
+vi.mock('../../../_components/row-menu', () => ({
+  RowMenu: ({ actions }: { actions: Array<{ label: string }> }) => (
+    <div data-testid='row-menu'>
+      {actions.map((a) => (
+        <span key={a.label}>{a.label}</span>
+      ))}
+    </div>
+  ),
 }));
 
 const { CronJobsTable, CronJobsTableInternal } = await import('../cron-jobs-table');
@@ -34,10 +52,11 @@ describe('CronJobsTableInternal', () => {
     mockListCronJobs.mockResolvedValue([]);
     const element = await CronJobsTableInternal();
     const html = renderToStaticMarkup(element as React.ReactElement);
-    expect(html).toContain('No scheduled tasks configured.');
+    expect(html).toContain('No scheduled tasks yet');
+    expect(html).toContain('New Task');
   });
 
-  it('renders list item with metadata for recurring job', async () => {
+  it('renders table with recurring job data', async () => {
     mockListCronJobs.mockResolvedValue([
       {
         id: 'cj_1',
@@ -58,16 +77,40 @@ describe('CronJobsTableInternal', () => {
     ]);
     const element = await CronJobsTableInternal();
     const html = renderToStaticMarkup(element as React.ReactElement);
+    expect(html).toContain('data-slot="table"');
     expect(html).toContain('daily-summary');
     expect(html).toContain('0 9 * * *');
     expect(html).toContain('Claude');
-    expect(html).toContain('Summary Thread');
-    expect(html).toContain('Disable');
     expect(html).toContain('Edit');
-    expect(html).toContain('Delete daily-summary');
+    expect(html).toContain('Delete');
   });
 
-  it('renders one-shot job with formatted fireAt date', async () => {
+  it('renders inline toggle for enabled state', async () => {
+    mockListCronJobs.mockResolvedValue([
+      {
+        id: 'cj_toggle',
+        name: 'toggle-test',
+        schedule: '0 * * * *',
+        fireAt: null,
+        prompt: 'Test',
+        enabled: true,
+        lastRunAt: null,
+        nextRunAt: null,
+        threadId: null,
+        threadName: null,
+        agentName: 'Agent',
+        projectName: null,
+        createdAt: new Date('2026-01-01T00:00:00Z'),
+        updatedAt: new Date('2026-01-01T00:00:00Z'),
+      },
+    ]);
+    const element = await CronJobsTableInternal();
+    const html = renderToStaticMarkup(element as React.ReactElement);
+    expect(html).toContain('data-testid="cron-toggle"');
+    expect(html).toContain('data-enabled="true"');
+  });
+
+  it('renders one-shot job with fireAt date', async () => {
     mockListCronJobs.mockResolvedValue([
       {
         id: 'cj_2',
@@ -90,10 +133,9 @@ describe('CronJobsTableInternal', () => {
     const html = renderToStaticMarkup(element as React.ReactElement);
     expect(html).toContain('Mar');
     expect(html).toContain('15');
-    expect(html).toContain('Auto-create');
   });
 
-  it('renders disabled job with Enable button', async () => {
+  it('renders disabled job with toggle off', async () => {
     mockListCronJobs.mockResolvedValue([
       {
         id: 'cj_3',
@@ -114,11 +156,11 @@ describe('CronJobsTableInternal', () => {
     ]);
     const element = await CronJobsTableInternal();
     const html = renderToStaticMarkup(element as React.ReactElement);
-    expect(html).toContain('Disabled');
-    expect(html).toContain('Enable');
+    expect(html).toContain('data-enabled="false"');
+    expect(html).toContain('off');
   });
 
-  it('omits last-run info when lastRunAt is null', async () => {
+  it('shows dash when lastRunAt is null', async () => {
     mockListCronJobs.mockResolvedValue([
       {
         id: 'cj_4',
@@ -141,21 +183,21 @@ describe('CronJobsTableInternal', () => {
     const html = renderToStaticMarkup(element as React.ReactElement);
     expect(html).toContain('no-dates-job');
     expect(html).toContain('0 * * * *');
-    expect(html).not.toContain('Never');
+    expect(html).toContain('\u2014');
   });
 
-  it('shows truncated threadId when thread has no name', async () => {
+  it('renders edit link to cron job edit page', async () => {
     mockListCronJobs.mockResolvedValue([
       {
-        id: 'cj_5',
-        name: 'unnamed-thread-job',
+        id: 'cj_edit',
+        name: 'edit-test',
         schedule: '0 0 * * *',
         fireAt: null,
         prompt: 'Test',
         enabled: true,
         lastRunAt: null,
         nextRunAt: null,
-        threadId: 'clx1234567890abcdef',
+        threadId: null,
         threadName: null,
         agentName: 'Agent',
         projectName: null,
@@ -165,6 +207,6 @@ describe('CronJobsTableInternal', () => {
     ]);
     const element = await CronJobsTableInternal();
     const html = renderToStaticMarkup(element as React.ReactElement);
-    expect(html).toContain('clx12345...');
+    expect(html).toContain('/admin/cron-jobs/cj_edit/edit');
   });
 });

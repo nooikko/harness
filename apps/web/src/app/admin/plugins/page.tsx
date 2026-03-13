@@ -14,8 +14,11 @@ type PluginsPageComponent = () => React.ReactNode;
 
 const PluginsPage: PluginsPageComponent = () => {
   return (
-    <div className='mx-auto max-w-3xl space-y-2 p-6'>
-      <h1 className='text-lg font-medium'>Plugins</h1>
+    <div className='mx-auto flex w-full max-w-5xl flex-col gap-6 px-6 py-8 animate-[fade-in_150ms_ease-out]'>
+      <div className='flex flex-col gap-1'>
+        <h1 className='text-lg font-semibold tracking-tight'>Plugins</h1>
+        <p className='text-sm text-muted-foreground'>Manage orchestrator plugin configurations.</p>
+      </div>
       <PluginsTable />
     </div>
   );

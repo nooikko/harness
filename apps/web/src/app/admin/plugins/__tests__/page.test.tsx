@@ -17,6 +17,11 @@ describe('PluginsPage', () => {
     expect(html).toContain('Plugins');
   });
 
+  it('renders the page description', () => {
+    const html = renderToStaticMarkup(<PluginsPage />);
+    expect(html).toContain('Manage orchestrator plugin configurations.');
+  });
+
   it('renders Suspense fallback skeleton', () => {
     const html = renderToStaticMarkup(<PluginsPage />);
     expect(html).toContain('data-slot="skeleton"');

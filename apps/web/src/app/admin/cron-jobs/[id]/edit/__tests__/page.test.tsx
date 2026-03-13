@@ -29,6 +29,7 @@ const mockNotFound = vi.fn(() => {
 vi.mock('next/navigation', () => ({
   notFound: () => mockNotFound(),
   useRouter: () => ({ push: vi.fn() }),
+  usePathname: () => '/admin/cron-jobs/cj_1/edit',
 }));
 
 vi.mock('../../../_components/cron-job-form', () => ({
@@ -91,14 +92,13 @@ describe('EditCronJobPage', () => {
     expect(form).toHaveAttribute('data-name', 'Morning Digest');
   });
 
-  it('renders a back link to cron jobs list', async () => {
+  it('renders breadcrumb navigation', async () => {
     mockFindUniqueCronJob.mockResolvedValue(fakeJob);
 
     const jsx = await EditCronJobPage({ params: makeParams('cj_1') });
     render(jsx as React.ReactElement);
 
-    const link = screen.getByText('Back to Scheduled Tasks');
-    expect(link.closest('a')).toHaveAttribute('href', '/admin/cron-jobs');
+    expect(screen.getByLabelText('Breadcrumb')).toBeInTheDocument();
   });
 
   it('converts fireAt to ISO string when present', async () => {

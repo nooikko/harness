@@ -14,8 +14,11 @@ type ThreadsPageComponent = () => React.ReactNode;
 
 const ThreadsPage: ThreadsPageComponent = () => {
   return (
-    <div className='mx-auto max-w-3xl space-y-2 p-6'>
-      <h1 className='text-lg font-medium'>Threads</h1>
+    <div className='mx-auto flex w-full max-w-5xl flex-col gap-6 px-6 py-8 animate-[fade-in_150ms_ease-out]'>
+      <div className='flex flex-col gap-1'>
+        <h1 className='text-lg font-semibold tracking-tight'>Threads</h1>
+        <p className='text-sm text-muted-foreground'>All conversation threads across agents and sources.</p>
+      </div>
       <ThreadsTable />
     </div>
   );

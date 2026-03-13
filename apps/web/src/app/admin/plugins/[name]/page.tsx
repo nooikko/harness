@@ -1,6 +1,7 @@
 import { prisma } from '@harness/database';
 import { notFound } from 'next/navigation';
 import { pluginSettingsRegistry } from '@/generated/plugin-settings-registry';
+import { AdminBreadcrumb } from '../../_components/admin-breadcrumb';
 import { SettingsForm } from './_components/settings-form';
 
 export const dynamic = 'force-dynamic';
@@ -31,18 +32,23 @@ const PluginSettingsPage: PluginSettingsPageComponent = async ({ params }) => {
   }
 
   return (
-    <div className='max-w-xl space-y-6 p-6'>
-      <div>
-        <h2 className='text-2xl font-semibold capitalize'>{name}</h2>
-        <p className='mt-1 text-muted-foreground'>Configure the {name} plugin settings.</p>
-        {!config?.enabled && (
-          <div className='mt-3 rounded-md border border-yellow-200 bg-yellow-50 p-3 text-sm text-yellow-800'>
-            This plugin is currently <strong>disabled</strong>. Settings are saved but will not take effect until the plugin is enabled.
-          </div>
-        )}
+    <div className='mx-auto flex w-full max-w-5xl flex-col gap-6 px-6 py-8 animate-[fade-in_150ms_ease-out]'>
+      <div className='flex flex-col gap-2'>
+        <AdminBreadcrumb labels={{ [name]: name }} />
+        <div>
+          <h1 className='text-lg font-semibold capitalize tracking-tight'>{name}</h1>
+          <p className='text-sm text-muted-foreground'>Configure the {name} plugin settings.</p>
+          {!config?.enabled && (
+            <div className='mt-3 rounded-md border border-yellow-200 bg-yellow-50 p-3 text-sm text-yellow-800'>
+              This plugin is currently <strong>disabled</strong>. Settings are saved but will not take effect until the plugin is enabled.
+            </div>
+          )}
+        </div>
       </div>
 
-      <SettingsForm pluginName={name} fields={entry.fields} currentValues={displayValues} disabled={!config?.enabled} />
+      <div className='max-w-xl'>
+        <SettingsForm pluginName={name} fields={entry.fields} currentValues={displayValues} disabled={!config?.enabled} />
+      </div>
     </div>
   );
 };

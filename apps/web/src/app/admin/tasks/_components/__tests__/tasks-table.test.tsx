@@ -11,6 +11,18 @@ vi.mock('@harness/database', () => ({
   },
 }));
 
+vi.mock('../../../_components/relative-time', () => ({
+  RelativeTime: ({ date }: { date: Date }) => <time>{date.toISOString()}</time>,
+}));
+
+vi.mock('../../../_components/status-dot', () => ({
+  StatusDot: ({ status, pulse }: { status: string; pulse?: boolean }) => (
+    <span data-testid='status-dot' data-status={status} data-pulse={pulse}>
+      {status}
+    </span>
+  ),
+}));
+
 const { TasksTable, TasksTableInternal } = await import('../tasks-table');
 
 describe('TasksTable', () => {
@@ -26,7 +38,7 @@ describe('TasksTableInternal', () => {
     mockFindMany.mockResolvedValue([]);
     const element = await TasksTableInternal();
     const html = renderToStaticMarkup(element as React.ReactElement);
-    expect(html).toContain('No tasks found.');
+    expect(html).toContain('No delegation tasks yet');
   });
 
   it('renders table with task data', async () => {
@@ -58,56 +70,34 @@ describe('TasksTableInternal', () => {
     ]);
     const element = await TasksTableInternal();
     const html = renderToStaticMarkup(element as React.ReactElement);
+    expect(html).toContain('data-slot="table"');
     expect(html).toContain('Analyze the codebase and generate a summary report');
     expect(html).toContain('completed');
     expect(html).toContain('2/3');
     expect(html).toContain('Code Analysis');
-    expect(html).toContain('Summary generated');
     expect(html).toContain('running');
     expect(html).toContain('1/5');
     expect(html).toContain('thread_2');
   });
 
-  it('renders result inline for completed tasks', async () => {
-    const longResult = 'A'.repeat(150);
+  it('renders progress bar with correct value', async () => {
     mockFindMany.mockResolvedValue([
       {
-        id: 'task_5',
-        threadId: 'thread_5',
-        status: 'completed',
-        prompt: 'Long result task',
-        result: longResult,
-        maxIterations: 3,
-        currentIteration: 1,
-        thread: { id: 'thread_5', name: 'Long Result' },
+        id: 'task_prog',
+        threadId: 'thread_prog',
+        status: 'running',
+        prompt: 'Progress test',
+        result: null,
+        maxIterations: 4,
+        currentIteration: 2,
+        thread: { id: 'thread_prog', name: 'Progress' },
         createdAt: new Date('2026-02-24T10:00:00Z'),
         updatedAt: new Date('2026-02-24T10:05:00Z'),
       },
     ]);
     const element = await TasksTableInternal();
     const html = renderToStaticMarkup(element as React.ReactElement);
-    expect(html).toContain(longResult);
-  });
-
-  it('does not render result for non-completed tasks', async () => {
-    mockFindMany.mockResolvedValue([
-      {
-        id: 'task_6',
-        threadId: 'thread_6',
-        status: 'running',
-        prompt: 'Running task',
-        result: null,
-        maxIterations: 3,
-        currentIteration: 1,
-        thread: { id: 'thread_6', name: 'Running' },
-        createdAt: new Date('2026-02-24T10:00:00Z'),
-        updatedAt: new Date('2026-02-24T10:00:00Z'),
-      },
-    ]);
-    const element = await TasksTableInternal();
-    const html = renderToStaticMarkup(element as React.ReactElement);
-    expect(html).toContain('running');
-    expect(html).not.toContain('truncate');
+    expect(html).toContain('2/4');
   });
 
   it('renders thread id slice when thread has no name', async () => {
@@ -130,7 +120,7 @@ describe('TasksTableInternal', () => {
     expect(html).toContain('clxyz123');
   });
 
-  it('renders failed status with destructive variant', async () => {
+  it('uses StatusDot for status display', async () => {
     mockFindMany.mockResolvedValue([
       {
         id: 'task_4',
@@ -147,7 +137,70 @@ describe('TasksTableInternal', () => {
     ]);
     const element = await TasksTableInternal();
     const html = renderToStaticMarkup(element as React.ReactElement);
-    expect(html).toContain('failed');
-    expect(html).toContain('data-variant="destructive"');
+    expect(html).toContain('data-testid="status-dot"');
+    expect(html).toContain('data-status="failed"');
+  });
+
+  it('renders running task with pulse', async () => {
+    mockFindMany.mockResolvedValue([
+      {
+        id: 'task_pulse',
+        threadId: 'thread_pulse',
+        status: 'running',
+        prompt: 'Running task',
+        result: null,
+        maxIterations: 3,
+        currentIteration: 1,
+        thread: { id: 'thread_pulse', name: 'Running' },
+        createdAt: new Date('2026-02-24T10:00:00Z'),
+        updatedAt: new Date('2026-02-24T10:00:00Z'),
+      },
+    ]);
+    const element = await TasksTableInternal();
+    const html = renderToStaticMarkup(element as React.ReactElement);
+    expect(html).toContain('data-pulse="true"');
+  });
+
+  it('truncates long prompts with ellipsis', async () => {
+    const longPrompt = 'A'.repeat(120);
+    mockFindMany.mockResolvedValue([
+      {
+        id: 'task_long',
+        threadId: 'thread_long',
+        status: 'pending',
+        prompt: longPrompt,
+        result: null,
+        maxIterations: 3,
+        currentIteration: 0,
+        thread: { id: 'thread_long', name: 'Long Prompt' },
+        createdAt: new Date('2026-02-24T10:00:00Z'),
+        updatedAt: new Date('2026-02-24T10:00:00Z'),
+      },
+    ]);
+    const element = await TasksTableInternal();
+    const html = renderToStaticMarkup(element as React.ReactElement);
+    expect(html).toContain('A'.repeat(80));
+    expect(html).toContain('\u2026');
+    expect(html).not.toContain('A'.repeat(81));
+  });
+
+  it('renders thread link to chat page', async () => {
+    mockFindMany.mockResolvedValue([
+      {
+        id: 'task_link',
+        threadId: 'thread_link',
+        status: 'completed',
+        prompt: 'Test task',
+        result: 'Done',
+        maxIterations: 1,
+        currentIteration: 1,
+        thread: { id: 'thread_link', name: 'Linked Thread' },
+        createdAt: new Date('2026-02-24T10:00:00Z'),
+        updatedAt: new Date('2026-02-24T10:00:00Z'),
+      },
+    ]);
+    const element = await TasksTableInternal();
+    const html = renderToStaticMarkup(element as React.ReactElement);
+    expect(html).toContain('/chat/thread_link');
   });
 });

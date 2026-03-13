@@ -17,13 +17,16 @@ type CronJobsPageComponent = () => React.ReactNode;
 
 const CronJobsPage: CronJobsPageComponent = () => {
   return (
-    <div className='mx-auto max-w-3xl space-y-2 p-6'>
+    <div className='mx-auto flex w-full max-w-5xl flex-col gap-6 px-6 py-8 animate-[fade-in_150ms_ease-out]'>
       <div className='flex items-center justify-between'>
-        <h1 className='text-lg font-medium'>Scheduled Tasks</h1>
-        <Button variant='ghost' size='sm' asChild>
+        <div className='flex flex-col gap-1'>
+          <h1 className='text-lg font-semibold tracking-tight'>Scheduled Tasks</h1>
+          <p className='text-sm text-muted-foreground'>Recurring and one-shot scheduled prompts.</p>
+        </div>
+        <Button asChild className='gap-2'>
           <Link href='/admin/cron-jobs/new'>
-            <Plus className='mr-1 h-3.5 w-3.5' />
-            New
+            <Plus className='h-4 w-4' />
+            New Task
           </Link>
         </Button>
       </div>

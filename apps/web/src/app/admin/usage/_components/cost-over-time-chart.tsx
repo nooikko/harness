@@ -68,13 +68,9 @@ export const CostOverTimeChartInternal: CostOverTimeChartComponent = async () =>
             <div key={day.date} className='flex items-center gap-3'>
               <span className='w-20 shrink-0 text-xs text-muted-foreground'>{day.date.slice(5)}</span>
               <div className='flex-1'>
-                <meter
-                  className='h-6 w-full appearance-none rounded bg-primary/20 [&::-webkit-meter-bar]:rounded [&::-webkit-meter-bar]:bg-muted [&::-webkit-meter-optimum-value]:rounded [&::-webkit-meter-optimum-value]:bg-primary/40'
-                  value={day.totalCost}
-                  min={0}
-                  max={maxCost}
-                  aria-label={`${day.date}: ${formatCost(day.totalCost)}`}
-                />
+                <div className='h-6 w-full rounded bg-muted'>
+                  <div className='h-full rounded bg-primary/60' style={{ width: `${(day.totalCost / maxCost) * 100}%` }} />
+                </div>
               </div>
               <span className='w-16 shrink-0 text-right text-xs'>{formatCost(day.totalCost)}</span>
             </div>

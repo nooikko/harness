@@ -1,37 +1,14 @@
-// Threads list — displays all conversation threads with management controls
+// Threads table — columnar view with status dots, relative time, and hover-reveal row actions
 
 import { prisma } from '@harness/database';
-import { Badge, Button, Skeleton } from '@harness/ui';
+import { Skeleton, Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@harness/ui';
 import { MessageSquare } from 'lucide-react';
 import Link from 'next/link';
 import { Suspense } from 'react';
+import { RelativeTime } from '../../_components/relative-time';
+import { RowMenu } from '../../_components/row-menu';
+import { StatusDot } from '../../_components/status-dot';
 import { archiveThread } from '../_actions/archive-thread';
-
-type StatusVariant = 'default' | 'secondary' | 'outline';
-
-type GetThreadStatusVariant = (status: string) => StatusVariant;
-
-const getThreadStatusVariant: GetThreadStatusVariant = (status) => {
-  switch (status) {
-    case 'active':
-      return 'default';
-    case 'closed':
-      return 'secondary';
-    default:
-      return 'outline';
-  }
-};
-
-type FormatDate = (date: Date) => string;
-
-const formatDate: FormatDate = (date) => {
-  return date.toLocaleDateString('en-US', {
-    month: 'short',
-    day: 'numeric',
-    hour: '2-digit',
-    minute: '2-digit',
-  });
-};
 
 /** @internal Exported for testing only — consumers should use ThreadsTable. */
 export const ThreadsTableInternal = async () => {
@@ -39,6 +16,8 @@ export const ThreadsTableInternal = async () => {
     orderBy: { lastActivity: 'desc' },
     take: 50,
     include: {
+      agent: { select: { name: true } },
+      project: { select: { name: true } },
       _count: {
         select: { messages: { where: { kind: 'text' } } },
       },
@@ -47,64 +26,100 @@ export const ThreadsTableInternal = async () => {
 
   if (threads.length === 0) {
     return (
-      <div className='py-12 text-center'>
-        <p className='text-sm text-muted-foreground/60'>No threads found.</p>
+      <div className='flex flex-col items-center justify-center gap-3 py-20 text-center'>
+        <MessageSquare className='h-8 w-8 text-muted-foreground/30' />
+        <div className='flex flex-col gap-1'>
+          <p className='text-sm text-muted-foreground'>No threads yet</p>
+          <p className='text-xs text-muted-foreground/60'>Threads appear when users start conversations.</p>
+        </div>
       </div>
     );
   }
 
   return (
-    <div className='flex flex-col'>
-      {threads.map((thread, i) => {
-        const displayName = thread.name ?? `${thread.source}/${thread.sourceId}`;
-        return (
-          <div key={thread.id}>
-            {i > 0 && <div className='mx-1 h-px bg-border/40' />}
-            <div className='group flex items-start justify-between gap-4 px-1 py-4'>
-              <div className='min-w-0 flex-1 space-y-1.5'>
-                <div className='flex items-center gap-2.5'>
-                  <span className='text-sm font-medium'>{displayName}</span>
-                  <Badge variant={getThreadStatusVariant(thread.status)} className='text-[11px]'>
-                    {thread.status}
-                  </Badge>
-                  <Badge variant='outline' className='text-[11px]'>
-                    {thread.kind}
-                  </Badge>
-                </div>
-                <div className='flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-muted-foreground/70'>
-                  <span>{thread.source}</span>
-                  <span className='inline-flex items-center gap-1.5'>
-                    <MessageSquare className='h-3 w-3' />
-                    {thread._count.messages}
-                  </span>
-                  <span>{formatDate(thread.lastActivity)}</span>
-                </div>
-              </div>
-              <div className='flex shrink-0 items-center gap-1 opacity-0 transition-opacity group-hover:opacity-100'>
-                <Button variant='ghost' size='sm' asChild>
-                  <Link href={`/chat/${thread.id}`}>View</Link>
-                </Button>
-                {thread.status !== 'archived' && (
-                  <form action={archiveThread.bind(null, thread.id)}>
-                    <Button variant='ghost' size='sm' type='submit'>
-                      Archive
-                    </Button>
-                  </form>
-                )}
-              </div>
-            </div>
-          </div>
-        );
-      })}
-    </div>
+    <Table>
+      <TableHeader>
+        <TableRow>
+          <TableHead>Name</TableHead>
+          <TableHead>Agent</TableHead>
+          <TableHead>Source</TableHead>
+          <TableHead>Kind</TableHead>
+          <TableHead className='text-right'>Messages</TableHead>
+          <TableHead>Last Active</TableHead>
+          <TableHead>Status</TableHead>
+          <TableHead className='w-11' />
+        </TableRow>
+      </TableHeader>
+      <TableBody>
+        {threads.map((thread) => {
+          const displayName = thread.name ?? `${thread.source}/${thread.sourceId}`;
+          const archiveAction = archiveThread.bind(null, thread.id);
+
+          return (
+            <TableRow key={thread.id} className='group/row'>
+              <TableCell variant='primary'>
+                <Link href={`/chat/${thread.id}`} className='hover:underline'>
+                  {displayName}
+                </Link>
+              </TableCell>
+              <TableCell>{thread.agent?.name ?? '\u2014'}</TableCell>
+              <TableCell>
+                <span className='inline-flex items-center rounded-md bg-muted px-1.5 py-0.5 text-[11px] font-medium'>{thread.source}</span>
+              </TableCell>
+              <TableCell>{thread.kind}</TableCell>
+              <TableCell className='text-right tabular-nums'>{thread._count.messages}</TableCell>
+              <TableCell>
+                <RelativeTime date={thread.lastActivity} />
+              </TableCell>
+              <TableCell>
+                <StatusDot status={thread.status} />
+              </TableCell>
+              <TableCell>
+                <RowMenu
+                  actions={[
+                    { label: 'View', icon: 'external-link', href: `/chat/${thread.id}` },
+                    ...(thread.status !== 'archived'
+                      ? [
+                          {
+                            label: 'Archive',
+                            icon: 'archive',
+                            destructive: true as const,
+                            onClick: async () => {
+                              'use server';
+                              await archiveAction();
+                            },
+                          },
+                        ]
+                      : []),
+                  ]}
+                />
+              </TableCell>
+            </TableRow>
+          );
+        })}
+      </TableBody>
+    </Table>
   );
 };
 
 const ThreadsTableSkeleton = () => (
-  <div className='flex flex-col gap-4 py-4'>
-    <Skeleton className='h-12 w-full' />
-    <Skeleton className='h-12 w-full' />
-    <Skeleton className='h-12 w-full' />
+  <div className='rounded-lg border border-border'>
+    <div className='flex items-center gap-4 border-b border-border px-3.5 py-2'>
+      {Array.from({ length: 7 }).map((_, i) => (
+        <Skeleton key={i} className='h-3 w-20' />
+      ))}
+    </div>
+    {Array.from({ length: 8 }).map((_, i) => (
+      <div key={i} className='flex items-center gap-4 border-b border-border/50 px-3.5 py-3'>
+        <Skeleton className='h-3 w-40' />
+        <Skeleton className='h-3 w-16' />
+        <Skeleton className='h-3 w-12' />
+        <Skeleton className='h-3 w-14' />
+        <Skeleton className='h-3 w-8' />
+        <Skeleton className='h-3 w-14' />
+        <Skeleton className='h-3 w-12' />
+      </div>
+    ))}
   </div>
 );
 

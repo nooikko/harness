@@ -7,6 +7,7 @@ const mockNotFound = vi.fn(() => {
 
 vi.mock('next/navigation', () => ({
   notFound: () => mockNotFound(),
+  usePathname: () => '/admin/plugins/discord',
 }));
 
 const mockFindUnique = vi.fn();

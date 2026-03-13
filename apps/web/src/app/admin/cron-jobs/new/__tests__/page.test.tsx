@@ -21,6 +21,7 @@ vi.mock('@harness/database', () => ({
 
 vi.mock('next/navigation', () => ({
   useRouter: () => ({ push: vi.fn() }),
+  usePathname: () => '/admin/cron-jobs/new',
 }));
 
 vi.mock('../../_components/cron-job-form', () => ({
@@ -51,13 +52,12 @@ describe('NewCronJobPage', () => {
     expect(screen.getByRole('heading', { name: 'New Scheduled Task' })).toBeInTheDocument();
   });
 
-  it('renders the back link', async () => {
+  it('renders breadcrumb navigation', async () => {
     const jsx = await NewCronJobPage({
       searchParams: Promise.resolve({}),
     });
     render(jsx as React.ReactElement);
-    const link = screen.getByText('Back to Scheduled Tasks');
-    expect(link.closest('a')).toHaveAttribute('href', '/admin/cron-jobs');
+    expect(screen.getByLabelText('Breadcrumb')).toBeInTheDocument();
   });
 
   it('renders CronJobForm in create mode', async () => {

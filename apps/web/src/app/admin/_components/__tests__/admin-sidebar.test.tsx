@@ -25,9 +25,14 @@ describe('AdminSidebar', () => {
     mockPathname.mockReturnValue('/admin/cron-jobs');
   });
 
-  it('renders a sidebar with the Admin group label', () => {
+  it('renders the Account group label', () => {
     renderWithProvider(<AdminSidebar />);
-    expect(screen.getByText('Admin')).toBeInTheDocument();
+    expect(screen.getByText('Account')).toBeInTheDocument();
+  });
+
+  it('renders the Profile link', () => {
+    renderWithProvider(<AdminSidebar />);
+    expect(screen.getByRole('link', { name: 'Profile' })).toHaveAttribute('href', '/admin/profile');
   });
 
   it('renders the Cron Jobs link', () => {
@@ -60,10 +65,10 @@ describe('AdminSidebar', () => {
     expect(screen.getByRole('link', { name: 'Usage' })).toHaveAttribute('href', '/admin/usage');
   });
 
-  it('renders all 6 navigation links', () => {
+  it('renders all 7 navigation links', () => {
     renderWithProvider(<AdminSidebar />);
     const links = screen.getAllByRole('link');
-    expect(links).toHaveLength(6);
+    expect(links).toHaveLength(7);
   });
 
   it('renders an SVG icon for each nav item', () => {
