@@ -4,6 +4,7 @@ import { prisma } from '@harness/database';
 import { createLogger } from '@harness/logger';
 import type { PluginDefinition } from '@harness/plugin-contract';
 import { state as delegationState } from '@harness/plugin-delegation';
+import { checkUploadDir } from './_helpers/check-upload-dir';
 import { recoverOrphanedTasks } from './_helpers/recover-orphaned-tasks';
 import { loadConfig } from './config';
 import { createHealthCheck } from './health-check';
@@ -29,6 +30,8 @@ export const boot: Boot = async () => {
 
   logger.info('Loading configuration');
   const config = loadConfig();
+
+  await checkUploadDir(config.uploadDir, logger);
 
   logger.info('Initializing database connection');
   await prisma.$connect();

@@ -17,6 +17,7 @@ const createMockContext: CreateMockContext = () => ({
     discordChannelId: undefined,
     port: 3001,
     logLevel: 'info',
+    uploadDir: '/tmp/uploads',
   },
   logger: {
     info: vi.fn(),

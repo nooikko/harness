@@ -4,60 +4,47 @@ Implementation notes and gotchas for the context plugin. Read this before editin
 
 ## Role in the pipeline
 
-This plugin implements `onBeforeInvoke`, which is a chain hook. Each plugin in the chain receives the output of the previous plugin and returns a modified prompt. The `onBeforeInvoke` chain order is: identity (soul injection) → context (history + files) → time (timestamp substitution). The context plugin runs after identity and before time — this ordering is intentional and must not change.
+This plugin implements `onBeforeInvoke`, which is a chain hook. Each plugin in the chain receives the output of the previous plugin and returns a modified prompt. The `onBeforeInvoke` chain order is: identity (soul injection) → context (file references + history) → time (timestamp substitution). The context plugin runs after identity and before time — this ordering is intentional and must not change.
 
 ## The session resumption short-circuit
 
-If `thread.sessionId` is set, the plugin skips history injection entirely and only prepends context files.
+If `thread.sessionId` is set, the plugin skips history injection entirely but **still injects file references**.
 
-This is the most important non-obvious behavior in this plugin. When a Claude subprocess session already exists for a thread, that subprocess has the full conversation in its native context window. Injecting history again would duplicate every prior message, potentially filling the context window with redundant content and confusing Claude.
+This is the most important non-obvious behavior in this plugin. When a Claude subprocess session already exists for a thread, that subprocess has the full conversation in its native context window. Injecting history again would duplicate every prior message. However, file references must always be injected because new files may have been uploaded since the session was created.
 
-The short-circuit lives in `src/index.ts` in the `onBeforeInvoke` implementation. Do not remove or weaken this check. Any change to history injection logic must account for this branch.
+The short-circuit lives in `src/index.ts` in the `onBeforeInvoke` implementation. Do not remove or weaken this check for history. Do not extend it to file references.
 
-## File discovery and priority ordering
+## File reference injection (DB-driven)
 
-The plugin reads `*.md` files from `contextDir` (defaults to `process.cwd()/context`). Files are not loaded in alphabetical order. A priority list defines which files load first:
+The plugin queries the `File` table for THREAD-scoped and PROJECT-scoped files associated with the current thread. DECORATIVE files (agent avatars etc.) are never included.
 
-1. `memory.md`
-2. `world-state.md`
-3. `thread-summaries.md`
-4. `inbox.md`
+Files are loaded via `loadFileReferences(db, uploadDir, threadId, projectId)` and formatted via `formatFileReferences(fileRefs)`. The result is a markdown section listing each file's name, MIME type, size, and full disk path.
 
-All other files load after these four, sorted alphabetically. If you add a new well-known file that should load early, add it to the priority list in `src/_helpers/read-context-files.ts` — do not assume alphabetical ordering will put it where you want it.
-
-## File cache
-
-Files are cached in memory with a 5-second TTL. Cache invalidation is mtime-based: if a file's modification time has not changed, the cached content is returned. If mtime changed or the TTL expired, the file is re-read from disk.
-
-This means file changes propagate within 5 seconds, not immediately. Do not rely on synchronous file reload in tests — use a short wait or mock the cache.
-
-The cache is module-level (not per-invocation). It persists across multiple `onBeforeInvoke` calls for the lifetime of the orchestrator process.
-
-## File size limit
-
-Files larger than 50KB are truncated. A marker string is appended at the truncation point so Claude knows the content was cut. This is a hard limit — increasing it risks overflowing Claude's context window with a single file. If you need larger context files, consider splitting them.
-
-Empty files (zero bytes or whitespace-only) are silently skipped. They do not appear in the assembled prompt.
+File references are injected UNCONDITIONALLY — they appear in the prompt regardless of whether `thread.sessionId` exists. This differs from conversation history, which is skipped when a session is active.
 
 ## DB failure handling
 
-If the database query for conversation history throws, the plugin logs a warning and continues with only the context files. It does not propagate the error or abort the pipeline.
+If the database query for conversation history throws, the plugin logs a warning and continues with only the file references and prompt. It does not propagate the error or abort the pipeline.
 
-This means the plugin has two possible outputs in the error case: context files only (if DB fails) vs. context files + history (normal case). Code that depends on history being present should not assume it always is.
+If the file reference query fails, a warning is logged and the file references section is omitted. The pipeline continues with history and prompt.
 
 ## Prompt assembly order
 
 The final assembled prompt is, from top to bottom:
 
-1. Context section (files from `context/` directory)
-2. History section (recent messages from DB, omitted if `thread.sessionId` is set)
-3. The original base prompt
+1. Project instructions (XML-tagged `<project_instructions>`)
+2. Project memory (XML-tagged `<project_memory>`)
+3. User profile section
+4. File references section (`# Available Files` with `## Project Files` / `## Thread Files`)
+5. Summary section (prior conversation summaries, if any)
+6. History section (recent messages from DB, omitted if `thread.sessionId` is set)
+7. The original base prompt
 
-Each section is separated by `\n\n---\n\n`. If the context directory does not exist or contains no files, the context section is omitted entirely (not an empty heading). Same for history.
+Each section is separated by `\n\n---\n\n`. Empty sections are omitted entirely (not an empty heading).
 
 ## History depth
 
-The plugin loads the last 50 messages for the thread, in chronological order. This limit is hardcoded in `src/_helpers/history-loader.ts`. Threads with very long histories will have older messages silently excluded. If you change this limit, be aware of context window pressure.
+The plugin loads the last 50 messages for the thread, in chronological order. When summaries exist, the limit is reduced to 25. Both values are configurable via plugin settings (`historyLimit`, `historyLimitWithSummary`). The `summaryLookback` setting controls how many summaries are injected (default: 2).
 
 ## Test placement
 

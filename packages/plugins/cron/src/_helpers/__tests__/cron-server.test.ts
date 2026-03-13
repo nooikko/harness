@@ -80,6 +80,7 @@ const createMockContext: CreateMockContext = (overrides = {}) =>
       discordChannelId: undefined,
       port: 3001,
       logLevel: 'info',
+      uploadDir: '/tmp/uploads',
     } as never,
     logger: {
       info: vi.fn(),

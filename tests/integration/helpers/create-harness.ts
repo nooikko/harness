@@ -22,6 +22,7 @@ const makeTestConfig = (port = 0): OrchestratorConfig => ({
   discordChannelId: undefined,
   port,
   logLevel: 'error',
+  uploadDir: '/tmp/test-uploads',
 });
 
 export type CreateTestHarnessOpts = {

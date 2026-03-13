@@ -1,8 +1,5 @@
-import { mkdirSync, rmSync, writeFileSync } from 'node:fs';
-import { tmpdir } from 'node:os';
-import { join } from 'node:path';
 import { PrismaClient } from '@harness/database';
-import { createContextPlugin } from '@harness/plugin-context';
+import { plugin as contextPlugin } from '@harness/plugin-context';
 import { afterAll, afterEach, beforeEach, describe, expect, it } from 'vitest';
 import type { TestHarness } from './helpers/create-harness';
 import { createTestHarness } from './helpers/create-harness';
@@ -26,7 +23,7 @@ describe('context plugin integration', () => {
   });
 
   it('injects DB conversation history into prompt when thread has no sessionId', async () => {
-    harness = await createTestHarness(createContextPlugin({ contextDir: '/tmp/nonexistent-ctx-integration' }));
+    harness = await createTestHarness(contextPlugin);
 
     // Seed messages for this thread after harness creates it
     await harness.prisma.message.createMany({
@@ -57,9 +54,8 @@ describe('context plugin integration', () => {
   });
 
   it('skips history injection when thread has an existing sessionId', async () => {
-    harness = await createTestHarness(createContextPlugin({ contextDir: '/tmp/nonexistent-ctx-integration' }));
+    harness = await createTestHarness(contextPlugin);
 
-    // Seed messages that would be injected if history ran
     await harness.prisma.message.createMany({
       data: [
         {
@@ -79,7 +75,6 @@ describe('context plugin integration', () => {
       ],
     });
 
-    // Give the thread an existing sessionId — Claude already has this history via --resume
     await harness.prisma.thread.update({
       where: { id: harness.threadId },
       data: { sessionId: 'existing-session-123' },
@@ -94,7 +89,7 @@ describe('context plugin integration', () => {
   });
 
   it('includes the original user prompt after any injected sections', async () => {
-    harness = await createTestHarness(createContextPlugin({ contextDir: '/tmp/nonexistent-ctx-integration' }));
+    harness = await createTestHarness(contextPlugin);
 
     await harness.orchestrator.handleMessage(harness.threadId, 'user', 'My unique query 9x7z');
 
@@ -103,35 +98,33 @@ describe('context plugin integration', () => {
   });
 
   it('produces an empty history section when the thread has no prior messages', async () => {
-    harness = await createTestHarness(createContextPlugin({ contextDir: '/tmp/nonexistent-ctx-integration' }));
+    harness = await createTestHarness(contextPlugin);
 
-    // No messages seeded — thread is brand new with no sessionId
     await harness.orchestrator.handleMessage(harness.threadId, 'user', 'Hello');
 
     const promptArg = harness.invoker.invoke.mock.calls[0]![0] as string;
-    // History section header should NOT appear when there are no prior messages
     expect(promptArg).not.toContain('Conversation History');
-    // But the prompt itself must still be present
     expect(promptArg).toContain('Hello');
   });
 
-  it('injects .md context files from disk into the prompt before invocation', async () => {
-    // This test exercises the readContextFiles → formatContextSection code path, which was
-    // entirely untested by the other tests (they all pass a nonexistent contextDir).
-    const contextDir = join(tmpdir(), `harness-ctx-test-${Date.now()}`);
-    mkdirSync(contextDir, { recursive: true });
-    writeFileSync(join(contextDir, 'project-rules.md'), '# Project Rules\n\nAlways be helpful.');
+  it('injects DB file references into the prompt', async () => {
+    harness = await createTestHarness(contextPlugin);
 
-    try {
-      harness = await createTestHarness(createContextPlugin({ contextDir }));
+    await harness.prisma.file.create({
+      data: {
+        threadId: harness.threadId,
+        name: 'spec.md',
+        path: 'threads/t1/spec.md',
+        mimeType: 'text/markdown',
+        size: 1024,
+        scope: 'THREAD',
+      },
+    });
 
-      await harness.orchestrator.handleMessage(harness.threadId, 'user', 'What are the rules?');
+    await harness.orchestrator.handleMessage(harness.threadId, 'user', 'What files do I have?');
 
-      const promptArg = harness.invoker.invoke.mock.calls[0]![0] as string;
-      expect(promptArg).toContain('Always be helpful.');
-      expect(promptArg).toContain('project-rules');
-    } finally {
-      rmSync(contextDir, { recursive: true, force: true });
-    }
+    const promptArg = harness.invoker.invoke.mock.calls[0]![0] as string;
+    expect(promptArg).toContain('spec.md');
+    expect(promptArg).toContain('Available Files');
   });
 });

@@ -93,6 +93,7 @@ const createMockContext = (overrides: Partial<PluginContext['config']> = {}): Pl
     discordChannelId: undefined,
     port: 3001,
     logLevel: 'info',
+    uploadDir: '/tmp/uploads',
     ...overrides,
   },
   logger: {

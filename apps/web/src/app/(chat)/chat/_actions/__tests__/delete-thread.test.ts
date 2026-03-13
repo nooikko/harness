@@ -3,6 +3,15 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 const mockUpdateMany = vi.fn();
 const mockThreadDelete = vi.fn();
 const mockRevalidatePath = vi.fn();
+const mockFileFindMany = vi.fn();
+const mockUnlink = vi.fn();
+
+vi.mock('node:fs/promises', () => {
+  const mocks = {
+    unlink: (...args: unknown[]) => mockUnlink(...args),
+  };
+  return { ...mocks, default: mocks };
+});
 
 vi.mock('@harness/database', () => ({
   prisma: {
@@ -10,11 +19,18 @@ vi.mock('@harness/database', () => ({
       updateMany: (...args: unknown[]) => mockUpdateMany(...args),
       delete: (...args: unknown[]) => mockThreadDelete(...args),
     },
+    file: {
+      findMany: (...args: unknown[]) => mockFileFindMany(...args),
+    },
   },
 }));
 
 vi.mock('next/cache', () => ({
   revalidatePath: (...args: unknown[]) => mockRevalidatePath(...args),
+}));
+
+vi.mock('@/app/_helpers/env', () => ({
+  loadEnv: () => ({ UPLOAD_DIR: '/test-uploads' }),
 }));
 
 const { deleteThread } = await import('../delete-thread');
@@ -24,6 +40,8 @@ describe('deleteThread', () => {
     vi.clearAllMocks();
     mockUpdateMany.mockResolvedValue({ count: 0 });
     mockThreadDelete.mockResolvedValue({ id: 'thread-1' });
+    mockFileFindMany.mockResolvedValue([]);
+    mockUnlink.mockResolvedValue(undefined);
   });
 
   it('nullifies parentThreadId on all child threads before deleting', async () => {
@@ -67,5 +85,29 @@ describe('deleteThread', () => {
     const result = await deleteThread('thread-1');
 
     expect(result).toBeUndefined();
+  });
+
+  it('deletes disk files before cascade', async () => {
+    mockFileFindMany.mockResolvedValue([{ path: 'threads/t1/spec.md' }, { path: 'threads/t1/screenshot.png' }]);
+
+    await deleteThread('thread-1');
+
+    expect(mockFileFindMany).toHaveBeenCalledWith({
+      where: { threadId: 'thread-1' },
+      select: { path: true },
+    });
+    expect(mockUnlink).toHaveBeenCalledTimes(2);
+    expect(mockUnlink).toHaveBeenCalledWith('/test-uploads/threads/t1/spec.md');
+    expect(mockUnlink).toHaveBeenCalledWith('/test-uploads/threads/t1/screenshot.png');
+  });
+
+  it('continues if disk delete fails', async () => {
+    mockFileFindMany.mockResolvedValue([{ path: 'threads/t1/fail.txt' }]);
+    mockUnlink.mockRejectedValue(new Error('Permission denied'));
+
+    await deleteThread('thread-1');
+
+    // Should still proceed to delete thread
+    expect(mockThreadDelete).toHaveBeenCalledTimes(1);
   });
 });
