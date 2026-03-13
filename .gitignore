@@ -43,6 +43,9 @@ yarn-error.log*
 # Next.js auto-generated
 **/next-env.d.ts
 
+# File uploads (local dev)
+uploads/
+
 # Prisma generated client
 **/generated/
 !apps/web/src/generated/

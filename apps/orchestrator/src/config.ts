@@ -3,6 +3,7 @@
 export type { LogLevel, OrchestratorConfig } from '@harness/plugin-contract';
 
 import type { LogLevel, OrchestratorConfig } from '@harness/plugin-contract';
+import { loadEnv } from './env';
 
 const LOG_LEVELS: ReadonlySet<string> = new Set(['debug', 'info', 'warn', 'error']);
 
@@ -28,16 +29,19 @@ const validateConfig: ValidateConfig = (config) => {
 type LoadConfig = () => OrchestratorConfig;
 
 export const loadConfig: LoadConfig = () => {
+  const env = loadEnv();
+
   const config: OrchestratorConfig = {
-    databaseUrl: process.env.DATABASE_URL ?? '',
-    timezone: process.env.TZ ?? 'America/Phoenix',
-    maxConcurrentAgents: Number(process.env.MAX_CONCURRENT_AGENTS ?? '3'),
-    claudeModel: process.env.CLAUDE_MODEL_DEFAULT ?? 'haiku',
-    claudeTimeout: Number(process.env.CLAUDE_TIMEOUT ?? '300000'),
-    discordToken: process.env.DISCORD_TOKEN,
-    discordChannelId: process.env.DISCORD_CHANNEL_ID,
-    port: Number(process.env.PORT ?? '4001'),
-    logLevel: parseLogLevel(process.env.LOG_LEVEL),
+    databaseUrl: env.DATABASE_URL,
+    timezone: env.TZ,
+    maxConcurrentAgents: env.MAX_CONCURRENT_AGENTS,
+    claudeModel: env.CLAUDE_MODEL_DEFAULT,
+    claudeTimeout: env.CLAUDE_TIMEOUT,
+    discordToken: env.DISCORD_TOKEN,
+    discordChannelId: env.DISCORD_CHANNEL_ID,
+    port: env.PORT,
+    logLevel: parseLogLevel(env.LOG_LEVEL),
+    uploadDir: env.UPLOAD_DIR,
   };
 
   return validateConfig(config);

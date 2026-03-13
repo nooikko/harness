@@ -25,6 +25,7 @@ export type OrchestratorConfig = {
   discordChannelId: string | undefined;
   port: number;
   logLevel: LogLevel;
+  uploadDir: string;
 };
 
 // Inlined from orchestrator invoker
