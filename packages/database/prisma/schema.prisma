@@ -33,6 +33,7 @@ model Thread {
   projectId      String?
   project        Project?   @relation(fields: [projectId], references: [id])
   memories       AgentMemory[]
+  files          File[]
   lastActivity   DateTime   @default(now())
   createdAt      DateTime   @default(now())
   updatedAt      DateTime   @updatedAt
@@ -52,6 +53,7 @@ model Project {
   threads      Thread[]
   memories     AgentMemory[]
   cronJobs     CronJob[]
+  files        File[]
   createdAt    DateTime  @default(now())
   updatedAt    DateTime  @updatedAt
 
@@ -168,6 +170,38 @@ enum MemoryScope {
   THREAD
 }
 
+enum FileScope {
+  PROJECT
+  THREAD
+  DECORATIVE
+}
+
+model File {
+  id            String    @id @default(cuid())
+  name          String
+  path          String    @unique
+  mimeType      String
+  size          Int
+  scope         FileScope
+  extractedText String?   @db.Text
+
+  projectId     String?
+  project       Project?  @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
+  threadId      String?
+  thread        Thread?   @relation(fields: [threadId], references: [id], onDelete: Cascade)
+
+  agentId       String?
+  agent         Agent?    @relation(fields: [agentId], references: [id], onDelete: Cascade)
+
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  @@index([projectId, scope])
+  @@index([threadId, scope])
+  @@index([agentId, scope])
+}
+
 model Agent {
   id          String   @id @default(cuid())
   slug        String   @unique
@@ -190,6 +224,7 @@ model Agent {
   memories    AgentMemory[]
   config      AgentConfig?
   cronJobs    CronJob[]
+  files       File[]
 
   @@index([slug])
   @@index([enabled])
