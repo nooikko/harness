@@ -56,7 +56,6 @@ vi.mock('../status-line', () => ({
   StatusLine: ({ content }: { content: string }) => <div data-testid='status-line'>{content}</div>,
 }));
 
-import type { MessageItemProps } from '../message-item';
 import { MessageItem } from '../message-item';
 
 const makeMessage = (overrides: Partial<Message> = {}): Message => ({
@@ -69,13 +68,6 @@ const makeMessage = (overrides: Partial<Message> = {}): Message => ({
   metadata: null,
   createdAt: new Date('2026-02-23T10:00:00Z'),
   ...overrides,
-});
-
-const makeAgentRun = (): MessageItemProps['agentRun'] => ({
-  model: 'claude-sonnet-4-6',
-  inputTokens: 500,
-  outputTokens: 200,
-  durationMs: 1500,
 });
 
 describe('MessageItem', () => {
@@ -128,35 +120,7 @@ describe('MessageItem', () => {
     expect(screen.getByText('Hello')).toBeInTheDocument();
   });
 
-  it('renders ActivityChips when agentRun is provided for assistant message', () => {
-    render(<MessageItem message={makeMessage({ role: 'assistant', content: 'Response' })} agentRun={makeAgentRun()} />);
-    const chips = screen.getByTestId('activity-chips');
-    expect(chips).toBeInTheDocument();
-    expect(chips).toHaveAttribute('data-model', 'claude-sonnet-4-6');
-    expect(chips).toHaveAttribute('data-input-tokens', '500');
-    expect(chips).toHaveAttribute('data-output-tokens', '200');
-    expect(chips).toHaveAttribute('data-duration-ms', '1500');
-  });
-
-  it('renders ActivityChips instead of bare text when agentRun is provided', () => {
-    render(
-      <MessageItem
-        message={makeMessage({
-          role: 'assistant',
-          content: 'Response',
-        })}
-        agentRun={makeAgentRun()}
-      />,
-    );
-    expect(screen.getByTestId('activity-chips')).toBeInTheDocument();
-  });
-
-  it('does not render ActivityChips for user messages even if agentRun is provided', () => {
-    render(<MessageItem message={makeMessage({ role: 'user', content: 'Hello' })} agentRun={makeAgentRun()} />);
-    expect(screen.queryByTestId('activity-chips')).not.toBeInTheDocument();
-  });
-
-  it('does not render ActivityChips when agentRun is undefined', () => {
+  it('renders assistant message without ActivityChips when no agentRun metadata', () => {
     render(<MessageItem message={makeMessage({ role: 'assistant', content: 'Hi' })} />);
     expect(screen.queryByTestId('activity-chips')).not.toBeInTheDocument();
   });

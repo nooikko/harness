@@ -76,7 +76,7 @@ export const PipelineActivity: PipelineActivityComponent = ({ threadId, isActive
   const currentLabel = currentStep ? (STEP_LABELS[currentStep.step] ?? currentStep.step) : 'Thinking';
 
   return (
-    <div className='w-full max-w-[80%] rounded-lg border border-border/60 bg-muted/30'>
+    <div className='w-full rounded-lg border border-border/60 bg-muted/30'>
       <button
         type='button'
         onClick={() => setIsExpanded(!isExpanded)}

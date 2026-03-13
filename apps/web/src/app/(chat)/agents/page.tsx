@@ -14,10 +14,10 @@ const AgentsPage = async () => {
   const agents = await listAgents();
 
   return (
-    <div className='flex flex-col gap-6 p-6'>
+    <div className='mx-auto flex w-full max-w-6xl flex-col gap-6 px-6 py-8 animate-[fade-in_150ms_ease-out]'>
       <div className='flex items-center justify-between'>
         <div className='flex flex-col gap-1'>
-          <h1 className='text-2xl font-semibold tracking-tight'>Agents</h1>
+          <h1 className='text-lg font-semibold tracking-tight'>Agents</h1>
           <p className='text-sm text-muted-foreground'>Manage AI agent personas and configurations.</p>
         </div>
         <Button asChild className='gap-2'>

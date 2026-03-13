@@ -66,7 +66,7 @@ const AgentEditPage = async ({ params }: AgentEditPageProps) => {
   }
 
   return (
-    <div className='flex w-full flex-col gap-10 p-6'>
+    <div className='mx-auto flex w-full max-w-5xl flex-col gap-10 px-6 py-8'>
       <EditAgentForm agent={agent} agentConfig={agentConfig} />
       <AgentMemoryBrowser agentId={agentId} memories={memories} />
       <AgentScheduledTasks tasks={cronJobs} agentId={agentId} />

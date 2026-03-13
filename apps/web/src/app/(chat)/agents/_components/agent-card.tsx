@@ -1,6 +1,6 @@
 'use client';
 
-import { Badge, Button, Card, CardContent, CardHeader, CardTitle } from '@harness/ui';
+import { Badge, Button, Card, CardFooter, CardHeader, CardTitle } from '@harness/ui';
 import { Pencil, Trash2 } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import { useState, useTransition } from 'react';
@@ -37,18 +37,18 @@ export const AgentCard: AgentCardComponent = ({ id, slug, name, enabled, threadC
   };
 
   return (
-    <Card className='flex flex-col gap-0'>
-      <CardHeader className='flex flex-row items-start justify-between gap-4 pb-2'>
-        <div className='flex flex-col gap-1 min-w-0'>
-          <CardTitle className='text-base font-semibold truncate'>{name}</CardTitle>
-          <span className='text-xs text-muted-foreground font-mono'>{slug}</span>
+    <Card>
+      <CardHeader className='flex flex-row items-start justify-between gap-4'>
+        <div className='flex min-w-0 flex-col gap-1'>
+          <CardTitle className='truncate text-base font-semibold'>{name}</CardTitle>
+          <span className='font-mono text-xs text-muted-foreground'>{slug}</span>
         </div>
-        <div className='flex items-center gap-2 shrink-0'>
-          <Badge variant={enabled ? 'default' : 'secondary'}>{enabled ? 'Enabled' : 'Disabled'}</Badge>
-        </div>
+        <Badge variant={enabled ? 'default' : 'secondary'} className='shrink-0'>
+          {enabled ? 'Enabled' : 'Disabled'}
+        </Badge>
       </CardHeader>
-      <CardContent className='flex items-center justify-between gap-4 pt-0'>
-        <span className='text-sm text-muted-foreground'>
+      <CardFooter className='justify-between'>
+        <span className='text-xs text-muted-foreground'>
           {threadCount} {threadCount === 1 ? 'thread' : 'threads'}
         </span>
         <div className='flex items-center gap-2'>
@@ -56,12 +56,18 @@ export const AgentCard: AgentCardComponent = ({ id, slug, name, enabled, threadC
             <Pencil className='h-3.5 w-3.5' />
             Edit
           </Button>
-          <Button variant={confirmDelete ? 'destructive' : 'outline'} size='sm' onClick={handleDelete} disabled={isPending} className='gap-1.5'>
+          <Button
+            variant={confirmDelete ? 'destructive' : 'ghost'}
+            size='sm'
+            onClick={handleDelete}
+            disabled={isPending}
+            className={confirmDelete ? 'gap-1.5' : 'gap-1.5 text-destructive hover:text-destructive hover:bg-destructive/10'}
+          >
             <Trash2 className='h-3.5 w-3.5' />
             {confirmDelete ? 'Confirm?' : 'Delete'}
           </Button>
         </div>
-      </CardContent>
+      </CardFooter>
     </Card>
   );
 };

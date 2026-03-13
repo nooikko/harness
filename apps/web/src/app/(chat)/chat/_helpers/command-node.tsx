@@ -9,8 +9,24 @@ import type { ElementType } from 'react';
 // Internal chip rendered inside the Lexical editor after a command is selected.
 // Styled as a secondary badge using shadcn design tokens.
 const CommandChip = ({ trigger, value }: BeautifulMentionComponentProps) => (
-  <span className='inline-flex items-center gap-0.5 rounded bg-secondary px-1.5 py-0.5 font-mono text-xs font-medium text-secondary-foreground ring-1 ring-inset ring-border'>
-    <span className='opacity-50'>{trigger}</span>
+  <span
+    style={{
+      display: 'inline-flex',
+      alignItems: 'center',
+      background: 'var(--surface-active)',
+      border: '1px solid var(--border)',
+      borderRadius: 'var(--radius-sm)',
+      padding: '0 5px',
+      fontFamily: 'var(--font-mono)',
+      fontSize: 11,
+      fontWeight: 500,
+      color: 'var(--text-secondary)',
+      verticalAlign: 'middle',
+      lineHeight: '18px',
+      whiteSpace: 'nowrap',
+    }}
+  >
+    <span style={{ opacity: 0.5 }}>{trigger}</span>
     {value}
   </span>
 );

@@ -1,10 +1,10 @@
 import type { Metadata } from 'next';
-import { Inter } from 'next/font/google';
+import { Figtree } from 'next/font/google';
 import { TopBar } from './_components/top-bar';
 import { WsProvider } from './_components/ws-provider';
 import './globals.css';
 
-const inter = Inter({ subsets: ['latin'] });
+const figtree = Figtree({ subsets: ['latin'], variable: '--font-sans' });
 
 export const metadata: Metadata = {
   title: 'Harness Dashboard',
@@ -15,12 +15,12 @@ type RootLayoutProps = {
   children: React.ReactNode;
 };
 
-type RootLayoutComponent = (props: RootLayoutProps) => React.ReactNode;
+type RootLayoutComponent = (props: RootLayoutProps) => Promise<React.ReactNode>;
 
-const RootLayout: RootLayoutComponent = ({ children }) => {
+const RootLayout: RootLayoutComponent = async ({ children }) => {
   return (
     <html lang='en'>
-      <body className={`${inter.className} flex h-screen flex-col`}>
+      <body className={`${figtree.variable} flex h-screen flex-col`}>
         <WsProvider>
           <TopBar />
           <div className='flex min-h-0 flex-1'>{children}</div>

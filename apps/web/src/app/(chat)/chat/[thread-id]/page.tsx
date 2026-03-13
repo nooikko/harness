@@ -3,6 +3,7 @@ import { notFound } from 'next/navigation';
 import { ChatArea } from '../_components/chat-area';
 import { MessageList } from '../_components/message-list';
 import { PrewarmTrigger } from '../_components/prewarm-trigger';
+import { ThreadHeader } from '../_components/thread-header';
 
 type ThreadPageProps = {
   params: Promise<{ 'thread-id': string }>;
@@ -31,9 +32,13 @@ const ThreadPage: ThreadPageComponent = async ({ params }) => {
 
   return (
     <div className='flex h-full flex-col'>
-      <header className='flex items-center border-b border-border px-6 py-3'>
-        <h1 className='text-sm font-medium'>{displayName}</h1>
-      </header>
+      <ThreadHeader
+        threadId={threadId}
+        displayName={displayName}
+        currentName={thread.name}
+        currentModel={thread.model}
+        currentInstructions={thread.customInstructions}
+      />
       <PrewarmTrigger threadId={threadId} />
       <ChatArea
         threadId={threadId}

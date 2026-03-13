@@ -72,20 +72,28 @@ type ChatInputProps = {
   currentModel: string | null;
   currentAgentId: string | null;
   currentAgentName: string | null;
-  onSubmit: (text: string) => void;
+  onSubmitAction: (text: string) => void;
   disabled?: boolean;
   error?: string | null;
 };
 
 type ChatInputComponent = (props: ChatInputProps) => React.ReactNode;
 
-export const ChatInput: ChatInputComponent = ({ threadId, currentModel, currentAgentId, currentAgentName, onSubmit, disabled = false, error }) => {
+export const ChatInput: ChatInputComponent = ({
+  threadId,
+  currentModel,
+  currentAgentId,
+  currentAgentName,
+  onSubmitAction,
+  disabled = false,
+  error,
+}) => {
   const [menuOpen, setMenuOpen] = useState(false);
 
   // Stable ref so SubmitPlugin's useEffect does not re-register on every render
   // when the parent passes a new function reference.
-  const onSubmitRef = useRef(onSubmit);
-  onSubmitRef.current = onSubmit;
+  const onSubmitRef = useRef(onSubmitAction);
+  onSubmitRef.current = onSubmitAction;
 
   const stableOnSubmit = useCallback((text: string) => {
     onSubmitRef.current(text);
@@ -118,7 +126,7 @@ export const ChatInput: ChatInputComponent = ({ threadId, currentModel, currentA
   }, []);
 
   return (
-    <div className='bg-background px-3 py-2'>
+    <div className='mx-auto w-full max-w-4xl bg-background px-4 pb-4 pt-3 shadow-[0_-1px_3px_0_rgba(0,0,0,0.04)] sm:px-6'>
       {error && <p className='mb-2 text-xs text-destructive'>{error}</p>}
       <LexicalComposer initialConfig={EDITOR_CONFIG}>
         {/* Unified card: text area on top, controls row on bottom */}
@@ -131,7 +139,7 @@ export const ChatInput: ChatInputComponent = ({ threadId, currentModel, currentA
             <RichTextPlugin
               contentEditable={
                 <ContentEditable
-                  className='max-h-[136px] min-h-[40px] resize-none overflow-y-auto text-sm outline-none'
+                  className='max-h-34 min-h-10 resize-none overflow-y-auto text-sm outline-none'
                   aria-placeholder='Send a message… (/ for commands)'
                   placeholder={
                     <div className='pointer-events-none absolute left-3 top-2.5 select-none text-sm text-muted-foreground'>
@@ -164,7 +172,7 @@ export const ChatInput: ChatInputComponent = ({ threadId, currentModel, currentA
             <SendButton disabled={disabled} />
           </div>
         </div>
-        <p className='mt-1.5 text-[11px] text-muted-foreground/60'>Enter to send · Shift+Enter for new line · / for commands</p>
+        <p className='mt-1 text-[10px] text-muted-foreground/40'>Enter to send · Shift+Enter for new line · / for commands</p>
       </LexicalComposer>
     </div>
   );

@@ -1,17 +1,14 @@
 import { prisma } from '@harness/database';
 import { Skeleton } from '@harness/ui';
 import { Suspense } from 'react';
-import { matchRunToMessage } from '../_helpers/match-run-to-message';
+import { groupPipelineRuns } from '../_helpers/group-pipeline-runs';
 import { MessageItem } from './message-item';
+import { PipelineRunBlock } from './pipeline-run-block';
 
 type MessageListProps = {
   threadId: string;
 };
 
-/**
- * Async server component that fetches messages for a thread and renders them.
- * Not exported — use MessageList which wraps this in Suspense.
- */
 /** @internal Exported for testing only — consumers should use MessageList. */
 export const MessageListInternal = async ({ threadId }: MessageListProps) => {
   const messages = await prisma.message.findMany({
@@ -27,49 +24,39 @@ export const MessageListInternal = async ({ threadId }: MessageListProps) => {
     );
   }
 
-  const agentRuns = await prisma.agentRun.findMany({
-    where: { threadId },
-    orderBy: { startedAt: 'asc' },
-  });
-
-  // Group consecutive pipeline_step messages so they share tighter internal spacing
-  // rather than inheriting the chat container's gap-6 between each one.
-  type Group = { isPipelineStep: boolean; items: typeof messages };
-  const groups = messages.reduce<Group[]>((acc, message) => {
-    const isPipelineStep = message.kind === 'pipeline_step';
-    const last = acc[acc.length - 1];
-    if (last?.isPipelineStep === isPipelineStep) {
-      last.items.push(message);
-    } else {
-      acc.push({ isPipelineStep, items: [message] });
-    }
-    return acc;
-  }, []);
+  const groups = groupPipelineRuns(messages);
 
   return (
     <>
       {groups.map((group) => {
-        if (group.isPipelineStep) {
+        if (group.type === 'pipeline_run') {
+          const { run } = group;
           return (
-            <div key={group.items[0]?.id} className='flex flex-col gap-1'>
-              {group.items.map((message) => (
-                <MessageItem key={message.id} message={message} />
-              ))}
-            </div>
+            <PipelineRunBlock
+              key={run.startMessage.id}
+              completeMessage={
+                run.completeMessage
+                  ? {
+                      id: run.completeMessage.id,
+                      content: run.completeMessage.content,
+                      kind: run.completeMessage.kind,
+                      role: run.completeMessage.role,
+                      metadata: run.completeMessage.metadata as Record<string, unknown> | null,
+                    }
+                  : null
+              }
+              activityMessages={run.activityMessages.map((m) => ({
+                id: m.id,
+                content: m.content,
+                kind: m.kind,
+                role: m.role,
+                metadata: m.metadata as Record<string, unknown> | null,
+              }))}
+            />
           );
         }
-        return group.items.map((message) => {
-          const run = message.role === 'assistant' ? matchRunToMessage(message, agentRuns) : undefined;
-          const agentRun = run
-            ? {
-                model: run.model,
-                inputTokens: run.inputTokens,
-                outputTokens: run.outputTokens,
-                durationMs: run.durationMs,
-              }
-            : undefined;
-          return <MessageItem key={message.id} message={message} agentRun={agentRun} />;
-        });
+
+        return <MessageItem key={group.message.id} message={group.message} />;
       })}
       <div data-scroll-anchor aria-hidden='true' />
     </>

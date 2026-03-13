@@ -1,7 +1,6 @@
 import type { Message } from '@harness/database';
 import { Info } from 'lucide-react';
 import { isCrossThreadNotification } from '../_helpers/is-cross-thread-notification';
-import { ActivityChips } from './activity-chips';
 import { MarkdownContent } from './markdown-content';
 import { NotificationMessage } from './notification-message';
 import type { ActivityMessageProps } from './pipeline-step';
@@ -11,21 +10,51 @@ import { ThinkingBlock } from './thinking-block';
 import { ToolCallBlock } from './tool-call-block';
 import { ToolResultBlock } from './tool-result-block';
 
-type AgentRunData = {
-  model: string;
-  inputTokens: number;
-  outputTokens: number;
-  durationMs: number;
-};
-
 export type MessageItemProps = {
   message: Message;
-  agentRun?: AgentRunData | null;
+};
+
+// Splits message content into text and /slash-command tokens, rendering
+// commands as inline chips that match the editor's CommandChip appearance.
+type RenderUserContent = (content: string) => React.ReactNode;
+const renderUserContent: RenderUserContent = (content) => {
+  const parts = content.split(/(\/[a-z][a-z0-9-]*)/g);
+  if (parts.length === 1) {
+    return content;
+  }
+  return parts.map((part, i) => {
+    if (/^\/[a-z][a-z0-9-]*$/.test(part)) {
+      return (
+        <span
+          key={i}
+          style={{
+            display: 'inline-flex',
+            alignItems: 'center',
+            background: 'var(--surface-active)',
+            border: '1px solid var(--border)',
+            borderRadius: 'var(--radius-sm)',
+            padding: '0 5px',
+            fontFamily: 'var(--font-mono)',
+            fontSize: 11,
+            fontWeight: 500,
+            color: 'var(--text-secondary)',
+            verticalAlign: 'middle',
+            lineHeight: '18px',
+            whiteSpace: 'nowrap',
+          }}
+        >
+          <span style={{ opacity: 0.5 }}>/</span>
+          {part.slice(1)}
+        </span>
+      );
+    }
+    return part;
+  });
 };
 
 type MessageItemComponent = (props: MessageItemProps) => React.ReactNode;
 
-export const MessageItem: MessageItemComponent = ({ message, agentRun }) => {
+export const MessageItem: MessageItemComponent = ({ message }) => {
   if (isCrossThreadNotification(message)) {
     return <NotificationMessage message={message} />;
   }
@@ -50,9 +79,22 @@ export const MessageItem: MessageItemComponent = ({ message, agentRun }) => {
 
   if (message.role === 'user') {
     return (
-      <div className='flex w-full justify-end'>
-        <div className='max-w-[75%] rounded-2xl bg-muted/60 px-4 py-3'>
-          <div className='whitespace-pre-wrap wrap-break-words text-sm text-foreground'>{message.content}</div>
+      <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
+        <div
+          style={{
+            background: 'var(--accent-subtle)',
+            border: '1px solid var(--border-subtle)',
+            borderRadius: 'var(--radius-xl) var(--radius-xl) var(--radius-sm) var(--radius-xl)',
+            padding: '10px 14px',
+            fontSize: 14,
+            color: 'var(--text-primary)',
+            lineHeight: 1.6,
+            maxWidth: '80%',
+            whiteSpace: 'pre-wrap',
+            overflowWrap: 'break-word',
+          }}
+        >
+          {renderUserContent(message.content)}
         </div>
       </div>
     );
@@ -60,16 +102,18 @@ export const MessageItem: MessageItemComponent = ({ message, agentRun }) => {
 
   if (message.role === 'assistant') {
     return (
-      <article className='w-full max-w-[80%]' aria-label='Assistant'>
-        <MarkdownContent content={message.content} />
-        {agentRun && (
-          <ActivityChips
-            model={agentRun.model}
-            inputTokens={agentRun.inputTokens}
-            outputTokens={agentRun.outputTokens}
-            durationMs={agentRun.durationMs}
-          />
-        )}
+      <article
+        aria-label='Assistant'
+        style={{
+          background: 'var(--surface-card)',
+          border: '1px solid var(--border-subtle)',
+          borderRadius: 'var(--radius-xl)',
+          overflow: 'hidden',
+        }}
+      >
+        <div style={{ padding: '12px 14px' }}>
+          <MarkdownContent content={message.content} />
+        </div>
       </article>
     );
   }

@@ -135,11 +135,13 @@ export const ChatArea: ChatAreaComponent = ({ threadId, currentModel, currentAge
 
   return (
     <>
-      <ScrollArea className='min-h-0 flex-1'>
-        <div className='flex flex-col gap-6 p-4'>
-          {children}
-          <PipelineActivity threadId={threadId} isActive={isThinking} />
-          <div ref={anchorRef} data-scroll-anchor aria-hidden='true' />
+      <ScrollArea className='min-h-0 flex-1 [&>[data-slot=scroll-area-viewport]>div]:min-h-full [&>[data-slot=scroll-area-viewport]>div]:flex! [&>[data-slot=scroll-area-viewport]>div]:flex-col'>
+        <div className='mx-auto flex flex-1 w-full max-w-4xl flex-col justify-end px-4 py-6 sm:px-6'>
+          <div className='flex flex-col gap-4'>
+            {children}
+            <PipelineActivity threadId={threadId} isActive={isThinking} />
+            <div ref={anchorRef} data-scroll-anchor aria-hidden='true' />
+          </div>
         </div>
       </ScrollArea>
       <ChatInput
@@ -147,7 +149,7 @@ export const ChatArea: ChatAreaComponent = ({ threadId, currentModel, currentAge
         currentModel={currentModel}
         currentAgentId={currentAgentId}
         currentAgentName={currentAgentName}
-        onSubmit={handleSubmit}
+        onSubmitAction={handleSubmit}
         disabled={isPending}
         error={error}
       />
