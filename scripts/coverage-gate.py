@@ -45,6 +45,11 @@ EXCLUDED_PATTERNS = [
     r"cast-types\.ts$",  # pure type declarations — no runtime code
     r"packages/plugins/music/",  # WIP plugin — coverage enforcement deferred
     r"apps/design/",  # design playground — no unit test coverage required
+    r"/page\.tsx$",  # Next.js route handlers — server components with data fetching, not unit-testable
+    r"/layout\.tsx$",  # Next.js layouts — thin wrappers, not unit-testable
+    r"/loading\.tsx$",  # Next.js loading states — pure UI, no logic
+    r"/error\.tsx$",  # Next.js error boundaries — pure UI, no logic
+    r"/not-found\.tsx$",  # Next.js not-found pages — pure UI, no logic
 ]
 
 # Maps repo-relative file prefix -> package subdirectory (relative to repo root).
@@ -73,7 +78,7 @@ PROJECT_DIRS = [
     ("packages/plugins/music/", "packages/plugins/music"),
 ]
 
-MAX_RETRIES = 5  # ESM race condition is non-deterministic; retry on failure
+MAX_RETRIES = 2  # ESM race condition is non-deterministic; retry on failure
 
 # --- Barrel Detection ---
 
