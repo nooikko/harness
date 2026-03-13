@@ -244,3 +244,16 @@ model ThreadAudit {
   @@index([threadId])
   @@index([extractedAt])
 }
+
+model UserProfile {
+  id        String   @id @default("singleton")
+  name      String   @default("User")
+  pronouns  String?
+  age       Int?
+  gender    String?
+  location  String?
+  interests String?
+  bio       String?  @db.Text
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}

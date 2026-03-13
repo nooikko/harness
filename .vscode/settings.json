@@ -1,3 +1,33 @@
 {
+  "js/ts.tsdk.path": "node_modules/typescript/lib",
+  "js/ts.tsdk.promptToUseWorkspaceVersion": true,
+  "files.exclude": {
+    "**/.git": true,
+    "**/.DS_Store": true,
+    "**/node_modules": true,
+    ".nvmrc": true,
+    "vercel-projects.json": true,
+    ".vercelignore": true,
+    ".vercel": true,
+    "**/.vercel": true,
+    ".turbo": true,
+    "**/.turbo": true,
+    "**/coverage": true,
+    ".serena": true,
+    ".playwright-mcp": true,
+    "coverage": true,
+    ".editorconfig": true,
+    ".dockerignore": true,
+    "pnpm-lock.yaml": true,
+  },
+  "search.exclude": {
+    "**/node_modules": true,
+    "**/bower_components": true,
+    "**/*.code-search": true
+  },
+  "editor.formatOnSave": true,
+  "editor.defaultFormatter": "biomejs.biome",
+  "js/ts.tsserver.maxMemory": 4096,
+  "js/ts.preferences.includePackageJsonAutoImports": "off",
   "prisma.pinToPrisma6": true
 }

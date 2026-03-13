@@ -18,7 +18,7 @@ const itemBase: React.CSSProperties = {
   fontSize: 13,
   color: 'var(--text-primary)',
   borderRadius: 'var(--radius-sm)',
-  cursor: 'default',
+  cursor: 'pointer',
   outline: 'none',
   userSelect: 'none',
   position: 'relative',

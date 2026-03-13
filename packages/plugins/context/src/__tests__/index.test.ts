@@ -40,6 +40,9 @@ const createMockContext: CreateMockContext = (options) => {
       thread: {
         findUnique: options?.threadFindUnique ?? vi.fn().mockResolvedValue({ sessionId: null, project: null }),
       },
+      userProfile: {
+        findUnique: vi.fn().mockResolvedValue(null),
+      },
     } as never,
     invoker: { invoke: vi.fn() },
     config: {} as never,

@@ -114,6 +114,16 @@ const seedCronJobs: SeedCronJobs = async (threadId, agentId) => {
   }
 };
 
+type SeedUserProfile = () => Promise<void>;
+
+const seedUserProfile: SeedUserProfile = async () => {
+  await prisma.userProfile.upsert({
+    where: { id: 'singleton' },
+    update: {},
+    create: {},
+  });
+};
+
 type Seed = () => Promise<void>;
 
 const seed: Seed = async () => {
@@ -129,6 +139,7 @@ const seed: Seed = async () => {
   console.log(`Primary thread seeded: ${threadId}`);
 
   await seedCronJobs(threadId, agentId);
+  await seedUserProfile();
   console.log(`Cron jobs seeded: ${getCronJobDefinitions().length} jobs`);
 
   console.log('Seed complete.');

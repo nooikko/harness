@@ -447,7 +447,7 @@ const CollapsibleShowcase = () => (
     <Collapsible className='max-w-xs'>
       <CollapsibleTrigger className='flex w-full cursor-pointer items-center justify-between rounded-md border border-border bg-card px-3.5 py-2.5 text-sm font-semibold text-foreground transition-colors hover:bg-muted/50 data-[state=open]:rounded-b-none'>
         Agent memories
-        <ChevronDownIcon className='size-3.5 text-muted-foreground transition-transform [[data-state=open]_&]:rotate-180' />
+        <ChevronDownIcon className='size-3.5 text-muted-foreground transition-transform in-data-[state=open]:rotate-180' />
       </CollapsibleTrigger>
       <CollapsibleContent className='rounded-b-md border border-t-0 border-border'>
         {['Quinn prefers concise responses.', 'Works best with morning check-ins.', 'Dislikes unnecessary qualifiers.'].map((memory, i) => (
@@ -557,7 +557,7 @@ const SwitchShowcase = () => {
 const TabsShowcase = () => (
   <div>
     <SectionLabel>Tabs</SectionLabel>
-    <Tabs defaultValue='Overview' className='max-w-[400px]'>
+    <Tabs defaultValue='Overview' className='max-w-100'>
       <TabsList>
         {['Overview', 'Memory', 'Activity', 'Settings'].map((tab) => (
           <TabsTrigger key={tab} value={tab}>
@@ -589,7 +589,7 @@ const ProgressShowcase = () => (
 const SkeletonShowcase = () => (
   <div>
     <SectionLabel>Skeleton</SectionLabel>
-    <div className='flex max-w-[280px] flex-col gap-2.5'>
+    <div className='flex max-w-70 flex-col gap-2.5'>
       {[0, 1, 2].map((i) => (
         <div key={i} className='flex items-center gap-2.5'>
           <Skeleton className='size-8 shrink-0' style={{ animationDelay: `${i * 0.1}s` }} />

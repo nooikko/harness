@@ -10,6 +10,7 @@ import { readContextFiles } from './_helpers/file-reader';
 import { formatContextSection } from './_helpers/format-context-section';
 import { formatHistorySection } from './_helpers/format-history-section';
 import { formatSummarySection } from './_helpers/format-summary-section';
+import { formatUserProfileSection } from './_helpers/format-user-profile-section';
 import { loadHistory } from './_helpers/history-loader';
 import { settingsSchema } from './_helpers/settings-schema';
 
@@ -76,6 +77,7 @@ const createRegister: CreateRegister = (options) => {
 
         // Check if thread has an active session — if so, Claude already has history via --resume
         // Also fetch project instructions/memory for context injection
+        let userProfileSection = '';
         let thread: { sessionId: string | null; project: { instructions: string | null; memory: string | null } | null } | null = null;
         let dbAvailable = true;
         try {
@@ -88,6 +90,8 @@ const createRegister: CreateRegister = (options) => {
               },
             },
           });
+          const profile = await ctx.db.userProfile.findUnique({ where: { id: 'singleton' } });
+          userProfileSection = formatUserProfileSection(profile);
         } catch (err) {
           dbAvailable = false;
           ctx.logger.warn(
@@ -133,7 +137,15 @@ const createRegister: CreateRegister = (options) => {
         }
 
         // Concatenate: project instructions + project memory + context + summary + history + prompt
-        return buildPrompt([projectInstructionsSection ?? '', projectMemorySection ?? '', contextSection, summarySection, historySection, prompt]);
+        return buildPrompt([
+          projectInstructionsSection ?? '',
+          projectMemorySection ?? '',
+          userProfileSection,
+          contextSection,
+          summarySection,
+          historySection,
+          prompt,
+        ]);
       },
     };
   };
