@@ -53,6 +53,7 @@ const mockConfig: OrchestratorConfig = {
   discordChannelId: undefined,
   port: 4001,
   logLevel: 'info' as const,
+  uploadDir: './uploads',
 };
 
 const makeDeps = (overrides?: Partial<OrchestratorDeps>): OrchestratorDeps => ({

@@ -19,10 +19,4 @@ export const settingsSchema = createSettingsSchema({
     description: 'Maximum number of prior summaries injected into the prompt.',
     default: 2,
   },
-  maxFileSizeKb: {
-    type: 'number' as const,
-    label: 'Max File Size (KB)',
-    description: 'Maximum size in KB for individual context files before truncation.',
-    default: 50,
-  },
 });

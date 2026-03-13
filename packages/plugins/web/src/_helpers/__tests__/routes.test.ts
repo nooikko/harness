@@ -25,6 +25,7 @@ type TestContext = {
   mockLogger: Logger;
   mockInvoker: MockInvoker;
   mockNotifySettingsChange: ReturnType<typeof vi.fn>;
+  mockBroadcast: ReturnType<typeof vi.fn>;
   onChatMessage: ReturnType<typeof vi.fn>;
 };
 
@@ -53,6 +54,7 @@ const createTestContext = (): TestContext => {
     mockLogger,
     mockInvoker,
     mockNotifySettingsChange: vi.fn(),
+    mockBroadcast: vi.fn(),
     onChatMessage: vi.fn(),
   };
 };
@@ -70,6 +72,7 @@ describe('routes', () => {
       config: { claudeModel: 'claude-haiku-4-5-20251001' },
       logger: testCtx.mockLogger,
       notifySettingsChange: testCtx.mockNotifySettingsChange,
+      broadcast: testCtx.mockBroadcast,
     } as unknown as PluginContext;
 
     const app = createApp({
@@ -518,6 +521,92 @@ describe('routes', () => {
       expect(res.status).toBe(200);
       expect(body).toEqual({ success: true, pluginName: 'unknown-plugin' });
       expect(testCtx.mockNotifySettingsChange).toHaveBeenCalledWith('unknown-plugin');
+    });
+  });
+
+  describe('POST /api/broadcast', () => {
+    it('broadcasts event and data, returns ok', async () => {
+      testCtx.mockBroadcast.mockResolvedValue(undefined);
+
+      const res = await fetch(`${testCtx.baseUrl}/api/broadcast`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ event: 'file:uploaded', data: { fileId: '123' } }),
+      });
+      const body = (await res.json()) as JsonResponse;
+
+      expect(res.status).toBe(200);
+      expect(body).toEqual({ ok: true });
+      expect(testCtx.mockBroadcast).toHaveBeenCalledWith('file:uploaded', { fileId: '123' });
+    });
+
+    it('defaults data to empty object when omitted', async () => {
+      testCtx.mockBroadcast.mockResolvedValue(undefined);
+
+      const res = await fetch(`${testCtx.baseUrl}/api/broadcast`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ event: 'ping' }),
+      });
+      const body = (await res.json()) as JsonResponse;
+
+      expect(res.status).toBe(200);
+      expect(body).toEqual({ ok: true });
+      expect(testCtx.mockBroadcast).toHaveBeenCalledWith('ping', {});
+    });
+
+    it('returns 400 when event is missing', async () => {
+      const res = await fetch(`${testCtx.baseUrl}/api/broadcast`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ data: { foo: 'bar' } }),
+      });
+      const body = (await res.json()) as JsonResponse;
+
+      expect(res.status).toBe(400);
+      expect(body.error).toBe('Missing or invalid event');
+    });
+
+    it('returns 400 when event is not a string', async () => {
+      const res = await fetch(`${testCtx.baseUrl}/api/broadcast`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ event: 42 }),
+      });
+      const body = (await res.json()) as JsonResponse;
+
+      expect(res.status).toBe(400);
+      expect(body.error).toBe('Missing or invalid event');
+    });
+
+    it('returns 500 when broadcast throws an Error', async () => {
+      testCtx.mockBroadcast.mockRejectedValue(new Error('ws failure'));
+
+      const res = await fetch(`${testCtx.baseUrl}/api/broadcast`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ event: 'test', data: {} }),
+      });
+      const body = (await res.json()) as JsonResponse;
+
+      expect(res.status).toBe(500);
+      expect(body.error).toBe('Internal server error');
+      expect(testCtx.mockLogger.error).toHaveBeenCalledWith('Broadcast endpoint error', { error: 'ws failure' });
+    });
+
+    it('returns 500 when broadcast throws a non-Error', async () => {
+      testCtx.mockBroadcast.mockRejectedValue('something broke');
+
+      const res = await fetch(`${testCtx.baseUrl}/api/broadcast`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ event: 'test', data: {} }),
+      });
+      const body = (await res.json()) as JsonResponse;
+
+      expect(res.status).toBe(500);
+      expect(body.error).toBe('Internal server error');
+      expect(testCtx.mockLogger.error).toHaveBeenCalledWith('Broadcast endpoint error', { error: 'something broke' });
     });
   });
 

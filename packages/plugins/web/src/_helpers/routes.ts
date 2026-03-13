@@ -124,6 +124,25 @@ export const createApp: CreateApp = ({ ctx, logger, onChatMessage }) => {
     }
   });
 
+  // POST /api/broadcast — generic event broadcast to WebSocket clients
+  app.post('/api/broadcast', async (req: Request, res: Response) => {
+    const body = req.body as Partial<{ event: string; data: unknown }>;
+
+    if (!body.event || typeof body.event !== 'string') {
+      res.status(400).json({ error: 'Missing or invalid event' });
+      return;
+    }
+
+    try {
+      await ctx.broadcast(body.event, body.data ?? {});
+      res.json({ ok: true });
+    } catch (err) {
+      const message = err instanceof Error ? err.message : String(err);
+      logger.error('Broadcast endpoint error', { error: message });
+      res.status(500).json({ error: 'Internal server error' });
+    }
+  });
+
   // GET /api/threads — list all threads
   app.get('/api/threads', async (_req: Request, res: Response) => {
     try {
