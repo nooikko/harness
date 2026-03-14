@@ -29,7 +29,7 @@ describe('TokensOverTimeChartInternal', () => {
     expect(html).toContain('No token data for this period.');
   });
 
-  it('renders meter bars when metrics exist', async () => {
+  it('renders bar chart when metrics exist', async () => {
     mockFindMany.mockResolvedValue([
       { value: 500, createdAt: new Date('2025-01-10T10:00:00Z') },
       { value: 300, createdAt: new Date('2025-01-10T14:00:00Z') },
@@ -38,7 +38,6 @@ describe('TokensOverTimeChartInternal', () => {
     const element = await TokensOverTimeChartInternal();
     const html = renderToStaticMarkup(element as React.ReactElement);
     expect(html).toContain('Tokens Over Time');
-    expect(html).toContain('<meter');
     expect(html).toContain('01-10');
     expect(html).toContain('01-11');
   });

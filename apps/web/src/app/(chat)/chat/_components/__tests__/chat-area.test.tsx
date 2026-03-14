@@ -27,10 +27,10 @@ vi.mock('../pipeline-activity', () => ({
 }));
 
 vi.mock('../chat-input', () => ({
-  ChatInput: ({ onSubmit, disabled, error }: { onSubmit: (text: string) => void; disabled?: boolean; error?: string | null }) => (
+  ChatInput: ({ onSubmitAction, disabled, error }: { onSubmitAction: (text: string) => void; disabled?: boolean; error?: string | null }) => (
     <div>
       {error && <p data-testid='error-message'>{error}</p>}
-      <button type='button' disabled={disabled} onClick={() => onSubmit('test message')} aria-label='Send message'>
+      <button type='button' disabled={disabled} onClick={() => onSubmitAction('test message')} aria-label='Send message'>
         Send
       </button>
     </div>

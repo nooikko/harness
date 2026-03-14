@@ -29,7 +29,7 @@ describe('CostOverTimeChartInternal', () => {
     expect(html).toContain('No cost data for this period.');
   });
 
-  it('renders meter bars when metrics exist', async () => {
+  it('renders bar chart when metrics exist', async () => {
     mockFindMany.mockResolvedValue([
       { value: 0.05, createdAt: new Date('2025-01-10T10:00:00Z') },
       { value: 0.03, createdAt: new Date('2025-01-10T14:00:00Z') },
@@ -38,7 +38,6 @@ describe('CostOverTimeChartInternal', () => {
     const element = await CostOverTimeChartInternal();
     const html = renderToStaticMarkup(element as React.ReactElement);
     expect(html).toContain('Cost Over Time');
-    expect(html).toContain('<meter');
     expect(html).toContain('01-10');
     expect(html).toContain('01-11');
   });

@@ -6,16 +6,12 @@ describe('MODEL_OPTIONS', () => {
     expect(Array.isArray(MODEL_OPTIONS)).toBe(true);
   });
 
-  it('has four entries', () => {
-    expect(MODEL_OPTIONS).toHaveLength(4);
+  it('has three entries', () => {
+    expect(MODEL_OPTIONS).toHaveLength(3);
   });
 
   it('first entry is the default Haiku option with empty value', () => {
     expect(MODEL_OPTIONS[0]).toEqual({ value: '', label: 'Haiku', description: 'Default' });
-  });
-
-  it('includes claude-haiku-4-5-20251001', () => {
-    expect(MODEL_OPTIONS.some((o) => o.value === 'claude-haiku-4-5-20251001')).toBe(true);
   });
 
   it('includes claude-sonnet-4-6', () => {

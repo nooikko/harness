@@ -43,13 +43,16 @@ describe('AdminLayout', () => {
     expect(html).toContain('Main content');
   });
 
-  it("renders the AdminSidebar with 'Admin' heading", () => {
+  it('renders the AdminSidebar with navigation group labels', () => {
     const html = renderToStaticMarkup(
       <AdminLayout>
         <p>Content</p>
       </AdminLayout>,
     );
-    expect(html).toContain('Admin');
+    expect(html).toContain('Account');
+    expect(html).toContain('Configuration');
+    expect(html).toContain('Activity');
+    expect(html).toContain('Analytics');
   });
 
   it('renders all admin section links', () => {

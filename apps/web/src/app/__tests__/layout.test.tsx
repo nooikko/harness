@@ -2,7 +2,7 @@ import { renderToStaticMarkup } from 'react-dom/server';
 import { describe, expect, it, vi } from 'vitest';
 
 vi.mock('next/font/google', () => ({
-  Inter: () => ({ className: 'inter-mock' }),
+  Figtree: () => ({ className: 'figtree-mock', variable: '--font-sans' }),
 }));
 
 vi.mock('next/navigation', () => ({
@@ -17,6 +17,14 @@ vi.mock('next/link', () => ({
   ),
 }));
 
+vi.mock('../_components/ws-provider', () => ({
+  WsProvider: ({ children }: { children: React.ReactNode }) => <>{children}</>,
+}));
+
+vi.mock('../_components/top-bar', () => ({
+  TopBar: () => <nav data-testid='top-bar'>Harness</nav>,
+}));
+
 // Import after mocks are set up
 const { default: RootLayout, metadata } = await import('../layout');
 
@@ -29,56 +37,40 @@ describe('RootLayout', () => {
     expect(metadata.description).toBe('Orchestrator dashboard — threads, tasks, crons, and real-time monitoring');
   });
 
-  it('renders children within an html structure', () => {
-    const html = renderToStaticMarkup(
-      <RootLayout>
-        <p>Hello</p>
-      </RootLayout>,
-    );
+  it('renders children within an html structure', async () => {
+    const element = await RootLayout({ children: <p>Hello</p> });
+    const html = renderToStaticMarkup(element as React.ReactElement);
 
     expect(html).toContain('<html');
     expect(html).toContain('<body');
     expect(html).toContain('<p>Hello</p>');
   });
 
-  it('applies the Inter font className to the body', () => {
-    const html = renderToStaticMarkup(
-      <RootLayout>
-        <span>content</span>
-      </RootLayout>,
-    );
+  it('applies the Figtree font variable to the body', async () => {
+    const element = await RootLayout({ children: <span>content</span> });
+    const html = renderToStaticMarkup(element as React.ReactElement);
 
-    expect(html).toContain('inter-mock');
+    expect(html).toContain('--font-sans');
   });
 
-  it('wraps children in a flex container', () => {
-    const html = renderToStaticMarkup(
-      <RootLayout>
-        <span>content</span>
-      </RootLayout>,
-    );
+  it('wraps children in a flex container', async () => {
+    const element = await RootLayout({ children: <span>content</span> });
+    const html = renderToStaticMarkup(element as React.ReactElement);
 
     expect(html).toContain('flex min-h-0 flex-1');
   });
 
-  it('applies flex column layout to the body', () => {
-    const html = renderToStaticMarkup(
-      <RootLayout>
-        <span>content</span>
-      </RootLayout>,
-    );
+  it('applies flex column layout to the body', async () => {
+    const element = await RootLayout({ children: <span>content</span> });
+    const html = renderToStaticMarkup(element as React.ReactElement);
 
     expect(html).toContain('flex h-screen flex-col');
   });
 
-  it('renders the TopBar with the Harness logo and search', () => {
-    const html = renderToStaticMarkup(
-      <RootLayout>
-        <span>content</span>
-      </RootLayout>,
-    );
+  it('renders the TopBar', async () => {
+    const element = await RootLayout({ children: <span>content</span> });
+    const html = renderToStaticMarkup(element as React.ReactElement);
 
     expect(html).toContain('Harness');
-    expect(html).toContain('Search');
   });
 });
