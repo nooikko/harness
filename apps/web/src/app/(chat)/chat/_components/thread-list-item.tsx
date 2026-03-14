@@ -7,6 +7,11 @@ import { useState } from 'react';
 import { DeleteThreadModal } from './delete-thread-modal';
 import { ManageThreadModal } from './manage-thread-modal';
 
+type ProjectOption = {
+  id: string;
+  name: string;
+};
+
 type ThreadListItemProps = {
   thread: {
     id: string;
@@ -16,14 +21,16 @@ type ThreadListItemProps = {
     kind: string;
     model: string | null;
     customInstructions: string | null;
+    projectId: string | null;
     lastActivity: Date;
   };
   isActive: boolean;
+  projects: ProjectOption[];
 };
 
 type ThreadListItemComponent = (props: ThreadListItemProps) => React.ReactNode;
 
-export const ThreadListItem: ThreadListItemComponent = ({ thread, isActive }) => {
+export const ThreadListItem: ThreadListItemComponent = ({ thread, isActive, projects }) => {
   const [isManageOpen, setIsManageOpen] = useState(false);
   const [isDeleteOpen, setIsDeleteOpen] = useState(false);
 
@@ -65,6 +72,8 @@ export const ThreadListItem: ThreadListItemComponent = ({ thread, isActive }) =>
         currentName={thread.name}
         currentModel={thread.model}
         currentInstructions={thread.customInstructions ?? null}
+        currentProjectId={thread.projectId}
+        projects={projects}
       />
 
       <DeleteThreadModal open={isDeleteOpen} onOpenChange={setIsDeleteOpen} threadId={thread.id} threadName={thread.name} />

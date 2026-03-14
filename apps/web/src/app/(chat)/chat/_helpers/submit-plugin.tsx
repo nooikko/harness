@@ -5,7 +5,6 @@ import { useLexicalComposerContext } from '@lexical/react/LexicalComposerContext
 import { $getRoot, COMMAND_PRIORITY_LOW, KEY_ENTER_COMMAND } from 'lexical';
 import { useRouter } from 'next/navigation';
 import { useEffect } from 'react';
-import { createThread } from '../_actions/create-thread';
 import { updateThreadModel } from '../_actions/update-thread-model';
 
 const SYSTEM_COMMANDS = new Set(['new', 'clear', 'model']);
@@ -78,9 +77,7 @@ const SubmitPlugin: SubmitPluginComponent = ({ threadId, onSubmit, disabled }) =
         const system = parseSystemCommand(text);
 
         if (system?.command === 'new' || system?.command === 'clear') {
-          createThread().then(({ threadId: newId }) => {
-            router.push(`/chat/${newId}`);
-          });
+          router.push('/chat/new');
           return true;
         }
 

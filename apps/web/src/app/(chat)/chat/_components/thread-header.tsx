@@ -5,17 +5,32 @@ import { Settings2 } from 'lucide-react';
 import { useState } from 'react';
 import { ManageThreadModal } from './manage-thread-modal';
 
+type ProjectOption = {
+  id: string;
+  name: string;
+};
+
 type ThreadHeaderProps = {
   threadId: string;
   displayName: string;
   currentName: string | null;
   currentModel: string | null;
   currentInstructions: string | null;
+  currentProjectId: string | null;
+  projects: ProjectOption[];
 };
 
 type ThreadHeaderComponent = (props: ThreadHeaderProps) => React.ReactNode;
 
-export const ThreadHeader: ThreadHeaderComponent = ({ threadId, displayName, currentName, currentModel, currentInstructions }) => {
+export const ThreadHeader: ThreadHeaderComponent = ({
+  threadId,
+  displayName,
+  currentName,
+  currentModel,
+  currentInstructions,
+  currentProjectId,
+  projects,
+}) => {
   const [isManageOpen, setIsManageOpen] = useState(false);
 
   return (
@@ -41,6 +56,8 @@ export const ThreadHeader: ThreadHeaderComponent = ({ threadId, displayName, cur
         currentName={currentName}
         currentModel={currentModel}
         currentInstructions={currentInstructions}
+        currentProjectId={currentProjectId}
+        projects={projects}
       />
     </>
   );

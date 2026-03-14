@@ -1,10 +1,12 @@
 'use client';
 
 import type { Project } from '@harness/database';
-import { Button, Input, Label, Select, SelectContent, SelectItem, SelectTrigger, SelectValue, Separator, Textarea } from '@harness/ui';
+import { Button, Input, Label, Select, SelectContent, SelectItem, SelectTrigger, SelectValue, Separator, Textarea, Tooltip } from '@harness/ui';
+import { Sparkles } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import { useState, useTransition } from 'react';
 import { deleteProject } from '../../../_actions/delete-project';
+import { rewriteWithAi } from '../../../_actions/rewrite-with-ai';
 import { updateProject } from '../../../_actions/update-project';
 
 const PROJECT_MODEL_OPTIONS = [
@@ -32,6 +34,23 @@ export const ProjectSettingsForm: ProjectSettingsFormComponent = ({ project }) =
   const [saveError, setSaveError] = useState<string | null>(null);
   const [deleteError, setDeleteError] = useState<string | null>(null);
   const [confirmDelete, setConfirmDelete] = useState(false);
+  const [isRewritingDescription, startRewriteDescription] = useTransition();
+  const [isRewritingInstructions, startRewriteInstructions] = useTransition();
+
+  const handleRewrite = (field: 'description' | 'instructions') => {
+    const text = field === 'description' ? description : instructions;
+    const setter = field === 'description' ? setDescription : setInstructions;
+    const startTransition = field === 'description' ? startRewriteDescription : startRewriteInstructions;
+
+    startTransition(async () => {
+      try {
+        const rewritten = await rewriteWithAi(text, field);
+        setter(rewritten);
+      } catch {
+        // Silently fail — the user still has their original text
+      }
+    });
+  };
 
   const handleSave = (e: React.FormEvent) => {
     e.preventDefault();
@@ -47,7 +66,7 @@ export const ProjectSettingsForm: ProjectSettingsFormComponent = ({ project }) =
           model: model === '_inherit' ? null : model,
           instructions: instructions.trim() || undefined,
         });
-        router.refresh();
+        router.push('/chat/projects');
       } catch (err) {
         setSaveError(err instanceof Error ? err.message : 'Failed to save project.');
       }
@@ -80,7 +99,20 @@ export const ProjectSettingsForm: ProjectSettingsFormComponent = ({ project }) =
         </div>
 
         <div className='flex flex-col gap-1.5'>
-          <Label htmlFor='proj-description'>Description</Label>
+          <div className='flex items-center justify-between'>
+            <Label htmlFor='proj-description'>Description</Label>
+            <Tooltip content='Rewrite with AI to make it clearer'>
+              <button
+                type='button'
+                disabled={isRewritingDescription || !description.trim()}
+                onClick={() => handleRewrite('description')}
+                className='inline-flex items-center gap-1 rounded-md px-2 py-0.5 text-xs text-muted-foreground transition-colors hover:bg-muted hover:text-foreground disabled:pointer-events-none disabled:opacity-50'
+              >
+                <Sparkles className={`h-3 w-3 ${isRewritingDescription ? 'animate-pulse' : ''}`} />
+                {isRewritingDescription ? 'Rewriting...' : 'Rewrite'}
+              </button>
+            </Tooltip>
+          </div>
           <Textarea
             id='proj-description'
             value={description}
@@ -108,7 +140,20 @@ export const ProjectSettingsForm: ProjectSettingsFormComponent = ({ project }) =
         </div>
 
         <div className='flex flex-col gap-1.5'>
-          <Label htmlFor='proj-instructions'>Instructions</Label>
+          <div className='flex items-center justify-between'>
+            <Label htmlFor='proj-instructions'>Instructions</Label>
+            <Tooltip content='Rewrite with AI to make it more effective for Claude'>
+              <button
+                type='button'
+                disabled={isRewritingInstructions || !instructions.trim()}
+                onClick={() => handleRewrite('instructions')}
+                className='inline-flex items-center gap-1 rounded-md px-2 py-0.5 text-xs text-muted-foreground transition-colors hover:bg-muted hover:text-foreground disabled:pointer-events-none disabled:opacity-50'
+              >
+                <Sparkles className={`h-3 w-3 ${isRewritingInstructions ? 'animate-pulse' : ''}`} />
+                {isRewritingInstructions ? 'Rewriting...' : 'Rewrite'}
+              </button>
+            </Tooltip>
+          </div>
           <p className='text-xs text-muted-foreground'>How the agent should behave in this project.</p>
           <Textarea
             id='proj-instructions'

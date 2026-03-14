@@ -18,9 +18,13 @@ import { useRouter } from 'next/navigation';
 import { useState, useTransition } from 'react';
 import { createProject } from '../_actions/create-project';
 
-type NewProjectFormComponent = () => React.ReactNode;
+type NewProjectFormProps = {
+  trigger?: React.ReactNode;
+};
 
-export const NewProjectForm: NewProjectFormComponent = () => {
+type NewProjectFormComponent = (props: NewProjectFormProps) => React.ReactNode;
+
+export const NewProjectForm: NewProjectFormComponent = ({ trigger }) => {
   const router = useRouter();
   const [open, setOpen] = useState(false);
   const [isPending, startTransition] = useTransition();
@@ -58,13 +62,15 @@ export const NewProjectForm: NewProjectFormComponent = () => {
   return (
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>
-        <button
-          type='button'
-          aria-label='New project'
-          className='rounded-md p-1 text-sidebar-foreground/50 transition-colors hover:text-sidebar-foreground'
-        >
-          <FolderPlus className='h-4 w-4' />
-        </button>
+        {trigger ?? (
+          <button
+            type='button'
+            aria-label='New project'
+            className='rounded-md p-1 text-sidebar-foreground/50 transition-colors hover:text-sidebar-foreground'
+          >
+            <FolderPlus className='h-4 w-4' />
+          </button>
+        )}
       </DialogTrigger>
       <DialogContent className='sm:max-w-md'>
         <DialogHeader>

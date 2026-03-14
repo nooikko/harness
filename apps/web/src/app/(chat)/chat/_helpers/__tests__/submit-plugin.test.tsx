@@ -12,10 +12,6 @@ vi.mock('next/navigation', () => ({
   useRouter: () => mockRouter,
 }));
 
-vi.mock('../../_actions/create-thread', () => ({
-  createThread: () => mockCreateThread(),
-}));
-
 vi.mock('../../_actions/update-thread-model', () => ({
   updateThreadModel: (...args: unknown[]) => mockUpdateThreadModel(...args),
 }));
@@ -25,7 +21,6 @@ const mockRouter = {
   refresh: vi.fn(),
 };
 
-const mockCreateThread = vi.fn();
 const mockUpdateThreadModel = vi.fn();
 
 // --- Helpers ---
@@ -155,9 +150,7 @@ describe('SubmitPlugin', () => {
     vi.clearAllMocks();
     mockRouter.push.mockReset();
     mockRouter.refresh.mockReset();
-    mockCreateThread.mockReset();
     mockUpdateThreadModel.mockReset();
-    mockCreateThread.mockResolvedValue({ threadId: 'new-thread-id' });
     mockUpdateThreadModel.mockResolvedValue(undefined);
   });
 
@@ -218,30 +211,26 @@ describe('SubmitPlugin', () => {
     expect(onSubmit).not.toHaveBeenCalled();
   });
 
-  it('calls createThread and navigates when /new is entered', async () => {
+  it('navigates to /chat/new when /new is entered', async () => {
     const { setText, pressEnter } = await renderEditor();
 
     await setText('/new');
     await act(async () => {
       pressEnter();
-      await Promise.resolve();
     });
 
-    expect(mockCreateThread).toHaveBeenCalled();
-    expect(mockRouter.push).toHaveBeenCalledWith('/chat/new-thread-id');
+    expect(mockRouter.push).toHaveBeenCalledWith('/chat/new');
   });
 
-  it('calls createThread and navigates when /clear is entered', async () => {
+  it('navigates to /chat/new when /clear is entered', async () => {
     const { setText, pressEnter } = await renderEditor();
 
     await setText('/clear');
     await act(async () => {
       pressEnter();
-      await Promise.resolve();
     });
 
-    expect(mockCreateThread).toHaveBeenCalled();
-    expect(mockRouter.push).toHaveBeenCalledWith('/chat/new-thread-id');
+    expect(mockRouter.push).toHaveBeenCalledWith('/chat/new');
   });
 
   it('calls updateThreadModel and refreshes when /model <name> is entered', async () => {

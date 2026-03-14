@@ -62,12 +62,12 @@ const renderWithProvider = (ui: React.ReactElement) => render(<SidebarProvider>{
 
 describe('NavChats', () => {
   it('renders the Recents group label', () => {
-    renderWithProvider(<NavChats threads={[]} />);
+    renderWithProvider(<NavChats threads={[]} projects={[]} />);
     expect(screen.getByText('Recents')).toBeInTheDocument();
   });
 
   it('renders empty state when no threads', () => {
-    renderWithProvider(<NavChats threads={[]} />);
+    renderWithProvider(<NavChats threads={[]} projects={[]} />);
     expect(screen.getByText('No chats yet')).toBeInTheDocument();
   });
 
@@ -77,13 +77,13 @@ describe('NavChats', () => {
       name: 'My Thread',
       kind: 'default',
     });
-    renderWithProvider(<NavChats threads={[thread as never]} />);
+    renderWithProvider(<NavChats threads={[thread as never]} projects={[]} />);
     expect(screen.getByText('My Thread')).toBeInTheDocument();
   });
 
   it('falls back to kind when thread name is null', () => {
     const thread = makeThread({ id: 'abc', name: null, kind: 'task' });
-    renderWithProvider(<NavChats threads={[thread as never]} />);
+    renderWithProvider(<NavChats threads={[thread as never]} projects={[]} />);
     expect(screen.getByText('task')).toBeInTheDocument();
   });
 
@@ -99,7 +99,7 @@ describe('NavChats', () => {
       name: 'Other',
       kind: 'default',
     });
-    renderWithProvider(<NavChats threads={[active as never, inactive as never]} />);
+    renderWithProvider(<NavChats threads={[active as never, inactive as never]} projects={[]} />);
 
     expect(screen.getByTestId('thread-active-id')).toHaveAttribute('data-active', 'true');
     expect(screen.getByTestId('thread-other-id')).toHaveAttribute('data-active', 'false');
@@ -111,7 +111,7 @@ describe('NavChats', () => {
       makeThread({ id: 't2', name: 'Thread Two', kind: 'default' }),
       makeThread({ id: 't3', name: null, kind: 'task' }),
     ];
-    renderWithProvider(<NavChats threads={threads as never[]} />);
+    renderWithProvider(<NavChats threads={threads as never[]} projects={[]} />);
     expect(screen.getByText('Thread One')).toBeInTheDocument();
     expect(screen.getByText('Thread Two')).toBeInTheDocument();
     expect(screen.getByText('task')).toBeInTheDocument();

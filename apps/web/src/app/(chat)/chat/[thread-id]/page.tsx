@@ -28,6 +28,11 @@ const ThreadPage: ThreadPageComponent = async ({ params }) => {
     notFound();
   }
 
+  const projects = await prisma.project.findMany({
+    select: { id: true, name: true },
+    orderBy: { name: 'asc' },
+  });
+
   const displayName = thread.name ?? `${thread.source}/${thread.sourceId}`;
 
   return (
@@ -38,6 +43,8 @@ const ThreadPage: ThreadPageComponent = async ({ params }) => {
         currentName={thread.name}
         currentModel={thread.model}
         currentInstructions={thread.customInstructions}
+        currentProjectId={thread.projectId}
+        projects={projects}
       />
       <PrewarmTrigger threadId={threadId} />
       <ChatArea

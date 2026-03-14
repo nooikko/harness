@@ -12,6 +12,7 @@
     "test:watch": "vitest"
   },
   "dependencies": {
+    "@anthropic-ai/sdk": "^0.78.0",
     "@harness/database": "workspace:*",
     "@harness/plugin-contract": "workspace:*",
     "@harness/ui": "workspace:*",

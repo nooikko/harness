@@ -61,23 +61,11 @@ describe('ThreadSidebarInternal', () => {
     expect(html).toContain('New chat');
   });
 
-  it('renders project groups when projects exist', async () => {
+  it('does not render project groups in sidebar', async () => {
     const { prisma } = await import('@harness/database');
-    vi.mocked(prisma.project.findMany).mockResolvedValueOnce([
-      {
-        id: 'p1',
-        name: 'Test Project',
-        threads: [],
-        createdAt: new Date(),
-        updatedAt: new Date(),
-        description: null,
-        instructions: null,
-        memory: null,
-        model: null,
-      },
-    ] as never);
+    vi.mocked(prisma.project.findMany).mockResolvedValueOnce([{ id: 'p1', name: 'Test Project' }] as never);
     const element = await ThreadSidebarInternal();
     const html = renderToStaticMarkup(<SidebarProvider>{element as React.ReactElement}</SidebarProvider>);
-    expect(html).toContain('Test Project');
+    expect(html).not.toContain('Test Project');
   });
 });

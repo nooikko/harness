@@ -20,6 +20,12 @@ import { useRef, useState, useTransition } from 'react';
 import { renameThread } from '../_actions/rename-thread';
 import { updateThreadInstructions } from '../_actions/update-thread-instructions';
 import { updateThreadModel } from '../_actions/update-thread-model';
+import { updateThreadProject } from '../_actions/update-thread-project';
+
+type ProjectOption = {
+  id: string;
+  name: string;
+};
 
 type ManageThreadModalProps = {
   open: boolean;
@@ -28,6 +34,8 @@ type ManageThreadModalProps = {
   currentName: string | null;
   currentModel: string | null;
   currentInstructions: string | null;
+  currentProjectId: string | null;
+  projects: ProjectOption[];
 };
 
 // Sentinel value for the default (Haiku) model option — Radix Select forbids empty string values.
@@ -41,10 +49,23 @@ const MODEL_OPTIONS: { value: string; label: string; description?: string }[] = 
 
 type ManageThreadModalComponent = (props: ManageThreadModalProps) => React.ReactNode;
 
-export const ManageThreadModal: ManageThreadModalComponent = ({ open, onOpenChange, threadId, currentName, currentModel, currentInstructions }) => {
+// Sentinel value for the "no project" option — Radix Select forbids empty string values.
+const PROJECT_NONE_SENTINEL = '_none';
+
+export const ManageThreadModal: ManageThreadModalComponent = ({
+  open,
+  onOpenChange,
+  threadId,
+  currentName,
+  currentModel,
+  currentInstructions,
+  currentProjectId,
+  projects,
+}) => {
   const [isPending, startTransition] = useTransition();
   const nameRef = useRef<HTMLInputElement>(null);
   const modelRef = useRef<string>(currentModel ?? MODEL_DEFAULT_SENTINEL);
+  const projectRef = useRef<string>(currentProjectId ?? PROJECT_NONE_SENTINEL);
   const [customInstructions, setCustomInstructions] = useState(currentInstructions ?? '');
 
   const handleSave = () => {
@@ -53,10 +74,12 @@ export const ManageThreadModal: ManageThreadModalComponent = ({ open, onOpenChan
       const newModelValue = modelRef.current;
       // Convert sentinel back to null (no model override = use default Haiku)
       const newModel = newModelValue === MODEL_DEFAULT_SENTINEL ? null : newModelValue;
+      const newProjectId = projectRef.current === PROJECT_NONE_SENTINEL ? null : projectRef.current;
 
       const nameChanged = newName.trim() !== (currentName ?? '').trim() && newName.trim() !== '';
       const modelChanged = newModel !== currentModel;
       const instructionsChanged = customInstructions !== (currentInstructions ?? '');
+      const projectChanged = newProjectId !== currentProjectId;
 
       if (nameChanged) {
         await renameThread(threadId, newName);
@@ -66,6 +89,9 @@ export const ManageThreadModal: ManageThreadModalComponent = ({ open, onOpenChan
       }
       if (instructionsChanged) {
         await updateThreadInstructions(threadId, customInstructions);
+      }
+      if (projectChanged) {
+        await updateThreadProject(threadId, newProjectId);
       }
 
       onOpenChange(false);
@@ -106,6 +132,30 @@ export const ManageThreadModal: ManageThreadModalComponent = ({ open, onOpenChan
               </SelectContent>
             </Select>
           </div>
+
+          {projects.length > 0 && (
+            <div className='flex flex-col gap-1.5'>
+              <Label htmlFor='thread-project'>Project</Label>
+              <Select
+                defaultValue={currentProjectId ?? PROJECT_NONE_SENTINEL}
+                onValueChange={(val) => {
+                  projectRef.current = val;
+                }}
+              >
+                <SelectTrigger id='thread-project'>
+                  <SelectValue placeholder='Select project' />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value={PROJECT_NONE_SENTINEL}>None</SelectItem>
+                  {projects.map((p) => (
+                    <SelectItem key={p.id} value={p.id}>
+                      {p.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          )}
 
           <div className='flex flex-col gap-1.5'>
             <Label htmlFor='thread-instructions'>Custom Instructions</Label>

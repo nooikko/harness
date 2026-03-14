@@ -5,6 +5,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 const mockRenameThread = vi.fn().mockResolvedValue(undefined);
 const mockUpdateThreadModel = vi.fn().mockResolvedValue(undefined);
 const mockUpdateThreadInstructions = vi.fn().mockResolvedValue(undefined);
+const mockUpdateThreadProject = vi.fn().mockResolvedValue(undefined);
 
 vi.mock('../../_actions/rename-thread', () => ({
   renameThread: (...args: unknown[]) => mockRenameThread(...args),
@@ -18,6 +19,10 @@ vi.mock('../../_actions/update-thread-instructions', () => ({
   updateThreadInstructions: (...args: unknown[]) => mockUpdateThreadInstructions(...args),
 }));
 
+vi.mock('../../_actions/update-thread-project', () => ({
+  updateThreadProject: (...args: unknown[]) => mockUpdateThreadProject(...args),
+}));
+
 import { ManageThreadModal } from '../manage-thread-modal';
 
 const defaultProps = {
@@ -27,6 +32,11 @@ const defaultProps = {
   currentName: 'My Thread',
   currentModel: null,
   currentInstructions: null,
+  currentProjectId: null,
+  projects: [
+    { id: 'proj-1', name: 'Alpha' },
+    { id: 'proj-2', name: 'Beta' },
+  ],
 };
 
 describe('ManageThreadModal', () => {
@@ -138,5 +148,37 @@ describe('ManageThreadModal', () => {
     render(<ManageThreadModal {...defaultProps} />);
     expect(screen.getByRole('button', { name: 'Save' })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Cancel' })).toBeInTheDocument();
+  });
+
+  it('renders project selector when projects are provided', () => {
+    render(<ManageThreadModal {...defaultProps} />);
+    expect(screen.getByLabelText('Project')).toBeInTheDocument();
+  });
+
+  it('does not render project selector when projects array is empty', () => {
+    render(<ManageThreadModal {...defaultProps} projects={[]} />);
+    expect(screen.queryByLabelText('Project')).not.toBeInTheDocument();
+  });
+
+  it('does not call updateThreadProject when project is unchanged', async () => {
+    const user = userEvent.setup();
+    render(<ManageThreadModal {...defaultProps} currentProjectId={null} />);
+
+    await user.click(screen.getByRole('button', { name: 'Save' }));
+
+    await waitFor(() => {
+      expect(mockUpdateThreadProject).not.toHaveBeenCalled();
+    });
+  });
+
+  it('does not call updateThreadProject when project stays the same and saved', async () => {
+    const user = userEvent.setup();
+    render(<ManageThreadModal {...defaultProps} currentProjectId='proj-1' />);
+
+    await user.click(screen.getByRole('button', { name: 'Save' }));
+
+    await waitFor(() => {
+      expect(mockUpdateThreadProject).not.toHaveBeenCalled();
+    });
   });
 });

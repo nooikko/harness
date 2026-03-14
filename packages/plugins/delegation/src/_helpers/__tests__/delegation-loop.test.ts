@@ -9,6 +9,7 @@ vi.mock('../calculate-backoff-ms', () => ({
 type MockDb = {
   $transaction: ReturnType<typeof vi.fn>;
   thread: {
+    findUnique: ReturnType<typeof vi.fn>;
     create: ReturnType<typeof vi.fn>;
     update: ReturnType<typeof vi.fn>;
   };
@@ -36,6 +37,7 @@ type CreateMockContext = (overrides?: { invokeResult?: Partial<InvokeResult> }) 
 const createMockContext: CreateMockContext = (overrides) => {
   const db: MockDb = {
     thread: {
+      findUnique: vi.fn().mockResolvedValue({ projectId: 'project-1' }),
       create: vi.fn().mockResolvedValue({ id: 'thread-task-1' }),
       update: vi.fn().mockResolvedValue({}),
     },
@@ -121,6 +123,42 @@ describe('runDelegationLoop', () => {
         status: 'active',
         parentThreadId: 'parent-thread-1',
         name: expect.stringContaining('Task: Do research on topic X'),
+      }),
+    });
+  });
+
+  it('inherits projectId from the parent thread', async () => {
+    const hooks: PluginHooks[] = [];
+    mockDb.thread.findUnique.mockResolvedValue({ projectId: 'proj-abc' });
+
+    await runDelegationLoop(mockCtx, hooks, {
+      prompt: 'Do work',
+      parentThreadId: 'parent-thread-1',
+    });
+
+    expect(mockDb.thread.findUnique).toHaveBeenCalledWith({
+      where: { id: 'parent-thread-1' },
+      select: { projectId: true },
+    });
+    expect(mockDb.thread.create).toHaveBeenCalledWith({
+      data: expect.objectContaining({
+        projectId: 'proj-abc',
+      }),
+    });
+  });
+
+  it('handles parent thread with no projectId', async () => {
+    const hooks: PluginHooks[] = [];
+    mockDb.thread.findUnique.mockResolvedValue({ projectId: null });
+
+    await runDelegationLoop(mockCtx, hooks, {
+      prompt: 'Do work',
+      parentThreadId: 'parent-thread-1',
+    });
+
+    expect(mockDb.thread.create).toHaveBeenCalledWith({
+      data: expect.objectContaining({
+        projectId: null,
       }),
     });
   });

@@ -1,5 +1,6 @@
 import { PrismaClient } from '@prisma/client';
 import { getCronJobDefinitions } from './_helpers/cron-job-definitions';
+import { getDefaultProjectDefinition } from './_helpers/default-project-definition';
 
 const prisma = new PrismaClient();
 
@@ -65,9 +66,27 @@ const seedDefaultAgent: SeedDefaultAgent = async () => {
   return agent.id;
 };
 
-type SeedPrimaryThread = (agentId: string) => Promise<string>;
+type SeedDefaultProject = () => Promise<string>;
 
-const seedPrimaryThread: SeedPrimaryThread = async (agentId) => {
+const seedDefaultProject: SeedDefaultProject = async () => {
+  const definition = getDefaultProjectDefinition();
+
+  const project = await prisma.project.upsert({
+    where: { id: definition.id },
+    update: {},
+    create: {
+      id: definition.id,
+      name: definition.name,
+      description: definition.description,
+    },
+  });
+
+  return project.id;
+};
+
+type SeedPrimaryThread = (agentId: string, projectId: string) => Promise<string>;
+
+const seedPrimaryThread: SeedPrimaryThread = async (agentId, projectId) => {
   const thread = await prisma.thread.upsert({
     where: {
       source_sourceId: {
@@ -75,7 +94,7 @@ const seedPrimaryThread: SeedPrimaryThread = async (agentId) => {
         sourceId: PRIMARY_THREAD_SOURCE_ID,
       },
     },
-    update: {},
+    update: { projectId },
     create: {
       source: PRIMARY_THREAD_SOURCE,
       sourceId: PRIMARY_THREAD_SOURCE_ID,
@@ -83,6 +102,7 @@ const seedPrimaryThread: SeedPrimaryThread = async (agentId) => {
       kind: 'primary',
       status: 'active',
       agentId,
+      projectId,
     },
   });
 
@@ -135,7 +155,9 @@ const seed: Seed = async () => {
   const defaultAgentId = await seedDefaultAgent();
   console.log(`Default agent seeded: ${defaultAgentId}`);
 
-  const threadId = await seedPrimaryThread(agentId);
+  const projectId = await seedDefaultProject();
+
+  const threadId = await seedPrimaryThread(agentId, projectId);
   console.log(`Primary thread seeded: ${threadId}`);
 
   await seedCronJobs(threadId, agentId);

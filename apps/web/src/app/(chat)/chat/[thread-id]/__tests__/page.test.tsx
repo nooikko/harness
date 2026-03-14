@@ -4,6 +4,7 @@ import { describe, expect, it, vi } from 'vitest';
 
 const mockFindUnique = vi.fn();
 const mockFindMany = vi.fn();
+const mockProjectFindMany = vi.fn().mockResolvedValue([]);
 
 vi.mock('@harness/database', () => ({
   prisma: {
@@ -12,6 +13,9 @@ vi.mock('@harness/database', () => ({
     },
     message: {
       findMany: (...args: unknown[]) => mockFindMany(...args),
+    },
+    project: {
+      findMany: (...args: unknown[]) => mockProjectFindMany(...args),
     },
   },
 }));

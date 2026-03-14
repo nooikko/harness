@@ -9,13 +9,14 @@ type NavLinksComponent = () => React.ReactNode;
 
 export const NavLinks: NavLinksComponent = () => {
   const pathname = usePathname();
+  const isProjectsActive = pathname === '/chat/projects' || pathname.startsWith('/chat/projects/');
   const isAgentsActive = pathname === '/agents' || pathname.startsWith('/agents/');
 
   return (
     <SidebarGroup className='py-0'>
       <SidebarMenu>
         <SidebarMenuItem>
-          <SidebarMenuButton asChild className='gap-2'>
+          <SidebarMenuButton asChild isActive={isProjectsActive} className='gap-2'>
             <Link href='/chat/projects'>
               <FolderOpen className='h-4 w-4' />
               <span>Projects</span>

@@ -38,6 +38,10 @@ vi.mock('../../../_actions/delete-project', () => ({
   deleteProject: (...args: unknown[]) => mockDeleteProject(...args),
 }));
 
+vi.mock('../../../_actions/rewrite-with-ai', () => ({
+  rewriteWithAi: vi.fn().mockResolvedValue('Rewritten text'),
+}));
+
 import { ProjectSettingsForm } from '../project-settings-form';
 
 const makeProject = (overrides: Partial<Project> = {}): Project => ({
@@ -154,11 +158,11 @@ describe('ProjectSettingsForm', () => {
     });
   });
 
-  it('calls router.refresh after successful save', async () => {
+  it('navigates to projects page after successful save', async () => {
     render(<ProjectSettingsForm project={makeProject()} />);
     fireEvent.click(screen.getByRole('button', { name: /save changes/i }));
     await waitFor(() => {
-      expect(mockRefresh).toHaveBeenCalled();
+      expect(mockPush).toHaveBeenCalledWith('/chat/projects');
     });
   });
 

@@ -57,12 +57,13 @@ const SendButton = ({ disabled }: SendButtonProps) => {
   return (
     <Button
       type='button'
-      size='sm'
+      size='icon'
+      className='h-7 w-7'
       disabled={disabled}
       onClick={() => editor.dispatchCommand(KEY_ENTER_COMMAND, null as unknown as KeyboardEvent)}
       aria-label='Send message'
     >
-      <SendHorizontal className='h-4 w-4' />
+      <SendHorizontal className='h-3.5 w-3.5' />
     </Button>
   );
 };
@@ -135,14 +136,14 @@ export const ChatInput: ChatInputComponent = ({
           className={menuOpen ? 'rounded-b-xl border-x border-b border-border bg-background' : 'rounded-xl border border-border bg-background'}
         >
           {/* Text editing area */}
-          <div className='relative px-3 pt-2 pb-1 [&:focus-within>[aria-hidden]]:hidden'>
+          <div className='group/input relative px-3 pt-2 pb-1'>
             <RichTextPlugin
               contentEditable={
                 <ContentEditable
                   className='max-h-34 min-h-10 resize-none overflow-y-auto text-sm outline-none'
                   aria-placeholder='Send a message… (/ for commands)'
                   placeholder={
-                    <div className='pointer-events-none absolute left-3 top-2.5 select-none text-sm text-muted-foreground'>
+                    <div className='pointer-events-none absolute left-3 top-2.5 select-none text-sm text-muted-foreground group-focus-within/input:hidden'>
                       Send a message… (/ for commands)
                     </div>
                   }

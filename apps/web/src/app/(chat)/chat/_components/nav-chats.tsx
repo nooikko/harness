@@ -5,13 +5,19 @@ import { SidebarGroup, SidebarGroupLabel, SidebarMenu, SidebarMenuItem } from '@
 import { usePathname } from 'next/navigation';
 import { ThreadListItem } from './thread-list-item';
 
+type ProjectOption = {
+  id: string;
+  name: string;
+};
+
 type NavChatsProps = {
   threads: Thread[];
+  projects: ProjectOption[];
 };
 
 type NavChatsComponent = (props: NavChatsProps) => React.ReactNode;
 
-export const NavChats: NavChatsComponent = ({ threads }) => {
+export const NavChats: NavChatsComponent = ({ threads, projects }) => {
   const pathname = usePathname();
 
   return (
@@ -32,9 +38,11 @@ export const NavChats: NavChatsComponent = ({ threads }) => {
                   kind: thread.kind,
                   model: thread.model,
                   customInstructions: thread.customInstructions,
+                  projectId: thread.projectId,
                   lastActivity: thread.lastActivity,
                 }}
                 isActive={isActive}
+                projects={projects}
               />
             </SidebarMenuItem>
           );
