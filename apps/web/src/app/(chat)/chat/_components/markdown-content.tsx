@@ -3,6 +3,7 @@
 import type { Components } from 'react-markdown';
 import Markdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
+import { CodeBlock } from './code-block';
 
 type MarkdownContentProps = {
   content: string;
@@ -10,25 +11,32 @@ type MarkdownContentProps = {
 
 type MarkdownContentComponent = (props: MarkdownContentProps) => React.ReactNode;
 
+const SAFE_PROTOCOLS = new Set(['https:', 'http:', 'mailto:', 'tel:']);
+
+type SafeHref = (raw: string | undefined) => string | undefined;
+export const safeHref: SafeHref = (raw) => {
+  if (!raw) {
+    return undefined;
+  }
+  try {
+    const url = new URL(raw, globalThis.location?.href ?? 'https://localhost');
+    return SAFE_PROTOCOLS.has(url.protocol) ? raw : undefined;
+  } catch (_) {
+    return undefined;
+  }
+};
+
 const components: Components = {
   a: ({ href, children, ...props }) => (
-    <a href={href} target='_blank' rel='noopener noreferrer' {...props}>
+    <a href={safeHref(href)} target='_blank' rel='noopener noreferrer' {...props}>
       {children}
     </a>
   ),
-  pre: ({ children, ...props }) => (
-    <pre className='overflow-x-auto rounded-lg bg-[hsl(220,15%,16%)] p-4 text-sm text-[hsl(210,40%,92%)]' {...props}>
-      {children}
-    </pre>
-  ),
+  pre: ({ children }) => <>{children}</>,
   code: ({ className, children, ...props }) => {
-    const isBlock = className?.startsWith('language-');
-    if (isBlock) {
-      return (
-        <code className={className} {...props}>
-          {children}
-        </code>
-      );
+    const match = className?.match(/^language-([a-zA-Z0-9_+#-]{1,32})$/);
+    if (match?.[1]) {
+      return <CodeBlock language={match[1]}>{String(children)}</CodeBlock>;
     }
     return (
       <code className='rounded bg-muted px-1.5 py-0.5 text-[0.875em] font-mono' {...props}>

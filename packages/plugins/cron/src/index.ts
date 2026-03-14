@@ -3,8 +3,12 @@
 
 import type { PluginContext, PluginDefinition, PluginHooks } from '@harness/plugin-contract';
 import { createCronServer } from './_helpers/cron-server';
+import { deleteCronJob } from './_helpers/delete-cron-job';
+import { getCronJob } from './_helpers/get-cron-job';
 import { handleScheduleTask } from './_helpers/handle-schedule-task';
+import { listCronJobs } from './_helpers/list-cron-jobs';
 import { settingsSchema } from './_helpers/settings-schema';
+import { updateCronJob } from './_helpers/update-cron-job';
 
 type StopFn = () => Promise<void>;
 
@@ -87,6 +91,81 @@ export const plugin: PluginDefinition = {
         required: ['name', 'prompt'],
       },
       handler: handleScheduleTask,
+    },
+    {
+      name: 'list_tasks',
+      description: 'List all scheduled tasks (cron jobs). Shows name, schedule/fireAt, enabled status, and last/next run times.',
+      schema: {
+        type: 'object',
+        properties: {
+          enabledOnly: {
+            type: 'boolean',
+            description: 'Only show enabled tasks. Defaults to false (show all).',
+          },
+        },
+      },
+      handler: listCronJobs,
+    },
+    {
+      name: 'get_task',
+      description: 'Get full details of a scheduled task by name, including its prompt text.',
+      schema: {
+        type: 'object',
+        properties: {
+          name: {
+            type: 'string',
+            description: 'Exact name of the scheduled task.',
+          },
+        },
+        required: ['name'],
+      },
+      handler: getCronJob,
+    },
+    {
+      name: 'update_task',
+      description: 'Update a scheduled task. Can change prompt, schedule, fireAt, or enabled status. Triggers immediate hot-reload.',
+      schema: {
+        type: 'object',
+        properties: {
+          name: {
+            type: 'string',
+            description: 'Name of the scheduled task to update.',
+          },
+          prompt: {
+            type: 'string',
+            description: 'New prompt text.',
+          },
+          schedule: {
+            type: 'string',
+            description: 'New cron expression for recurring execution. Setting this clears fireAt.',
+          },
+          fireAt: {
+            type: 'string',
+            description: 'New ISO 8601 datetime for one-shot execution. Setting this clears schedule.',
+          },
+          enabled: {
+            type: 'boolean',
+            description: 'Enable or disable the task.',
+          },
+        },
+        required: ['name'],
+      },
+      handler: updateCronJob,
+    },
+    {
+      name: 'delete_task',
+      description: 'Permanently delete a scheduled task by name. Triggers immediate hot-reload.',
+      schema: {
+        type: 'object',
+        properties: {
+          name: {
+            type: 'string',
+            description: 'Exact name of the scheduled task to delete.',
+          },
+        },
+        required: ['name'],
+      },
+      handler: deleteCronJob,
     },
   ],
 };

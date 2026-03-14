@@ -1,6 +1,6 @@
 import { render, screen } from '@testing-library/react';
 import { describe, expect, it } from 'vitest';
-import { MarkdownContent } from '../markdown-content';
+import { MarkdownContent, safeHref } from '../markdown-content';
 
 describe('MarkdownContent', () => {
   it('renders bold text as <strong>', () => {
@@ -21,10 +21,14 @@ describe('MarkdownContent', () => {
     expect(code.tagName).toBe('CODE');
   });
 
-  it('renders a fenced code block with pre and code elements', () => {
+  it('renders a fenced code block with CodeBlock (pre + syntax highlighting)', () => {
     render(<MarkdownContent content={'```js\nconst x = 1;\n```'} />);
-    const codeBlock = screen.getByText('const x = 1;');
-    expect(codeBlock.closest('pre')).not.toBeNull();
+    // CodeBlock renders a pre with the code inside
+    expect(screen.getByText(/const/)).toBeInTheDocument();
+    // Language badge is shown
+    expect(screen.getByText('js')).toBeInTheDocument();
+    // Copy button is present
+    expect(screen.getByLabelText('Copy code')).toBeInTheDocument();
   });
 
   it('renders an unordered list', () => {
@@ -72,5 +76,51 @@ describe('MarkdownContent', () => {
   it('renders plain text without crashing', () => {
     render(<MarkdownContent content='Just plain text' />);
     expect(screen.getByText('Just plain text')).toBeInTheDocument();
+  });
+
+  it('does not render javascript: URIs as clickable links', () => {
+    render(<MarkdownContent content='[click](javascript:alert(1))' />);
+    // react-markdown strips javascript: URIs — no link is rendered
+    expect(screen.queryByRole('link')).toBeNull();
+    // The text still renders
+    expect(screen.getByText(/click/)).toBeInTheDocument();
+  });
+
+  it('allows https links', () => {
+    render(<MarkdownContent content='[safe](https://example.com)' />);
+    const link = screen.getByRole('link', { name: 'safe' });
+    expect(link).toHaveAttribute('href', 'https://example.com');
+  });
+
+  it('allows mailto links', () => {
+    render(<MarkdownContent content='[email](mailto:a@b.com)' />);
+    const link = screen.getByRole('link', { name: 'email' });
+    expect(link).toHaveAttribute('href', 'mailto:a@b.com');
+  });
+
+  it('safeHref returns undefined for non-safe protocols', () => {
+    expect(safeHref('ftp://example.com/file')).toBeUndefined();
+    expect(safeHref('data:text/html,hello')).toBeUndefined();
+  });
+
+  it('safeHref returns the URL for safe protocols', () => {
+    expect(safeHref('https://example.com')).toBe('https://example.com');
+    expect(safeHref('http://example.com')).toBe('http://example.com');
+    expect(safeHref('mailto:a@b.com')).toBe('mailto:a@b.com');
+    expect(safeHref('tel:+1234567890')).toBe('tel:+1234567890');
+  });
+
+  it('safeHref returns undefined for undefined input', () => {
+    expect(safeHref(undefined)).toBeUndefined();
+  });
+
+  it('safeHref returns undefined for unparseable URLs', () => {
+    expect(safeHref('http://[invalid')).toBeUndefined();
+  });
+
+  it('falls back to plain code block for invalid language identifiers', () => {
+    render(<MarkdownContent content={'```<script>alert(1)</script>\nhello\n```'} />);
+    // Invalid language — should render as inline code, not CodeBlock
+    expect(screen.queryByLabelText('Copy code')).toBeNull();
   });
 });
