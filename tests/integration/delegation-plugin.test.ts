@@ -119,4 +119,54 @@ describe('delegation plugin integration', () => {
     const tasks = await harness.prisma.orchestratorTask.findMany();
     expect(tasks).toHaveLength(0);
   });
+
+  it('notifies parent thread when delegation task completes', async () => {
+    const plugin = createDelegationPlugin();
+    harness = await createTestHarness(plugin);
+
+    // Wire hooks — the validator's onTaskComplete fires here, but since no validator
+    // plugin is registered the default behavior (no hooks = auto-accept) applies.
+    delegationState.setHooks!(harness.orchestrator.getHooks());
+
+    const taskSummary = 'Rome was founded in 753 BC by Romulus and Remus.';
+    harness.invoker.invoke.mockResolvedValue({
+      output: taskSummary,
+      durationMs: 100,
+      exitCode: 0,
+      model: 'claude-haiku-4-5-20251001',
+      inputTokens: 200,
+      outputTokens: 80,
+      sessionId: undefined,
+    });
+
+    const delegateTool = plugin.tools?.find((t) => t.name === 'delegate');
+    const ctx = harness.orchestrator.getContext();
+    await delegateTool!.handler(ctx, { prompt: 'Research ancient Rome thoroughly' }, { threadId: harness.threadId });
+
+    // Wait for the delegation loop to complete and notify the parent thread
+    await vi.waitFor(
+      async () => {
+        const notifications = await harness.prisma.message.findMany({
+          where: {
+            threadId: harness.threadId,
+            role: 'system',
+          },
+        });
+        expect(notifications).toHaveLength(1);
+      },
+      { timeout: 20_000, interval: 500 },
+    );
+
+    // Verify the notification message content
+    const notifications = await harness.prisma.message.findMany({
+      where: { threadId: harness.threadId, role: 'system' },
+    });
+    expect(notifications[0]?.content).toContain('completed');
+    expect(notifications[0]?.content).toContain('Rome was founded');
+
+    // Verify the metadata links back to the task
+    const metadata = notifications[0]?.metadata as Record<string, unknown> | null;
+    expect(metadata?.type).toBe('cross-thread-notification');
+    expect(metadata?.status).toBe('completed');
+  });
 });

@@ -127,4 +127,27 @@ describe('context plugin integration', () => {
     expect(promptArg).toContain('spec.md');
     expect(promptArg).toContain('Available Files');
   });
+
+  it('injects project instructions and memory when thread has a project', async () => {
+    harness = await createTestHarness(contextPlugin);
+
+    const project = await harness.prisma.project.create({
+      data: {
+        name: 'Test Project',
+        instructions: 'Always respond in formal English.',
+        memory: 'The project uses a microservices architecture.',
+      },
+    });
+
+    await harness.prisma.thread.update({
+      where: { id: harness.threadId },
+      data: { projectId: project.id },
+    });
+
+    await harness.orchestrator.handleMessage(harness.threadId, 'user', 'Describe the architecture');
+
+    const promptArg = harness.invoker.invoke.mock.calls[0]![0] as string;
+    expect(promptArg).toContain('Always respond in formal English.');
+    expect(promptArg).toContain('microservices architecture');
+  });
 });

@@ -53,6 +53,19 @@ const harness = await createTestHarness(myPlugin, opts?);
 
 Always call `harness.cleanup()` in `afterEach`.
 
+### `createMultiPluginHarness` (`helpers/create-harness.ts`)
+
+For tests that need multiple plugins wired together (e.g., full-pipeline tests):
+
+```typescript
+const harness = await createMultiPluginHarness(
+  [identityPlugin, contextPlugin, timePlugin],
+  { afterRegister: async (orch) => { /* post-registration setup */ } },
+);
+```
+
+Plugins are registered in the order provided. The optional `afterRegister` callback fires after all plugins register but before `start()`.
+
 #### Opts
 
 ```typescript
@@ -127,22 +140,24 @@ harness.invoker.invoke.mockImplementation(async (_prompt, opts) => {
 
 ## Plugin Coverage
 
-| Plugin | Integration test file | Status |
-|--------|----------------------|--------|
-| activity | `activity-plugin.test.ts` | ✓ |
-| context | `context-plugin.test.ts` | ✓ |
-| delegation | `delegation-plugin.test.ts` | ✓ |
-| discord | `discord-plugin.test.ts` | ✓ |
-| metrics | `metrics-plugin.test.ts` | ✓ |
-| time | `time-plugin.test.ts` | ✓ |
-| web | `web-plugin.test.ts` | ✓ |
-| validator | `validator-plugin.test.ts` | ✓ |
-| identity | — | ✗ missing |
-| cron | — | ✗ missing |
-| auto-namer | — | ✗ missing |
-| audit | — | ✗ missing |
-| summarization | — | ✗ missing |
-| project | — | ✗ missing |
+| Plugin | Integration test file | Tests | Status |
+|--------|----------------------|-------|--------|
+| identity | `identity-plugin.test.ts` | 8 | ✓ |
+| activity | `activity-plugin.test.ts` | 4 | ✓ |
+| context | `context-plugin.test.ts` | 6 | ✓ |
+| discord | `discord-plugin.test.ts` | 1 | ✓ |
+| web | `web-plugin.test.ts` | 3 | ✓ |
+| cron | `cron-plugin.test.ts` | 5 | ✓ |
+| delegation | `delegation-plugin.test.ts` | 4 | ✓ |
+| validator | `validator-plugin.test.ts` | 5 | ✓ |
+| metrics | `metrics-plugin.test.ts` | 4 | ✓ |
+| summarization | `summarization-plugin.test.ts` | 3 | ✓ |
+| auto-namer | `auto-namer-plugin.test.ts` | 3 | ✓ |
+| audit | `audit-plugin.test.ts` | 4 | ✓ |
+| time | `time-plugin.test.ts` | 4 | ✓ |
+| project | `project-plugin.test.ts` | 5 | ✓ |
+| **full pipeline** | `full-pipeline.test.ts` | 4 | ✓ |
+| **Total** | **15 files** | **63** | |
 
 When adding a new plugin to `packages/plugins/`, add it to `package.json` devDependencies here and create `{plugin-name}-plugin.test.ts`.
 

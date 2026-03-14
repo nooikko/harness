@@ -182,4 +182,190 @@ describe('identity plugin integration', () => {
     // no scoring or summarization calls because onAfterInvoke returns early)
     expect(harness.invoker.invoke).toHaveBeenCalledTimes(1);
   });
+
+  it('injects bootstrap prompt when AgentConfig.bootstrapped is false', async () => {
+    harness = await createTestHarness(identityPlugin);
+
+    const agent = await prisma.agent.create({
+      data: {
+        slug: 'bootstrap-agent',
+        name: 'Assistant',
+        soul: 'You are a helpful assistant.',
+        identity: 'Ready to discover my identity.',
+        enabled: true,
+      },
+    });
+    // Set bootstrapped: false explicitly
+    await prisma.agentConfig.create({
+      data: { agentId: agent.id, memoryEnabled: true, reflectionEnabled: false, bootstrapped: false },
+    });
+    await prisma.thread.update({
+      where: { id: harness.threadId },
+      data: { agentId: agent.id },
+    });
+
+    await harness.orchestrator.handleMessage(harness.threadId, 'user', 'hi');
+
+    expect(harness.invoker.invoke).toHaveBeenCalled();
+    const invokedPrompt = harness.invoker.invoke.mock.calls[0]![0] as string;
+
+    // The bootstrap prompt text should appear in the assembled prompt
+    expect(invokedPrompt).toContain('Bootstrap — First-Time Setup');
+    expect(invokedPrompt).toContain('identity__update_self');
+  });
+
+  it('does not inject bootstrap prompt when AgentConfig.bootstrapped is true', async () => {
+    harness = await createTestHarness(identityPlugin);
+
+    const agent = await prisma.agent.create({
+      data: {
+        slug: 'bootstrapped-agent',
+        name: 'Known Agent',
+        soul: 'You are a seasoned assistant.',
+        identity: 'I know exactly who I am.',
+        enabled: true,
+      },
+    });
+    await prisma.agentConfig.create({
+      data: { agentId: agent.id, memoryEnabled: true, reflectionEnabled: false, bootstrapped: true },
+    });
+    await prisma.thread.update({
+      where: { id: harness.threadId },
+      data: { agentId: agent.id },
+    });
+
+    await harness.orchestrator.handleMessage(harness.threadId, 'user', 'hello');
+
+    const invokedPrompt = harness.invoker.invoke.mock.calls[0]![0] as string;
+
+    // No bootstrap section
+    expect(invokedPrompt).not.toContain('Bootstrap — First-Time Setup');
+    // Soul and identity should still be injected
+    expect(invokedPrompt).toContain('You are a seasoned assistant.');
+  });
+
+  it('update_self MCP tool updates agent fields and sets bootstrapped to true', async () => {
+    harness = await createTestHarness(identityPlugin);
+
+    const agent = await prisma.agent.create({
+      data: {
+        slug: 'pre-update-agent',
+        name: 'Old Name',
+        soul: 'Old soul text.',
+        identity: 'Old identity.',
+        enabled: true,
+      },
+    });
+    await prisma.agentConfig.create({
+      data: { agentId: agent.id, memoryEnabled: true, reflectionEnabled: false, bootstrapped: false },
+    });
+    await prisma.thread.update({
+      where: { id: harness.threadId },
+      data: { agentId: agent.id },
+    });
+
+    // Call the update_self tool handler directly
+    const updateSelfTool = identityPlugin.tools?.find((t) => t.name === 'update_self');
+    expect(updateSelfTool).toBeDefined();
+
+    const ctx = harness.orchestrator.getContext();
+    const result = await updateSelfTool!.handler(
+      ctx,
+      {
+        name: 'New Name',
+        soul: 'You are a brand new soul.',
+        identity: 'A freshly defined assistant.',
+      },
+      { threadId: harness.threadId },
+    );
+
+    // Tool should confirm the update
+    expect(result).toContain('New Name');
+
+    // Verify DB: agent fields updated
+    const updatedAgent = await prisma.agent.findUnique({ where: { id: agent.id } });
+    expect(updatedAgent?.name).toBe('New Name');
+    expect(updatedAgent?.soul).toBe('You are a brand new soul.');
+    expect(updatedAgent?.identity).toBe('A freshly defined assistant.');
+
+    // Verify DB: AgentConfig.bootstrapped set to true
+    const config = await prisma.agentConfig.findUnique({ where: { agentId: agent.id } });
+    expect(config?.bootstrapped).toBe(true);
+  });
+
+  it('retrieves scoped memories correctly (AGENT always, PROJECT when matching)', async () => {
+    harness = await createTestHarness(identityPlugin, {
+      invokerOutput: 'ok',
+    });
+
+    const project = await prisma.project.create({
+      data: { name: 'Test Project' },
+    });
+
+    const agent = await prisma.agent.create({
+      data: {
+        slug: 'scoped-agent',
+        name: 'Scoped Agent',
+        soul: 'You are an assistant with scoped memories.',
+        identity: 'Context-aware.',
+        enabled: true,
+      },
+    });
+    await prisma.agentConfig.create({
+      data: { agentId: agent.id, memoryEnabled: true, reflectionEnabled: false, bootstrapped: true },
+    });
+    await prisma.thread.update({
+      where: { id: harness.threadId },
+      data: { agentId: agent.id, projectId: project.id },
+    });
+
+    // Create an AGENT-scoped memory (always retrieved)
+    await prisma.agentMemory.create({
+      data: {
+        agentId: agent.id,
+        content: 'AGENT_SCOPE_MEMORY: I love distributed systems.',
+        type: 'EPISODIC',
+        importance: 8,
+        scope: 'AGENT',
+      },
+    });
+
+    // Create a PROJECT-scoped memory for the matching project
+    await prisma.agentMemory.create({
+      data: {
+        agentId: agent.id,
+        content: 'PROJECT_SCOPE_MEMORY: This project uses microservices.',
+        type: 'EPISODIC',
+        importance: 7,
+        scope: 'PROJECT',
+        projectId: project.id,
+      },
+    });
+
+    // Create a PROJECT-scoped memory for a DIFFERENT project (should NOT appear)
+    const otherProject = await prisma.project.create({
+      data: { name: 'Other Project' },
+    });
+    await prisma.agentMemory.create({
+      data: {
+        agentId: agent.id,
+        content: 'OTHER_PROJECT_MEMORY: Something about the other project.',
+        type: 'EPISODIC',
+        importance: 9,
+        scope: 'PROJECT',
+        projectId: otherProject.id,
+      },
+    });
+
+    await harness.orchestrator.handleMessage(harness.threadId, 'user', 'What do you know?');
+
+    const invokedPrompt = harness.invoker.invoke.mock.calls[0]![0] as string;
+
+    // AGENT-scoped memory should be present
+    expect(invokedPrompt).toContain('AGENT_SCOPE_MEMORY');
+    // PROJECT-scoped memory for matching project should be present
+    expect(invokedPrompt).toContain('PROJECT_SCOPE_MEMORY');
+    // PROJECT-scoped memory for different project should NOT be present
+    expect(invokedPrompt).not.toContain('OTHER_PROJECT_MEMORY');
+  });
 });

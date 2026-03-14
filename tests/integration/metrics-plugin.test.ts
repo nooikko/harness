@@ -110,4 +110,42 @@ describe('metrics plugin integration', () => {
 
     expect(metrics.length).toBe(0);
   });
+
+  it('falls back to Sonnet pricing for an unknown model and still writes Metric rows', async () => {
+    // Sonnet pricing: inputPerMillion = 3, outputPerMillion = 15
+    const inputTokens = 1_000_000;
+    const outputTokens = 1_000_000;
+
+    harness = await createTestHarness(metricsPlugin);
+
+    harness.invoker.invoke.mockResolvedValue({
+      output: 'ok',
+      durationMs: 10,
+      exitCode: 0,
+      model: 'claude-unknown-model-9999',
+      inputTokens,
+      outputTokens,
+      sessionId: undefined,
+    });
+
+    await harness.orchestrator.handleMessage(harness.threadId, 'user', 'hello');
+
+    const metrics = await prisma.metric.findMany({
+      where: { threadId: harness.threadId },
+      orderBy: { name: 'asc' },
+    });
+
+    // Records are written despite the unknown model
+    expect(metrics.length).toBe(4);
+
+    const byName = Object.fromEntries(metrics.map((m) => [m.name, m]));
+
+    // Falls back to Sonnet pricing:
+    // input cost = (1_000_000 / 1_000_000) * 3 = 3
+    // output cost = (1_000_000 / 1_000_000) * 15 = 15
+    // total cost = 18
+    expect(byName['token.cost']?.value).toBeCloseTo(18, 5);
+    expect(byName['token.input']?.value).toBe(inputTokens);
+    expect(byName['token.output']?.value).toBe(outputTokens);
+  });
 });

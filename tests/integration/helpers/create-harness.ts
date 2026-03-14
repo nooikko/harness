@@ -32,21 +32,21 @@ export type CreateTestHarnessOpts = {
   port?: number;
 };
 
+const makeDefaultResult = (opts?: CreateTestHarnessOpts): InvokeResult => ({
+  output: opts?.invokerOutput ?? 'ok',
+  durationMs: 10,
+  exitCode: 0,
+  model: opts?.invokerModel ?? 'claude-haiku-4-5-20251001',
+  inputTokens: opts?.invokerTokens?.inputTokens ?? 100,
+  outputTokens: opts?.invokerTokens?.outputTokens ?? 50,
+  sessionId: undefined,
+});
+
 export const createTestHarness = async (plugin: PluginDefinition, opts?: CreateTestHarnessOpts): Promise<TestHarness> => {
   const prisma = new PrismaClient({ datasourceUrl: process.env.TEST_DATABASE_URL });
   await prisma.$connect();
 
-  const defaultResult: InvokeResult = {
-    output: opts?.invokerOutput ?? 'ok',
-    durationMs: 10,
-    exitCode: 0,
-    model: opts?.invokerModel ?? 'claude-haiku-4-5-20251001',
-    inputTokens: opts?.invokerTokens?.inputTokens ?? 100,
-    outputTokens: opts?.invokerTokens?.outputTokens ?? 50,
-    sessionId: undefined,
-  };
-
-  const mockInvoke: MockedFunction<Invoker['invoke']> = vi.fn().mockResolvedValue(defaultResult);
+  const mockInvoke: MockedFunction<Invoker['invoke']> = vi.fn().mockResolvedValue(makeDefaultResult(opts));
   const invoker: Invoker = { invoke: mockInvoke };
 
   const logger = createLogger('integration-test');
@@ -60,6 +60,63 @@ export const createTestHarness = async (plugin: PluginDefinition, opts?: CreateT
   });
 
   await orchestrator.registerPlugin(plugin);
+  await orchestrator.start();
+
+  const sourceId = `test-${Date.now()}-${Math.random().toString(36).slice(2)}`;
+  const thread = await prisma.thread.create({
+    data: {
+      name: 'Integration Test Thread',
+      kind: 'primary',
+      source: 'integration-test',
+      sourceId,
+    },
+  });
+
+  return {
+    orchestrator,
+    prisma,
+    invoker: { invoke: mockInvoke },
+    threadId: thread.id,
+    cleanup: async (): Promise<void> => {
+      await orchestrator.stop();
+      await prisma.$disconnect();
+    },
+  };
+};
+
+export type CreateMultiPluginHarnessOpts = CreateTestHarnessOpts & {
+  /**
+   * Called after all plugins are registered but before start(). Useful for
+   * wiring delegation state hooks or other post-registration setup.
+   */
+  afterRegister?: (orchestrator: ReturnType<typeof createOrchestrator>) => void | Promise<void>;
+};
+
+/**
+ * Multi-plugin variant of createTestHarness. Accepts an ordered array of
+ * PluginDefinitions and registers them all before calling start(). The
+ * returned harness shape is identical to TestHarness.
+ *
+ * Use `afterRegister` to wire delegation state hooks after all plugins register:
+ *   afterRegister: (orch) => delegationState.setHooks!(orch.getHooks())
+ */
+export const createMultiPluginHarness = async (pluginDefs: PluginDefinition[], opts?: CreateMultiPluginHarnessOpts): Promise<TestHarness> => {
+  const prisma = new PrismaClient({ datasourceUrl: process.env.TEST_DATABASE_URL });
+  await prisma.$connect();
+
+  const mockInvoke: MockedFunction<Invoker['invoke']> = vi.fn().mockResolvedValue(makeDefaultResult(opts));
+  const invoker: Invoker = { invoke: mockInvoke };
+  const logger = createLogger('integration-test');
+  const config = makeTestConfig(opts?.port ?? 0);
+
+  const orchestrator = createOrchestrator({ db: prisma, invoker, config, logger });
+
+  for (const definition of pluginDefs) {
+    await orchestrator.registerPlugin(definition);
+  }
+
+  await opts?.afterRegister?.(orchestrator);
+
   await orchestrator.start();
 
   const sourceId = `test-${Date.now()}-${Math.random().toString(36).slice(2)}`;

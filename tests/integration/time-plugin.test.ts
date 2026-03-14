@@ -57,4 +57,27 @@ describe('time plugin integration', () => {
     expect(promptArg).toContain('The current time is');
     expect(promptArg).toContain('Please tell me the current time');
   });
+
+  it('replaces /current-time token on consecutive invocations without regex state corruption', async () => {
+    harness = await createTestHarness(timePlugin);
+
+    // First invocation with /current-time token
+    await harness.orchestrator.handleMessage(harness.threadId, 'user', 'First message: /current-time');
+    const firstPrompt = harness.invoker.invoke.mock.calls[0]![0] as string;
+
+    // Second invocation with /current-time token — exercises potential regex lastIndex state
+    await harness.orchestrator.handleMessage(harness.threadId, 'user', 'Second message: /current-time');
+    const secondPrompt = harness.invoker.invoke.mock.calls[1]![0] as string;
+
+    // Both prompts must have the token replaced
+    expect(firstPrompt).not.toContain('/current-time');
+    expect(firstPrompt).toContain('[Current time:');
+
+    expect(secondPrompt).not.toContain('/current-time');
+    expect(secondPrompt).toContain('[Current time:');
+
+    // Both prompts contain the respective user messages
+    expect(firstPrompt).toContain('First message:');
+    expect(secondPrompt).toContain('Second message:');
+  });
 });
