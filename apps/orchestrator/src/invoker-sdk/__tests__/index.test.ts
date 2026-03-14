@@ -27,8 +27,7 @@ const baseUsage = {
   output_tokens: 50,
   cache_creation_input_tokens: 0,
   cache_read_input_tokens: 0,
-  server_tool_use: undefined,
-};
+} as SDKResultMessage['usage'];
 
 const successResult: SDKResultMessage = {
   type: 'result',
