@@ -44,6 +44,31 @@ The best-of-both-worlds solution is to **merge all 16 plugin directories into a 
 4. **Tests still isolated** — vitest can run per-directory, and each plugin's `__tests__/` stays where it is
 5. **No architectural changes** — the orchestrator's `plugin-registry/index.ts` just changes import paths
 
+## Pre-Implementation Audit Results
+
+### Cross-Plugin Imports
+**No cross-plugin imports exist.** Every plugin imports only from `@harness/plugin-contract` and `@harness/database` — never from another plugin. This means no intra-package relative import rewrites are needed.
+
+### Existing `packages/plugins/package.json`
+A placeholder already exists at `packages/plugins/package.json`:
+```json
+{ "name": "plugins", "version": "0.0.0", "private": true }
+```
+This will be **replaced** with the new unified package manifest.
+
+### Web App Impact
+The web app (`apps/web`) imports only `@harness/plugin-contract` (not any plugin directly):
+- `apps/web/package.json` — depends on `@harness/plugin-contract` only (stays unchanged)
+- `apps/web/next.config.ts` — `transpilePackages` lists `@harness/plugin-contract` (stays unchanged)
+- `apps/web/src/app/admin/plugins/[name]/_actions/_helpers/build-settings-payload.ts` — imports from `@harness/plugin-contract` (stays unchanged)
+
+**No web app changes needed.**
+
+### `src/` Directory Decision
+**Keep `src/` as-is.** Every plugin has `<plugin>/src/index.ts` with `_helpers/` and `__tests__/` inside `src/`. Moving files would be a massive diff for zero benefit. The tsup entry points will reference `<plugin>/src/index.ts`.
+
+---
+
 ## Implementation Plan
 
 ### Task Type
@@ -51,50 +76,12 @@ The best-of-both-worlds solution is to **merge all 16 plugin directories into a 
 - [ ] Frontend
 - [ ] Fullstack
 
-### Step 1: Create unified `@harness/plugins` package structure
+### Step 1: Replace `packages/plugins/package.json` with unified manifest
 
-**Expected deliverable**: Single package.json with multi-entry exports
+**Expected deliverable**: Single package.json with multi-entry exports, merged dependencies
 
-```
-packages/plugins/
-├── package.json            ← NEW: single package manifest
-├── tsconfig.json           ← NEW: single tsconfig
-├── vitest.config.ts        ← NEW: single vitest config
-├── activity/
-│   ├── index.ts            ← KEEP (unchanged source)
-│   ├── _helpers/
-│   └── __tests__/
-├── audit/
-│   └── ...
-├── auto-namer/
-│   └── ...
-├── context/
-│   └── ...
-├── cron/
-│   └── ...
-├── delegation/
-│   └── ...
-├── discord/
-│   └── ...
-├── identity/
-│   └── ...
-├── metrics/
-│   └── ...
-├── music/
-│   └── ...
-├── project/
-│   └── ...
-├── summarization/
-│   └── ...
-├── time/
-│   └── ...
-├── validator/
-│   └── ...
-└── web/
-│   └── ...
-```
+The existing placeholder `{ "name": "plugins" }` is replaced. Dependencies are the union of all 16 individual plugin package.json files.
 
-The new `package.json`:
 ```json
 {
   "name": "@harness/plugins",
@@ -119,161 +106,361 @@ The new `package.json`:
     "@harness/database": "workspace:*",
     "@harness/logger": "workspace:*",
     "@harness/plugin-contract": "workspace:*",
-    "croner": "...",
-    "discord.js": "...",
-    "express": "...",
-    "ws": "..."
+    "bonjour-service": "^1.3.0",
+    "castv2-client": "^1.2.0",
+    "cors": "^2.8.6",
+    "croner": "^9.1.0",
+    "discord.js": "^14.25.1",
+    "express": "^5.2.1",
+    "ws": "^8.19.0",
+    "youtubei.js": "^14.0.0",
+    "zod": "^4.3.6"
+  },
+  "devDependencies": {
+    "@types/cors": "<from web plugin>",
+    "@types/express": "<from web plugin>",
+    "@types/node": "^22.19.11",
+    "@types/ws": "<from web plugin>",
+    "@vitest/coverage-v8": "^4.0.18",
+    "tsup": "^8.5.0",
+    "typescript": "^5.9.3",
+    "vitest": "^4.0.18"
   }
 }
 ```
 
-The new `tsup.config.ts`:
+**Action items:**
+- Script to extract and merge all deps from `packages/plugins/*/package.json`
+- Delete all 16 individual `package.json` files after merging
+
+### Step 2: Create unified `tsup.config.ts`
+
+**Expected deliverable**: Multi-entry tsup config
+
 ```ts
 import { defineConfig } from "tsup";
 
 export default defineConfig({
   entry: {
-    "activity/index": "activity/index.ts",
-    "audit/index": "audit/index.ts",
-    "auto-namer/index": "auto-namer/index.ts",
-    "context/index": "context/index.ts",
-    "cron/index": "cron/index.ts",
-    "delegation/index": "delegation/index.ts",
-    "discord/index": "discord/index.ts",
-    "identity/index": "identity/index.ts",
-    "metrics/index": "metrics/index.ts",
-    "music/index": "music/index.ts",
-    "project/index": "project/index.ts",
-    "summarization/index": "summarization/index.ts",
-    "time/index": "time/index.ts",
-    "validator/index": "validator/index.ts",
-    "web/index": "web/index.ts",
+    "activity/index": "activity/src/index.ts",
+    "audit/index": "audit/src/index.ts",
+    "auto-namer/index": "auto-namer/src/index.ts",
+    "context/index": "context/src/index.ts",
+    "cron/index": "cron/src/index.ts",
+    "delegation/index": "delegation/src/index.ts",
+    "discord/index": "discord/src/index.ts",
+    "identity/index": "identity/src/index.ts",
+    "metrics/index": "metrics/src/index.ts",
+    "music/index": "music/src/index.ts",
+    "project/index": "project/src/index.ts",
+    "summarization/index": "summarization/src/index.ts",
+    "time/index": "time/src/index.ts",
+    "validator/index": "validator/src/index.ts",
+    "web/index": "web/src/index.ts",
   },
   format: ["esm"],
   dts: true,
-  splitting: true,   // shared helpers are deduplicated across entries
+  splitting: true,
   clean: true,
 });
 ```
 
-### Step 2: Merge dependencies from all 16 package.json files
+### Step 3: Create unified `tsconfig.json`
 
-**Expected deliverable**: Single unified dependency list in the new package.json
+**Expected deliverable**: Single tsconfig covering all plugin source
 
-- Union all `dependencies` from each plugin's package.json
-- Union all `devDependencies`
-- Remove the 16 individual package.json files
-- Remove the 16 individual tsconfig.json files
+The current per-plugin tsconfigs all extend `../../../tsconfig.base.json` with `rootDir: ./src` and `outDir: ./dist`. The new config extends `../../tsconfig.base.json` (one level up since `packages/plugins/` is now the package root) and includes all `*/src/**/*.ts`.
 
-### Step 3: Remove `src/` nesting from plugin directories
-
-**Expected deliverable**: Flattened directory structure
-
-Currently each plugin has `packages/plugins/cron/src/index.ts`. After merge, the structure is `packages/plugins/cron/index.ts` (the `src/` level is redundant since the parent package now owns the source root).
-
-**Alternative**: Keep the `src/` nesting and adjust tsup entry points to `cron/src/index.ts`. This avoids moving files but makes the exports map uglier. **Decision: keep `src/` to minimize file moves — it's fine to have `cron/src/index.ts` as the entry.**
-
-Updated tsup entries would be:
-```ts
-entry: {
-  "activity/index": "activity/src/index.ts",
-  "audit/index": "audit/src/index.ts",
-  // ...
-}
-```
-
-### Step 4: Update the orchestrator's imports
-
-**Expected deliverable**: Updated `plugin-registry/index.ts` and `package.json`
-
-Before:
-```ts
-import { plugin as cronPlugin } from "@harness/plugin-cron";
-```
-
-After:
-```ts
-import { plugin as cronPlugin } from "@harness/plugins/cron";
-```
-
-And `orchestrator/package.json` replaces 16 `@harness/plugin-*` dependencies with one:
 ```json
 {
-  "dependencies": {
-    "@harness/plugins": "workspace:*"
-  }
+  "extends": "../../tsconfig.base.json",
+  "compilerOptions": {
+    "outDir": "./dist",
+    "rootDir": "."
+  },
+  "include": ["*/src/**/*.ts"],
+  "exclude": ["node_modules", "dist", "**/__tests__/**"]
 }
 ```
 
-### Step 5: Update workspace configuration
+**Action items:**
+- Delete all 16 individual `tsconfig.json` files
+- Verify `tsc --noEmit` passes from `packages/plugins/`
 
-**Expected deliverable**: Updated root package.json and pnpm-workspace.yaml
+### Step 4: Create unified `vitest.config.ts`
 
-Remove `"packages/plugins/*"` from workspaces (it's now a single package at `"packages/plugins"`). The `packages/*` glob already catches `packages/plugins` as a workspace.
+**Expected deliverable**: Single vitest config that runs all plugin tests
 
-Actually — `packages/*` matches `packages/plugins` already, so the `packages/plugins/*` glob just needs to be removed.
+Currently each plugin has its own `vitest.config.ts` with a unique `name` field (e.g., `plugin-identity`). The new config runs tests across all plugin directories from a single invocation.
 
-### Step 6: Update turbo.json if needed
+```ts
+import { defineConfig } from "vitest/config";
 
-The `plugin:generate` task has `inputs` referencing `packages/plugins/*/src/_helpers/settings-schema.ts` — this path stays the same since the directory structure is preserved.
+export default defineConfig({
+  test: {
+    name: "plugins",
+    environment: "node",
+    include: ["*/src/**/__tests__/**/*.test.ts"],
+    coverage: {
+      provider: "v8",
+    },
+  },
+});
+```
 
-No changes needed to turbo.json task definitions.
+**Action items:**
+- Delete all 16 individual `vitest.config.ts` files
+- Verify `vitest run` from `packages/plugins/` finds all tests
 
-### Step 7: Update test configuration
+### Step 5: Update root `vitest.config.ts`
 
-**Expected deliverable**: Single vitest.config.ts for the plugins package
+**Expected deliverable**: Root vitest config with 16 plugin entries collapsed to 1
 
-The consolidated vitest config runs all tests across plugin directories. Each plugin's `__tests__/` directory remains in place.
+**Before** (root `vitest.config.ts`):
+```ts
+projects: [
+  'apps/web',
+  'apps/orchestrator',
+  'packages/ui',
+  'packages/logger',
+  'packages/plugin-contract',
+  'packages/plugins/context',    // ← 16 individual entries
+  'packages/plugins/discord',
+  'packages/plugins/web',
+  'packages/plugins/delegation',
+  'packages/plugins/activity',
+  'packages/plugins/metrics',
+  'packages/plugins/summarization',
+  'packages/plugins/identity',
+  'packages/plugins/auto-namer',
+  'packages/plugins/audit',
+  'packages/plugins/time',
+  'packages/plugins/cron',
+  'packages/plugins/project',
+  'packages/plugins/music',
+  'packages/database',
+]
+```
 
-### Step 8: Update import paths in plugin source files
+**After:**
+```ts
+projects: [
+  'apps/web',
+  'apps/orchestrator',
+  'packages/ui',
+  'packages/logger',
+  'packages/plugin-contract',
+  'packages/plugins',             // ← 1 entry
+  'packages/database',
+]
+```
 
-**Expected deliverable**: Any cross-plugin imports updated
+### Step 6: Update `scripts/coverage-gate.py`
 
-Check if any plugin imports from another plugin (e.g., does delegation import from validator?). These become relative imports within the same package instead of workspace imports.
+**This is the trickiest part.** The coverage gate has a hardcoded `PROJECT_DIRS` list that maps file paths to per-package vitest invocations. It runs vitest separately per package to avoid ESM race conditions with `vite-tsconfig-paths`.
 
-### Step 9: Update CI, coverage gate, and lint-staged
+**Before** (`PROJECT_DIRS` in `coverage-gate.py`):
+```python
+("packages/plugins/context/", "packages/plugins/context"),
+("packages/plugins/discord/", "packages/plugins/discord"),
+("packages/plugins/web/", "packages/plugins/web"),
+# ... 16 entries total
+```
 
-**Expected deliverable**: Updated scripts that reference plugin packages
+**After:**
+```python
+("packages/plugins/", "packages/plugins"),
+```
 
-- Coverage gate script may reference individual plugin packages — needs updating
-- lint-staged configuration may filter by package path — verify
-- Integration tests import from `@harness/plugin-*` — update to `@harness/plugins/*`
+All 16 plugin directory prefixes collapse into one entry. The coverage gate will now invoke vitest once from `packages/plugins/` instead of 16 separate invocations.
 
-### Step 10: Verify and clean up
+**Risk:** The original per-package design was specifically to avoid an ESM race condition when multiple vitest configs load simultaneously. With a single `packages/plugins/vitest.config.ts`, there's only one config to load — the race condition should not apply. However, this needs verification. If the unified vitest invocation hits the same race, we can use vitest's `--pool=forks` or `--poolOptions.threads.isolate` to work around it.
 
-- Run `pnpm install` to regenerate lockfile
-- Run `pnpm build` to verify single-build works
-- Run `pnpm typecheck` to verify types resolve
-- Run `pnpm test` to verify all tests pass
-- Run `pnpm lint` to verify biome is happy
-- Delete old `node_modules` directories from individual plugin folders
+**Also update:**
+- The `packages/plugins/music/` exclusion pattern in `EXCLUDED_PATTERNS` stays as-is (it matches the directory path, not the package name)
+
+### Step 7: Update the orchestrator
+
+**Expected deliverable**: Updated imports in `plugin-registry/index.ts` and `package.json`
+
+**`apps/orchestrator/src/plugin-registry/index.ts`** — 16 import path changes:
+```ts
+// Before
+import { plugin as activityPlugin } from '@harness/plugin-activity';
+import { plugin as cronPlugin } from '@harness/plugin-cron';
+// ...
+
+// After
+import { plugin as activityPlugin } from '@harness/plugins/activity';
+import { plugin as cronPlugin } from '@harness/plugins/cron';
+// ...
+```
+
+**`apps/orchestrator/package.json`** — replace 16 deps with 1:
+```json
+// Before
+"@harness/plugin-activity": "workspace:*",
+"@harness/plugin-audit": "workspace:*",
+// ... 14 more
+
+// After
+"@harness/plugins": "workspace:*",
+```
+
+Keep `@harness/plugin-contract` as a separate dependency (it stays its own package).
+
+### Step 8: Update integration tests
+
+**Expected deliverable**: Updated imports in 13+ test files and `tests/integration/package.json`
+
+**`tests/integration/package.json`** — replace 15 deps with 1:
+```json
+// Before
+"@harness/plugin-activity": "workspace:*",
+"@harness/plugin-audit": "workspace:*",
+// ... 13 more
+
+// After
+"@harness/plugins": "workspace:*",
+```
+
+Keep `@harness/plugin-contract` (used for types in `create-harness.ts` and some tests).
+
+**Test files to update** (13 files, mechanical find-and-replace):
+| File | Import Change |
+|------|--------------|
+| `context-plugin.test.ts` | `@harness/plugin-context` → `@harness/plugins/context` |
+| `cron-plugin.test.ts` | `@harness/plugin-cron` → `@harness/plugins/cron` |
+| `delegation-plugin.test.ts` | `@harness/plugin-delegation` → `@harness/plugins/delegation` |
+| `identity-plugin.test.ts` | `@harness/plugin-identity` → `@harness/plugins/identity` |
+| `metrics-plugin.test.ts` | `@harness/plugin-metrics` → `@harness/plugins/metrics` |
+| `time-plugin.test.ts` | `@harness/plugin-time` → `@harness/plugins/time` |
+| `summarization-plugin.test.ts` | `@harness/plugin-summarization` → `@harness/plugins/summarization` |
+| `auto-namer-plugin.test.ts` | `@harness/plugin-auto-namer` → `@harness/plugins/auto-namer` |
+| `discord-plugin.test.ts` | `@harness/plugin-discord` → `@harness/plugins/discord` |
+| `validator-plugin.test.ts` | `@harness/plugin-validator` → `@harness/plugins/validator` |
+| `web-plugin.test.ts` | `@harness/plugin-web` → `@harness/plugins/web` |
+| `activity-plugin.test.ts` | `@harness/plugin-activity` → `@harness/plugins/activity` |
+| `project-plugin.test.ts` | `@harness/plugin-project` → `@harness/plugins/project` |
+| `audit-plugin.test.ts` | `@harness/plugin-audit` → `@harness/plugins/audit` |
+| `full-pipeline.test.ts` | `@harness/plugin-activity`, `-context`, `-identity`, `-metrics`, `-summarization`, `-time` → `@harness/plugins/*` |
+
+Also update `tests/integration/CLAUDE.md` which has an example import path on line 99.
+
+### Step 9: Update workspace configuration
+
+**Expected deliverable**: Root `package.json` workspace globs updated
+
+**Before** (root `package.json`):
+```json
+"workspaces": [
+  "apps/*",
+  "packages/*",
+  "packages/plugins/*"
+]
+```
+
+**After:**
+```json
+"workspaces": [
+  "apps/*",
+  "packages/*"
+]
+```
+
+The `packages/*` glob already matches `packages/plugins` as a workspace. The `packages/plugins/*` glob was needed when each plugin subdirectory was its own package — no longer needed.
+
+### Step 10: Update `scripts/generate-plugin-registry.ts`
+
+**Expected deliverable**: Verify the codegen script still works
+
+The script uses glob patterns to discover plugins:
+- `packages/plugins/*/src/_helpers/settings-schema.ts` — for settings schemas
+- `packages/plugins/*/src/index.ts` — for tool registration
+
+Both patterns match the `<plugin>/src/` directory structure which is **preserved**. The script dynamically imports from file paths (not package names), so **no changes needed** — but verify by running `pnpm plugin:generate` after the merge.
+
+### Step 11: Delete per-plugin config files
+
+**Expected deliverable**: 48 files deleted (16 package.json + 16 tsconfig.json + 16 vitest.config.ts)
+
+```bash
+# Delete per-plugin configs (source files untouched)
+rm packages/plugins/*/package.json
+rm packages/plugins/*/tsconfig.json
+rm packages/plugins/*/vitest.config.ts
+```
+
+### Step 12: Clean up and verify
+
+**Expected deliverable**: Everything builds, typechecks, lints, and tests pass
+
+```bash
+# 1. Remove old node_modules from individual plugin dirs
+rm -rf packages/plugins/*/node_modules
+
+# 2. Reinstall with new workspace layout
+pnpm install
+
+# 3. Verify build
+pnpm build
+
+# 4. Verify typecheck
+pnpm typecheck
+
+# 5. Verify tests (unit)
+pnpm test
+
+# 6. Verify lint
+pnpm lint
+
+# 7. Verify codegen
+pnpm plugin:generate
+
+# 8. Verify coverage gate
+pnpm test:coverage-gate --skip-coverage
+```
+
+If vitest hits the ESM race condition when running all plugin tests from a single directory, fall back to `--pool=forks` in the plugins vitest config.
+
+---
 
 ## Key Files
 
 | File | Operation | Description |
 |------|-----------|-------------|
-| `packages/plugins/package.json` | Create (replace 16) | Unified package manifest with multi-entry exports |
-| `packages/plugins/tsconfig.json` | Create (replace 16) | Unified TypeScript config |
-| `packages/plugins/tsup.config.ts` | Create | Multi-entry tsup build config |
-| `packages/plugins/vitest.config.ts` | Create | Unified test config |
-| `packages/plugins/*/package.json` | Delete (16 files) | Remove individual package manifests |
-| `packages/plugins/*/tsconfig.json` | Delete (16 files) | Remove individual tsconfigs |
-| `apps/orchestrator/src/plugin-registry/index.ts` | Modify | Update import paths |
+| `packages/plugins/package.json` | Replace | Unified package manifest with multi-entry exports + merged deps |
+| `packages/plugins/tsconfig.json` | Replace | Unified TypeScript config covering `*/src/**/*.ts` |
+| `packages/plugins/tsup.config.ts` | Create | Multi-entry tsup build config (16 entries) |
+| `packages/plugins/vitest.config.ts` | Replace | Unified test config matching `*/src/**/__tests__/**` |
+| `packages/plugins/*/package.json` | Delete (16) | Remove individual package manifests |
+| `packages/plugins/*/tsconfig.json` | Delete (16) | Remove individual tsconfigs |
+| `packages/plugins/*/vitest.config.ts` | Delete (16) | Remove individual vitest configs |
+| `vitest.config.ts` (root) | Modify | Collapse 16 plugin project entries → 1 |
+| `scripts/coverage-gate.py` | Modify | Collapse 16 `PROJECT_DIRS` entries → 1 |
+| `apps/orchestrator/src/plugin-registry/index.ts` | Modify | 16 import path changes |
 | `apps/orchestrator/package.json` | Modify | Replace 16 deps with 1 |
-| `package.json` (root) | Modify | Remove `packages/plugins/*` workspace |
-| `tests/integration/*.test.ts` | Modify | Update import paths |
+| `tests/integration/package.json` | Modify | Replace 15 deps with 1 |
+| `tests/integration/*.test.ts` (13+ files) | Modify | Import path changes |
+| `tests/integration/CLAUDE.md` | Modify | Example import path |
+| `package.json` (root) | Modify | Remove `packages/plugins/*` workspace glob |
+
+**Total file operations:** ~3 creates, ~48 deletes, ~20 modifies
+
+---
 
 ## Risks and Mitigation
 
 | Risk | Mitigation |
 |------|------------|
 | tsup multi-entry build is slower than parallel single-entry | `splitting: true` enables code sharing; net build time should be faster (1 process vs 16). Benchmark before/after. |
-| Losing Turbo cache granularity (one plugin change rebuilds all) | True, but these plugins change together frequently and share `plugin-contract`. The current cache hit rate for individual plugins is likely low. |
-| Cross-plugin dependency issues during merge | Audit all import paths before merging. Create a script to find all `@harness/plugin-*` imports. |
-| Breaking integration tests | Integration tests import from `@harness/plugin-*` — update in the same PR. |
+| Losing Turbo cache granularity (one plugin change rebuilds all) | True, but `plugin-contract` changes already invalidate all 16. The practical cache hit rate for individual plugins is low. |
+| ESM race condition in unified vitest run | The original per-package vitest design avoided a `vite-tsconfig-paths` race. With one config, no race. If it surfaces, use `--pool=forks` or `--poolOptions.threads.isolate`. |
+| Coverage gate `PROJECT_DIRS` mapping breaks | Collapse 16 entries to 1. The gate runs vitest from the package dir — one dir means one invocation. Test with `pnpm test:coverage-gate`. |
+| `sherif` dependency validation fails | sherif checks workspace dependencies. After removing 16 workspace packages, re-run `pnpm sherif` to verify no dangling references. |
 | `pnpm install` workspace resolution issues | Test with `pnpm install --force` after workspace changes. |
-| Coverage gate barrel detection | The coverage gate rejects files that only re-export (`export * from`). Verify each plugin's `index.ts` has real implementation, not just barrel re-exports. Most do (they define `PluginDefinition`), but audit before merging. |
-| `moduleResolution` compatibility | Wildcard `exports` requires `moduleResolution: "bundler"` or `"node16"`. The repo already uses `"bundler"` — no change needed. |
+| Coverage gate barrel detection | Verify each plugin's `index.ts` has real implementation (defines `PluginDefinition`), not just barrel re-exports. Already confirmed — all do. |
+| `moduleResolution` compatibility | Wildcard `exports` requires `moduleResolution: "bundler"` or `"node16"`. Already using `"bundler"`. |
 
 ## Impact Assessment
 
