@@ -59,4 +59,25 @@ describe('updateTask', () => {
 
     expect(result).toEqual({ error: 'Failed to update task' });
   });
+
+  it('does not set completedAt when only title is updated without status', async () => {
+    mockUpdate.mockResolvedValue({ id: 'task-1' });
+
+    const result = await updateTask({ id: 'task-1', title: 'New title' });
+
+    expect(mockUpdate).toHaveBeenCalledWith({
+      where: { id: 'task-1' },
+      data: { title: 'New title' },
+    });
+    expect(result).toEqual({ success: true });
+  });
+
+  it('returns error for invalid/missing task ID', async () => {
+    mockUpdate.mockRejectedValue(new Error('Record to update not found'));
+
+    const result = await updateTask({ id: 'nonexistent-id' });
+
+    expect(result).toEqual({ error: 'Failed to update task' });
+    expect(mockRevalidatePath).not.toHaveBeenCalled();
+  });
 });

@@ -21,6 +21,7 @@
     "@harness/plugin-identity": "workspace:*",
     "@harness/plugin-metrics": "workspace:*",
     "@harness/plugin-project": "workspace:*",
+    "@harness/plugin-tasks": "workspace:*",
     "@harness/plugin-summarization": "workspace:*",
     "@harness/plugin-time": "workspace:*",
     "@harness/plugin-validator": "workspace:*",

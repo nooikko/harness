@@ -85,4 +85,52 @@ describe('createTask', () => {
       },
     });
   });
+
+  it('throws when prisma.userTask.create fails', async () => {
+    mockCreate.mockRejectedValue(new Error('DB connection lost'));
+
+    await expect(createTask({ title: 'Fail task' })).rejects.toThrow('DB connection lost');
+    expect(mockRevalidatePath).not.toHaveBeenCalled();
+  });
+
+  it('passes dueDate as ISO string converted to Date and projectId', async () => {
+    const dueDate = new Date('2026-06-15T09:00:00.000Z');
+    mockCreate.mockResolvedValue({
+      id: 'task-3',
+      title: 'Review PR',
+      status: 'TODO',
+      priority: 'LOW',
+    });
+
+    const result = await createTask({
+      title: 'Review PR',
+      description: 'Check the diff',
+      priority: 'LOW',
+      dueDate,
+      projectId: 'proj-42',
+    });
+
+    expect(mockCreate).toHaveBeenCalledWith({
+      data: {
+        title: 'Review PR',
+        description: 'Check the diff',
+        priority: 'LOW',
+        dueDate,
+        projectId: 'proj-42',
+      },
+      select: {
+        id: true,
+        title: true,
+        status: true,
+        priority: true,
+      },
+    });
+    expect(result).toEqual({
+      id: 'task-3',
+      title: 'Review PR',
+      status: 'TODO',
+      priority: 'LOW',
+    });
+    expect(mockRevalidatePath).toHaveBeenCalledWith('/tasks');
+  });
 });

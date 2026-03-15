@@ -1060,6 +1060,9 @@ importers:
       '@harness/plugin-summarization':
         specifier: workspace:*
         version: link:../../packages/plugins/summarization
+      '@harness/plugin-tasks':
+        specifier: workspace:*
+        version: link:../../packages/plugins/tasks
       '@harness/plugin-time':
         specifier: workspace:*
         version: link:../../packages/plugins/time

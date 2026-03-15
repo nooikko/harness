@@ -32,4 +32,18 @@ describe('listProjects', () => {
     });
     expect(result).toEqual(projects);
   });
+
+  it('returns empty array when no projects exist', async () => {
+    mockFindMany.mockResolvedValue([]);
+
+    const result = await listProjects();
+
+    expect(result).toEqual([]);
+  });
+
+  it('propagates DB errors', async () => {
+    mockFindMany.mockRejectedValue(new Error('Connection refused'));
+
+    await expect(listProjects()).rejects.toThrow('Connection refused');
+  });
 });
