@@ -45,6 +45,7 @@ EXCLUDED_PATTERNS = [
     r"cast-types\.ts$",  # pure type declarations — no runtime code
     r"packages/plugins/music/",  # WIP plugin — coverage enforcement deferred
     r"apps/design/",  # design playground — no unit test coverage required
+    r"packages/vector-search/",  # thin Qdrant + HuggingFace client — requires external services
     r"/page\.tsx$",  # Next.js route handlers — server components with data fetching, not unit-testable
     r"/layout\.tsx$",  # Next.js layouts — thin wrappers, not unit-testable
     r"/loading\.tsx$",  # Next.js loading states — pure UI, no logic
@@ -76,6 +77,7 @@ PROJECT_DIRS = [
     ("packages/plugins/auto-namer/", "packages/plugins/auto-namer"),
     ("packages/plugins/project/", "packages/plugins/project"),
     ("packages/plugins/music/", "packages/plugins/music"),
+    ("packages/plugins/search/", "packages/plugins/search"),
 ]
 
 MAX_RETRIES = 2  # ESM race condition is non-deterministic; retry on failure

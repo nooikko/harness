@@ -29,6 +29,8 @@
     "@harness/plugin-metrics": "workspace:*",
     "@harness/plugin-music": "workspace:*",
     "@harness/plugin-project": "workspace:*",
+    "@harness/plugin-search": "workspace:*",
+    "@harness/plugin-tasks": "workspace:*",
     "@harness/plugin-summarization": "workspace:*",
     "@harness/plugin-time": "workspace:*",
     "@harness/plugin-validator": "workspace:*",

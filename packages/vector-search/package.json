@@ -1,5 +1,5 @@
 {
-  "name": "@harness/plugin-web",
+  "name": "@harness/vector-search",
   "version": "0.1.0",
   "private": true,
   "type": "module",
@@ -22,19 +22,12 @@
     "test:watch": "vitest"
   },
   "dependencies": {
-    "@harness/database": "workspace:*",
-    "@harness/logger": "workspace:*",
-    "@harness/plugin-contract": "workspace:*",
-    "@harness/vector-search": "workspace:*",
-    "cors": "^2.8.6",
-    "express": "^5.2.1",
-    "ws": "^8.19.0"
+    "@huggingface/transformers": "^3.5.1",
+    "@qdrant/js-client-rest": "^1.13.0",
+    "zod": "^4.3.6"
   },
   "devDependencies": {
-    "@types/cors": "^2.8.19",
-    "@types/express": "^5.0.6",
     "@types/node": "^22.19.11",
-    "@types/ws": "^8.18.1",
     "@vitest/coverage-v8": "^4.0.18",
     "tsup": "^8.5.0",
     "typescript": "^5.9.3",

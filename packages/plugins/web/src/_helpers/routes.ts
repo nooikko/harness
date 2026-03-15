@@ -2,6 +2,7 @@
 
 import type { Logger } from '@harness/logger';
 import type { PluginContext } from '@harness/plugin-contract';
+import { COLLECTION_NAMES, getQdrantClient, searchPoints } from '@harness/vector-search';
 import cors from 'cors';
 import express, { type Express, type Request, type Response } from 'express';
 
@@ -210,6 +211,49 @@ export const createApp: CreateApp = ({ ctx, logger, onChatMessage }) => {
     } catch (err) {
       const message = err instanceof Error ? err.message : String(err);
       logger.error('Metrics endpoint error', { error: message });
+      res.status(500).json({ error: 'Internal server error' });
+    }
+  });
+
+  // POST /api/search/vector — semantic vector search via Qdrant
+  app.post('/api/search/vector', async (req: Request, res: Response) => {
+    const body = req.body as Partial<{ query: string; collections: string[]; limit: number }>;
+
+    if (!body.query || typeof body.query !== 'string') {
+      res.status(400).json({ error: 'Missing or invalid query' });
+      return;
+    }
+
+    const qdrant = getQdrantClient();
+    if (!qdrant) {
+      res.json({ hits: [] });
+      return;
+    }
+
+    try {
+      const validCollections = ['messages', 'threads', 'files'] as const;
+      const requested = (body.collections ?? ['messages', 'threads']).filter((c): c is (typeof validCollections)[number] =>
+        (validCollections as readonly string[]).includes(c),
+      );
+      const limit = body.limit ?? 5;
+
+      type VectorHit = { id: string; score: number; collection: string };
+      const hits: VectorHit[] = [];
+
+      const searches = requested.map(async (collection) => {
+        const results = await searchPoints(qdrant, COLLECTION_NAMES[collection], body.query!, { limit });
+        for (const hit of results) {
+          hits.push({ id: String(hit.id), score: hit.score, collection });
+        }
+      });
+
+      await Promise.all(searches);
+      hits.sort((a, b) => b.score - a.score);
+
+      res.json({ hits });
+    } catch (err) {
+      const message = err instanceof Error ? err.message : String(err);
+      logger.error('Vector search endpoint error', { error: message });
       res.status(500).json({ error: 'Internal server error' });
     }
   });

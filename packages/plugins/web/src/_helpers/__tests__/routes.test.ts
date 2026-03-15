@@ -451,6 +451,63 @@ describe('routes', () => {
     });
   });
 
+  describe('POST /api/prewarm (no prewarm method)', () => {
+    it('succeeds when invoker has no prewarm method', async () => {
+      testCtx.mockDb.thread.findUnique.mockResolvedValue({ model: 'haiku' });
+      // Remove prewarm from invoker
+      const originalPrewarm = testCtx.mockInvoker.prewarm;
+      (testCtx.mockInvoker as Record<string, unknown>).prewarm = undefined;
+
+      const res = await fetch(`${testCtx.baseUrl}/api/prewarm`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ threadId: 't1' }),
+      });
+
+      expect(res.status).toBe(200);
+      (testCtx.mockInvoker as Record<string, unknown>).prewarm = originalPrewarm;
+    });
+  });
+
+  describe('POST /api/audit-delete', () => {
+    it('broadcasts audit:requested event', async () => {
+      testCtx.mockBroadcast.mockResolvedValue(undefined);
+
+      const res = await fetch(`${testCtx.baseUrl}/api/audit-delete`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ threadId: 't1' }),
+      });
+      const body = (await res.json()) as JsonResponse;
+
+      expect(res.status).toBe(200);
+      expect(body).toEqual({ ok: true });
+      expect(testCtx.mockBroadcast).toHaveBeenCalledWith('audit:requested', { threadId: 't1' });
+    });
+
+    it('returns 400 when threadId is missing', async () => {
+      const res = await fetch(`${testCtx.baseUrl}/api/audit-delete`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({}),
+      });
+
+      expect(res.status).toBe(400);
+    });
+
+    it('returns 500 when broadcast throws', async () => {
+      testCtx.mockBroadcast.mockRejectedValue(new Error('broadcast failed'));
+
+      const res = await fetch(`${testCtx.baseUrl}/api/audit-delete`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ threadId: 't1' }),
+      });
+
+      expect(res.status).toBe(500);
+    });
+  });
+
   describe('POST /api/plugins/:name/reload', () => {
     it('calls notifySettingsChange and returns { success: true, pluginName }', async () => {
       testCtx.mockNotifySettingsChange.mockResolvedValue(undefined);
@@ -615,6 +672,56 @@ describe('routes', () => {
       const res = await fetch(`${testCtx.baseUrl}/api/health`);
 
       expect(res.headers.get('access-control-allow-credentials')).toBe('true');
+    });
+
+    it('returns empty hits when Qdrant is not configured', async () => {
+      const { getQdrantClient } = await import('@harness/vector-search');
+      vi.spyOn({ getQdrantClient }, 'getQdrantClient');
+
+      const res = await fetch(`${testCtx.baseUrl}/api/search/vector`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ query: 'test' }),
+      });
+
+      expect(res.status).toBe(200);
+      const data = (await res.json()) as { hits: unknown[] };
+      // Without a running Qdrant, getQdrantClient returns null → empty hits
+      expect(data.hits).toEqual([]);
+    });
+
+    it('returns 400 when query is missing', async () => {
+      const res = await fetch(`${testCtx.baseUrl}/api/search/vector`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({}),
+      });
+
+      expect(res.status).toBe(400);
+      const data = (await res.json()) as { error: string };
+      expect(data.error).toContain('query');
+    });
+
+    it('accepts custom collections parameter', async () => {
+      const res = await fetch(`${testCtx.baseUrl}/api/search/vector`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ query: 'test', collections: ['files'], limit: 3 }),
+      });
+
+      expect(res.status).toBe(200);
+      const data = (await res.json()) as { hits: unknown[] };
+      expect(data.hits).toEqual([]);
+    });
+
+    it('filters out invalid collection names', async () => {
+      const res = await fetch(`${testCtx.baseUrl}/api/search/vector`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ query: 'test', collections: ['invalid', 'messages'] }),
+      });
+
+      expect(res.status).toBe(200);
     });
 
     it('handles preflight OPTIONS requests', async () => {

@@ -15,6 +15,10 @@ vi.mock('../user-menu', () => ({
   UserMenu: ({ name }: { name: string }) => <span data-testid='user-menu'>{name}</span>,
 }));
 
+vi.mock('../search-trigger', () => ({
+  SearchTrigger: () => <button type='button'>Search…⌘K</button>,
+}));
+
 const { TopBar } = await import('../top-bar');
 
 describe('TopBar', () => {
