@@ -66,8 +66,9 @@ describe('GET /api/files/[id]', () => {
 
     expect(response.status).toBe(200);
     expect(response.headers.get('Content-Type')).toBe('text/plain');
-    expect(response.headers.get('Content-Disposition')).toBe('inline; filename="test.txt"');
+    expect(response.headers.get('Content-Disposition')).toBe('inline; filename="test.txt"; filename*=UTF-8\'\'test.txt');
     expect(response.headers.get('Cache-Control')).toBe('private, max-age=3600');
+    expect(response.headers.get('X-Content-Type-Options')).toBe('nosniff');
   });
 
   it('returns 404 when file ID not found in DB', async () => {

@@ -120,12 +120,12 @@ export const ChatArea: ChatAreaComponent = ({ threadId, currentModel, currentAge
     return () => clearInterval(interval);
   }, [isThinking, isConnected, threadId, onResponseReceived]);
 
-  const handleSubmit = (text: string) => {
+  const handleSubmit = (text: string, fileIds?: string[]) => {
     setError(null);
     setIsThinking(true);
     sentAtRef.current = new Date();
     startTransition(async () => {
-      const result = await sendMessage(threadId, text);
+      const result = await sendMessage(threadId, text, fileIds);
       if (result?.error) {
         setError(result.error);
         setIsThinking(false);

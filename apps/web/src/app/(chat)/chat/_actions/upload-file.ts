@@ -9,7 +9,6 @@ import { revalidatePath } from 'next/cache';
 import { loadEnv } from '@/app/_helpers/env';
 import { notifyOrchestrator } from '@/app/_helpers/notify-orchestrator';
 
-const ALLOWED_MIME_PREFIXES = ['text/'];
 const ALLOWED_MIME_TYPES = new Set([
   'application/pdf',
   'application/json',
@@ -18,7 +17,18 @@ const ALLOWED_MIME_TYPES = new Set([
   'image/jpeg',
   'image/gif',
   'image/webp',
-  'image/svg+xml',
+  'text/plain',
+  'text/markdown',
+  'text/csv',
+  'text/x-python',
+  'text/x-c',
+  'text/x-java-source',
+  'text/x-go',
+  'text/x-rustsrc',
+  'text/x-shellscript',
+  'text/x-yaml',
+  'text/x-toml',
+  'text/x-sql',
 ]);
 
 const SCOPE_FOLDERS: Record<FileScope, string> = {
@@ -39,10 +49,7 @@ const sanitizeFilename: SanitizeFilename = (name) => {
 type IsAllowedMimeType = (mimeType: string) => boolean;
 
 const isAllowedMimeType: IsAllowedMimeType = (mimeType) => {
-  if (ALLOWED_MIME_TYPES.has(mimeType)) {
-    return true;
-  }
-  return ALLOWED_MIME_PREFIXES.some((prefix) => mimeType.startsWith(prefix));
+  return ALLOWED_MIME_TYPES.has(mimeType);
 };
 
 export type UploadFileInput = {
@@ -53,13 +60,14 @@ export type UploadFileInput = {
   projectId?: string;
   threadId?: string;
   agentId?: string;
+  messageId?: string;
 };
 
 type UploadFileResult = { file: DbFile } | { error: string };
 type UploadFile = (input: UploadFileInput) => Promise<UploadFileResult>;
 
 export const uploadFile: UploadFile = async (input) => {
-  const { fileBuffer, fileName, mimeType, scope, projectId, threadId, agentId } = input;
+  const { fileBuffer, fileName, mimeType, scope, projectId, threadId, agentId, messageId } = input;
   const env = loadEnv();
   const maxSizeBytes = env.MAX_FILE_SIZE_MB * 1024 * 1024;
 
@@ -120,6 +128,7 @@ export const uploadFile: UploadFile = async (input) => {
         projectId: scope === 'PROJECT' ? projectId : null,
         threadId: scope === 'THREAD' ? threadId : null,
         agentId: scope === 'DECORATIVE' ? agentId : null,
+        messageId: messageId ?? null,
       },
     });
   } catch (err) {

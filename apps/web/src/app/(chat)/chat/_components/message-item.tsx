@@ -2,6 +2,7 @@ import type { Message } from '@harness/database';
 import { Info } from 'lucide-react';
 import { isCrossThreadNotification } from '../_helpers/is-cross-thread-notification';
 import { MarkdownContent } from './markdown-content';
+import { MessageFiles } from './message-files';
 import { NotificationMessage } from './notification-message';
 import type { ActivityMessageProps } from './pipeline-step';
 import { PipelineStep } from './pipeline-step';
@@ -10,8 +11,11 @@ import { ThinkingBlock } from './thinking-block';
 import { ToolCallBlock } from './tool-call-block';
 import { ToolResultBlock } from './tool-result-block';
 
+type FileRef = { id: string; name: string; mimeType: string; size: number };
+
 export type MessageItemProps = {
   message: Message;
+  files?: FileRef[];
 };
 
 // Splits message content into text and /slash-command tokens, rendering
@@ -54,7 +58,7 @@ const renderUserContent: RenderUserContent = (content) => {
 
 type MessageItemComponent = (props: MessageItemProps) => React.ReactNode;
 
-export const MessageItem: MessageItemComponent = ({ message }) => {
+export const MessageItem: MessageItemComponent = ({ message, files }) => {
   if (isCrossThreadNotification(message)) {
     return <NotificationMessage message={message} />;
   }
@@ -95,6 +99,7 @@ export const MessageItem: MessageItemComponent = ({ message }) => {
           }}
         >
           {renderUserContent(message.content)}
+          {files && files.length > 0 && <MessageFiles files={files} />}
         </div>
       </div>
     );

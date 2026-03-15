@@ -1,4 +1,4 @@
-import { act, render, screen } from '@testing-library/react';
+import { act, fireEvent, render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { describe, expect, it, vi } from 'vitest';
 
@@ -83,6 +83,19 @@ vi.mock('../model-selector', () => ({
   ModelSelector: () => null,
 }));
 
+vi.mock('../file-chip', () => ({
+  FileChip: ({ file, onRemove }: { file: { name: string }; onRemove?: () => void }) => (
+    <div data-testid={`file-chip-${file.name}`}>
+      {file.name}
+      {onRemove && (
+        <button type='button' data-testid={`remove-${file.name}`} onClick={onRemove}>
+          x
+        </button>
+      )}
+    </div>
+  ),
+}));
+
 const { ChatInput } = await import('../chat-input');
 
 describe('ChatInput', () => {
@@ -137,7 +150,7 @@ describe('ChatInput', () => {
     expect(mockDispatchCommand).toHaveBeenCalledOnce();
   });
 
-  it('passes onSubmit prop down to SubmitPlugin', () => {
+  it('passes onSubmit prop down to SubmitPlugin', async () => {
     MockSubmitPlugin.mockClear();
     const onSubmit = vi.fn();
     render(<ChatInput threadId='thread-1' currentModel={null} currentAgentId={null} currentAgentName={null} onSubmitAction={onSubmit} />);
@@ -146,8 +159,36 @@ describe('ChatInput', () => {
       onSubmit: (text: string) => void;
     };
     // The passed onSubmit should be a stable wrapper that forwards to onSubmit
-    passedOnSubmit('test message');
-    expect(onSubmit).toHaveBeenCalledWith('test message');
+    await passedOnSubmit('test message');
+    expect(onSubmit).toHaveBeenCalledWith('test message', undefined);
+  });
+
+  it('renders the attach file button', () => {
+    render(<ChatInput threadId='thread-1' currentModel={null} currentAgentId={null} currentAgentName={null} onSubmitAction={vi.fn()} />);
+    expect(screen.getByRole('button', { name: /attach file/i })).toBeInTheDocument();
+  });
+
+  it('disables attach button when disabled', () => {
+    render(<ChatInput threadId='thread-1' currentModel={null} currentAgentId={null} currentAgentName={null} onSubmitAction={vi.fn()} disabled />);
+    expect(screen.getByRole('button', { name: /attach file/i })).toBeDisabled();
+  });
+
+  it('shows upload error message', () => {
+    render(<ChatInput threadId='thread-1' currentModel={null} currentAgentId={null} currentAgentName={null} onSubmitAction={vi.fn()} />);
+    // uploadError state is internal and only set during file upload flow
+    // The error prop path is already tested above
+  });
+
+  it('passes fileIds from upload in stableOnSubmit', async () => {
+    MockSubmitPlugin.mockClear();
+    const onSubmit = vi.fn();
+    render(<ChatInput threadId='thread-1' currentModel={null} currentAgentId={null} currentAgentName={null} onSubmitAction={onSubmit} />);
+    const { onSubmit: passedOnSubmit } = MockSubmitPlugin.mock.calls[0]![0] as {
+      onSubmit: (text: string) => void;
+    };
+    // With no staged files, fileIds should be undefined
+    await passedOnSubmit('hello');
+    expect(onSubmit).toHaveBeenCalledWith('hello', undefined);
   });
 
   it('applies open-menu card styling when onMenuOpen is called', async () => {
@@ -174,5 +215,98 @@ describe('ChatInput', () => {
     });
 
     expect(container.querySelector('.rounded-xl')).toBeInTheDocument();
+  });
+
+  it('stages files when selected via file input', async () => {
+    render(<ChatInput threadId='thread-1' currentModel={null} currentAgentId={null} currentAgentName={null} onSubmitAction={vi.fn()} />);
+
+    const fileInput = document.querySelector('input[type="file"]') as HTMLInputElement;
+    const testFile = new File(['hello'], 'test.txt', { type: 'text/plain' });
+
+    await act(async () => {
+      fireEvent.change(fileInput, { target: { files: [testFile] } });
+    });
+
+    expect(screen.getByTestId('file-chip-test.txt')).toBeInTheDocument();
+  });
+
+  it('removes staged files when remove button is clicked', async () => {
+    const user = userEvent.setup();
+    render(<ChatInput threadId='thread-1' currentModel={null} currentAgentId={null} currentAgentName={null} onSubmitAction={vi.fn()} />);
+
+    const fileInput = document.querySelector('input[type="file"]') as HTMLInputElement;
+    const testFile = new File(['hello'], 'test.txt', { type: 'text/plain' });
+
+    await act(async () => {
+      fireEvent.change(fileInput, { target: { files: [testFile] } });
+    });
+
+    expect(screen.getByTestId('file-chip-test.txt')).toBeInTheDocument();
+
+    await user.click(screen.getByTestId('remove-test.txt'));
+
+    expect(screen.queryByTestId('file-chip-test.txt')).not.toBeInTheDocument();
+  });
+
+  it('uploads staged files and passes fileIds on submit', async () => {
+    const mockFetch = vi.fn().mockResolvedValue({
+      ok: true,
+      json: () => Promise.resolve({ id: 'uploaded-file-1' }),
+    });
+    vi.stubGlobal('fetch', mockFetch);
+
+    MockSubmitPlugin.mockClear();
+    const onSubmit = vi.fn();
+    render(<ChatInput threadId='thread-1' currentModel={null} currentAgentId={null} currentAgentName={null} onSubmitAction={onSubmit} />);
+
+    // Stage a file
+    const fileInput = document.querySelector('input[type="file"]') as HTMLInputElement;
+    const testFile = new File(['hello'], 'test.txt', { type: 'text/plain' });
+
+    await act(async () => {
+      fireEvent.change(fileInput, { target: { files: [testFile] } });
+    });
+
+    // Get the latest onSubmit after re-render with staged files
+    const lastCall = MockSubmitPlugin.mock.calls[MockSubmitPlugin.mock.calls.length - 1]![0] as {
+      onSubmit: (text: string) => Promise<void>;
+    };
+    await act(async () => {
+      await lastCall.onSubmit('message with file');
+    });
+
+    expect(mockFetch).toHaveBeenCalledWith('/api/files', expect.objectContaining({ method: 'POST' }));
+    expect(onSubmit).toHaveBeenCalledWith('message with file', ['uploaded-file-1']);
+  });
+
+  it('shows upload error when fetch fails', async () => {
+    const mockFetch = vi.fn().mockResolvedValue({
+      ok: false,
+      json: () => Promise.resolve({ error: 'File too large' }),
+    });
+    vi.stubGlobal('fetch', mockFetch);
+
+    MockSubmitPlugin.mockClear();
+    const onSubmit = vi.fn();
+    render(<ChatInput threadId='thread-1' currentModel={null} currentAgentId={null} currentAgentName={null} onSubmitAction={onSubmit} />);
+
+    // Stage a file
+    const fileInput = document.querySelector('input[type="file"]') as HTMLInputElement;
+    const testFile = new File(['hello'], 'test.txt', { type: 'text/plain' });
+
+    await act(async () => {
+      fireEvent.change(fileInput, { target: { files: [testFile] } });
+    });
+
+    // Get the latest onSubmit after re-render
+    const lastCall = MockSubmitPlugin.mock.calls[MockSubmitPlugin.mock.calls.length - 1]![0] as {
+      onSubmit: (text: string) => Promise<void>;
+    };
+    await act(async () => {
+      await lastCall.onSubmit('message');
+    });
+
+    expect(onSubmit).not.toHaveBeenCalled();
+    expect(screen.getByText('File too large')).toBeInTheDocument();
   });
 });

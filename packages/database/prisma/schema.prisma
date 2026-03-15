@@ -69,6 +69,7 @@ model Message {
   source    String   @default("builtin")
   content   String   @db.Text
   metadata  Json?
+  files     File[]
   createdAt DateTime @default(now())
 
   @@index([threadId, createdAt])
@@ -194,12 +195,16 @@ model File {
   agentId       String?
   agent         Agent?    @relation(fields: [agentId], references: [id], onDelete: Cascade)
 
+  messageId     String?
+  message       Message?  @relation(fields: [messageId], references: [id], onDelete: SetNull)
+
   createdAt     DateTime  @default(now())
   updatedAt     DateTime  @updatedAt
 
   @@index([projectId, scope])
   @@index([threadId, scope])
   @@index([agentId, scope])
+  @@index([messageId])
 }
 
 model Agent {

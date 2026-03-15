@@ -24,13 +24,16 @@ export const GET = async (_request: Request, { params }: RouteParams) => {
   }
 
   const buffer = await readFile(fullPath);
+  const safeName = file.name.replace(/[^\w.\-\s]/g, '_');
+  const encodedName = encodeURIComponent(file.name);
 
   return new Response(buffer, {
     headers: {
       'Content-Type': file.mimeType,
-      'Content-Disposition': `inline; filename="${file.name}"`,
+      'Content-Disposition': `inline; filename="${safeName}"; filename*=UTF-8''${encodedName}`,
       'Content-Length': String(file.size),
       'Cache-Control': 'private, max-age=3600',
+      'X-Content-Type-Options': 'nosniff',
     },
   });
 };

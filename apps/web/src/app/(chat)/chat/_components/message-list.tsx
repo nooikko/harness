@@ -11,10 +11,26 @@ type MessageListProps = {
 
 /** @internal Exported for testing only — consumers should use MessageList. */
 export const MessageListInternal = async ({ threadId }: MessageListProps) => {
-  const messages = await prisma.message.findMany({
-    where: { threadId },
-    orderBy: { createdAt: 'asc' },
-  });
+  const [messages, files] = await Promise.all([
+    prisma.message.findMany({
+      where: { threadId },
+      orderBy: { createdAt: 'asc' },
+    }),
+    prisma.file.findMany({
+      where: { threadId, messageId: { not: null } },
+      select: { id: true, name: true, mimeType: true, size: true, messageId: true },
+    }),
+  ]);
+
+  const filesByMessage = new Map<string, typeof files>();
+  for (const file of files) {
+    if (!file.messageId) {
+      continue;
+    }
+    const existing = filesByMessage.get(file.messageId) ?? [];
+    existing.push(file);
+    filesByMessage.set(file.messageId, existing);
+  }
 
   if (messages.length === 0) {
     return (
@@ -56,7 +72,7 @@ export const MessageListInternal = async ({ threadId }: MessageListProps) => {
           );
         }
 
-        return <MessageItem key={group.message.id} message={group.message} />;
+        return <MessageItem key={group.message.id} message={group.message} files={filesByMessage.get(group.message.id)} />;
       })}
       <div data-scroll-anchor aria-hidden='true' />
     </>

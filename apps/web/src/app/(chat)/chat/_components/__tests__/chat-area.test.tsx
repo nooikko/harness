@@ -96,7 +96,7 @@ describe('ChatArea', () => {
     );
     await user.click(screen.getByRole('button', { name: /send message/i }));
 
-    expect(mockSendMessage).toHaveBeenCalledWith('thread-1', 'test message');
+    expect(mockSendMessage).toHaveBeenCalledWith('thread-1', 'test message', undefined);
   });
 
   it('shows error message from sendMessage via ChatInput error prop', async () => {

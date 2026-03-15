@@ -2,6 +2,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 const mockCreate = vi.fn();
 const mockUpdate = vi.fn();
+const mockUpdateMany = vi.fn();
 const mockRevalidatePath = vi.fn();
 
 vi.mock('@harness/database', () => ({
@@ -11,6 +12,9 @@ vi.mock('@harness/database', () => ({
     },
     thread: {
       update: (...args: unknown[]) => mockUpdate(...args),
+    },
+    file: {
+      updateMany: (...args: unknown[]) => mockUpdateMany(...args),
     },
   },
 }));
@@ -115,5 +119,39 @@ describe('sendMessage', () => {
     expect(result).toEqual({
       error: 'Could not reach orchestrator. Make sure it is running.',
     });
+  });
+
+  it('links file IDs to the created message', async () => {
+    mockCreate.mockResolvedValue({ id: 'msg-1' });
+    mockUpdate.mockResolvedValue({});
+    mockUpdateMany.mockResolvedValue({ count: 2 });
+    mockFetch.mockResolvedValue({ ok: true, json: () => Promise.resolve({}) });
+
+    await sendMessage('thread-1', 'Hello', ['file-a', 'file-b']);
+
+    expect(mockUpdateMany).toHaveBeenCalledWith({
+      where: { id: { in: ['file-a', 'file-b'] }, threadId: 'thread-1' },
+      data: { messageId: 'msg-1' },
+    });
+  });
+
+  it('does not call file updateMany when fileIds is empty', async () => {
+    mockCreate.mockResolvedValue({ id: 'msg-1' });
+    mockUpdate.mockResolvedValue({});
+    mockFetch.mockResolvedValue({ ok: true, json: () => Promise.resolve({}) });
+
+    await sendMessage('thread-1', 'Hello', []);
+
+    expect(mockUpdateMany).not.toHaveBeenCalled();
+  });
+
+  it('does not call file updateMany when fileIds is undefined', async () => {
+    mockCreate.mockResolvedValue({ id: 'msg-1' });
+    mockUpdate.mockResolvedValue({});
+    mockFetch.mockResolvedValue({ ok: true, json: () => Promise.resolve({}) });
+
+    await sendMessage('thread-1', 'Hello');
+
+    expect(mockUpdateMany).not.toHaveBeenCalled();
   });
 });

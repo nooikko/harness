@@ -6,21 +6,28 @@ import { getOrchestratorUrl } from '@/app/_helpers/get-orchestrator-url';
 
 type SendMessageResult = { error: string } | undefined;
 
-type SendMessage = (threadId: string, content: string) => Promise<SendMessageResult>;
+type SendMessage = (threadId: string, content: string, fileIds?: string[]) => Promise<SendMessageResult>;
 
-export const sendMessage: SendMessage = async (threadId, content) => {
+export const sendMessage: SendMessage = async (threadId, content, fileIds) => {
   const trimmed = content.trim();
   if (!trimmed) {
     return { error: 'Message cannot be empty' };
   }
 
-  await prisma.message.create({
+  const message = await prisma.message.create({
     data: {
       threadId,
       role: 'user',
       content: trimmed,
     },
   });
+
+  if (fileIds && fileIds.length > 0) {
+    await prisma.file.updateMany({
+      where: { id: { in: fileIds }, threadId },
+      data: { messageId: message.id },
+    });
+  }
 
   await prisma.thread.update({
     where: { id: threadId },

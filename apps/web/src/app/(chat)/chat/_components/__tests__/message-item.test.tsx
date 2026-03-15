@@ -56,6 +56,10 @@ vi.mock('../status-line', () => ({
   StatusLine: ({ content }: { content: string }) => <div data-testid='status-line'>{content}</div>,
 }));
 
+vi.mock('../message-files', () => ({
+  MessageFiles: ({ files }: { files: { id: string }[] }) => <div data-testid='message-files'>{files.length} files</div>,
+}));
+
 import { MessageItem } from '../message-item';
 
 const makeMessage = (overrides: Partial<Message> = {}): Message => ({
@@ -162,5 +166,24 @@ describe('MessageItem', () => {
   it('preserves article role for assistant text messages', () => {
     render(<MessageItem message={makeMessage({ role: 'assistant', kind: 'text' })} />);
     expect(screen.getByRole('article')).toBeInTheDocument();
+  });
+
+  it('renders files on user messages when files are provided', () => {
+    const files = [
+      { id: 'f1', name: 'test.txt', mimeType: 'text/plain', size: 100 },
+      { id: 'f2', name: 'photo.png', mimeType: 'image/png', size: 200 },
+    ];
+    render(<MessageItem message={makeMessage({ role: 'user' })} files={files} />);
+    expect(screen.getByTestId('message-files')).toHaveTextContent('2 files');
+  });
+
+  it('does not render MessageFiles when files is empty', () => {
+    render(<MessageItem message={makeMessage({ role: 'user' })} files={[]} />);
+    expect(screen.queryByTestId('message-files')).not.toBeInTheDocument();
+  });
+
+  it('does not render MessageFiles when files is undefined', () => {
+    render(<MessageItem message={makeMessage({ role: 'user' })} />);
+    expect(screen.queryByTestId('message-files')).not.toBeInTheDocument();
   });
 });
