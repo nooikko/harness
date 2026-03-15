@@ -162,7 +162,7 @@ describe('ProjectSettingsForm', () => {
     render(<ProjectSettingsForm project={makeProject()} />);
     fireEvent.click(screen.getByRole('button', { name: /save changes/i }));
     await waitFor(() => {
-      expect(mockPush).toHaveBeenCalledWith('/chat/projects');
+      expect(mockPush).toHaveBeenCalledWith('/chat/projects/proj-1');
     });
   });
 
@@ -220,6 +220,68 @@ describe('ProjectSettingsForm', () => {
     fireEvent.click(screen.getByRole('button', { name: /confirm/i }));
     await waitFor(() => {
       expect(screen.getByText('Delete failed')).toBeInTheDocument();
+    });
+  });
+
+  it('does not submit when name is cleared to empty', () => {
+    render(<ProjectSettingsForm project={makeProject()} />);
+    fireEvent.change(screen.getByLabelText(/^name$/i), { target: { value: '' } });
+    fireEvent.submit(screen.getByLabelText(/^name$/i).closest('form')!);
+    expect(mockUpdateProject).not.toHaveBeenCalled();
+  });
+
+  it('passes description value when populated on save', async () => {
+    render(<ProjectSettingsForm project={makeProject()} />);
+    fireEvent.change(screen.getByLabelText(/description/i), { target: { value: 'New desc' } });
+    fireEvent.click(screen.getByRole('button', { name: /save changes/i }));
+    await waitFor(() => {
+      expect(mockUpdateProject).toHaveBeenCalledWith('proj-1', expect.objectContaining({ description: 'New desc' }));
+    });
+  });
+
+  it('passes undefined instructions when cleared on save', async () => {
+    render(<ProjectSettingsForm project={makeProject({ instructions: 'Old' })} />);
+    fireEvent.change(screen.getByLabelText(/instructions/i), { target: { value: '' } });
+    fireEvent.click(screen.getByRole('button', { name: /save changes/i }));
+    await waitFor(() => {
+      expect(mockUpdateProject).toHaveBeenCalledWith('proj-1', expect.objectContaining({ instructions: undefined }));
+    });
+  });
+
+  it('shows generic save error message for non-Error throw', async () => {
+    mockUpdateProject.mockRejectedValueOnce('some string error');
+    render(<ProjectSettingsForm project={makeProject()} />);
+    fireEvent.click(screen.getByRole('button', { name: /save changes/i }));
+    await waitFor(() => {
+      expect(screen.getByText('Failed to save project.')).toBeInTheDocument();
+    });
+  });
+
+  it('shows generic delete error message for non-Error throw', async () => {
+    mockDeleteProject.mockRejectedValueOnce('string error');
+    render(<ProjectSettingsForm project={makeProject()} />);
+    fireEvent.click(screen.getByRole('button', { name: /delete project/i }));
+    fireEvent.click(screen.getByRole('button', { name: /confirm/i }));
+    await waitFor(() => {
+      expect(screen.getByText('Failed to delete project.')).toBeInTheDocument();
+    });
+  });
+
+  it('clears save error on next save attempt', async () => {
+    mockUpdateProject.mockRejectedValueOnce(new Error('First error'));
+    render(<ProjectSettingsForm project={makeProject()} />);
+    fireEvent.click(screen.getByRole('button', { name: /save changes/i }));
+    await waitFor(() => {
+      expect(screen.getByText('First error')).toBeInTheDocument();
+    });
+
+    mockUpdateProject.mockResolvedValueOnce({ id: 'proj-1', name: 'Updated' });
+    await waitFor(() => {
+      expect(screen.getByRole('button', { name: /save changes/i })).not.toBeDisabled();
+    });
+    fireEvent.click(screen.getByRole('button', { name: /save changes/i }));
+    await waitFor(() => {
+      expect(screen.queryByText('First error')).not.toBeInTheDocument();
     });
   });
 });

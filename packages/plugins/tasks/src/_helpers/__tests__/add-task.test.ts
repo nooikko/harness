@@ -1,0 +1,304 @@
+import type { PluginContext, PluginToolMeta } from '@harness/plugin-contract';
+import { describe, expect, it, vi } from 'vitest';
+import { addTask } from '../add-task';
+
+type CreateMockContext = (overrides?: Record<string, unknown>) => PluginContext;
+
+const createMockContext: CreateMockContext = (overrides = {}) =>
+  ({
+    db: {
+      thread: {
+        findUnique: vi.fn().mockResolvedValue({
+          id: 'thread-1',
+          projectId: 'project-1',
+        }),
+      },
+      userTask: {
+        findFirst: vi.fn().mockResolvedValue(null),
+        create: vi.fn().mockImplementation(({ data }) => ({
+          id: 'task-1',
+          ...data,
+        })),
+      },
+      userTaskDependency: {
+        createMany: vi.fn().mockResolvedValue({ count: 0 }),
+      },
+    } as never,
+    invoker: { invoke: vi.fn() },
+    config: {} as never,
+    logger: {
+      info: vi.fn(),
+      warn: vi.fn(),
+      error: vi.fn(),
+      debug: vi.fn(),
+    },
+    sendToThread: vi.fn().mockResolvedValue(undefined),
+    broadcast: vi.fn().mockResolvedValue(undefined),
+    getSettings: vi.fn().mockResolvedValue({}),
+    notifySettingsChange: vi.fn().mockResolvedValue(undefined),
+    ...overrides,
+  }) as never;
+
+const defaultMeta: PluginToolMeta = {
+  threadId: 'thread-1',
+};
+
+type MockDb = {
+  thread: { findUnique: ReturnType<typeof vi.fn> };
+  userTask: {
+    findFirst: ReturnType<typeof vi.fn>;
+    create: ReturnType<typeof vi.fn>;
+  };
+  userTaskDependency: { createMany: ReturnType<typeof vi.fn> };
+};
+
+describe('addTask', () => {
+  it('creates a task with required title', async () => {
+    const ctx = createMockContext();
+    const result = await addTask(ctx, { title: 'Fix bug' }, defaultMeta);
+
+    const db = ctx.db as unknown as MockDb;
+    expect(db.userTask.create).toHaveBeenCalledWith({
+      data: {
+        title: 'Fix bug',
+        description: null,
+        priority: 'MEDIUM',
+        dueDate: null,
+        projectId: 'project-1',
+        sourceThreadId: 'thread-1',
+        createdBy: 'agent',
+      },
+    });
+    expect(result).toContain('Task created');
+    expect(result).toContain('Fix bug');
+  });
+
+  it('returns error when title is missing', async () => {
+    const ctx = createMockContext();
+    const result = await addTask(ctx, {}, defaultMeta);
+
+    expect(result).toBe('(invalid input: title is required)');
+  });
+
+  it('returns error when title is not a string', async () => {
+    const ctx = createMockContext();
+    const result = await addTask(ctx, { title: 123 }, defaultMeta);
+
+    expect(result).toBe('(invalid input: title is required)');
+  });
+
+  it('returns error when title is empty string', async () => {
+    const ctx = createMockContext();
+    const result = await addTask(ctx, { title: '' }, defaultMeta);
+
+    expect(result).toBe('(invalid input: title is required)');
+  });
+
+  it('returns existing task when duplicate found within 1 hour', async () => {
+    const ctx = createMockContext({
+      db: {
+        thread: {
+          findUnique: vi.fn().mockResolvedValue({
+            id: 'thread-1',
+            projectId: 'project-1',
+          }),
+        },
+        userTask: {
+          findFirst: vi.fn().mockResolvedValue({
+            id: 'existing-1',
+            title: 'Fix bug',
+          }),
+          create: vi.fn(),
+        },
+        userTaskDependency: { createMany: vi.fn() },
+      } as never,
+    });
+
+    const result = await addTask(ctx, { title: 'Fix bug' }, defaultMeta);
+
+    expect(result).toContain('Task already exists');
+    expect(result).toContain('existing-1');
+    const db = ctx.db as unknown as MockDb;
+    expect(db.userTask.create).not.toHaveBeenCalled();
+  });
+
+  it('defaults priority to MEDIUM when not provided', async () => {
+    const ctx = createMockContext();
+    await addTask(ctx, { title: 'Some task' }, defaultMeta);
+
+    const db = ctx.db as unknown as MockDb;
+    expect(db.userTask.create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({ priority: 'MEDIUM' }),
+      }),
+    );
+  });
+
+  it('defaults priority to MEDIUM when invalid priority given', async () => {
+    const ctx = createMockContext();
+    await addTask(ctx, { title: 'Some task', priority: 'SUPER_HIGH' }, defaultMeta);
+
+    const db = ctx.db as unknown as MockDb;
+    expect(db.userTask.create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({ priority: 'MEDIUM' }),
+      }),
+    );
+  });
+
+  it('accepts valid priority values', async () => {
+    const ctx = createMockContext();
+    await addTask(ctx, { title: 'Urgent task', priority: 'URGENT' }, defaultMeta);
+
+    const db = ctx.db as unknown as MockDb;
+    expect(db.userTask.create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({ priority: 'URGENT' }),
+      }),
+    );
+  });
+
+  it('auto-resolves projectId from thread when not provided', async () => {
+    const ctx = createMockContext();
+    await addTask(ctx, { title: 'Auto project' }, defaultMeta);
+
+    const db = ctx.db as unknown as MockDb;
+    expect(db.thread.findUnique).toHaveBeenCalledWith({
+      where: { id: 'thread-1' },
+      select: { projectId: true },
+    });
+    expect(db.userTask.create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({ projectId: 'project-1' }),
+      }),
+    );
+  });
+
+  it('uses explicit projectId when provided', async () => {
+    const ctx = createMockContext();
+    await addTask(ctx, { title: 'Explicit project', projectId: 'custom-project' }, defaultMeta);
+
+    const db = ctx.db as unknown as MockDb;
+    expect(db.thread.findUnique).not.toHaveBeenCalled();
+    expect(db.userTask.create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({ projectId: 'custom-project' }),
+      }),
+    );
+  });
+
+  it('sets projectId to null when thread has no project', async () => {
+    const ctx = createMockContext({
+      db: {
+        thread: {
+          findUnique: vi.fn().mockResolvedValue({ id: 'thread-1', projectId: null }),
+        },
+        userTask: {
+          findFirst: vi.fn().mockResolvedValue(null),
+          create: vi.fn().mockImplementation(({ data }) => ({
+            id: 'task-1',
+            ...data,
+          })),
+        },
+        userTaskDependency: { createMany: vi.fn() },
+      } as never,
+    });
+
+    await addTask(ctx, { title: 'No project' }, defaultMeta);
+
+    const db = ctx.db as unknown as MockDb;
+    expect(db.userTask.create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({ projectId: null }),
+      }),
+    );
+  });
+
+  it('creates dependency links when blockedBy is provided', async () => {
+    const ctx = createMockContext();
+    await addTask(ctx, { title: 'Blocked task', blockedBy: ['dep-1', 'dep-2'] }, defaultMeta);
+
+    const db = ctx.db as unknown as MockDb;
+    expect(db.userTaskDependency.createMany).toHaveBeenCalledWith({
+      data: [
+        { dependentId: 'task-1', dependsOnId: 'dep-1' },
+        { dependentId: 'task-1', dependsOnId: 'dep-2' },
+      ],
+      skipDuplicates: true,
+    });
+  });
+
+  it('does not create dependencies when blockedBy is empty array', async () => {
+    const ctx = createMockContext();
+    await addTask(ctx, { title: 'No blockers', blockedBy: [] }, defaultMeta);
+
+    const db = ctx.db as unknown as MockDb;
+    expect(db.userTaskDependency.createMany).not.toHaveBeenCalled();
+  });
+
+  it('does not create dependencies when blockedBy is omitted', async () => {
+    const ctx = createMockContext();
+    await addTask(ctx, { title: 'Solo task' }, defaultMeta);
+
+    const db = ctx.db as unknown as MockDb;
+    expect(db.userTaskDependency.createMany).not.toHaveBeenCalled();
+  });
+
+  it('parses dueDate as Date object', async () => {
+    const ctx = createMockContext();
+    await addTask(ctx, { title: 'Due task', dueDate: '2099-06-15T14:00:00Z' }, defaultMeta);
+
+    const db = ctx.db as unknown as MockDb;
+    expect(db.userTask.create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({
+          dueDate: new Date('2099-06-15T14:00:00Z'),
+        }),
+      }),
+    );
+  });
+
+  it('sets dueDate to null when not provided', async () => {
+    const ctx = createMockContext();
+    await addTask(ctx, { title: 'No due date' }, defaultMeta);
+
+    const db = ctx.db as unknown as MockDb;
+    expect(db.userTask.create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({ dueDate: null }),
+      }),
+    );
+  });
+
+  it('includes task id and priority in return message', async () => {
+    const ctx = createMockContext();
+    const result = await addTask(ctx, { title: 'My task', priority: 'HIGH' }, defaultMeta);
+
+    expect(result).toContain('task-1');
+    expect(result).toContain('HIGH');
+  });
+
+  it('sets sourceThreadId from meta.threadId', async () => {
+    const ctx = createMockContext();
+    await addTask(ctx, { title: 'Thread task' }, { threadId: 'special-thread' });
+
+    const db = ctx.db as unknown as MockDb;
+    expect(db.userTask.create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({ sourceThreadId: 'special-thread' }),
+      }),
+    );
+  });
+
+  it('sets createdBy to agent', async () => {
+    const ctx = createMockContext();
+    await addTask(ctx, { title: 'Agent task' }, defaultMeta);
+
+    const db = ctx.db as unknown as MockDb;
+    expect(db.userTask.create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({ createdBy: 'agent' }),
+      }),
+    );
+  });
+});

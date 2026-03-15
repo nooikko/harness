@@ -109,7 +109,7 @@ describe('NavProjects', () => {
     const project = makeProject({ id: 'proj-abc', name: 'My Project' });
     renderWithProvider(<NavProjects projects={[project]} />);
     const settingsLink = screen.getByRole('link', { name: /settings/i });
-    expect(settingsLink).toHaveAttribute('href', '/chat/projects/proj-abc');
+    expect(settingsLink).toHaveAttribute('href', '/chat/projects/proj-abc/settings');
   });
 
   it('marks an active thread link', () => {

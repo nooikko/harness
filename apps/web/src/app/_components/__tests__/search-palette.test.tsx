@@ -417,6 +417,94 @@ describe('SearchPalette', () => {
     expect(container.querySelector('[role="dialog"]')).toBeNull();
   });
 
+  it('does not navigate for message with no threadId', async () => {
+    const user = userEvent.setup();
+    mockFetch.mockResolvedValue({
+      ok: true,
+      json: async () => ({
+        results: [
+          {
+            type: 'message',
+            id: 'm1',
+            title: 'Orphan message',
+            preview: 'no thread',
+            score: 0.5,
+            meta: { createdAt: '2026-03-15T00:00:00Z' },
+          },
+        ],
+      }),
+    });
+
+    render(<SearchPalette open={true} onOpenChange={vi.fn()} />);
+    const input = screen.getByPlaceholderText(/search/i);
+    await user.type(input, 'orphan');
+
+    await vi.waitFor(() => {
+      expect(screen.getByRole('option')).toBeInTheDocument();
+    });
+
+    await user.click(screen.getByRole('option'));
+    expect(mockPush).not.toHaveBeenCalled();
+  });
+
+  it('does not navigate for file with no threadId', async () => {
+    const user = userEvent.setup();
+    mockFetch.mockResolvedValue({
+      ok: true,
+      json: async () => ({
+        results: [
+          {
+            type: 'file',
+            id: 'f1',
+            title: 'loose.pdf',
+            preview: 'no thread',
+            score: 0.5,
+            meta: { createdAt: '2026-03-15T00:00:00Z' },
+          },
+        ],
+      }),
+    });
+
+    render(<SearchPalette open={true} onOpenChange={vi.fn()} />);
+    const input = screen.getByPlaceholderText(/search/i);
+    await user.type(input, 'loose');
+
+    await vi.waitFor(() => {
+      expect(screen.getByRole('option')).toBeInTheDocument();
+    });
+
+    await user.click(screen.getByRole('option'));
+    expect(mockPush).not.toHaveBeenCalled();
+  });
+
+  it('handles non-ok fetch response', async () => {
+    const user = userEvent.setup();
+    mockFetch.mockResolvedValue({ ok: false, status: 500 });
+
+    render(<SearchPalette open={true} onOpenChange={vi.fn()} />);
+    const input = screen.getByPlaceholderText(/search/i);
+    await user.type(input, 'server error');
+
+    await vi.waitFor(() => {
+      expect(screen.getByText(/no results found/i)).toBeInTheDocument();
+    });
+  });
+
+  it('does not show recents when loading', async () => {
+    localStorage.setItem('harness:recent-searches', JSON.stringify(['old']));
+    mockFetch.mockImplementation(() => new Promise(() => {}));
+
+    const user = userEvent.setup();
+    render(<SearchPalette open={true} onOpenChange={vi.fn()} />);
+    const input = screen.getByPlaceholderText(/search/i);
+    await user.type(input, 'te');
+
+    // While loading, recents should not show
+    await vi.waitFor(() => {
+      expect(screen.queryByText('old')).not.toBeInTheDocument();
+    });
+  });
+
   it('highlights matched terms in results', async () => {
     const user = userEvent.setup();
     mockFetch.mockResolvedValue({

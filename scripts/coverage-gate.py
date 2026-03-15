@@ -78,6 +78,7 @@ PROJECT_DIRS = [
     ("packages/plugins/project/", "packages/plugins/project"),
     ("packages/plugins/music/", "packages/plugins/music"),
     ("packages/plugins/search/", "packages/plugins/search"),
+    ("packages/plugins/tasks/", "packages/plugins/tasks"),
 ]
 
 MAX_RETRIES = 2  # ESM race condition is non-deterministic; retry on failure

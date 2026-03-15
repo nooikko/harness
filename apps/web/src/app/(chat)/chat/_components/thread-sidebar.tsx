@@ -1,14 +1,15 @@
 import { prisma } from '@harness/database';
-import { Sidebar, SidebarContent, SidebarSeparator, Skeleton } from '@harness/ui';
+import { Sidebar, SidebarContent, SidebarGroupLabel, SidebarSeparator, Skeleton } from '@harness/ui';
 import { Suspense } from 'react';
 import { sortThreads } from '../_helpers/sort-threads';
 import { NavChats } from './nav-chats';
 import { NavLinks } from './nav-links';
+import { NavProjects } from './nav-projects';
 import { SidebarNewChat } from './sidebar-new-chat';
 
 /** @internal Exported for testing only — consumers should use ThreadSidebar. */
 export const ThreadSidebarInternal = async () => {
-  const [threads, projects] = await Promise.all([
+  const [threads, projects, projectsWithThreads] = await Promise.all([
     prisma.thread.findMany({
       where: { kind: { not: 'task' } },
       orderBy: { lastActivity: 'desc' },
@@ -17,6 +18,15 @@ export const ThreadSidebarInternal = async () => {
     prisma.project.findMany({
       select: { id: true, name: true },
       orderBy: { updatedAt: 'desc' },
+    }),
+    prisma.project.findMany({
+      orderBy: { updatedAt: 'desc' },
+      include: {
+        threads: {
+          orderBy: { lastActivity: 'desc' },
+          take: 5,
+        },
+      },
     }),
   ]);
 
@@ -28,6 +38,13 @@ export const ThreadSidebarInternal = async () => {
       <SidebarContent>
         <SidebarNewChat />
         <NavLinks />
+        {projectsWithThreads.length > 0 && (
+          <>
+            <SidebarSeparator />
+            <SidebarGroupLabel>Projects</SidebarGroupLabel>
+            <NavProjects projects={projectsWithThreads} />
+          </>
+        )}
         <SidebarSeparator />
         <NavChats threads={sorted} projects={projectOptions} />
       </SidebarContent>

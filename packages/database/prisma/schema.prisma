@@ -54,6 +54,7 @@ model Project {
   memories     AgentMemory[]
   cronJobs     CronJob[]
   files        File[]
+  tasks        UserTask[]
   createdAt    DateTime  @default(now())
   updatedAt    DateTime  @updatedAt
 
@@ -283,6 +284,61 @@ model ThreadAudit {
 
   @@index([threadId])
   @@index([extractedAt])
+}
+
+// ── Task Management Models ────────────────────────────────────────────────
+
+enum TaskStatus {
+  TODO
+  IN_PROGRESS
+  DONE
+  CANCELLED
+}
+
+enum TaskPriority {
+  LOW
+  MEDIUM
+  HIGH
+  URGENT
+}
+
+model UserTask {
+  id              String         @id @default(cuid())
+  title           String
+  description     String?        @db.Text
+  status          TaskStatus     @default(TODO)
+  priority        TaskPriority   @default(MEDIUM)
+  dueDate         DateTime?
+
+  sourceMessageId String?
+  sourceThreadId  String?
+
+  projectId       String?
+  project         Project?       @relation(fields: [projectId], references: [id], onDelete: SetNull)
+
+  createdBy       String         @default("user")
+
+  blockedBy       UserTaskDependency[] @relation("DependentTask")
+  blocks          UserTaskDependency[] @relation("BlockingTask")
+
+  createdAt       DateTime       @default(now())
+  updatedAt       DateTime       @updatedAt
+  completedAt     DateTime?
+
+  @@index([status])
+  @@index([projectId, status])
+  @@index([sourceThreadId])
+}
+
+model UserTaskDependency {
+  id          String   @id @default(cuid())
+  dependentId String
+  dependent   UserTask @relation("DependentTask", fields: [dependentId], references: [id], onDelete: Cascade)
+  dependsOnId String
+  dependsOn   UserTask @relation("BlockingTask", fields: [dependsOnId], references: [id], onDelete: Cascade)
+  createdAt   DateTime @default(now())
+
+  @@unique([dependentId, dependsOnId])
 }
 
 model UserProfile {

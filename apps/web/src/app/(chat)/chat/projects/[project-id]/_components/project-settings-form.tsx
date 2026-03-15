@@ -66,7 +66,7 @@ export const ProjectSettingsForm: ProjectSettingsFormComponent = ({ project }) =
           model: model === '_inherit' ? null : model,
           instructions: instructions.trim() || undefined,
         });
-        router.push('/chat/projects');
+        router.push(`/chat/projects/${project.id}`);
       } catch (err) {
         setSaveError(err instanceof Error ? err.message : 'Failed to save project.');
       }

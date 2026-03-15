@@ -66,7 +66,7 @@ export const NavProjects: NavProjectsComponent = ({ projects }) => {
                   </SidebarMenuSubItem>
                   <SidebarMenuSubItem>
                     <SidebarMenuSubButton asChild>
-                      <Link href={`/chat/projects/${project.id}`}>
+                      <Link href={`/chat/projects/${project.id}/settings`}>
                         <Settings className='h-3 w-3' />
                         <span>Settings</span>
                       </Link>
