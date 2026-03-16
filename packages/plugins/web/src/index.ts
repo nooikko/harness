@@ -3,17 +3,20 @@
 import { createServer, type Server as HttpServer } from 'node:http';
 import type { Logger } from '@harness/logger';
 import type { PluginContext, PluginDefinition, PluginHooks } from '@harness/plugin-contract';
-import { createApp } from './_helpers/routes';
+import type { Express } from 'express';
+import { createApp, mountPluginRoutes } from './_helpers/routes';
 import { createWsBroadcaster, type WsBroadcaster } from './_helpers/ws-broadcaster';
 
 type WebPluginState = {
   server: HttpServer | null;
   broadcaster: WsBroadcaster | null;
+  app: Express | null;
 };
 
 const state: WebPluginState = {
   server: null,
   broadcaster: null,
+  app: null,
 };
 
 type CreateRegister = () => PluginDefinition['register'];
@@ -41,6 +44,7 @@ const createRegister: CreateRegister = () => async (ctx: PluginContext) => {
 
   state.server = server;
   state.broadcaster = broadcaster;
+  state.app = app;
 
   const hooks: PluginHooks = {
     onBroadcast: async (event, data) => {
@@ -90,9 +94,11 @@ export const plugin: PluginDefinition = {
 
   start: async (ctx) => {
     const port = ctx.config.port;
-    if (!state.server) {
+    if (!state.server || !state.app) {
       throw new Error('Web plugin register() must be called before start()');
     }
+    // Mount plugin routes here — ctx.pluginRoutes is populated after register() but before start()
+    mountPluginRoutes(state.app, ctx, ctx.logger);
     await startServer(state.server, port, ctx.logger);
   },
 

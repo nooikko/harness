@@ -258,31 +258,35 @@ export const createApp: CreateApp = ({ ctx, logger, onChatMessage }) => {
     }
   });
 
-  // Mount plugin routes — each plugin's routes are served under /api/plugins/:pluginName/...
-  if (ctx.pluginRoutes) {
-    for (const pluginEntry of ctx.pluginRoutes) {
-      for (const route of pluginEntry.routes) {
-        const fullPath = `/api/plugins/${pluginEntry.pluginName}${route.path.startsWith('/') ? '' : '/'}${route.path}`;
-        const method = route.method.toLowerCase() as 'get' | 'post' | 'put' | 'delete';
-        app[method](fullPath, async (req: Request, res: Response) => {
-          try {
-            const pluginReq = {
-              body: req.body as unknown,
-              params: req.params as Record<string, string>,
-              query: req.query as Record<string, string>,
-            };
-            const result = await route.handler(pluginEntry.ctx, pluginReq);
-            res.status(result.status).json(result.body);
-          } catch (err) {
-            const message = err instanceof Error ? err.message : String(err);
-            logger.error('Plugin route error', { plugin: pluginEntry.pluginName, path: fullPath, error: message });
-            res.status(500).json({ error: 'Internal server error' });
-          }
-        });
-        logger.info(`Mounted plugin route: ${route.method} ${fullPath}`);
-      }
+  return app;
+};
+
+type MountPluginRoutes = (app: Express, ctx: PluginContext, logger: Logger) => void;
+
+export const mountPluginRoutes: MountPluginRoutes = (app, ctx, logger) => {
+  if (!ctx.pluginRoutes) {
+    return;
+  }
+  for (const pluginEntry of ctx.pluginRoutes) {
+    for (const route of pluginEntry.routes) {
+      const fullPath = `/api/plugins/${pluginEntry.pluginName}${route.path.startsWith('/') ? '' : '/'}${route.path}`;
+      const method = route.method.toLowerCase() as 'get' | 'post' | 'put' | 'delete';
+      app[method](fullPath, async (req: Request, res: Response) => {
+        try {
+          const pluginReq = {
+            body: req.body as unknown,
+            params: req.params as Record<string, string>,
+            query: req.query as Record<string, string>,
+          };
+          const result = await route.handler(pluginEntry.ctx, pluginReq);
+          res.status(result.status).json(result.body);
+        } catch (err) {
+          const message = err instanceof Error ? err.message : String(err);
+          logger.error('Plugin route error', { plugin: pluginEntry.pluginName, path: fullPath, error: message });
+          res.status(500).json({ error: 'Internal server error' });
+        }
+      });
+      logger.info(`Mounted plugin route: ${route.method} ${fullPath}`);
     }
   }
-
-  return app;
 };

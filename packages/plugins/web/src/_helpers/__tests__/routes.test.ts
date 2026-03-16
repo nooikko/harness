@@ -4,7 +4,7 @@ import { createServer } from 'node:http';
 import type { Logger } from '@harness/logger';
 import type { PluginContext, PluginRouteEntry } from '@harness/plugin-contract';
 import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
-import { createApp } from '../routes';
+import { createApp, mountPluginRoutes } from '../routes';
 
 type MockDb = {
   thread: { findMany: ReturnType<typeof vi.fn>; findUnique: ReturnType<typeof vi.fn> };
@@ -795,6 +795,7 @@ describe('plugin route mounting', () => {
       logger: mockPluginLogger,
       onChatMessage: vi.fn() as (threadId: string, content: string) => Promise<void>,
     });
+    mountPluginRoutes(app, webCtx, mockPluginLogger);
 
     pluginServer = createServer(app);
 
