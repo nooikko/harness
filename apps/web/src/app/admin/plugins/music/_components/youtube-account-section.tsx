@@ -30,13 +30,14 @@ type AccountInfo = {
 type YouTubeAccountSectionProps = {
   connected: boolean;
   account?: AccountInfo;
+  orchestratorUrl: string;
 };
 
 type PollStatus = 'idle' | 'pending' | 'completed' | 'error';
 
 type YouTubeAccountSectionComponent = (props: YouTubeAccountSectionProps) => React.ReactNode;
 
-export const YouTubeAccountSection: YouTubeAccountSectionComponent = ({ connected: initialConnected, account: initialAccount }) => {
+export const YouTubeAccountSection: YouTubeAccountSectionComponent = ({ connected: initialConnected, account: initialAccount, orchestratorUrl }) => {
   const [connected, setConnected] = useState(initialConnected);
   const [account, setAccount] = useState<AccountInfo | undefined>(initialAccount);
   const [pollStatus, setPollStatus] = useState<PollStatus>('idle');
@@ -73,7 +74,7 @@ export const YouTubeAccountSection: YouTubeAccountSectionComponent = ({ connecte
     // Poll for completion every 3 seconds
     pollRef.current = setInterval(async () => {
       try {
-        const res = await fetch('/api/plugins/music/oauth/status');
+        const res = await fetch(`${orchestratorUrl}/api/plugins/music/oauth/status`);
         if (!res.ok) {
           return;
         }

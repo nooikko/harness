@@ -33,7 +33,7 @@ describe('YouTubeAccountSection', () => {
   it('renders Connect button when not connected', async () => {
     const { YouTubeAccountSection } = await import('../youtube-account-section');
 
-    render(<YouTubeAccountSection connected={false} />);
+    render(<YouTubeAccountSection connected={false} orchestratorUrl='http://localhost:4001' />);
 
     expect(screen.getByText('Connect with OAuth')).toBeDefined();
     expect(screen.getByText('Connect YouTube Music')).toBeDefined();
@@ -42,7 +42,9 @@ describe('YouTubeAccountSection', () => {
   it('renders connected state with account email', async () => {
     const { YouTubeAccountSection } = await import('../youtube-account-section');
 
-    render(<YouTubeAccountSection connected={true} account={{ email: 'user@example.com', name: 'Test User' }} />);
+    render(
+      <YouTubeAccountSection connected={true} orchestratorUrl='http://localhost:4001' account={{ email: 'user@example.com', name: 'Test User' }} />,
+    );
 
     expect(screen.getByText('Test User')).toBeDefined();
     expect(screen.getByText('user@example.com')).toBeDefined();
@@ -51,7 +53,9 @@ describe('YouTubeAccountSection', () => {
   it('renders Disconnect button when connected', async () => {
     const { YouTubeAccountSection } = await import('../youtube-account-section');
 
-    render(<YouTubeAccountSection connected={true} account={{ email: 'user@example.com', name: 'Test User' }} />);
+    render(
+      <YouTubeAccountSection connected={true} orchestratorUrl='http://localhost:4001' account={{ email: 'user@example.com', name: 'Test User' }} />,
+    );
 
     expect(screen.getByText('Disconnect')).toBeDefined();
   });
@@ -62,6 +66,7 @@ describe('YouTubeAccountSection', () => {
     render(
       <YouTubeAccountSection
         connected={true}
+        orchestratorUrl='http://localhost:4001'
         account={{
           email: 'user@example.com',
           name: 'Test User',
@@ -76,7 +81,9 @@ describe('YouTubeAccountSection', () => {
   it('does not render subscription badge when absent', async () => {
     const { YouTubeAccountSection } = await import('../youtube-account-section');
 
-    render(<YouTubeAccountSection connected={true} account={{ email: 'user@example.com', name: 'Test User' }} />);
+    render(
+      <YouTubeAccountSection connected={true} orchestratorUrl='http://localhost:4001' account={{ email: 'user@example.com', name: 'Test User' }} />,
+    );
 
     expect(screen.queryByText('Premium')).toBeNull();
   });
@@ -84,7 +91,7 @@ describe('YouTubeAccountSection', () => {
   it('renders fallback avatar when no photo is provided', async () => {
     const { YouTubeAccountSection } = await import('../youtube-account-section');
 
-    render(<YouTubeAccountSection connected={true} account={{ name: 'Test User' }} />);
+    render(<YouTubeAccountSection connected={true} orchestratorUrl='http://localhost:4001' account={{ name: 'Test User' }} />);
 
     // Should NOT have an img element
     expect(screen.queryByRole('img')).toBeNull();
@@ -97,6 +104,7 @@ describe('YouTubeAccountSection', () => {
     render(
       <YouTubeAccountSection
         connected={true}
+        orchestratorUrl='http://localhost:4001'
         account={{
           name: 'Test User',
           photo: 'https://example.com/photo.jpg',
@@ -113,7 +121,7 @@ describe('YouTubeAccountSection', () => {
   it("uses 'Profile' as alt text when name is absent", async () => {
     const { YouTubeAccountSection } = await import('../youtube-account-section');
 
-    render(<YouTubeAccountSection connected={true} account={{ photo: 'https://example.com/photo.jpg' }} />);
+    render(<YouTubeAccountSection connected={true} orchestratorUrl='http://localhost:4001' account={{ photo: 'https://example.com/photo.jpg' }} />);
 
     const img = screen.getByRole('img');
     expect(img.getAttribute('alt')).toBe('Profile');
@@ -122,7 +130,7 @@ describe('YouTubeAccountSection', () => {
   it("renders 'YouTube Music' when name is absent", async () => {
     const { YouTubeAccountSection } = await import('../youtube-account-section');
 
-    render(<YouTubeAccountSection connected={true} account={{ email: 'a@b.com' }} />);
+    render(<YouTubeAccountSection connected={true} orchestratorUrl='http://localhost:4001' account={{ email: 'a@b.com' }} />);
 
     expect(screen.getByText('YouTube Music')).toBeDefined();
   });
@@ -130,7 +138,7 @@ describe('YouTubeAccountSection', () => {
   it('does not render email when absent', async () => {
     const { YouTubeAccountSection } = await import('../youtube-account-section');
 
-    render(<YouTubeAccountSection connected={true} account={{ name: 'Test User' }} />);
+    render(<YouTubeAccountSection connected={true} orchestratorUrl='http://localhost:4001' account={{ name: 'Test User' }} />);
 
     expect(screen.getByText('Test User')).toBeDefined();
     // No email paragraph rendered
@@ -148,7 +156,7 @@ describe('YouTubeAccountSection', () => {
     const { YouTubeAccountSection } = await import('../youtube-account-section');
     const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime });
 
-    render(<YouTubeAccountSection connected={false} />);
+    render(<YouTubeAccountSection connected={false} orchestratorUrl='http://localhost:4001' />);
 
     await user.click(screen.getByText('Connect with OAuth'));
 
@@ -168,7 +176,7 @@ describe('YouTubeAccountSection', () => {
     const { YouTubeAccountSection } = await import('../youtube-account-section');
     const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime });
 
-    render(<YouTubeAccountSection connected={false} />);
+    render(<YouTubeAccountSection connected={false} orchestratorUrl='http://localhost:4001' />);
 
     await user.click(screen.getByText('Connect with OAuth'));
 
@@ -187,7 +195,7 @@ describe('YouTubeAccountSection', () => {
     const { YouTubeAccountSection } = await import('../youtube-account-section');
     const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime });
 
-    render(<YouTubeAccountSection connected={false} />);
+    render(<YouTubeAccountSection connected={false} orchestratorUrl='http://localhost:4001' />);
 
     await user.click(screen.getByText('Connect with OAuth'));
 
@@ -205,7 +213,7 @@ describe('YouTubeAccountSection', () => {
     const { YouTubeAccountSection } = await import('../youtube-account-section');
     const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime });
 
-    render(<YouTubeAccountSection connected={false} />);
+    render(<YouTubeAccountSection connected={false} orchestratorUrl='http://localhost:4001' />);
 
     await user.click(screen.getByText('Connect with OAuth'));
 
@@ -219,7 +227,7 @@ describe('YouTubeAccountSection', () => {
     const { YouTubeAccountSection } = await import('../youtube-account-section');
     const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime });
 
-    render(<YouTubeAccountSection connected={false} />);
+    render(<YouTubeAccountSection connected={false} orchestratorUrl='http://localhost:4001' />);
 
     await user.click(screen.getByText('Connect with OAuth'));
 
@@ -251,7 +259,7 @@ describe('YouTubeAccountSection', () => {
     const { YouTubeAccountSection } = await import('../youtube-account-section');
     const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime });
 
-    render(<YouTubeAccountSection connected={false} />);
+    render(<YouTubeAccountSection connected={false} orchestratorUrl='http://localhost:4001' />);
 
     await user.click(screen.getByText('Connect with OAuth'));
 
@@ -290,7 +298,7 @@ describe('YouTubeAccountSection', () => {
     const { YouTubeAccountSection } = await import('../youtube-account-section');
     const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime });
 
-    render(<YouTubeAccountSection connected={false} />);
+    render(<YouTubeAccountSection connected={false} orchestratorUrl='http://localhost:4001' />);
 
     await user.click(screen.getByText('Connect with OAuth'));
 
@@ -322,7 +330,7 @@ describe('YouTubeAccountSection', () => {
     const { YouTubeAccountSection } = await import('../youtube-account-section');
     const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime });
 
-    render(<YouTubeAccountSection connected={false} />);
+    render(<YouTubeAccountSection connected={false} orchestratorUrl='http://localhost:4001' />);
 
     await user.click(screen.getByText('Connect with OAuth'));
 
@@ -359,7 +367,7 @@ describe('YouTubeAccountSection', () => {
     const { YouTubeAccountSection } = await import('../youtube-account-section');
     const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime });
 
-    render(<YouTubeAccountSection connected={false} />);
+    render(<YouTubeAccountSection connected={false} orchestratorUrl='http://localhost:4001' />);
 
     await user.click(screen.getByText('Connect with OAuth'));
 
@@ -402,7 +410,7 @@ describe('YouTubeAccountSection', () => {
     const { YouTubeAccountSection } = await import('../youtube-account-section');
     const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime });
 
-    render(<YouTubeAccountSection connected={false} />);
+    render(<YouTubeAccountSection connected={false} orchestratorUrl='http://localhost:4001' />);
 
     await user.click(screen.getByText('Connect with OAuth'));
 
@@ -426,7 +434,9 @@ describe('YouTubeAccountSection', () => {
     const { YouTubeAccountSection } = await import('../youtube-account-section');
     const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime });
 
-    render(<YouTubeAccountSection connected={true} account={{ name: 'Test User', email: 'test@test.com' }} />);
+    render(
+      <YouTubeAccountSection connected={true} orchestratorUrl='http://localhost:4001' account={{ name: 'Test User', email: 'test@test.com' }} />,
+    );
 
     expect(screen.getByText('Test User')).toBeDefined();
 
@@ -446,7 +456,9 @@ describe('YouTubeAccountSection', () => {
     const { YouTubeAccountSection } = await import('../youtube-account-section');
     const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime });
 
-    render(<YouTubeAccountSection connected={true} account={{ name: 'Test User', email: 'test@test.com' }} />);
+    render(
+      <YouTubeAccountSection connected={true} orchestratorUrl='http://localhost:4001' account={{ name: 'Test User', email: 'test@test.com' }} />,
+    );
 
     await user.click(screen.getByText('Disconnect'));
 
@@ -467,7 +479,7 @@ describe('YouTubeAccountSection', () => {
     // view doesn't render the error Alert, we'll verify the component doesn't crash.
     // The error would be visible if user disconnects and we switch to disconnected view.
     // Let's test the full flow: connected -> disconnect fails -> stays connected
-    render(<YouTubeAccountSection connected={true} account={{ name: 'User', email: 'a@b.com' }} />);
+    render(<YouTubeAccountSection connected={true} orchestratorUrl='http://localhost:4001' account={{ name: 'User', email: 'a@b.com' }} />);
 
     await user.click(screen.getByText('Disconnect'));
 
@@ -489,7 +501,7 @@ describe('YouTubeAccountSection', () => {
     const { YouTubeAccountSection } = await import('../youtube-account-section');
     const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime });
 
-    render(<YouTubeAccountSection connected={true} account={{ name: 'User', email: 'a@b.com' }} />);
+    render(<YouTubeAccountSection connected={true} orchestratorUrl='http://localhost:4001' account={{ name: 'User', email: 'a@b.com' }} />);
 
     await user.click(screen.getByText('Disconnect'));
 
@@ -502,7 +514,7 @@ describe('YouTubeAccountSection', () => {
   it('renders collapsible cookie fallback section', async () => {
     const { YouTubeAccountSection } = await import('../youtube-account-section');
 
-    render(<YouTubeAccountSection connected={false} />);
+    render(<YouTubeAccountSection connected={false} orchestratorUrl='http://localhost:4001' />);
 
     expect(screen.getByText('Or paste cookies')).toBeDefined();
   });
@@ -511,7 +523,7 @@ describe('YouTubeAccountSection', () => {
     const { YouTubeAccountSection } = await import('../youtube-account-section');
     const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime });
 
-    render(<YouTubeAccountSection connected={false} />);
+    render(<YouTubeAccountSection connected={false} orchestratorUrl='http://localhost:4001' />);
 
     await user.click(screen.getByText('Or paste cookies'));
 
@@ -539,7 +551,7 @@ describe('YouTubeAccountSection', () => {
     const { YouTubeAccountSection } = await import('../youtube-account-section');
     const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime });
 
-    render(<YouTubeAccountSection connected={false} />);
+    render(<YouTubeAccountSection connected={false} orchestratorUrl='http://localhost:4001' />);
 
     await user.click(screen.getByText('Connect with OAuth'));
 

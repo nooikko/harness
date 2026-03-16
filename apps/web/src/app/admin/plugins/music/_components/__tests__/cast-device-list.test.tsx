@@ -75,7 +75,7 @@ describe('CastDeviceList', () => {
 
     const { CastDeviceList } = await import('../cast-device-list');
 
-    const { container } = render(<CastDeviceList />);
+    const { container } = render(<CastDeviceList orchestratorUrl='http://localhost:4001' />);
 
     // Should not show the count badge while loading
     expect(screen.queryByText('0')).toBeNull();
@@ -89,7 +89,7 @@ describe('CastDeviceList', () => {
 
     const { CastDeviceList } = await import('../cast-device-list');
 
-    render(<CastDeviceList />);
+    render(<CastDeviceList orchestratorUrl='http://localhost:4001' />);
 
     await waitFor(() => {
       expect(screen.getByText('No Cast devices found')).toBeDefined();
@@ -103,7 +103,7 @@ describe('CastDeviceList', () => {
 
     const { CastDeviceList } = await import('../cast-device-list');
 
-    render(<CastDeviceList />);
+    render(<CastDeviceList orchestratorUrl='http://localhost:4001' />);
 
     await waitFor(() => {
       expect(screen.getByText('2')).toBeDefined();
@@ -115,7 +115,7 @@ describe('CastDeviceList', () => {
 
     const { CastDeviceList } = await import('../cast-device-list');
 
-    render(<CastDeviceList />);
+    render(<CastDeviceList orchestratorUrl='http://localhost:4001' />);
 
     await waitFor(() => {
       expect(screen.getByText('Living Room Speaker')).toBeDefined();
@@ -128,7 +128,7 @@ describe('CastDeviceList', () => {
 
     const { CastDeviceList } = await import('../cast-device-list');
 
-    render(<CastDeviceList />);
+    render(<CastDeviceList orchestratorUrl='http://localhost:4001' />);
 
     await waitFor(() => {
       const testButtons = screen.getAllByText('Test');
@@ -149,7 +149,7 @@ describe('CastDeviceList', () => {
 
     const { CastDeviceList } = await import('../cast-device-list');
 
-    render(<CastDeviceList />);
+    render(<CastDeviceList orchestratorUrl='http://localhost:4001' />);
 
     await waitFor(() => {
       expect(screen.getByText('Failed to load devices')).toBeDefined();
@@ -164,7 +164,7 @@ describe('CastDeviceList', () => {
 
     const { CastDeviceList } = await import('../cast-device-list');
 
-    render(<CastDeviceList />);
+    render(<CastDeviceList orchestratorUrl='http://localhost:4001' />);
 
     await waitFor(() => {
       expect(screen.getByText('Could not reach orchestrator')).toBeDefined();
@@ -176,7 +176,7 @@ describe('CastDeviceList', () => {
 
     const { CastDeviceList } = await import('../cast-device-list');
 
-    render(<CastDeviceList />);
+    render(<CastDeviceList orchestratorUrl='http://localhost:4001' />);
 
     await waitFor(() => {
       expect(screen.getByText('Nest Audio')).toBeDefined();
@@ -189,7 +189,7 @@ describe('CastDeviceList', () => {
 
     const { CastDeviceList } = await import('../cast-device-list');
 
-    render(<CastDeviceList />);
+    render(<CastDeviceList orchestratorUrl='http://localhost:4001' />);
 
     await waitFor(() => {
       expect(screen.getByText('My Office')).toBeDefined();
@@ -204,7 +204,7 @@ describe('CastDeviceList', () => {
 
     const { CastDeviceList } = await import('../cast-device-list');
 
-    render(<CastDeviceList />);
+    render(<CastDeviceList orchestratorUrl='http://localhost:4001' />);
 
     await waitFor(() => {
       expect(screen.getByText('Living Room Speaker')).toBeDefined();
@@ -219,7 +219,7 @@ describe('CastDeviceList', () => {
 
     const { CastDeviceList } = await import('../cast-device-list');
 
-    render(<CastDeviceList />);
+    render(<CastDeviceList orchestratorUrl='http://localhost:4001' />);
 
     await waitFor(() => {
       expect(screen.getByText('Bedroom Speaker')).toBeDefined();
@@ -237,7 +237,7 @@ describe('CastDeviceList', () => {
     const { CastDeviceList } = await import('../cast-device-list');
     const user = userEvent.setup();
 
-    render(<CastDeviceList />);
+    render(<CastDeviceList orchestratorUrl='http://localhost:4001' />);
 
     await waitFor(() => {
       expect(screen.getByText('Living Room Speaker')).toBeDefined();
@@ -263,7 +263,7 @@ describe('CastDeviceList', () => {
     const { CastDeviceList } = await import('../cast-device-list');
     const user = userEvent.setup();
 
-    render(<CastDeviceList />);
+    render(<CastDeviceList orchestratorUrl='http://localhost:4001' />);
 
     await waitFor(() => {
       expect(screen.getByText('Living Room Speaker')).toBeDefined();
@@ -291,7 +291,7 @@ describe('CastDeviceList', () => {
     const { CastDeviceList } = await import('../cast-device-list');
     const user = userEvent.setup();
 
-    render(<CastDeviceList />);
+    render(<CastDeviceList orchestratorUrl='http://localhost:4001' />);
 
     await waitFor(() => {
       expect(screen.getByText('Living Room Speaker')).toBeDefined();
@@ -312,7 +312,7 @@ describe('CastDeviceList', () => {
     const { CastDeviceList } = await import('../cast-device-list');
     const user = userEvent.setup();
 
-    render(<CastDeviceList />);
+    render(<CastDeviceList orchestratorUrl='http://localhost:4001' />);
 
     await waitFor(() => {
       expect(screen.getByText('Living Room Speaker')).toBeDefined();
@@ -331,7 +331,7 @@ describe('CastDeviceList', () => {
     const { CastDeviceList } = await import('../cast-device-list');
     const user = userEvent.setup();
 
-    render(<CastDeviceList />);
+    render(<CastDeviceList orchestratorUrl='http://localhost:4001' />);
 
     await waitFor(() => {
       expect(screen.getByText('Living Room Speaker')).toBeDefined();
@@ -357,7 +357,7 @@ describe('CastDeviceList', () => {
     const { CastDeviceList } = await import('../cast-device-list');
     const user = userEvent.setup();
 
-    render(<CastDeviceList />);
+    render(<CastDeviceList orchestratorUrl='http://localhost:4001' />);
 
     await waitFor(() => {
       expect(screen.getByText('My Office')).toBeDefined();
@@ -377,7 +377,7 @@ describe('CastDeviceList', () => {
     const { CastDeviceList } = await import('../cast-device-list');
     const user = userEvent.setup();
 
-    render(<CastDeviceList />);
+    render(<CastDeviceList orchestratorUrl='http://localhost:4001' />);
 
     await waitFor(() => {
       expect(screen.getByText('Living Room Speaker')).toBeDefined();
@@ -408,7 +408,7 @@ describe('CastDeviceList', () => {
     const { CastDeviceList } = await import('../cast-device-list');
     const user = userEvent.setup();
 
-    render(<CastDeviceList />);
+    render(<CastDeviceList orchestratorUrl='http://localhost:4001' />);
 
     await waitFor(() => {
       expect(screen.getByText('Living Room Speaker')).toBeDefined();
@@ -430,7 +430,7 @@ describe('CastDeviceList', () => {
     const { CastDeviceList } = await import('../cast-device-list');
     const user = userEvent.setup();
 
-    render(<CastDeviceList />);
+    render(<CastDeviceList orchestratorUrl='http://localhost:4001' />);
 
     await waitFor(() => {
       expect(screen.getByText('Living Room Speaker')).toBeDefined();
@@ -453,7 +453,7 @@ describe('CastDeviceList', () => {
     const { CastDeviceList } = await import('../cast-device-list');
     const user = userEvent.setup();
 
-    render(<CastDeviceList />);
+    render(<CastDeviceList orchestratorUrl='http://localhost:4001' />);
 
     await waitFor(() => {
       expect(screen.getByText('Living Room Speaker')).toBeDefined();
@@ -480,7 +480,7 @@ describe('CastDeviceList', () => {
     const { CastDeviceList } = await import('../cast-device-list');
     const user = userEvent.setup();
 
-    render(<CastDeviceList />);
+    render(<CastDeviceList orchestratorUrl='http://localhost:4001' />);
 
     await waitFor(() => {
       expect(screen.getByText('Living Room Speaker')).toBeDefined();
@@ -502,7 +502,7 @@ describe('CastDeviceList', () => {
     const { CastDeviceList } = await import('../cast-device-list');
     const user = userEvent.setup();
 
-    render(<CastDeviceList />);
+    render(<CastDeviceList orchestratorUrl='http://localhost:4001' />);
 
     await waitFor(() => {
       expect(screen.getByText('Living Room Speaker')).toBeDefined();
@@ -522,7 +522,7 @@ describe('CastDeviceList', () => {
     const { CastDeviceList } = await import('../cast-device-list');
     const user = userEvent.setup();
 
-    render(<CastDeviceList />);
+    render(<CastDeviceList orchestratorUrl='http://localhost:4001' />);
 
     await waitFor(() => {
       expect(screen.getByText('Living Room Speaker')).toBeDefined();
@@ -544,7 +544,7 @@ describe('CastDeviceList', () => {
 
     const { CastDeviceList } = await import('../cast-device-list');
 
-    render(<CastDeviceList />);
+    render(<CastDeviceList orchestratorUrl='http://localhost:4001' />);
 
     await waitFor(() => {
       expect(screen.getByText('Living Room Speaker')).toBeDefined();

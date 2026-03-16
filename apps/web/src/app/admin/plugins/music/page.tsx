@@ -1,5 +1,6 @@
 import { prisma } from '@harness/database';
 import { Separator } from '@harness/ui';
+import { getOrchestratorUrl } from '@/app/_helpers/get-orchestrator-url';
 import { pluginSettingsRegistry } from '@/generated/plugin-settings-registry';
 import { AdminBreadcrumb } from '../../_components/admin-breadcrumb';
 import { SettingsForm } from '../[name]/_components/settings-form';
@@ -70,11 +71,11 @@ const MusicPluginPage: MusicPluginPageComponent = async () => {
 
       <Separator />
 
-      <YouTubeAccountSection connected={connected} account={account} />
+      <YouTubeAccountSection connected={connected} account={account} orchestratorUrl={getOrchestratorUrl()} />
 
       <Separator />
 
-      <CastDeviceList />
+      <CastDeviceList orchestratorUrl={getOrchestratorUrl()} />
 
       <Separator />
 

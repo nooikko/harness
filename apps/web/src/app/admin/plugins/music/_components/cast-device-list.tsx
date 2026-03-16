@@ -14,9 +14,13 @@ type CastDevice = {
   status: 'available' | 'playing' | 'offline';
 };
 
-type CastDeviceListComponent = () => React.ReactNode;
+type CastDeviceListProps = {
+  orchestratorUrl: string;
+};
 
-export const CastDeviceList: CastDeviceListComponent = () => {
+type CastDeviceListComponent = (props: CastDeviceListProps) => React.ReactNode;
+
+export const CastDeviceList: CastDeviceListComponent = ({ orchestratorUrl }) => {
   const [devices, setDevices] = useState<CastDevice[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -26,7 +30,7 @@ export const CastDeviceList: CastDeviceListComponent = () => {
 
   const fetchDevices = useCallback(async () => {
     try {
-      const res = await fetch('/api/plugins/music/devices');
+      const res = await fetch(`${orchestratorUrl}/api/plugins/music/devices`);
       if (!res.ok) {
         setError('Failed to load devices');
         setLoading(false);
