@@ -61,31 +61,15 @@ describe('ThreadSidebarInternal', () => {
     expect(html).toContain('New chat');
   });
 
-  it('does not render project groups in sidebar', async () => {
+  it('does not render collapsible project dropdown section', async () => {
     const { prisma } = await import('@harness/database');
-    vi.mocked(prisma.project.findMany).mockResolvedValueOnce([{ id: 'p1', name: 'Test Project' }] as never);
+    // Even with projects in DB, the collapsible dropdown should not appear
+    vi.mocked(prisma.project.findMany).mockResolvedValueOnce([{ id: 'p1', name: 'Alpha' }] as never);
     const element = await ThreadSidebarInternal();
     const html = renderToStaticMarkup(<SidebarProvider>{element as React.ReactElement}</SidebarProvider>);
-    expect(html).not.toContain('Test Project');
-  });
-
-  it('renders Projects section when projectsWithThreads is non-empty', async () => {
-    const { prisma } = await import('@harness/database');
-    // First findMany returns projects (for projectOptions)
-    vi.mocked(prisma.project.findMany)
-      .mockResolvedValueOnce([{ id: 'p1', name: 'Alpha' }] as never)
-      // Second findMany returns projectsWithThreads
-      .mockResolvedValueOnce([
-        {
-          id: 'p1',
-          name: 'Alpha',
-          updatedAt: new Date(),
-          threads: [{ id: 't-1', name: 'Thread A', lastActivity: new Date() }],
-        },
-      ] as never);
-    const element = await ThreadSidebarInternal();
-    const html = renderToStaticMarkup(<SidebarProvider>{element as React.ReactElement}</SidebarProvider>);
-    expect(html).toContain('Projects');
-    expect(html).toContain('Alpha');
+    // The NavLinks "Projects" button should exist, but not a separate "Projects" group label
+    const projectsOccurrences = (html.match(/>Projects</g) || []).length;
+    // Only 1 occurrence: the NavLinks button. No second "Projects" group label.
+    expect(projectsOccurrences).toBe(1);
   });
 });
