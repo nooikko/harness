@@ -105,14 +105,14 @@ export const CastDeviceList: CastDeviceListComponent = ({ orchestratorUrl }) => 
 
       {loading ? (
         <Card>
-          <CardContent className='space-y-3 pt-6'>
+          <CardContent className='space-y-3 pt-3'>
             <Skeleton className='h-12 w-full' />
             <Skeleton className='h-12 w-full' />
           </CardContent>
         </Card>
       ) : devices.length === 0 ? (
         <Card>
-          <CardContent className='pt-6'>
+          <CardContent className='pt-3'>
             <div className='flex flex-col items-center gap-2 py-6 text-center text-muted-foreground'>
               <Speaker className='h-8 w-8' />
               <p className='text-sm'>No Cast devices found</p>
@@ -122,7 +122,7 @@ export const CastDeviceList: CastDeviceListComponent = ({ orchestratorUrl }) => 
         </Card>
       ) : (
         <Card>
-          <CardContent className='divide-y pt-6'>
+          <CardContent className='divide-y pt-3'>
             {devices.map((device) => {
               const config = statusConfig[device.status];
               return (
