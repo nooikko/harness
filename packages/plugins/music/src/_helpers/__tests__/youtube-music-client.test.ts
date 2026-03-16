@@ -222,5 +222,405 @@ describe('youtube-music-client', () => {
       const tracks = await getUpNextTracks('vid1');
       expect(tracks).toEqual([]);
     });
+
+    it('returns empty array when upNext.contents is undefined', async () => {
+      setupMockClient();
+      await initYouTubeMusicClient();
+
+      mockMusicGetInfo.mockResolvedValue({
+        getUpNext: vi.fn().mockResolvedValue({ contents: undefined }),
+      });
+
+      const tracks = await getUpNextTracks('vid1');
+      expect(tracks).toEqual([]);
+    });
+
+    it('skips items with no video_id', async () => {
+      setupMockClient();
+      await initYouTubeMusicClient();
+
+      mockMusicGetInfo.mockResolvedValue({
+        getUpNext: vi.fn().mockResolvedValue({
+          contents: [
+            {
+              video_id: undefined,
+              title: { toString: () => 'No ID Track' },
+              artists: [{ name: 'C' }],
+            },
+            {
+              video_id: 'valid-id',
+              title: { toString: () => 'Valid Track' },
+              artists: [{ name: 'D' }],
+              duration: { seconds: 120, text: '2:00' },
+              thumbnail: [],
+            },
+          ],
+        }),
+      });
+
+      const tracks = await getUpNextTracks('other-id');
+      expect(tracks).toHaveLength(1);
+      expect(tracks[0]?.videoId).toBe('valid-id');
+    });
+
+    it('respects limit parameter', async () => {
+      setupMockClient();
+      await initYouTubeMusicClient();
+
+      mockMusicGetInfo.mockResolvedValue({
+        getUpNext: vi.fn().mockResolvedValue({
+          contents: [
+            { video_id: 'a', title: { toString: () => 'A' }, artists: [{ name: 'X' }], duration: {}, thumbnail: [] },
+            { video_id: 'b', title: { toString: () => 'B' }, artists: [{ name: 'X' }], duration: {}, thumbnail: [] },
+            { video_id: 'c', title: { toString: () => 'C' }, artists: [{ name: 'X' }], duration: {}, thumbnail: [] },
+          ],
+        }),
+      });
+
+      const tracks = await getUpNextTracks('other', 2);
+      expect(tracks).toHaveLength(2);
+    });
+
+    it('falls back to author when artists array is empty', async () => {
+      setupMockClient();
+      await initYouTubeMusicClient();
+
+      mockMusicGetInfo.mockResolvedValue({
+        getUpNext: vi.fn().mockResolvedValue({
+          contents: [
+            {
+              video_id: 'track-1',
+              title: { toString: () => 'Author Track' },
+              artists: [],
+              author: 'Fallback Author',
+              duration: { seconds: 100, text: '1:40' },
+              thumbnail: [],
+            },
+          ],
+        }),
+      });
+
+      const tracks = await getUpNextTracks('other');
+      expect(tracks[0]?.artist).toBe('Fallback Author');
+    });
+
+    it('uses Unknown when both artists and author are missing', async () => {
+      setupMockClient();
+      await initYouTubeMusicClient();
+
+      mockMusicGetInfo.mockResolvedValue({
+        getUpNext: vi.fn().mockResolvedValue({
+          contents: [
+            {
+              video_id: 'track-2',
+              title: { toString: () => 'Mystery Track' },
+              duration: {},
+              thumbnail: [],
+            },
+          ],
+        }),
+      });
+
+      const tracks = await getUpNextTracks('other');
+      expect(tracks[0]?.artist).toBe('Unknown');
+    });
+
+    it('uses Unknown title when title.toString is missing', async () => {
+      setupMockClient();
+      await initYouTubeMusicClient();
+
+      mockMusicGetInfo.mockResolvedValue({
+        getUpNext: vi.fn().mockResolvedValue({
+          contents: [
+            {
+              video_id: 'track-3',
+              title: undefined,
+              artists: [{ name: 'E' }],
+              duration: {},
+              thumbnail: [],
+            },
+          ],
+        }),
+      });
+
+      const tracks = await getUpNextTracks('other');
+      expect(tracks[0]?.title).toBe('Unknown');
+    });
+  });
+
+  describe('destroyYouTubeMusicClient', () => {
+    it('is safe to call when client was never initialized', () => {
+      expect(() => destroyYouTubeMusicClient()).not.toThrow();
+    });
+  });
+
+  describe('getClient guard', () => {
+    it('throws from getAudioStreamUrl when client not initialized', async () => {
+      await expect(getAudioStreamUrl('vid1')).rejects.toThrow('not initialized');
+    });
+
+    it('throws from getUpNextTracks when client not initialized', async () => {
+      await expect(getUpNextTracks('vid1')).rejects.toThrow('not initialized');
+    });
+  });
+
+  describe('searchSongs edge cases', () => {
+    it('returns empty array when songs.contents is undefined', async () => {
+      setupMockClient();
+      await initYouTubeMusicClient();
+
+      mockMusicSearch.mockResolvedValue({ songs: undefined });
+
+      const results = await searchSongs('test');
+      expect(results).toEqual([]);
+    });
+
+    it('returns empty array when songs is null', async () => {
+      setupMockClient();
+      await initYouTubeMusicClient();
+
+      mockMusicSearch.mockResolvedValue({ songs: null });
+
+      const results = await searchSongs('test');
+      expect(results).toEqual([]);
+    });
+
+    it('uses Unknown for title when item.title is null', async () => {
+      setupMockClient();
+      await initYouTubeMusicClient();
+
+      mockMusicSearch.mockResolvedValue({
+        songs: {
+          contents: [{ id: 'v1', title: null, artists: [{ name: 'A' }], duration: {} }],
+        },
+      });
+
+      const results = await searchSongs('test');
+      expect(results[0]?.title).toBe('Unknown');
+    });
+
+    it('falls back to author.name when artists array is empty', async () => {
+      setupMockClient();
+      await initYouTubeMusicClient();
+
+      mockMusicSearch.mockResolvedValue({
+        songs: {
+          contents: [{ id: 'v1', title: 'T', artists: [], author: { name: 'Author Name' }, duration: {} }],
+        },
+      });
+
+      const results = await searchSongs('test');
+      expect(results[0]?.artist).toBe('Author Name');
+    });
+
+    it('uses Unknown when both artists and author are missing', async () => {
+      setupMockClient();
+      await initYouTubeMusicClient();
+
+      mockMusicSearch.mockResolvedValue({
+        songs: {
+          contents: [{ id: 'v1', title: 'T', artists: null, author: null, duration: {} }],
+        },
+      });
+
+      const results = await searchSongs('test');
+      expect(results[0]?.artist).toBe('Unknown');
+    });
+
+    it('thumbnailUrl is undefined when thumbnails array is empty', async () => {
+      setupMockClient();
+      await initYouTubeMusicClient();
+
+      mockMusicSearch.mockResolvedValue({
+        songs: {
+          contents: [{ id: 'v1', title: 'T', artists: [{ name: 'A' }], duration: {}, thumbnails: [] }],
+        },
+      });
+
+      const results = await searchSongs('test');
+      expect(results[0]?.thumbnailUrl).toBeUndefined();
+    });
+  });
+
+  describe('getAudioStreamUrl edge cases', () => {
+    it('falls back to non-opus audio when no opus formats exist', async () => {
+      setupMockClient();
+      await initYouTubeMusicClient();
+
+      mockMusicGetInfo.mockResolvedValue({
+        streaming_data: {
+          adaptive_formats: [
+            {
+              has_audio: true,
+              has_video: false,
+              url: 'https://aac-audio.url',
+              mime_type: 'audio/mp4; codecs="mp4a.40.2"',
+              average_bitrate: 128000,
+              approx_duration_ms: 200000,
+            },
+          ],
+        },
+      });
+
+      const stream = await getAudioStreamUrl('vid1');
+      expect(stream.url).toBe('https://aac-audio.url');
+      expect(stream.mimeType).toContain('mp4');
+    });
+
+    it('throws when streaming_data is null', async () => {
+      setupMockClient();
+      await initYouTubeMusicClient();
+
+      mockMusicGetInfo.mockResolvedValue({
+        streaming_data: null,
+      });
+
+      await expect(getAudioStreamUrl('vid1')).rejects.toThrow('No audio streams found');
+    });
+
+    it('throws when best candidate has no url', async () => {
+      setupMockClient();
+      await initYouTubeMusicClient();
+
+      mockMusicGetInfo.mockResolvedValue({
+        streaming_data: {
+          adaptive_formats: [
+            {
+              has_audio: true,
+              has_video: false,
+              url: undefined,
+              mime_type: 'audio/webm; codecs="opus"',
+              average_bitrate: 128000,
+            },
+          ],
+        },
+      });
+
+      // The filter requires f.url to be truthy, so this results in 0 audio formats
+      await expect(getAudioStreamUrl('vid1')).rejects.toThrow('No audio streams found');
+    });
+
+    it('defaults mimeType to audio/webm when mime_type is null', async () => {
+      setupMockClient();
+      await initYouTubeMusicClient();
+
+      mockMusicGetInfo.mockResolvedValue({
+        streaming_data: {
+          adaptive_formats: [
+            {
+              has_audio: true,
+              has_video: false,
+              url: 'https://no-mime.url',
+              mime_type: null,
+              average_bitrate: 96000,
+              approx_duration_ms: 180000,
+            },
+          ],
+        },
+      });
+
+      const stream = await getAudioStreamUrl('vid1');
+      expect(stream.mimeType).toBe('audio/webm');
+    });
+
+    it('falls back to bitrate when average_bitrate is null', async () => {
+      setupMockClient();
+      await initYouTubeMusicClient();
+
+      mockMusicGetInfo.mockResolvedValue({
+        streaming_data: {
+          adaptive_formats: [
+            {
+              has_audio: true,
+              has_video: false,
+              url: 'https://bitrate-fallback.url',
+              mime_type: 'audio/mp4',
+              average_bitrate: null,
+              bitrate: 96000,
+              approx_duration_ms: 150000,
+            },
+          ],
+        },
+      });
+
+      const stream = await getAudioStreamUrl('vid1');
+      expect(stream.bitrate).toBe(96000);
+    });
+
+    it('uses 0 for bitrate when both average_bitrate and bitrate are null', async () => {
+      setupMockClient();
+      await initYouTubeMusicClient();
+
+      mockMusicGetInfo.mockResolvedValue({
+        streaming_data: {
+          adaptive_formats: [
+            {
+              has_audio: true,
+              has_video: false,
+              url: 'https://no-bitrate.url',
+              mime_type: 'audio/mp4',
+              average_bitrate: null,
+              bitrate: null,
+              approx_duration_ms: 150000,
+            },
+          ],
+        },
+      });
+
+      const stream = await getAudioStreamUrl('vid1');
+      expect(stream.bitrate).toBe(0);
+    });
+
+    it('durationMs is undefined when approx_duration_ms is missing', async () => {
+      setupMockClient();
+      await initYouTubeMusicClient();
+
+      mockMusicGetInfo.mockResolvedValue({
+        streaming_data: {
+          adaptive_formats: [
+            {
+              has_audio: true,
+              has_video: false,
+              url: 'https://no-duration.url',
+              mime_type: 'audio/mp4',
+              average_bitrate: 128000,
+            },
+          ],
+        },
+      });
+
+      const stream = await getAudioStreamUrl('vid1');
+      expect(stream.durationMs).toBeUndefined();
+    });
+
+    it('sorts candidates by bitrate descending and picks highest', async () => {
+      setupMockClient();
+      await initYouTubeMusicClient();
+
+      mockMusicGetInfo.mockResolvedValue({
+        streaming_data: {
+          adaptive_formats: [
+            {
+              has_audio: true,
+              has_video: false,
+              url: 'https://low.url',
+              mime_type: 'audio/mp4',
+              average_bitrate: 64000,
+            },
+            {
+              has_audio: true,
+              has_video: false,
+              url: 'https://high.url',
+              mime_type: 'audio/mp4',
+              average_bitrate: 256000,
+            },
+          ],
+        },
+      });
+
+      const stream = await getAudioStreamUrl('vid1');
+      expect(stream.url).toBe('https://high.url');
+      expect(stream.bitrate).toBe(256000);
+    });
   });
 });

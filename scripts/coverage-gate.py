@@ -43,7 +43,7 @@ EXCLUDED_PATTERNS = [
     r"settings-schema\.ts$",  # pure data declarations — no logic to test
     r"packages/ui/src/components/",  # ShadCN primitives — thin Radix wrappers, no logic
     r"cast-types\.ts$",  # pure type declarations — no runtime code
-    r"packages/plugins/music/",  # WIP plugin — coverage enforcement deferred
+    r"packages/plugins/music/src/castv2-client\.d\.ts$",  # type declaration — no runtime code
     r"apps/design/",  # design playground — no unit test coverage required
     r"packages/vector-search/",  # thin Qdrant + HuggingFace client — requires external services
     r"/page\.tsx$",  # Next.js route handlers — server components with data fetching, not unit-testable
