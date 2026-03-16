@@ -282,6 +282,10 @@ export const createOrchestrator: CreateOrchestrator = (deps) => {
       }
       if (pluginRoutes.length > 0) {
         context.pluginRoutes = pluginRoutes;
+        // Also set on each plugin's ctx (they are spread copies of context, so won't see the mutation)
+        for (const plugin of plugins) {
+          plugin.ctx.pluginRoutes = pluginRoutes;
+        }
       }
 
       for (const plugin of plugins) {
