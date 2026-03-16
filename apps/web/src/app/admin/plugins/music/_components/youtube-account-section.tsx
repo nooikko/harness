@@ -123,7 +123,7 @@ export const YouTubeAccountSection: YouTubeAccountSectionComponent = ({ connecte
       <section className='space-y-3'>
         <h3 className='text-sm font-medium'>YouTube Music Account</h3>
         <Card>
-          <CardContent className='flex items-center gap-4 pt-6'>
+          <CardContent className='flex items-center gap-4 pt-3'>
             {account.photo ? (
               <img src={account.photo} alt={account.name ?? 'Profile'} className='h-10 w-10 rounded-full' />
             ) : (
