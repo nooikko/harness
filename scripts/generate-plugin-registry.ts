@@ -227,6 +227,7 @@ export type PluginSettingsField = {
   secret?: boolean;
   default?: string | number | boolean;
   options?: Array<{ label: string; value: string }>;
+  provider?: string;
 };
 
 export type PluginSettingsEntry = {

@@ -28,7 +28,7 @@ vi.mock('bonjour-service', () => {
     destroy() {}
   }
 
-  return { default: MockBonjour };
+  return { Bonjour: MockBonjour };
 });
 
 import {

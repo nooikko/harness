@@ -10,6 +10,7 @@ export type PluginSettingsField = {
   secret?: boolean;
   default?: string | number | boolean;
   options?: Array<{ label: string; value: string }>;
+  provider?: string;
 };
 
 export type PluginSettingsEntry = {
@@ -51,6 +52,67 @@ export const pluginSettingsRegistry: PluginSettingsEntry[] = [
         "type": "string",
         "label": "Custom Summarization Prompt",
         "description": "Override the default summarization prompt. The conversation history will be appended after this text."
+      }
+    ]
+  },
+  {
+    "pluginName": "music",
+    "fields": [
+      {
+        "name": "youtubeAuth",
+        "type": "oauth",
+        "label": "YouTube Music Account",
+        "provider": "youtube-music",
+        "description": "Connect your YouTube Music account for playlists, liked songs, and personalized recommendations."
+      },
+      {
+        "name": "cookie",
+        "type": "string",
+        "label": "YouTube Music Cookie (Fallback)",
+        "description": "Browser cookie string for fallback authentication. Extract from DevTools Network tab.",
+        "secret": true
+      },
+      {
+        "name": "poToken",
+        "type": "string",
+        "label": "PO Token",
+        "description": "Proof-of-Origin token for stream access. Expires every ~12 hours. Extract via BgUtils.",
+        "secret": true
+      },
+      {
+        "name": "defaultVolume",
+        "type": "number",
+        "label": "Default Volume",
+        "description": "Default volume for new Cast sessions (0-100).",
+        "default": 50
+      },
+      {
+        "name": "radioEnabled",
+        "type": "boolean",
+        "label": "Radio / Autoplay",
+        "description": "Automatically play related songs after the current track ends.",
+        "default": true
+      },
+      {
+        "name": "audioQuality",
+        "type": "select",
+        "label": "Audio Quality",
+        "description": "Preferred audio quality. \"High\" requires YouTube Music Premium.",
+        "default": "auto",
+        "options": [
+          {
+            "label": "Auto (best available)",
+            "value": "auto"
+          },
+          {
+            "label": "High (Premium only)",
+            "value": "high"
+          },
+          {
+            "label": "Low (save bandwidth)",
+            "value": "low"
+          }
+        ]
       }
     ]
   },
@@ -168,13 +230,6 @@ export const pluginSettingsRegistry: PluginSettingsEntry[] = [
         "label": "Summary Lookback",
         "description": "Maximum number of prior summaries injected into the prompt.",
         "default": 2
-      },
-      {
-        "name": "maxFileSizeKb",
-        "type": "number",
-        "label": "Max File Size (KB)",
-        "description": "Maximum size in KB for individual context files before truncation.",
-        "default": 50
       }
     ]
   },

@@ -18,6 +18,48 @@ export const pluginToolRegistry: PluginToolEntry[] = [
     "args": ""
   },
   {
+    "pluginName": "tasks",
+    "toolName": "add-task",
+    "qualifiedName": "tasks__add_task",
+    "description": "Create a new task. Auto-resolves projectId and sourceThreadId from the current thread.",
+    "args": "<title> [description] [priority] [dueDate] [projectId] [blockedBy]"
+  },
+  {
+    "pluginName": "tasks",
+    "toolName": "list-tasks",
+    "qualifiedName": "tasks__list_tasks",
+    "description": "List tasks, filterable by status and project. Returns compact summaries with dependency info.",
+    "args": "[status] [projectId] [includeGlobal]"
+  },
+  {
+    "pluginName": "tasks",
+    "toolName": "update-task",
+    "qualifiedName": "tasks__update_task",
+    "description": "Update a task's title, description, status, priority, or due date.",
+    "args": "<id> [title] [description] [status] [priority] [dueDate]"
+  },
+  {
+    "pluginName": "tasks",
+    "toolName": "complete-task",
+    "qualifiedName": "tasks__complete_task",
+    "description": "Mark a task as DONE and set completedAt timestamp.",
+    "args": "<id>"
+  },
+  {
+    "pluginName": "tasks",
+    "toolName": "add-dependency",
+    "qualifiedName": "tasks__add_dependency",
+    "description": "Link two tasks: \"taskId is blocked by blockedById\". Rejects cycles.",
+    "args": "<taskId> <blockedById>"
+  },
+  {
+    "pluginName": "tasks",
+    "toolName": "remove-dependency",
+    "qualifiedName": "tasks__remove_dependency",
+    "description": "Remove a dependency link between two tasks.",
+    "args": "<taskId> <blockedById>"
+  },
+  {
     "pluginName": "project",
     "toolName": "get-project-memory",
     "qualifiedName": "project__get_project_memory",
@@ -30,6 +72,160 @@ export const pluginToolRegistry: PluginToolEntry[] = [
     "qualifiedName": "project__set_project_memory",
     "description": "Write the complete project memory document. You are responsible for preserving existing facts that are still relevant, removing stale ones, and adding new observations. Call get_project_memory first to read the current state.",
     "args": "<memory>"
+  },
+  {
+    "pluginName": "outlook",
+    "toolName": "search-emails",
+    "qualifiedName": "outlook__search_emails",
+    "description": "Search emails by query string (supports KQL syntax). Returns subject, from, date, and preview for matching emails.",
+    "args": "<query> [top]"
+  },
+  {
+    "pluginName": "outlook",
+    "toolName": "read-email",
+    "qualifiedName": "outlook__read_email",
+    "description": "Read the full content of an email by its ID. Returns subject, from, to, cc, body (HTML), and attachment info.",
+    "args": "<messageId>"
+  },
+  {
+    "pluginName": "outlook",
+    "toolName": "list-recent",
+    "qualifiedName": "outlook__list_recent",
+    "description": "List recent emails from a mail folder. Defaults to inbox. Supports inbox, sent, drafts, archive, trash.",
+    "args": "[folder] [top]"
+  },
+  {
+    "pluginName": "outlook",
+    "toolName": "send-email",
+    "qualifiedName": "outlook__send_email",
+    "description": "Send a new email. Provide recipients, subject, and body.",
+    "args": "<to> [cc] [bcc] <subject> <body> [isHtml]"
+  },
+  {
+    "pluginName": "outlook",
+    "toolName": "reply-email",
+    "qualifiedName": "outlook__reply_email",
+    "description": "Reply to an email by its ID. Sends a reply to the original sender.",
+    "args": "<messageId> <comment>"
+  },
+  {
+    "pluginName": "outlook",
+    "toolName": "move-email",
+    "qualifiedName": "outlook__move_email",
+    "description": "Move an email to a different folder. Supports well-known folders: inbox, archive, trash, drafts, sent, junk.",
+    "args": "<messageId> <folder>"
+  },
+  {
+    "pluginName": "outlook",
+    "toolName": "list-folders",
+    "qualifiedName": "outlook__list_folders",
+    "description": "List all mail folders with their item counts and unread counts.",
+    "args": ""
+  },
+  {
+    "pluginName": "outlook",
+    "toolName": "find-unsubscribe-links",
+    "qualifiedName": "outlook__find_unsubscribe_links",
+    "description": "Search for emails containing unsubscribe links. Returns sender, subject, and extracted unsubscribe URLs.",
+    "args": "[top]"
+  },
+  {
+    "pluginName": "music",
+    "toolName": "search",
+    "qualifiedName": "music__search",
+    "description": "Search YouTube Music for songs. Returns a list of results with videoId, title, artist, album, and duration.",
+    "args": "<query> [limit]"
+  },
+  {
+    "pluginName": "music",
+    "toolName": "play",
+    "qualifiedName": "music__play",
+    "description": "Play a song on a Cast device (Chromecast, Google Home, Nest speaker). Provide either a search query or a specific videoId. Enables radio/autoplay by default so music keeps playing after the song ends.",
+    "args": "[query] [videoId] [deviceName] [radio]"
+  },
+  {
+    "pluginName": "music",
+    "toolName": "pause",
+    "qualifiedName": "music__pause",
+    "description": "Pause the currently playing music on a Cast device.",
+    "args": "[deviceName]"
+  },
+  {
+    "pluginName": "music",
+    "toolName": "resume",
+    "qualifiedName": "music__resume",
+    "description": "Resume paused music on a Cast device.",
+    "args": "[deviceName]"
+  },
+  {
+    "pluginName": "music",
+    "toolName": "stop",
+    "qualifiedName": "music__stop",
+    "description": "Stop music playback and clear the queue on a Cast device.",
+    "args": "[deviceName]"
+  },
+  {
+    "pluginName": "music",
+    "toolName": "skip",
+    "qualifiedName": "music__skip",
+    "description": "Skip to the next song in the queue.",
+    "args": "[deviceName]"
+  },
+  {
+    "pluginName": "music",
+    "toolName": "queue-add",
+    "qualifiedName": "music__queue_add",
+    "description": "Add a song to the playback queue. It will play after the current track and any other queued songs.",
+    "args": "[query] [videoId] [deviceName]"
+  },
+  {
+    "pluginName": "music",
+    "toolName": "queue-view",
+    "qualifiedName": "music__queue_view",
+    "description": "View the current playback queue including the currently playing song.",
+    "args": "[deviceName]"
+  },
+  {
+    "pluginName": "music",
+    "toolName": "set-volume",
+    "qualifiedName": "music__set_volume",
+    "description": "Set the volume on a Cast device. Level is 0 to 100 (percentage).",
+    "args": "<level> [deviceName]"
+  },
+  {
+    "pluginName": "music",
+    "toolName": "list-devices",
+    "qualifiedName": "music__list_devices",
+    "description": "List all Cast devices (Chromecast, Google Home, Nest speakers) discovered on the local network.",
+    "args": ""
+  },
+  {
+    "pluginName": "music",
+    "toolName": "my-playlists",
+    "qualifiedName": "music__my_playlists",
+    "description": "List the user's YouTube Music playlists. Requires YouTube Music account to be connected.",
+    "args": ""
+  },
+  {
+    "pluginName": "music",
+    "toolName": "liked-songs",
+    "qualifiedName": "music__liked_songs",
+    "description": "List the user's liked songs from YouTube Music. Requires account to be connected.",
+    "args": "[limit]"
+  },
+  {
+    "pluginName": "music",
+    "toolName": "get-playback-settings",
+    "qualifiedName": "music__get_playback_settings",
+    "description": "Get current music playback settings (default volume, radio/autoplay, audio quality).",
+    "args": ""
+  },
+  {
+    "pluginName": "music",
+    "toolName": "update-playback-settings",
+    "qualifiedName": "music__update_playback_settings",
+    "description": "Update music playback settings. Provide only the fields you want to change.",
+    "args": "[defaultVolume] [radioEnabled] [audioQuality]"
   },
   {
     "pluginName": "identity",
@@ -58,5 +254,82 @@ export const pluginToolRegistry: PluginToolEntry[] = [
     "qualifiedName": "cron__schedule_task",
     "description": "Create a scheduled task that fires a prompt into a thread on a recurring cron schedule or at a specific one-shot time.",
     "args": "<name> <prompt> [schedule] [fireAt] [threadId]"
+  },
+  {
+    "pluginName": "cron",
+    "toolName": "list-tasks",
+    "qualifiedName": "cron__list_tasks",
+    "description": "List all scheduled tasks (cron jobs). Shows name, schedule/fireAt, enabled status, and last/next run times.",
+    "args": "[enabledOnly]"
+  },
+  {
+    "pluginName": "cron",
+    "toolName": "get-task",
+    "qualifiedName": "cron__get_task",
+    "description": "Get full details of a scheduled task by name, including its prompt text.",
+    "args": "<name>"
+  },
+  {
+    "pluginName": "cron",
+    "toolName": "update-task",
+    "qualifiedName": "cron__update_task",
+    "description": "Update a scheduled task. Can change prompt, schedule, fireAt, or enabled status. Triggers immediate hot-reload.",
+    "args": "<name> [prompt] [schedule] [fireAt] [enabled]"
+  },
+  {
+    "pluginName": "cron",
+    "toolName": "delete-task",
+    "qualifiedName": "cron__delete_task",
+    "description": "Permanently delete a scheduled task by name. Triggers immediate hot-reload.",
+    "args": "<name>"
+  },
+  {
+    "pluginName": "calendar",
+    "toolName": "list-events",
+    "qualifiedName": "calendar__list_events",
+    "description": "List upcoming calendar events. Defaults to the next 7 days. Provide ISO date strings to customize the range.",
+    "args": "[startDateTime] [endDateTime] [top]"
+  },
+  {
+    "pluginName": "calendar",
+    "toolName": "get-event",
+    "qualifiedName": "calendar__get_event",
+    "description": "Get full details of a calendar event by its ID, including body, attendees, recurrence, and meeting link.",
+    "args": "<eventId>"
+  },
+  {
+    "pluginName": "calendar",
+    "toolName": "create-event",
+    "qualifiedName": "calendar__create_event",
+    "description": "Create a new calendar event. Times should be in ISO 8601 format. Default timezone is America/Phoenix.",
+    "args": "<subject> <start> <end> [timeZone] [location] [body] [attendees] [isAllDay]"
+  },
+  {
+    "pluginName": "calendar",
+    "toolName": "update-event",
+    "qualifiedName": "calendar__update_event",
+    "description": "Update an existing calendar event. Only provide the fields you want to change.",
+    "args": "<eventId> [subject] [start] [end] [timeZone] [location] [body]"
+  },
+  {
+    "pluginName": "calendar",
+    "toolName": "delete-event",
+    "qualifiedName": "calendar__delete_event",
+    "description": "Delete/cancel a calendar event by its ID.",
+    "args": "<eventId>"
+  },
+  {
+    "pluginName": "calendar",
+    "toolName": "find-free-time",
+    "qualifiedName": "calendar__find_free_time",
+    "description": "Find available meeting time slots in a date range. Uses Microsoft Graph findMeetingTimes API.",
+    "args": "<startDateTime> <endDateTime> [durationMinutes]"
+  },
+  {
+    "pluginName": "calendar",
+    "toolName": "list-calendars",
+    "qualifiedName": "calendar__list_calendars",
+    "description": "List all available calendars (personal, shared, etc.) with their properties.",
+    "args": ""
   }
 ];
