@@ -44,15 +44,29 @@ const loadCastv2 = async (): Promise<{
   };
 };
 
+export type PlaybackSettings = {
+  defaultVolume?: number;
+  radioEnabled?: boolean;
+  audioQuality?: string;
+};
+
 // --- State ---
 
 const sessions = new Map<string, ActiveSession>();
 let logger: Logger | null = null;
+let playbackSettings: PlaybackSettings = {};
 
 // --- Lifecycle ---
 
-export const initPlaybackController = (log: Logger): void => {
+export const initPlaybackController = (log: Logger, settings?: PlaybackSettings): void => {
   logger = log;
+  if (settings) {
+    playbackSettings = settings;
+  }
+};
+
+export const updatePlaybackSettings = (settings: PlaybackSettings): void => {
+  playbackSettings = settings;
 };
 
 export const destroyPlaybackController = (): void => {
@@ -122,6 +136,15 @@ const connectToDevice = async (device: CastDevice): Promise<ActiveSession> => {
 
         sessions.set(device.id, session);
         setDefaultDevice(device.name);
+
+        // Apply default volume from settings
+        const defaultVol = playbackSettings.defaultVolume;
+        if (defaultVol !== undefined && defaultVol >= 0 && defaultVol <= 100) {
+          client.receiver.setVolume({ level: defaultVol / 100 }, () => {
+            // best effort — ignore errors
+          });
+        }
+
         resolve(session);
       });
     });
@@ -130,9 +153,69 @@ const connectToDevice = async (device: CastDevice): Promise<ActiveSession> => {
 
 // --- Playback ---
 
-export const playTrack = async (device: CastDevice, track: MusicTrack, radioEnabled = true): Promise<string> => {
+export const getActiveSessionIds = (): Set<string> => {
+  return new Set(sessions.keys());
+};
+
+export const identifyDevice = async (device: CastDevice): Promise<string> => {
+  const { Client, DefaultMediaReceiver } = await loadCastv2();
+  const client = new Client() as CastClient;
+
+  return new Promise((resolve, reject) => {
+    const timeout = setTimeout(() => {
+      client.close();
+      reject(new Error(`Connection to "${device.name}" timed out`));
+    }, 10_000);
+
+    client.on('error', (err) => {
+      clearTimeout(timeout);
+      reject(new Error(`Cast error on "${device.name}": ${err}`));
+    });
+
+    client.connect(device.host, () => {
+      clearTimeout(timeout);
+      client.launch(DefaultMediaReceiver, (err, player) => {
+        if (err) {
+          client.close();
+          reject(new Error(`Failed to launch receiver on "${device.name}": ${err.message}`));
+          return;
+        }
+
+        const media: CastMedia = {
+          contentId: 'https://www.soundjay.com/buttons/beep-01a.mp3',
+          contentType: 'audio/mpeg',
+          streamType: 'BUFFERED',
+          metadata: {
+            type: 0,
+            metadataType: 0,
+            title: `Identifying: ${device.name}`,
+          },
+        };
+
+        player.load(media, { autoplay: true }, (loadErr) => {
+          if (loadErr) {
+            client.close();
+            reject(new Error(`Failed to play chime on "${device.name}": ${loadErr.message}`));
+            return;
+          }
+
+          // Disconnect after 3 seconds
+          setTimeout(() => {
+            player.stop(() => {
+              client.close();
+            });
+          }, 3000);
+
+          resolve(`Played identification chime on "${device.name}"`);
+        });
+      });
+    });
+  });
+};
+
+export const playTrack = async (device: CastDevice, track: MusicTrack, radioEnabled?: boolean): Promise<string> => {
   const session = await connectToDevice(device);
-  session.radioEnabled = radioEnabled;
+  session.radioEnabled = radioEnabled ?? playbackSettings.radioEnabled ?? true;
 
   // Get audio stream URL (must be fresh — URLs expire)
   const stream = await getAudioStreamUrl(track.videoId);
@@ -162,7 +245,7 @@ export const playTrack = async (device: CastDevice, track: MusicTrack, radioEnab
       session.playerState = 'PLAYING';
 
       // Pre-fetch radio tracks in background
-      if (radioEnabled && session.queue.length < 2) {
+      if (session.radioEnabled && session.queue.length < 2) {
         void prefetchRadioTracks(session, track.videoId);
       }
 

@@ -6,6 +6,7 @@ import { musicPlugin } from '../index';
 vi.mock('../_helpers/youtube-music-client', () => ({
   initYouTubeMusicClient: vi.fn().mockResolvedValue(undefined),
   destroyYouTubeMusicClient: vi.fn(),
+  getRawClient: vi.fn().mockReturnValue(null),
   searchSongs: vi.fn().mockResolvedValue([
     {
       videoId: 'v1',
@@ -22,6 +23,8 @@ vi.mock('../_helpers/youtube-music-client', () => ({
 vi.mock('../_helpers/cast-device-manager', () => ({
   startDiscovery: vi.fn(),
   stopDiscovery: vi.fn(),
+  updateDeviceAliases: vi.fn(),
+  updateActiveSessionIds: vi.fn(),
   listDevices: vi.fn().mockReturnValue([{ name: 'Living Room', host: '192.168.1.100', port: 8009, id: 'lr', model: 'Google Home' }]),
   resolveDevice: vi.fn().mockReturnValue({
     name: 'Living Room',
@@ -35,6 +38,9 @@ vi.mock('../_helpers/cast-device-manager', () => ({
 vi.mock('../_helpers/playback-controller', () => ({
   initPlaybackController: vi.fn(),
   destroyPlaybackController: vi.fn(),
+  updatePlaybackSettings: vi.fn(),
+  getActiveSessionIds: vi.fn().mockReturnValue(new Set()),
+  identifyDevice: vi.fn().mockResolvedValue('Played chime'),
   playTrack: vi.fn().mockResolvedValue('Now playing: Test Song by Test Artist on Living Room'),
   pausePlayback: vi.fn().mockResolvedValue('Paused on Living Room.'),
   resumePlayback: vi.fn().mockResolvedValue('Resumed on Living Room.'),
@@ -53,6 +59,24 @@ vi.mock('../_helpers/playback-controller', () => ({
 
 vi.mock('../_helpers/format-search-results', () => ({
   formatSearchResults: vi.fn().mockReturnValue('Found 1 result(s):\n\n1. **Test Song** by Test Artist'),
+}));
+
+vi.mock('../_helpers/settings-schema', () => ({
+  settingsSchema: {
+    toFieldArray: vi.fn().mockReturnValue([]),
+  },
+}));
+
+vi.mock('../_helpers/device-alias-manager', () => ({
+  getDeviceAliases: vi.fn().mockReturnValue({}),
+}));
+
+vi.mock('../_helpers/oauth-routes', () => ({
+  createOAuthRoutes: vi.fn().mockReturnValue([]),
+}));
+
+vi.mock('../_helpers/device-routes', () => ({
+  createDeviceRoutes: vi.fn().mockReturnValue([]),
 }));
 
 const createMockContext = (): PluginContext =>
@@ -78,16 +102,31 @@ describe('music plugin', () => {
     expect(musicPlugin.version).toBe('1.0.0');
   });
 
-  it('registers with no hooks', async () => {
+  it('registers with onSettingsChange hook', async () => {
     const ctx = createMockContext();
     const hooks = await musicPlugin.register(ctx);
-    expect(Object.keys(hooks)).toHaveLength(0);
+    expect(hooks.onSettingsChange).toBeDefined();
   });
 
-  it('exposes 10 MCP tools', () => {
-    expect(musicPlugin.tools).toHaveLength(10);
+  it('exposes 14 MCP tools', () => {
+    expect(musicPlugin.tools).toHaveLength(14);
     const toolNames = musicPlugin.tools!.map((t) => t.name);
-    expect(toolNames).toEqual(['search', 'play', 'pause', 'resume', 'stop', 'skip', 'queue_add', 'queue_view', 'set_volume', 'list_devices']);
+    expect(toolNames).toEqual([
+      'search',
+      'play',
+      'pause',
+      'resume',
+      'stop',
+      'skip',
+      'queue_add',
+      'queue_view',
+      'set_volume',
+      'list_devices',
+      'my_playlists',
+      'liked_songs',
+      'get_playback_settings',
+      'update_playback_settings',
+    ]);
   });
 
   it('has start and stop lifecycle methods', () => {
@@ -153,6 +192,7 @@ describe('music plugin', () => {
   describe('lifecycle', () => {
     it('initializes on start', async () => {
       const ctx = createMockContext();
+      (ctx.getSettings as ReturnType<typeof vi.fn>).mockResolvedValue({});
       await musicPlugin.start!(ctx);
       expect(ctx.logger.info).toHaveBeenCalledWith('music: Plugin started successfully.');
     });
@@ -203,7 +243,7 @@ describe('music plugin', () => {
       expect(vi.mocked(playTrack)).toHaveBeenCalledWith(
         expect.anything(),
         expect.objectContaining({ videoId: 'missing123', title: 'Unknown', artist: 'Unknown' }),
-        true,
+        undefined,
       );
       expect(result).toContain('Now playing');
     });
@@ -224,12 +264,12 @@ describe('music plugin', () => {
       expect(vi.mocked(playTrack)).toHaveBeenCalledWith(expect.anything(), expect.anything(), false);
     });
 
-    it('defaults radio to true when omitted', async () => {
+    it('defaults radio to undefined when omitted (uses settings default)', async () => {
       const { playTrack } = await import('../_helpers/playback-controller');
       vi.mocked(playTrack).mockResolvedValueOnce('Now playing: Test Song');
 
       await getTool().handler(createMockContext(), { query: 'test' }, meta);
-      expect(vi.mocked(playTrack)).toHaveBeenCalledWith(expect.anything(), expect.anything(), true);
+      expect(vi.mocked(playTrack)).toHaveBeenCalledWith(expect.anything(), expect.anything(), undefined);
     });
   });
 
@@ -453,6 +493,468 @@ describe('music plugin', () => {
 
       expect(vi.mocked(resolveDeviceMock)).toHaveBeenCalledWith('Bedroom');
       expect(vi.mocked(setVolume)).toHaveBeenCalledWith(expect.anything(), 0.75);
+    });
+  });
+
+  describe('tool: my_playlists', () => {
+    const meta = { threadId: 't1', traceId: 'tr1' };
+    const getTool = () => musicPlugin.tools!.find((t) => t.name === 'my_playlists')!;
+
+    it('returns error when client is null', async () => {
+      const { getRawClient } = await import('../_helpers/youtube-music-client');
+      vi.mocked(getRawClient).mockReturnValueOnce(null);
+
+      const result = await getTool().handler(createMockContext(), {}, meta);
+      expect(result).toBe('YouTube Music client not initialized.');
+    });
+
+    it('returns error when not logged in', async () => {
+      const { getRawClient } = await import('../_helpers/youtube-music-client');
+      vi.mocked(getRawClient).mockReturnValueOnce({
+        session: { logged_in: false },
+        music: { getLibrary: vi.fn(), getPlaylist: vi.fn() },
+      } as never);
+
+      const result = await getTool().handler(createMockContext(), {}, meta);
+      expect(result).toContain('Not authenticated');
+    });
+
+    it('returns playlists when authenticated', async () => {
+      const { getRawClient } = await import('../_helpers/youtube-music-client');
+      vi.mocked(getRawClient).mockReturnValueOnce({
+        session: { logged_in: true },
+        music: {
+          getLibrary: vi.fn().mockResolvedValue({
+            contents: [
+              { title: { toString: () => 'My Playlist' }, playlist_id: 'pl1' },
+              { title: { toString: () => 'Workout Mix' }, id: 'pl2' },
+            ],
+          }),
+          getPlaylist: vi.fn(),
+        },
+      } as never);
+
+      const result = await getTool().handler(createMockContext(), {}, meta);
+      expect(result).toContain('Your playlists:');
+      expect(result).toContain('My Playlist');
+      expect(result).toContain('Workout Mix');
+      expect(result).toContain('pl1');
+    });
+
+    it('returns message when no playlists found', async () => {
+      const { getRawClient } = await import('../_helpers/youtube-music-client');
+      vi.mocked(getRawClient).mockReturnValueOnce({
+        session: { logged_in: true },
+        music: {
+          getLibrary: vi.fn().mockResolvedValue({ contents: [] }),
+          getPlaylist: vi.fn(),
+        },
+      } as never);
+
+      const result = await getTool().handler(createMockContext(), {}, meta);
+      expect(result).toBe('No playlists found in your library.');
+    });
+
+    it('returns message when library contents is null', async () => {
+      const { getRawClient } = await import('../_helpers/youtube-music-client');
+      vi.mocked(getRawClient).mockReturnValueOnce({
+        session: { logged_in: true },
+        music: {
+          getLibrary: vi.fn().mockResolvedValue({ contents: null }),
+          getPlaylist: vi.fn(),
+        },
+      } as never);
+
+      const result = await getTool().handler(createMockContext(), {}, meta);
+      expect(result).toBe('No playlists found in your library.');
+    });
+
+    it('returns error message on exception', async () => {
+      const { getRawClient } = await import('../_helpers/youtube-music-client');
+      vi.mocked(getRawClient).mockReturnValueOnce({
+        session: { logged_in: true },
+        music: {
+          getLibrary: vi.fn().mockRejectedValue(new Error('API error')),
+          getPlaylist: vi.fn(),
+        },
+      } as never);
+
+      const result = await getTool().handler(createMockContext(), {}, meta);
+      expect(result).toContain('Failed to fetch playlists');
+      expect(result).toContain('API error');
+    });
+
+    it('handles playlist entry with no title toString', async () => {
+      const { getRawClient } = await import('../_helpers/youtube-music-client');
+      vi.mocked(getRawClient).mockReturnValueOnce({
+        session: { logged_in: true },
+        music: {
+          getLibrary: vi.fn().mockResolvedValue({
+            contents: [{ title: null, playlist_id: 'p1' }],
+          }),
+          getPlaylist: vi.fn(),
+        },
+      } as never);
+
+      const result = await getTool().handler(createMockContext(), {}, meta);
+      expect(result).toContain('Untitled');
+    });
+  });
+
+  describe('tool: liked_songs', () => {
+    const meta = { threadId: 't1', traceId: 'tr1' };
+    const getTool = () => musicPlugin.tools!.find((t) => t.name === 'liked_songs')!;
+
+    it('returns error when client is null', async () => {
+      const { getRawClient } = await import('../_helpers/youtube-music-client');
+      vi.mocked(getRawClient).mockReturnValueOnce(null);
+
+      const result = await getTool().handler(createMockContext(), {}, meta);
+      expect(result).toBe('YouTube Music client not initialized.');
+    });
+
+    it('returns error when not logged in', async () => {
+      const { getRawClient } = await import('../_helpers/youtube-music-client');
+      vi.mocked(getRawClient).mockReturnValueOnce({
+        session: { logged_in: false },
+        music: { getLibrary: vi.fn(), getPlaylist: vi.fn() },
+      } as never);
+
+      const result = await getTool().handler(createMockContext(), {}, meta);
+      expect(result).toContain('Not authenticated');
+    });
+
+    it('returns liked songs when authenticated', async () => {
+      const { getRawClient } = await import('../_helpers/youtube-music-client');
+      vi.mocked(getRawClient).mockReturnValueOnce({
+        session: { logged_in: true },
+        music: {
+          getLibrary: vi.fn(),
+          getPlaylist: vi.fn().mockResolvedValue({
+            contents: [
+              { title: { toString: () => 'Song A' }, artists: [{ name: 'Artist A' }], video_id: 'va' },
+              { title: { toString: () => 'Song B' }, artists: [{ name: 'Artist B' }], id: 'vb' },
+            ],
+          }),
+        },
+      } as never);
+
+      const result = await getTool().handler(createMockContext(), {}, meta);
+      expect(result).toContain('Liked songs (2)');
+      expect(result).toContain('Song A');
+      expect(result).toContain('Artist A');
+      expect(result).toContain('va');
+    });
+
+    it('respects custom limit', async () => {
+      const { getRawClient } = await import('../_helpers/youtube-music-client');
+      const items = Array.from({ length: 30 }, (_, i) => ({
+        title: { toString: () => `Song ${i}` },
+        artists: [{ name: `Artist ${i}` }],
+        video_id: `v${i}`,
+      }));
+      vi.mocked(getRawClient).mockReturnValueOnce({
+        session: { logged_in: true },
+        music: {
+          getLibrary: vi.fn(),
+          getPlaylist: vi.fn().mockResolvedValue({ contents: items }),
+        },
+      } as never);
+
+      const result = await getTool().handler(createMockContext(), { limit: 3 }, meta);
+      expect(result).toContain('Liked songs (3)');
+    });
+
+    it('returns message when no liked songs', async () => {
+      const { getRawClient } = await import('../_helpers/youtube-music-client');
+      vi.mocked(getRawClient).mockReturnValueOnce({
+        session: { logged_in: true },
+        music: {
+          getLibrary: vi.fn(),
+          getPlaylist: vi.fn().mockResolvedValue({ contents: [] }),
+        },
+      } as never);
+
+      const result = await getTool().handler(createMockContext(), {}, meta);
+      expect(result).toBe('No liked songs found.');
+    });
+
+    it('returns message when contents is null', async () => {
+      const { getRawClient } = await import('../_helpers/youtube-music-client');
+      vi.mocked(getRawClient).mockReturnValueOnce({
+        session: { logged_in: true },
+        music: {
+          getLibrary: vi.fn(),
+          getPlaylist: vi.fn().mockResolvedValue({ contents: null }),
+        },
+      } as never);
+
+      const result = await getTool().handler(createMockContext(), {}, meta);
+      expect(result).toBe('No liked songs found.');
+    });
+
+    it('returns error message on exception', async () => {
+      const { getRawClient } = await import('../_helpers/youtube-music-client');
+      vi.mocked(getRawClient).mockReturnValueOnce({
+        session: { logged_in: true },
+        music: {
+          getLibrary: vi.fn(),
+          getPlaylist: vi.fn().mockRejectedValue(new Error('Network failure')),
+        },
+      } as never);
+
+      const result = await getTool().handler(createMockContext(), {}, meta);
+      expect(result).toContain('Failed to fetch liked songs');
+      expect(result).toContain('Network failure');
+    });
+
+    it('handles item with author fallback when no artists array', async () => {
+      const { getRawClient } = await import('../_helpers/youtube-music-client');
+      vi.mocked(getRawClient).mockReturnValueOnce({
+        session: { logged_in: true },
+        music: {
+          getLibrary: vi.fn(),
+          getPlaylist: vi.fn().mockResolvedValue({
+            contents: [{ title: { toString: () => 'Track' }, author: 'Fallback Author', video_id: 'v1' }],
+          }),
+        },
+      } as never);
+
+      const result = await getTool().handler(createMockContext(), {}, meta);
+      expect(result).toContain('Fallback Author');
+    });
+  });
+
+  describe('tool: get_playback_settings', () => {
+    const meta = { threadId: 't1', traceId: 'tr1' };
+    const getTool = () => musicPlugin.tools!.find((t) => t.name === 'get_playback_settings')!;
+
+    it('returns current settings with defaults', async () => {
+      const ctx = createMockContext();
+      (ctx.getSettings as ReturnType<typeof vi.fn>).mockResolvedValue({});
+
+      const result = await getTool().handler(ctx, {}, meta);
+      expect(result).toContain('**Default Volume:** 50%');
+      expect(result).toContain('**Radio / Autoplay:** enabled');
+      expect(result).toContain('**Audio Quality:** auto');
+    });
+
+    it('returns custom settings when configured', async () => {
+      const ctx = createMockContext();
+      (ctx.getSettings as ReturnType<typeof vi.fn>).mockResolvedValue({
+        defaultVolume: 75,
+        radioEnabled: false,
+        audioQuality: 'high',
+      });
+
+      const result = await getTool().handler(ctx, {}, meta);
+      expect(result).toContain('**Default Volume:** 75%');
+      expect(result).toContain('**Radio / Autoplay:** disabled');
+      expect(result).toContain('**Audio Quality:** high');
+    });
+  });
+
+  describe('tool: update_playback_settings', () => {
+    const meta = { threadId: 't1', traceId: 'tr1' };
+    const getTool = () => musicPlugin.tools!.find((t) => t.name === 'update_playback_settings')!;
+
+    it('updates volume and notifies settings change', async () => {
+      const ctx = createMockContext();
+      (ctx.db as unknown as Record<string, unknown>).pluginConfig = {
+        findUnique: vi.fn().mockResolvedValue({ settings: {} }),
+        upsert: vi.fn().mockResolvedValue({}),
+      };
+
+      const result = await getTool().handler(ctx, { defaultVolume: 80 }, meta);
+      expect(result).toContain('Settings updated');
+      expect(result).toContain('Default volume: 80%');
+      expect(ctx.notifySettingsChange).toHaveBeenCalledWith('music');
+    });
+
+    it('updates radio setting', async () => {
+      const ctx = createMockContext();
+      (ctx.db as unknown as Record<string, unknown>).pluginConfig = {
+        findUnique: vi.fn().mockResolvedValue({ settings: { defaultVolume: 50 } }),
+        upsert: vi.fn().mockResolvedValue({}),
+      };
+
+      const result = await getTool().handler(ctx, { radioEnabled: false }, meta);
+      expect(result).toContain('Radio: disabled');
+    });
+
+    it('updates audio quality', async () => {
+      const ctx = createMockContext();
+      (ctx.db as unknown as Record<string, unknown>).pluginConfig = {
+        findUnique: vi.fn().mockResolvedValue({ settings: {} }),
+        upsert: vi.fn().mockResolvedValue({}),
+      };
+
+      const result = await getTool().handler(ctx, { audioQuality: 'high' }, meta);
+      expect(result).toContain('Audio quality: high');
+    });
+
+    it('rejects invalid audio quality', async () => {
+      const ctx = createMockContext();
+      (ctx.db as unknown as Record<string, unknown>).pluginConfig = {
+        findUnique: vi.fn().mockResolvedValue({ settings: {} }),
+        upsert: vi.fn().mockResolvedValue({}),
+      };
+
+      const result = await getTool().handler(ctx, { audioQuality: 'ultra' }, meta);
+      expect(result).toContain('Invalid audio quality');
+    });
+
+    it('clamps volume to 0-100 range', async () => {
+      const ctx = createMockContext();
+      const upsertMock = vi.fn().mockResolvedValue({});
+      (ctx.db as unknown as Record<string, unknown>).pluginConfig = {
+        findUnique: vi.fn().mockResolvedValue({ settings: {} }),
+        upsert: upsertMock,
+      };
+
+      await getTool().handler(ctx, { defaultVolume: 150 }, meta);
+      const upsertCall = upsertMock.mock.calls[0]?.[0] as Record<string, Record<string, unknown>>;
+      const settings = upsertCall?.update?.settings as Record<string, unknown>;
+      expect(settings?.defaultVolume).toBe(100);
+    });
+
+    it('merges with existing settings', async () => {
+      const ctx = createMockContext();
+      const upsertMock = vi.fn().mockResolvedValue({});
+      (ctx.db as unknown as Record<string, unknown>).pluginConfig = {
+        findUnique: vi.fn().mockResolvedValue({ settings: { defaultVolume: 60, radioEnabled: true } }),
+        upsert: upsertMock,
+      };
+
+      await getTool().handler(ctx, { audioQuality: 'low' }, meta);
+      const upsertCall = upsertMock.mock.calls[0]?.[0] as Record<string, Record<string, unknown>>;
+      const settings = upsertCall?.update?.settings as Record<string, unknown>;
+      // Existing settings should be preserved
+      expect(settings?.defaultVolume).toBe(60);
+      expect(settings?.radioEnabled).toBe(true);
+      expect(settings?.audioQuality).toBe('low');
+    });
+
+    it('handles null existing config', async () => {
+      const ctx = createMockContext();
+      (ctx.db as unknown as Record<string, unknown>).pluginConfig = {
+        findUnique: vi.fn().mockResolvedValue(null),
+        upsert: vi.fn().mockResolvedValue({}),
+      };
+
+      const result = await getTool().handler(ctx, { defaultVolume: 50 }, meta);
+      expect(result).toContain('Default volume: 50%');
+    });
+
+    it('updates multiple settings at once', async () => {
+      const ctx = createMockContext();
+      (ctx.db as unknown as Record<string, unknown>).pluginConfig = {
+        findUnique: vi.fn().mockResolvedValue({ settings: {} }),
+        upsert: vi.fn().mockResolvedValue({}),
+      };
+
+      const result = await getTool().handler(ctx, { defaultVolume: 70, radioEnabled: true, audioQuality: 'auto' }, meta);
+      expect(result).toContain('Default volume: 70%');
+      expect(result).toContain('Radio: enabled');
+      expect(result).toContain('Audio quality: auto');
+    });
+  });
+
+  describe('onSettingsChange hook', () => {
+    it('ignores settings changes for other plugins', async () => {
+      const ctx = createMockContext();
+      (ctx.getSettings as ReturnType<typeof vi.fn>).mockResolvedValue({});
+      const hooks = await musicPlugin.register(ctx);
+
+      const { initYouTubeMusicClient } = await import('../_helpers/youtube-music-client');
+      vi.mocked(initYouTubeMusicClient).mockClear();
+
+      await hooks.onSettingsChange!('discord');
+      expect(vi.mocked(initYouTubeMusicClient)).not.toHaveBeenCalled();
+    });
+
+    it('reloads settings and reinitializes client for music plugin', async () => {
+      const ctx = createMockContext();
+      (ctx.getSettings as ReturnType<typeof vi.fn>).mockResolvedValue({ cookie: 'new-cookie' });
+      const hooks = await musicPlugin.register(ctx);
+
+      const { initYouTubeMusicClient, destroyYouTubeMusicClient } = await import('../_helpers/youtube-music-client');
+      const { updatePlaybackSettings } = await import('../_helpers/playback-controller');
+      vi.mocked(initYouTubeMusicClient).mockClear();
+      vi.mocked(destroyYouTubeMusicClient).mockClear();
+      vi.mocked(updatePlaybackSettings).mockClear();
+
+      await hooks.onSettingsChange!('music');
+
+      expect(vi.mocked(destroyYouTubeMusicClient)).toHaveBeenCalled();
+      expect(vi.mocked(initYouTubeMusicClient)).toHaveBeenCalledWith(expect.objectContaining({ cookie: 'new-cookie' }));
+      expect(vi.mocked(updatePlaybackSettings)).toHaveBeenCalled();
+      expect(ctx.logger.info).toHaveBeenCalledWith('music: Settings changed, reloading...');
+    });
+  });
+
+  describe('start lifecycle with settings', () => {
+    it('loads settings and passes them to playback controller and client', async () => {
+      const ctx = createMockContext();
+      (ctx.getSettings as ReturnType<typeof vi.fn>).mockResolvedValue({
+        defaultVolume: 65,
+        radioEnabled: false,
+        audioQuality: 'high',
+        cookie: 'my-cookie',
+      });
+
+      const { initPlaybackController } = await import('../_helpers/playback-controller');
+      const { initYouTubeMusicClient } = await import('../_helpers/youtube-music-client');
+      vi.mocked(initPlaybackController).mockClear();
+      vi.mocked(initYouTubeMusicClient).mockClear();
+
+      await musicPlugin.start!(ctx);
+
+      expect(vi.mocked(initPlaybackController)).toHaveBeenCalledWith(ctx.logger, {
+        defaultVolume: 65,
+        radioEnabled: false,
+        audioQuality: 'high',
+      });
+      expect(vi.mocked(initYouTubeMusicClient)).toHaveBeenCalledWith(expect.objectContaining({ cookie: 'my-cookie' }));
+    });
+
+    it('logs authentication mode based on credentials', async () => {
+      const ctx = createMockContext();
+      (ctx.getSettings as ReturnType<typeof vi.fn>).mockResolvedValue({
+        youtubeAuth: { accessToken: 'token', refreshToken: 'refresh' },
+      });
+
+      await musicPlugin.start!(ctx);
+      expect(ctx.logger.info).toHaveBeenCalledWith(expect.stringContaining('(authenticated)'));
+    });
+
+    it('logs cookie auth mode', async () => {
+      const ctx = createMockContext();
+      (ctx.getSettings as ReturnType<typeof vi.fn>).mockResolvedValue({
+        cookie: 'some-cookie',
+      });
+
+      await musicPlugin.start!(ctx);
+      expect(ctx.logger.info).toHaveBeenCalledWith(expect.stringContaining('(cookie auth)'));
+    });
+
+    it('logs anonymous mode when no auth', async () => {
+      const ctx = createMockContext();
+      (ctx.getSettings as ReturnType<typeof vi.fn>).mockResolvedValue({});
+
+      await musicPlugin.start!(ctx);
+      expect(ctx.logger.info).toHaveBeenCalledWith(expect.stringContaining('(anonymous)'));
+    });
+  });
+
+  describe('plugin structure', () => {
+    it('has settingsSchema', () => {
+      expect(musicPlugin.settingsSchema).toBeDefined();
+    });
+
+    it('has routes array', () => {
+      expect(musicPlugin.routes).toBeDefined();
+      expect(Array.isArray(musicPlugin.routes)).toBe(true);
     });
   });
 });

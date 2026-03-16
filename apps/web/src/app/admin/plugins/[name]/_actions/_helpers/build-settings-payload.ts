@@ -6,6 +6,9 @@ export type BuildSettingsPayload = (fields: PluginSettingsField[], formData: Rec
 export const buildSettingsPayload: BuildSettingsPayload = (fields, formData, encryptionKey) => {
   const payload: Record<string, string> = {};
   for (const field of fields) {
+    if (field.type === 'oauth') {
+      continue;
+    }
     const value = formData[field.name];
     if (value === undefined) {
       continue;

@@ -13,12 +13,16 @@ export type CastDevice = {
 type BonjourInstance = InstanceType<typeof Bonjour>;
 type Browser = ReturnType<BonjourInstance['find']>;
 
+type DeviceStatus = 'available' | 'playing' | 'offline';
+
 // --- State ---
 
 const devices = new Map<string, CastDevice>();
 let bonjour: BonjourInstance | null = null;
 let browser: Browser | null = null;
 let defaultDeviceName: string | null = null;
+const deviceAliases: Record<string, string> = {};
+const activeSessionIds = new Set<string>();
 
 // --- Lifecycle ---
 
@@ -67,6 +71,20 @@ export const resolveDevice = (deviceName?: string): CastDevice => {
     return first;
   }
 
+  // Check aliases — find device whose ID maps to this alias
+  const aliasLower = deviceName.toLowerCase();
+  for (const [id, alias] of Object.entries(deviceAliases)) {
+    if (alias.toLowerCase() === aliasLower) {
+      // Find device by ID
+      for (const device of devices.values()) {
+        if (device.id === id) {
+          defaultDeviceName = device.name.toLowerCase();
+          return device;
+        }
+      }
+    }
+  }
+
   // Exact match (case-insensitive)
   const lower = deviceName.toLowerCase();
   const exact = devices.get(lower);
@@ -91,6 +109,48 @@ export const resolveDevice = (deviceName?: string): CastDevice => {
 
 export const setDefaultDevice = (name: string): void => {
   defaultDeviceName = name.toLowerCase();
+};
+
+// --- Alias management ---
+
+export const updateDeviceAliases = (aliases: Record<string, string>): void => {
+  // Clear and repopulate (cannot reassign — biome enforces const)
+  for (const key of Object.keys(deviceAliases)) {
+    delete deviceAliases[key];
+  }
+  Object.assign(deviceAliases, aliases);
+};
+
+// --- Device by ID ---
+
+export const resolveDeviceById = (deviceId: string): CastDevice | null => {
+  for (const device of devices.values()) {
+    if (device.id === deviceId) {
+      return device;
+    }
+  }
+  return null;
+};
+
+// --- Session tracking ---
+
+export const updateActiveSessionIds = (ids: Set<string>): void => {
+  activeSessionIds.clear();
+  for (const id of ids) {
+    activeSessionIds.add(id);
+  }
+};
+
+export const getDeviceStatuses = (): Map<string, DeviceStatus> => {
+  const statuses = new Map<string, DeviceStatus>();
+  for (const device of devices.values()) {
+    if (activeSessionIds.has(device.id)) {
+      statuses.set(device.id, 'playing');
+    } else {
+      statuses.set(device.id, 'available');
+    }
+  }
+  return statuses;
 };
 
 // --- Helpers ---

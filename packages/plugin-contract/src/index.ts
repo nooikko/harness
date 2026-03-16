@@ -76,7 +76,7 @@ export type Invoker = {
 
 // --- Plugin Settings ---
 
-export type SettingsFieldType = 'string' | 'number' | 'boolean' | 'select';
+export type SettingsFieldType = 'string' | 'number' | 'boolean' | 'select' | 'oauth';
 
 type SettingsFieldBase = {
   type: SettingsFieldType;
@@ -87,21 +87,38 @@ type SettingsFieldBase = {
   default?: string | number | boolean;
 };
 
-type SettingsFieldScalar = SettingsFieldBase & { type: Exclude<SettingsFieldType, 'select'> };
+type SettingsFieldScalar = SettingsFieldBase & { type: Exclude<SettingsFieldType, 'select' | 'oauth'> };
 type SettingsFieldSelect = SettingsFieldBase & {
   type: 'select';
   options: { label: string; value: string }[];
 };
+type SettingsFieldOAuth = SettingsFieldBase & {
+  type: 'oauth';
+  provider: string;
+};
 
-export type PluginSettingsField = (SettingsFieldScalar | SettingsFieldSelect) & { name: string };
+export type PluginSettingsField = (SettingsFieldScalar | SettingsFieldSelect | SettingsFieldOAuth) & { name: string };
 
 export type SettingsFieldDefs = Record<string, Omit<PluginSettingsField, 'name'>>;
+
+export type OAuthStoredCredentials = {
+  authMethod: 'oauth' | 'cookie';
+  accessToken?: string;
+  refreshToken?: string;
+  expiresAt?: string;
+  accountEmail?: string;
+  accountName?: string;
+  accountPhoto?: string;
+  providerMeta?: Record<string, unknown>;
+};
 
 type InferFieldValue<F extends Omit<PluginSettingsField, 'name'>> = F['type'] extends 'boolean'
   ? boolean
   : F['type'] extends 'number'
     ? number
-    : string;
+    : F['type'] extends 'oauth'
+      ? OAuthStoredCredentials
+      : string;
 
 export type InferSettings<T extends SettingsFieldDefs> = {
   [K in keyof T]?: InferFieldValue<T[K]>;
@@ -117,6 +134,12 @@ export const createSettingsSchema: CreateSettingsSchema = (fields) => ({
   toFieldArray: () => Object.entries(fields).map(([name, def]) => ({ name, ...def }) as PluginSettingsField),
 });
 
+export type PluginRouteEntry = {
+  pluginName: string;
+  routes: PluginRoute[];
+  ctx: PluginContext;
+};
+
 export type PluginContext = {
   db: PrismaClient;
   invoker: Invoker;
@@ -127,6 +150,7 @@ export type PluginContext = {
   getSettings: <T extends SettingsFieldDefs>(schema: PluginSettingsSchemaInstance<T>) => Promise<InferSettings<T>>;
   notifySettingsChange: (pluginName: string) => Promise<void>;
   setActiveTaskId?: (taskId: string | undefined) => void;
+  pluginRoutes?: PluginRouteEntry[];
 };
 
 export type PluginHooks = {
@@ -168,6 +192,23 @@ export type RegisterFn = (ctx: PluginContext) => Promise<PluginHooks>;
 export type StartFn = (ctx: PluginContext) => Promise<void>;
 export type StopFn = (ctx: PluginContext) => Promise<void>;
 
+export type PluginRouteRequest = {
+  body?: unknown;
+  params: Record<string, string>;
+  query: Record<string, string>;
+};
+
+export type PluginRouteResponse = {
+  status: number;
+  body: unknown;
+};
+
+export type PluginRoute = {
+  method: 'GET' | 'POST' | 'PUT' | 'DELETE';
+  path: string;
+  handler: (ctx: PluginContext, req: PluginRouteRequest) => Promise<PluginRouteResponse>;
+};
+
 export type PluginDefinition = {
   name: string;
   version: string;
@@ -175,6 +216,7 @@ export type PluginDefinition = {
   start?: StartFn;
   stop?: StopFn;
   tools?: PluginTool[];
+  routes?: PluginRoute[];
   system?: boolean;
   /** For code generation only (pnpm plugin:generate). Do NOT pass this to ctx.getSettings() —
    *  always pass your own typed schema const to preserve InferSettings<T> inference. */

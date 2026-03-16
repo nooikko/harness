@@ -80,7 +80,9 @@ vi.mock('castv2-client', () => {
 import {
   addToQueue,
   destroyPlaybackController,
+  getActiveSessionIds,
   getQueueState,
+  identifyDevice,
   initPlaybackController,
   pausePlayback,
   playTrack,
@@ -88,6 +90,7 @@ import {
   setVolume,
   skipTrack,
   stopPlayback,
+  updatePlaybackSettings,
 } from '../playback-controller';
 
 const mockDevice: CastDevice = {
@@ -212,6 +215,8 @@ describe('playback-controller', () => {
   describe('queue management', () => {
     it('adds tracks to queue', async () => {
       await playTrack(mockDevice, mockTrack);
+      // Allow fire-and-forget prefetch to complete
+      await new Promise((r) => setTimeout(r, 10));
       const result = addToQueue(mockDevice, {
         ...mockTrack,
         videoId: 'queued1',
@@ -717,6 +722,142 @@ describe('playback-controller', () => {
       // Session should be removed — getQueueState should return null
       const state = getQueueState(mockDevice);
       expect(state).toBeNull();
+    });
+  });
+
+  describe('initPlaybackController with settings', () => {
+    it('accepts PlaybackSettings and stores them', async () => {
+      destroyPlaybackController();
+      initPlaybackController(mockLogger, { defaultVolume: 75, radioEnabled: false, audioQuality: 'high' });
+
+      // Play a track — radioEnabled from settings should be used when radio arg is undefined
+      await playTrack(mockDevice, mockTrack);
+      const state = getQueueState(mockDevice);
+      // radioEnabled defaults to playbackSettings.radioEnabled ?? true
+      // Since we passed radioEnabled: false in settings, and playTrack was called without explicit radio arg
+      // playTrack uses: radioEnabled ?? playbackSettings.radioEnabled ?? true
+      expect(state?.radioEnabled).toBe(false);
+    });
+
+    it('applies default volume from settings on connect', async () => {
+      destroyPlaybackController();
+      initPlaybackController(mockLogger, { defaultVolume: 80 });
+
+      await playTrack(mockDevice, mockTrack);
+
+      // setVolume on receiver should have been called with level: 0.8
+      expect(mockSetVolume).toHaveBeenCalledWith({ level: 0.8 }, expect.any(Function));
+    });
+
+    it('does not apply default volume when not set in settings', async () => {
+      destroyPlaybackController();
+      initPlaybackController(mockLogger, {});
+
+      await playTrack(mockDevice, mockTrack);
+
+      // setVolume should NOT have been called (no default volume)
+      expect(mockSetVolume).not.toHaveBeenCalled();
+    });
+
+    it('does not apply default volume when out of range (negative)', async () => {
+      destroyPlaybackController();
+      initPlaybackController(mockLogger, { defaultVolume: -10 });
+
+      await playTrack(mockDevice, mockTrack);
+
+      // -10 fails the >= 0 check, so setVolume should not be called
+      expect(mockSetVolume).not.toHaveBeenCalled();
+    });
+
+    it('does not apply default volume when out of range (>100)', async () => {
+      destroyPlaybackController();
+      initPlaybackController(mockLogger, { defaultVolume: 150 });
+
+      await playTrack(mockDevice, mockTrack);
+
+      // 150 fails the <= 100 check, so setVolume should not be called
+      expect(mockSetVolume).not.toHaveBeenCalled();
+    });
+
+    it('uses default settings when no settings argument provided', () => {
+      destroyPlaybackController();
+      initPlaybackController(mockLogger);
+      // Should not throw — playbackSettings defaults to {}
+    });
+  });
+
+  describe('updatePlaybackSettings', () => {
+    it('replaces playback settings', async () => {
+      destroyPlaybackController();
+      initPlaybackController(mockLogger, { radioEnabled: true });
+
+      updatePlaybackSettings({ radioEnabled: false, defaultVolume: 30 });
+
+      // Play a track — should use the updated radioEnabled: false
+      await playTrack(mockDevice, mockTrack);
+      const state = getQueueState(mockDevice);
+      expect(state?.radioEnabled).toBe(false);
+    });
+  });
+
+  describe('getActiveSessionIds', () => {
+    it('returns empty set when no sessions exist', () => {
+      const ids = getActiveSessionIds();
+      expect(ids).toBeInstanceOf(Set);
+      expect(ids.size).toBe(0);
+    });
+
+    it('returns session ids for active sessions', async () => {
+      await playTrack(mockDevice, mockTrack);
+      const ids = getActiveSessionIds();
+      expect(ids.has(mockDevice.id)).toBe(true);
+      expect(ids.size).toBe(1);
+    });
+
+    it('returns multiple ids for multiple sessions', async () => {
+      await playTrack(mockDevice, mockTrack);
+      const device2: CastDevice = { ...mockDevice, id: 'speaker-2', name: 'Speaker 2' };
+      await playTrack(device2, mockTrack);
+
+      const ids = getActiveSessionIds();
+      expect(ids.size).toBe(2);
+      expect(ids.has(mockDevice.id)).toBe(true);
+      expect(ids.has('speaker-2')).toBe(true);
+    });
+  });
+
+  describe('identifyDevice', () => {
+    it('plays identification chime and resolves with success message', async () => {
+      mockLoad.mockImplementation((_media: unknown, _opts: unknown, cb: (err: Error | null, status: unknown) => void) => {
+        cb(null, { playerState: 'PLAYING' });
+      });
+
+      const result = await identifyDevice(mockDevice);
+      expect(result).toContain('Played identification chime');
+      expect(result).toContain('Test Speaker');
+    });
+
+    it('rejects when load fails', async () => {
+      mockLoad.mockImplementation((_media: unknown, _opts: unknown, cb: (err: Error | null, status: unknown) => void) => {
+        cb(new Error('chime error'), null);
+      });
+      // Ensure close does not throw (may be set by prior test)
+      mockClientClose.mockImplementation(() => {});
+
+      await expect(identifyDevice(mockDevice)).rejects.toThrow('Failed to play chime on "Test Speaker": chime error');
+    });
+
+    it('sends correct media metadata for identification', async () => {
+      mockLoad.mockImplementation((_media: unknown, _opts: unknown, cb: (err: Error | null, status: unknown) => void) => {
+        cb(null, { playerState: 'PLAYING' });
+      });
+
+      await identifyDevice(mockDevice);
+
+      const loadArgs = mockLoad.mock.calls[mockLoad.mock.calls.length - 1];
+      const media = loadArgs?.[0] as Record<string, Record<string, unknown>>;
+      expect(media?.contentType).toBe('audio/mpeg');
+      expect(media?.metadata?.title).toContain('Identifying: Test Speaker');
     });
   });
 });

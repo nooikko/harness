@@ -1,4 +1,6 @@
+import type { OAuthStoredCredentials } from '@harness/plugin-contract';
 import Innertube, { UniversalCache } from 'youtubei.js';
+import { initWithCredentials } from './youtube-music-auth';
 
 // --- Types ---
 
@@ -12,6 +14,12 @@ export type MusicTrack = {
   thumbnailUrl: string | undefined;
 };
 
+export type MusicClientOptions = {
+  credentials?: OAuthStoredCredentials;
+  cookie?: string;
+  poToken?: string;
+};
+
 type InnertubeClient = Awaited<ReturnType<typeof Innertube.create>>;
 
 // --- State ---
@@ -20,14 +28,21 @@ let innertube: InnertubeClient | null = null;
 
 // --- Lifecycle ---
 
-export const initYouTubeMusicClient = async (): Promise<void> => {
+export const initYouTubeMusicClient = async (options?: MusicClientOptions): Promise<void> => {
   innertube = await Innertube.create({
     cache: new UniversalCache(false),
     generate_session_locally: true,
     retrieve_player: true,
     lang: 'en',
     location: 'US',
+    ...(options?.cookie ? { cookie: options.cookie } : {}),
+    ...(options?.poToken ? { po_token: options.poToken } : {}),
   });
+
+  // Sign in with OAuth credentials if provided (cookie auth is handled above)
+  if (options?.credentials && options.credentials.authMethod === 'oauth') {
+    await initWithCredentials(innertube as unknown as Parameters<typeof initWithCredentials>[0], options.credentials);
+  }
 };
 
 export const destroyYouTubeMusicClient = (): void => {
@@ -42,6 +57,8 @@ const getClient = (): InnertubeClient => {
   }
   return innertube;
 };
+
+export const getRawClient = (): InnertubeClient | null => innertube;
 
 // --- Search ---
 

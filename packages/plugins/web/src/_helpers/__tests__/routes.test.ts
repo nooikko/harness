@@ -2,7 +2,7 @@
 
 import { createServer } from 'node:http';
 import type { Logger } from '@harness/logger';
-import type { PluginContext } from '@harness/plugin-contract';
+import type { PluginContext, PluginRouteEntry } from '@harness/plugin-contract';
 import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 import { createApp } from '../routes';
 
@@ -736,5 +736,209 @@ describe('routes', () => {
       expect(res.status).toBe(204);
       expect(res.headers.get('access-control-allow-methods')).toBeTruthy();
     });
+  });
+});
+
+describe('plugin route mounting', () => {
+  let pluginServer: ReturnType<typeof createServer>;
+  let pluginBaseUrl: string;
+  let mockHandler: ReturnType<typeof vi.fn>;
+  let mockPluginLogger: Logger;
+
+  beforeAll(async () => {
+    mockHandler = vi.fn();
+    mockPluginLogger = {
+      info: vi.fn(),
+      warn: vi.fn(),
+      error: vi.fn(),
+      debug: vi.fn(),
+    };
+
+    const pluginCtx = {
+      db: {},
+      invoker: { invoke: vi.fn() },
+      config: { claudeModel: 'claude-haiku-4-5-20251001' },
+      logger: mockPluginLogger,
+      notifySettingsChange: vi.fn(),
+      broadcast: vi.fn(),
+    } as unknown as PluginContext;
+
+    const webCtx = {
+      db: { thread: { findMany: vi.fn(), findUnique: vi.fn() }, orchestratorTask: { findMany: vi.fn() }, metric: { findMany: vi.fn() } },
+      invoker: { invoke: vi.fn() },
+      config: { claudeModel: 'claude-haiku-4-5-20251001' },
+      logger: mockPluginLogger,
+      notifySettingsChange: vi.fn(),
+      broadcast: vi.fn(),
+      pluginRoutes: [
+        {
+          pluginName: 'music',
+          ctx: pluginCtx,
+          routes: [
+            {
+              method: 'GET' as const,
+              path: '/status',
+              handler: mockHandler as never,
+            },
+            {
+              method: 'POST' as const,
+              path: '/play',
+              handler: mockHandler as never,
+            },
+          ],
+        },
+      ] satisfies PluginRouteEntry[],
+    } as unknown as PluginContext;
+
+    const app = createApp({
+      ctx: webCtx,
+      logger: mockPluginLogger,
+      onChatMessage: vi.fn() as (threadId: string, content: string) => Promise<void>,
+    });
+
+    pluginServer = createServer(app);
+
+    await new Promise<void>((resolve) => {
+      pluginServer.listen(0, () => {
+        const addr = pluginServer.address();
+        const port = typeof addr === 'object' && addr !== null ? addr.port : 0;
+        pluginBaseUrl = `http://127.0.0.1:${port}`;
+        resolve();
+      });
+    });
+  });
+
+  afterAll(async () => {
+    await new Promise<void>((resolve) => {
+      pluginServer.close(() => resolve());
+    });
+  });
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
+  it('mounts GET routes at /api/plugins/:pluginName/:path', async () => {
+    mockHandler.mockResolvedValue({ status: 200, body: { connected: true } });
+
+    const res = await fetch(`${pluginBaseUrl}/api/plugins/music/status`);
+    const body = (await res.json()) as Record<string, unknown>;
+
+    expect(res.status).toBe(200);
+    expect(body).toEqual({ connected: true });
+    expect(mockHandler).toHaveBeenCalledTimes(1);
+  });
+
+  it('mounts POST routes at /api/plugins/:pluginName/:path', async () => {
+    mockHandler.mockResolvedValue({ status: 200, body: { playing: true } });
+
+    const res = await fetch(`${pluginBaseUrl}/api/plugins/music/play`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ track: 'song.mp3' }),
+    });
+    const body = (await res.json()) as Record<string, unknown>;
+
+    expect(res.status).toBe(200);
+    expect(body).toEqual({ playing: true });
+  });
+
+  it('passes correct request shape to handler', async () => {
+    mockHandler.mockResolvedValue({ status: 200, body: { ok: true } });
+
+    await fetch(`${pluginBaseUrl}/api/plugins/music/play?shuffle=true`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ track: 'song.mp3' }),
+    });
+
+    expect(mockHandler).toHaveBeenCalledTimes(1);
+    const [_ctx, req] = mockHandler.mock.calls[0] as [unknown, { body: unknown; params: Record<string, string>; query: Record<string, string> }];
+    expect(req.body).toEqual({ track: 'song.mp3' });
+    expect(req.query).toEqual(expect.objectContaining({ shuffle: 'true' }));
+  });
+
+  it('passes the plugin ctx (not the web ctx) to handler', async () => {
+    mockHandler.mockResolvedValue({ status: 200, body: {} });
+
+    await fetch(`${pluginBaseUrl}/api/plugins/music/status`);
+
+    const [ctx] = mockHandler.mock.calls[0] as [PluginContext];
+    expect(ctx.logger).toBe(mockPluginLogger);
+  });
+
+  it('returns 500 when handler throws an Error', async () => {
+    mockHandler.mockRejectedValue(new Error('playback failed'));
+
+    const res = await fetch(`${pluginBaseUrl}/api/plugins/music/status`);
+    const body = (await res.json()) as Record<string, unknown>;
+
+    expect(res.status).toBe(500);
+    expect(body.error).toBe('Internal server error');
+  });
+
+  it('returns 500 when handler throws a non-Error', async () => {
+    mockHandler.mockRejectedValue('crash');
+
+    const res = await fetch(`${pluginBaseUrl}/api/plugins/music/status`);
+    const body = (await res.json()) as Record<string, unknown>;
+
+    expect(res.status).toBe(500);
+    expect(body.error).toBe('Internal server error');
+  });
+});
+
+describe('plugin route mounting — no routes', () => {
+  let noRouteServer: ReturnType<typeof createServer>;
+  let noRouteBaseUrl: string;
+
+  beforeAll(async () => {
+    const logger: Logger = { info: vi.fn(), warn: vi.fn(), error: vi.fn(), debug: vi.fn() };
+    const ctx = {
+      db: { thread: { findMany: vi.fn(), findUnique: vi.fn() }, orchestratorTask: { findMany: vi.fn() }, metric: { findMany: vi.fn() } },
+      invoker: { invoke: vi.fn() },
+      config: { claudeModel: 'claude-haiku-4-5-20251001' },
+      logger,
+      notifySettingsChange: vi.fn(),
+      broadcast: vi.fn(),
+      // pluginRoutes is undefined
+    } as unknown as PluginContext;
+
+    const app = createApp({
+      ctx,
+      logger,
+      onChatMessage: vi.fn() as (threadId: string, content: string) => Promise<void>,
+    });
+
+    noRouteServer = createServer(app);
+
+    await new Promise<void>((resolve) => {
+      noRouteServer.listen(0, () => {
+        const addr = noRouteServer.address();
+        const port = typeof addr === 'object' && addr !== null ? addr.port : 0;
+        noRouteBaseUrl = `http://127.0.0.1:${port}`;
+        resolve();
+      });
+    });
+  });
+
+  afterAll(async () => {
+    await new Promise<void>((resolve) => {
+      noRouteServer.close(() => resolve());
+    });
+  });
+
+  it('does not mount plugin routes when pluginRoutes is undefined', async () => {
+    const res = await fetch(`${noRouteBaseUrl}/api/plugins/music/status`);
+    // Express returns 404 for unmatched routes
+    expect(res.status).toBe(404);
+  });
+
+  it('still serves built-in routes normally', async () => {
+    const res = await fetch(`${noRouteBaseUrl}/api/health`);
+    const body = (await res.json()) as Record<string, unknown>;
+
+    expect(res.status).toBe(200);
+    expect(body.status).toBe('ok');
   });
 });

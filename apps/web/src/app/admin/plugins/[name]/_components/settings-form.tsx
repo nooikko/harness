@@ -19,6 +19,9 @@ export type BuildFormData = (fields: PluginSettingsField[], formData: FormData) 
 export const buildFormData: BuildFormData = (fields, formData) => {
   const data: Record<string, string> = {};
   for (const field of fields) {
+    if (field.type === 'oauth') {
+      continue;
+    }
     data[field.name] = (formData.get(field.name) as string) ?? '';
   }
   return data;
@@ -56,39 +59,41 @@ export const SettingsForm: SettingsFormComponent = ({ pluginName, fields, curren
         </Alert>
       )}
 
-      {fields.map((field) => (
-        <div key={field.name} className='space-y-1.5'>
-          <Label htmlFor={field.name}>
-            {field.label}
-            {field.required && <span className='ml-1 text-destructive'>*</span>}
-          </Label>
-          {field.description && <p className='text-sm text-muted-foreground'>{field.description}</p>}
-          {field.type === 'select' && field.options ? (
-            <Select name={field.name} defaultValue={currentValues[field.name] ?? String(field.default ?? '')} disabled={disabled}>
-              <SelectTrigger id={field.name}>
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                {field.options.map((opt) => (
-                  <SelectItem key={opt.value} value={opt.value}>
-                    {opt.label}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          ) : (
-            <Input
-              id={field.name}
-              name={field.name}
-              type={field.secret ? 'password' : field.type === 'number' ? 'number' : 'text'}
-              defaultValue={field.secret ? '' : (currentValues[field.name] ?? String(field.default ?? ''))}
-              placeholder={field.secret && currentValues[field.name] ? '••••••••' : undefined}
-              disabled={disabled}
-              className={field.required && !currentValues[field.name] ? 'border-destructive' : ''}
-            />
-          )}
-        </div>
-      ))}
+      {fields
+        .filter((field) => field.type !== 'oauth')
+        .map((field) => (
+          <div key={field.name} className='space-y-1.5'>
+            <Label htmlFor={field.name}>
+              {field.label}
+              {field.required && <span className='ml-1 text-destructive'>*</span>}
+            </Label>
+            {field.description && <p className='text-sm text-muted-foreground'>{field.description}</p>}
+            {field.type === 'select' && field.options ? (
+              <Select name={field.name} defaultValue={currentValues[field.name] ?? String(field.default ?? '')} disabled={disabled}>
+                <SelectTrigger id={field.name}>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {field.options.map((opt) => (
+                    <SelectItem key={opt.value} value={opt.value}>
+                      {opt.label}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            ) : (
+              <Input
+                id={field.name}
+                name={field.name}
+                type={field.secret ? 'password' : field.type === 'number' ? 'number' : 'text'}
+                defaultValue={field.secret ? '' : (currentValues[field.name] ?? String(field.default ?? ''))}
+                placeholder={field.secret && currentValues[field.name] ? '••••••••' : undefined}
+                disabled={disabled}
+                className={field.required && !currentValues[field.name] ? 'border-destructive' : ''}
+              />
+            )}
+          </div>
+        ))}
 
       <Button type='submit' disabled={disabled || isPending}>
         {isPending ? 'Saving…' : 'Save Settings'}

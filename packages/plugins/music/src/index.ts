@@ -1,10 +1,22 @@
-import type { PluginDefinition } from '@harness/plugin-contract';
-import { listDevices, resolveDevice, startDiscovery, stopDiscovery } from './_helpers/cast-device-manager';
+import type { OAuthStoredCredentials, PluginContext, PluginDefinition } from '@harness/plugin-contract';
+import {
+  listDevices,
+  resolveDevice,
+  startDiscovery,
+  stopDiscovery,
+  updateActiveSessionIds,
+  updateDeviceAliases,
+} from './_helpers/cast-device-manager';
+import { getDeviceAliases } from './_helpers/device-alias-manager';
+import { createDeviceRoutes } from './_helpers/device-routes';
 import { formatSearchResults } from './_helpers/format-search-results';
+import { createOAuthRoutes } from './_helpers/oauth-routes';
 import {
   addToQueue,
   destroyPlaybackController,
+  getActiveSessionIds,
   getQueueState,
+  identifyDevice,
   initPlaybackController,
   pausePlayback,
   playTrack,
@@ -12,13 +24,76 @@ import {
   setVolume,
   skipTrack,
   stopPlayback,
+  updatePlaybackSettings,
 } from './_helpers/playback-controller';
+import { settingsSchema } from './_helpers/settings-schema';
 import type { MusicTrack } from './_helpers/youtube-music-client';
-import { destroyYouTubeMusicClient, initYouTubeMusicClient, searchSongs } from './_helpers/youtube-music-client';
+import { destroyYouTubeMusicClient, getRawClient, initYouTubeMusicClient, searchSongs } from './_helpers/youtube-music-client';
+
+// --- Helpers ---
+
+type MusicSettings = {
+  youtubeAuth?: OAuthStoredCredentials;
+  cookie?: string;
+  poToken?: string;
+  defaultVolume?: number;
+  radioEnabled?: boolean;
+  audioQuality?: string;
+  deviceAliases?: Record<string, string>;
+};
+
+const loadAndApplySettings = async (ctx: PluginContext): Promise<MusicSettings> => {
+  const settings = (await ctx.getSettings(settingsSchema)) as MusicSettings;
+
+  // Update playback defaults
+  updatePlaybackSettings({
+    defaultVolume: settings.defaultVolume,
+    radioEnabled: settings.radioEnabled,
+    audioQuality: settings.audioQuality,
+  });
+
+  // Update device aliases
+  updateDeviceAliases(getDeviceAliases(settings));
+
+  // Update active session tracking
+  updateActiveSessionIds(getActiveSessionIds());
+
+  return settings;
+};
+
+const initClientWithSettings = async (ctx: PluginContext, settings: MusicSettings): Promise<void> => {
+  // Destroy existing client before reinitializing
+  destroyYouTubeMusicClient();
+
+  await initYouTubeMusicClient({
+    credentials: settings.youtubeAuth,
+    cookie: settings.cookie,
+    poToken: settings.poToken,
+  });
+
+  ctx.logger.info(`music: Client initialized${settings.youtubeAuth ? ' (authenticated)' : settings.cookie ? ' (cookie auth)' : ' (anonymous)'}`);
+};
+
+// --- Plugin definition ---
 
 const musicPlugin: PluginDefinition = {
   name: 'music',
   version: '1.0.0',
+  settingsSchema,
+
+  routes: [
+    ...createOAuthRoutes({ getClient: () => getRawClient() }),
+    ...createDeviceRoutes({
+      identifyDevice: async (deviceId: string) => {
+        const devices = listDevices();
+        const device = devices.find((d) => d.id === deviceId);
+        if (!device) {
+          throw new Error(`Device "${deviceId}" not found`);
+        }
+        return identifyDevice(device);
+      },
+    }),
+  ],
 
   tools: [
     {
@@ -98,7 +173,7 @@ const musicPlugin: PluginDefinition = {
         }
 
         const device = resolveDevice(deviceName);
-        return playTrack(device, track, radio ?? true);
+        return playTrack(device, track, radio);
       },
     },
 
@@ -297,16 +372,183 @@ const musicPlugin: PluginDefinition = {
         return `Found ${devices.length} Cast device(s):\n\n${lines.join('\n')}`;
       },
     },
+
+    {
+      name: 'my_playlists',
+      description: "List the user's YouTube Music playlists. Requires YouTube Music account to be connected.",
+      schema: {
+        type: 'object',
+        properties: {},
+        required: [],
+      },
+      handler: async () => {
+        const client = getRawClient();
+        if (!client) {
+          return 'YouTube Music client not initialized.';
+        }
+        if (!client.session.logged_in) {
+          return 'Not authenticated. Connect your YouTube Music account in the admin settings.';
+        }
+
+        try {
+          const library = await client.music.getLibrary();
+          const playlists = library?.contents ?? [];
+          if (playlists.length === 0) {
+            return 'No playlists found in your library.';
+          }
+
+          const lines = (playlists as unknown as Record<string, unknown>[]).map((p, i) => {
+            const title = String((p.title as { toString?: () => string })?.toString?.() ?? 'Untitled');
+            const id = p.playlist_id ?? p.id ?? '';
+            return `${i + 1}. **${title}** (ID: ${id})`;
+          });
+          return `Your playlists:\n\n${lines.join('\n')}`;
+        } catch (err) {
+          return `Failed to fetch playlists: ${err instanceof Error ? err.message : String(err)}`;
+        }
+      },
+    },
+
+    {
+      name: 'liked_songs',
+      description: "List the user's liked songs from YouTube Music. Requires account to be connected.",
+      schema: {
+        type: 'object',
+        properties: {
+          limit: { type: 'number', description: 'Max songs to return (default: 20)' },
+        },
+        required: [],
+      },
+      handler: async (_ctx, input) => {
+        const { limit } = input as { limit?: number };
+        const client = getRawClient();
+        if (!client) {
+          return 'YouTube Music client not initialized.';
+        }
+        if (!client.session.logged_in) {
+          return 'Not authenticated. Connect your YouTube Music account in the admin settings.';
+        }
+
+        try {
+          const playlist = await client.music.getPlaylist('LM');
+          const items = playlist?.contents ?? [];
+          const maxItems = limit ?? 20;
+          const tracks = items.slice(0, maxItems);
+
+          if (tracks.length === 0) {
+            return 'No liked songs found.';
+          }
+
+          const lines = (tracks as unknown as Record<string, unknown>[]).map((item, i) => {
+            const title = String((item.title as { toString?: () => string })?.toString?.() ?? 'Unknown');
+            const artist = String(((item.artists as Array<{ name: string }>) ?? [])[0]?.name ?? item.author ?? 'Unknown');
+            const vid = (item.video_id as string) ?? (item.id as string) ?? '';
+            return `${i + 1}. **${title}** by ${artist} (videoId: ${vid})`;
+          });
+          return `Liked songs (${tracks.length}):\n\n${lines.join('\n')}`;
+        } catch (err) {
+          return `Failed to fetch liked songs: ${err instanceof Error ? err.message : String(err)}`;
+        }
+      },
+    },
+
+    {
+      name: 'get_playback_settings',
+      description: 'Get current music playback settings (default volume, radio/autoplay, audio quality).',
+      schema: {
+        type: 'object',
+        properties: {},
+        required: [],
+      },
+      handler: async (ctx) => {
+        const settings = (await ctx.getSettings(settingsSchema)) as MusicSettings;
+        const lines = [
+          `**Default Volume:** ${settings.defaultVolume ?? 50}%`,
+          `**Radio / Autoplay:** ${settings.radioEnabled !== false ? 'enabled' : 'disabled'}`,
+          `**Audio Quality:** ${settings.audioQuality ?? 'auto'}`,
+        ];
+        return lines.join('\n');
+      },
+    },
+
+    {
+      name: 'update_playback_settings',
+      description: 'Update music playback settings. Provide only the fields you want to change.',
+      schema: {
+        type: 'object',
+        properties: {
+          defaultVolume: { type: 'number', description: 'Default volume 0-100' },
+          radioEnabled: { type: 'boolean', description: 'Enable radio/autoplay mode' },
+          audioQuality: { type: 'string', description: 'Audio quality: "auto", "high", or "low"' },
+        },
+        required: [],
+      },
+      handler: async (ctx, input) => {
+        const { defaultVolume, radioEnabled, audioQuality } = input as {
+          defaultVolume?: number;
+          radioEnabled?: boolean;
+          audioQuality?: string;
+        };
+
+        // Load existing settings
+        const existing = await ctx.db.pluginConfig.findUnique({
+          where: { pluginName: 'music' },
+        });
+        const currentSettings = (existing?.settings ?? {}) as Record<string, unknown>;
+
+        // Merge updates
+        const updates: Record<string, unknown> = {};
+        if (defaultVolume !== undefined) {
+          updates.defaultVolume = Math.max(0, Math.min(100, defaultVolume));
+        }
+        if (radioEnabled !== undefined) {
+          updates.radioEnabled = radioEnabled;
+        }
+        if (audioQuality !== undefined) {
+          if (!['auto', 'high', 'low'].includes(audioQuality)) {
+            return 'Invalid audio quality. Choose "auto", "high", or "low".';
+          }
+          updates.audioQuality = audioQuality;
+        }
+
+        await ctx.db.pluginConfig.upsert({
+          where: { pluginName: 'music' },
+          create: { pluginName: 'music', enabled: true, settings: { ...currentSettings, ...updates } as Record<string, unknown> as never },
+          update: { settings: { ...currentSettings, ...updates } as Record<string, unknown> as never },
+        });
+
+        await ctx.notifySettingsChange('music');
+
+        const parts: string[] = [];
+        if (updates.defaultVolume !== undefined) {
+          parts.push(`Default volume: ${updates.defaultVolume}%`);
+        }
+        if (updates.radioEnabled !== undefined) {
+          parts.push(`Radio: ${updates.radioEnabled ? 'enabled' : 'disabled'}`);
+        }
+        if (updates.audioQuality !== undefined) {
+          parts.push(`Audio quality: ${updates.audioQuality}`);
+        }
+        return `Settings updated: ${parts.join(', ')}`;
+      },
+    },
   ],
 
   start: async (ctx) => {
+    ctx.logger.info('music: Loading settings...');
+    const settings = await loadAndApplySettings(ctx);
+
     ctx.logger.info('music: Initializing YouTube Music client...');
-    await initYouTubeMusicClient();
+    await initClientWithSettings(ctx, settings);
 
     ctx.logger.info('music: Starting Cast device discovery...');
     startDiscovery();
 
-    initPlaybackController(ctx.logger);
+    initPlaybackController(ctx.logger, {
+      defaultVolume: settings.defaultVolume,
+      radioEnabled: settings.radioEnabled,
+      audioQuality: settings.audioQuality,
+    });
     ctx.logger.info('music: Plugin started successfully.');
   },
 
@@ -318,7 +560,19 @@ const musicPlugin: PluginDefinition = {
     ctx.logger.info('music: Plugin stopped.');
   },
 
-  register: async (_ctx) => ({}),
+  register: async (ctx) => ({
+    onSettingsChange: async (pluginName: string) => {
+      if (pluginName !== 'music') {
+        return;
+      }
+
+      ctx.logger.info('music: Settings changed, reloading...');
+      const settings = await loadAndApplySettings(ctx);
+
+      // Reinitialize client with new credentials
+      await initClientWithSettings(ctx, settings);
+    },
+  }),
 };
 
 export { musicPlugin };

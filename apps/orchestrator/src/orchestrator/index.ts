@@ -11,6 +11,7 @@ import type {
   PluginContext,
   PluginDefinition,
   PluginHooks,
+  PluginRouteEntry,
   PluginSettingsSchemaInstance,
   SettingsFieldDefs,
 } from '@harness/plugin-contract';
@@ -268,6 +269,21 @@ export const createOrchestrator: CreateOrchestrator = (deps) => {
       deps.logger.info(`Plugin registered: ${definition.name}@${definition.version}`);
     },
     start: async () => {
+      // Collect plugin routes BEFORE starting plugins so the web plugin can mount them in start()
+      const pluginRoutes: PluginRouteEntry[] = [];
+      for (const plugin of plugins) {
+        if (plugin.definition.routes && plugin.definition.routes.length > 0) {
+          pluginRoutes.push({
+            pluginName: plugin.definition.name,
+            routes: plugin.definition.routes,
+            ctx: plugin.ctx,
+          });
+        }
+      }
+      if (pluginRoutes.length > 0) {
+        context.pluginRoutes = pluginRoutes;
+      }
+
       for (const plugin of plugins) {
         if (plugin.definition.start) {
           try {

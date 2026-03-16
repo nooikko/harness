@@ -31,7 +31,17 @@ vi.mock('bonjour-service', () => {
   return { default: MockBonjour };
 });
 
-import { listDevices, resolveDevice, setDefaultDevice, startDiscovery, stopDiscovery } from '../cast-device-manager';
+import {
+  getDeviceStatuses,
+  listDevices,
+  resolveDevice,
+  resolveDeviceById,
+  setDefaultDevice,
+  startDiscovery,
+  stopDiscovery,
+  updateActiveSessionIds,
+  updateDeviceAliases,
+} from '../cast-device-manager';
 
 const defaultService = {
   name: 'test-chromecast',
@@ -279,5 +289,156 @@ describe('cast-device-manager', () => {
     );
     startDiscovery();
     expect(listDevices()).toHaveLength(2);
+  });
+
+  describe('updateDeviceAliases', () => {
+    it('sets aliases that resolveDevice can match', () => {
+      startDiscovery();
+      updateDeviceAliases({ 'device-1': 'my speaker' });
+      const device = resolveDevice('my speaker');
+      expect(device.name).toBe('Living Room Speaker');
+      expect(device.id).toBe('device-1');
+    });
+
+    it('clears previous aliases on update', () => {
+      startDiscovery();
+      updateDeviceAliases({ 'device-1': 'alias-one' });
+      updateDeviceAliases({ 'device-1': 'alias-two' });
+      // Old alias no longer works — falls through to mDNS name matching
+      expect(() => resolveDevice('alias-one')).toThrow('Device "alias-one" not found');
+      // New alias works
+      const device = resolveDevice('alias-two');
+      expect(device.name).toBe('Living Room Speaker');
+    });
+
+    it('alias match is case-insensitive', () => {
+      startDiscovery();
+      updateDeviceAliases({ 'device-1': 'My Speaker' });
+      const device = resolveDevice('MY SPEAKER');
+      expect(device.name).toBe('Living Room Speaker');
+    });
+
+    it('alias with no matching device id falls through to name match', () => {
+      startDiscovery();
+      updateDeviceAliases({ 'nonexistent-id': 'ghost speaker' });
+      // Alias matches but device ID doesn't exist — falls through
+      expect(() => resolveDevice('ghost speaker')).toThrow('Device "ghost speaker" not found');
+    });
+  });
+
+  describe('resolveDeviceById', () => {
+    it('returns device when id matches', () => {
+      startDiscovery();
+      const device = resolveDeviceById('device-1');
+      expect(device).not.toBeNull();
+      expect(device!.name).toBe('Living Room Speaker');
+    });
+
+    it('returns null when no device has the given id', () => {
+      startDiscovery();
+      const device = resolveDeviceById('nonexistent');
+      expect(device).toBeNull();
+    });
+
+    it('returns null when no devices are discovered', () => {
+      // Don't start discovery
+      const device = resolveDeviceById('device-1');
+      expect(device).toBeNull();
+    });
+  });
+
+  describe('updateActiveSessionIds', () => {
+    it('replaces session ids used by getDeviceStatuses', () => {
+      mockServices.length = 0;
+      mockServices.push(
+        {
+          name: 'dev-a',
+          txt: { fn: 'Speaker A', id: 'id-a' },
+          host: '192.168.1.1',
+          port: 8009,
+          referer: { address: '192.168.1.1' },
+        },
+        {
+          name: 'dev-b',
+          txt: { fn: 'Speaker B', id: 'id-b' },
+          host: '192.168.1.2',
+          port: 8009,
+          referer: { address: '192.168.1.2' },
+        },
+      );
+      startDiscovery();
+
+      updateActiveSessionIds(new Set(['id-a']));
+      const statuses = getDeviceStatuses();
+      expect(statuses.get('id-a')).toBe('playing');
+      expect(statuses.get('id-b')).toBe('available');
+    });
+
+    it('clears previous session ids on update', () => {
+      startDiscovery();
+      updateActiveSessionIds(new Set(['device-1']));
+      expect(getDeviceStatuses().get('device-1')).toBe('playing');
+
+      updateActiveSessionIds(new Set());
+      expect(getDeviceStatuses().get('device-1')).toBe('available');
+    });
+  });
+
+  describe('getDeviceStatuses', () => {
+    it('returns empty map when no devices exist', () => {
+      // Don't start discovery
+      const statuses = getDeviceStatuses();
+      expect(statuses.size).toBe(0);
+    });
+
+    it('marks all devices as available when no sessions are active', () => {
+      mockServices.length = 0;
+      mockServices.push(
+        {
+          name: 'dev-1',
+          txt: { fn: 'Speaker One', id: '1' },
+          host: '192.168.1.1',
+          port: 8009,
+          referer: { address: '192.168.1.1' },
+        },
+        {
+          name: 'dev-2',
+          txt: { fn: 'Speaker Two', id: '2' },
+          host: '192.168.1.2',
+          port: 8009,
+          referer: { address: '192.168.1.2' },
+        },
+      );
+      startDiscovery();
+      const statuses = getDeviceStatuses();
+      expect(statuses.size).toBe(2);
+      expect(statuses.get('1')).toBe('available');
+      expect(statuses.get('2')).toBe('available');
+    });
+
+    it('marks devices with active sessions as playing', () => {
+      mockServices.length = 0;
+      mockServices.push(
+        {
+          name: 'dev-1',
+          txt: { fn: 'Speaker One', id: '1' },
+          host: '192.168.1.1',
+          port: 8009,
+          referer: { address: '192.168.1.1' },
+        },
+        {
+          name: 'dev-2',
+          txt: { fn: 'Speaker Two', id: '2' },
+          host: '192.168.1.2',
+          port: 8009,
+          referer: { address: '192.168.1.2' },
+        },
+      );
+      startDiscovery();
+      updateActiveSessionIds(new Set(['2']));
+      const statuses = getDeviceStatuses();
+      expect(statuses.get('1')).toBe('available');
+      expect(statuses.get('2')).toBe('playing');
+    });
   });
 });
