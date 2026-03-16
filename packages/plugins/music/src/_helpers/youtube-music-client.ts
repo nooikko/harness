@@ -30,8 +30,8 @@ let innertube: InnertubeClient | null = null;
 
 export const initYouTubeMusicClient = async (options?: MusicClientOptions): Promise<void> => {
   innertube = await Innertube.create({
-    cache: new UniversalCache(false),
-    generate_session_locally: true,
+    cache: new UniversalCache(true),
+    generate_session_locally: false,
     retrieve_player: true,
     lang: 'en',
     location: 'US',

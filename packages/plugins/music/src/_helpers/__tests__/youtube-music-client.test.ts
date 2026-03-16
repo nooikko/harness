@@ -35,7 +35,7 @@ describe('youtube-music-client', () => {
       await initYouTubeMusicClient();
       expect(mockCreate).toHaveBeenCalledWith(
         expect.objectContaining({
-          generate_session_locally: true,
+          generate_session_locally: false,
           retrieve_player: true,
         }),
       );

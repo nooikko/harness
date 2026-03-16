@@ -156,6 +156,9 @@ importers:
       '@harness/plugin-auto-namer':
         specifier: workspace:*
         version: link:../../packages/plugins/auto-namer
+      '@harness/plugin-calendar':
+        specifier: workspace:*
+        version: link:../../packages/plugins/calendar
       '@harness/plugin-context':
         specifier: workspace:*
         version: link:../../packages/plugins/context
@@ -180,6 +183,9 @@ importers:
       '@harness/plugin-music':
         specifier: workspace:*
         version: link:../../packages/plugins/music
+      '@harness/plugin-outlook':
+        specifier: workspace:*
+        version: link:../../packages/plugins/outlook
       '@harness/plugin-project':
         specifier: workspace:*
         version: link:../../packages/plugins/project
@@ -232,6 +238,9 @@ importers:
       '@harness/database':
         specifier: workspace:*
         version: link:../../packages/database
+      '@harness/oauth':
+        specifier: workspace:*
+        version: link:../../packages/oauth
       '@harness/plugin-contract':
         specifier: workspace:*
         version: link:../../packages/plugin-contract
@@ -388,6 +397,31 @@ importers:
         specifier: ^4.0.18
         version: 4.0.18(@types/node@22.19.11)(jiti@2.6.1)(jsdom@28.1.0(@noble/hashes@2.0.1))(lightningcss@1.31.1)(tsx@4.21.0)(yaml@2.8.2)
 
+  packages/oauth:
+    dependencies:
+      '@harness/database':
+        specifier: workspace:*
+        version: link:../database
+      zod:
+        specifier: ^4.3.6
+        version: 4.3.6
+    devDependencies:
+      '@types/node':
+        specifier: ^22.19.11
+        version: 22.19.11
+      '@vitest/coverage-v8':
+        specifier: ^4.0.18
+        version: 4.0.18(vitest@4.0.18(@types/node@22.19.11)(jiti@2.6.1)(jsdom@28.1.0(@noble/hashes@2.0.1))(lightningcss@1.31.1)(tsx@4.21.0)(yaml@2.8.2))
+      tsup:
+        specifier: ^8.5.0
+        version: 8.5.1(jiti@2.6.1)(postcss@8.5.6)(tsx@4.21.0)(typescript@5.9.3)(yaml@2.8.2)
+      typescript:
+        specifier: ^5.9.3
+        version: 5.9.3
+      vitest:
+        specifier: ^4.0.18
+        version: 4.0.18(@types/node@22.19.11)(jiti@2.6.1)(jsdom@28.1.0(@noble/hashes@2.0.1))(lightningcss@1.31.1)(tsx@4.21.0)(yaml@2.8.2)
+
   packages/plugin-contract:
     dependencies:
       '@harness/database':
@@ -470,6 +504,34 @@ importers:
       '@harness/database':
         specifier: workspace:*
         version: link:../../database
+      '@harness/plugin-contract':
+        specifier: workspace:*
+        version: link:../../plugin-contract
+    devDependencies:
+      '@types/node':
+        specifier: ^22.19.11
+        version: 22.19.11
+      '@vitest/coverage-v8':
+        specifier: ^4.0.18
+        version: 4.0.18(vitest@4.0.18(@types/node@22.19.11)(jiti@2.6.1)(jsdom@28.1.0(@noble/hashes@2.0.1))(lightningcss@1.31.1)(tsx@4.21.0)(yaml@2.8.2))
+      tsup:
+        specifier: ^8.5.0
+        version: 8.5.1(jiti@2.6.1)(postcss@8.5.6)(tsx@4.21.0)(typescript@5.9.3)(yaml@2.8.2)
+      typescript:
+        specifier: ^5.9.3
+        version: 5.9.3
+      vitest:
+        specifier: ^4.0.18
+        version: 4.0.18(@types/node@22.19.11)(jiti@2.6.1)(jsdom@28.1.0(@noble/hashes@2.0.1))(lightningcss@1.31.1)(tsx@4.21.0)(yaml@2.8.2)
+
+  packages/plugins/calendar:
+    dependencies:
+      '@harness/database':
+        specifier: workspace:*
+        version: link:../../database
+      '@harness/oauth':
+        specifier: workspace:*
+        version: link:../../oauth
       '@harness/plugin-contract':
         specifier: workspace:*
         version: link:../../plugin-contract
@@ -661,8 +723,36 @@ importers:
         specifier: ^1.2.0
         version: 1.2.0
       youtubei.js:
-        specifier: ^14.0.0
-        version: 14.0.0
+        specifier: ^17.0.1
+        version: 17.0.1
+    devDependencies:
+      '@types/node':
+        specifier: ^22.19.11
+        version: 22.19.11
+      '@vitest/coverage-v8':
+        specifier: ^4.0.18
+        version: 4.0.18(vitest@4.0.18(@types/node@22.19.11)(jiti@2.6.1)(jsdom@28.1.0(@noble/hashes@2.0.1))(lightningcss@1.31.1)(tsx@4.21.0)(yaml@2.8.2))
+      tsup:
+        specifier: ^8.5.0
+        version: 8.5.1(jiti@2.6.1)(postcss@8.5.6)(tsx@4.21.0)(typescript@5.9.3)(yaml@2.8.2)
+      typescript:
+        specifier: ^5.9.3
+        version: 5.9.3
+      vitest:
+        specifier: ^4.0.18
+        version: 4.0.18(@types/node@22.19.11)(jiti@2.6.1)(jsdom@28.1.0(@noble/hashes@2.0.1))(lightningcss@1.31.1)(tsx@4.21.0)(yaml@2.8.2)
+
+  packages/plugins/outlook:
+    dependencies:
+      '@harness/database':
+        specifier: workspace:*
+        version: link:../../database
+      '@harness/oauth':
+        specifier: workspace:*
+        version: link:../../oauth
+      '@harness/plugin-contract':
+        specifier: workspace:*
+        version: link:../../plugin-contract
     devDependencies:
       '@types/node':
         specifier: ^22.19.11
@@ -3850,9 +3940,6 @@ packages:
   jackspeak@3.4.3:
     resolution: {integrity: sha512-OGlZQpz2yfahA/Rd1Y8Cd9SIEsqvXkLVoSw/cgwhnhFMDbsQFeZYoJJ7bIZBS9BcamUW96asq/npPWugM+RQBw==}
 
-  jintr@3.3.1:
-    resolution: {integrity: sha512-nnOzyhf0SLpbWuZ270Omwbj5LcXUkTcZkVnK8/veJXtSZOiATM5gMZMdmzN75FmTyj+NVgrGaPdH12zIJ24oIA==}
-
   jiti@2.6.1:
     resolution: {integrity: sha512-ekilCSN1jwRvIbgeg/57YFh8qQDNbwDb9xT/qu2DAHbFFZUicIl4ygVaAvzveMhMVr3LnpSKTNnwt8PoOfmKhQ==}
     hasBin: true
@@ -4124,6 +4211,10 @@ packages:
   merge-descriptors@2.0.0:
     resolution: {integrity: sha512-Snk314V5ayFLhp3fkUREub6WtjBfPdCPY1Ln8/8munuLuiYhsABgBVWsozAG+MWMbVEvcdcpbi9R7ww22l9Q3g==}
     engines: {node: '>=18'}
+
+  meriyah@6.1.4:
+    resolution: {integrity: sha512-Sz8FzjzI0kN13GK/6MVEsVzMZEPvOhnmmI1lU5+/1cGOiK3QUahntrNNtdVeihrO7t9JpoH75iMNXg6R6uWflQ==}
+    engines: {node: '>=18.0.0'}
 
   micromark-core-commonmark@2.0.3:
     resolution: {integrity: sha512-RDBrHEMSxVFLg6xvnXmb1Ayr2WzLAWjeSATAoxwKYJV94TeNavgoIdA0a9ytzDSVzBy2YKFK+emCPOEibLeCrg==}
@@ -5394,8 +5485,8 @@ packages:
     resolution: {integrity: sha512-kHqDPdltoXH+X4w1lVmMtddE3Oeqq48nM40FD5ojTd8xYhQpzIDcfE2keMSU5bAgRPJBe225WTUdyUgj1DtbiQ==}
     engines: {node: '>=16.0.0', npm: '>=8.0.0'}
 
-  youtubei.js@14.0.0:
-    resolution: {integrity: sha512-KAFttOw+9fwwBUvBc1T7KzMNBLczDOuN/dfote8BA9CABxgx8MPgV+vZWlowdDB6DnHjSUYppv+xvJ4VNBLK9A==}
+  youtubei.js@17.0.1:
+    resolution: {integrity: sha512-1lO4b8UqMDzE0oh2qEGzbBOd4UYRdxn/4PdpRM7BGTHxM6ddsEsKZTu90jp8V9FHVgC2h1UirQyqoqLiKwl+Zg==}
 
   zip-stream@6.0.1:
     resolution: {integrity: sha512-zK7YHHz4ZXpW89AHXUPbQVGKI7uvkd3hzusTdotCg1UxyaVtg0zFJSTfW/Dq5f7OBBVnq6cZIaC8Ti4hb6dtCA==}
@@ -8136,10 +8227,6 @@ snapshots:
     optionalDependencies:
       '@pkgjs/parseargs': 0.11.0
 
-  jintr@3.3.1:
-    dependencies:
-      acorn: 8.16.0
-
   jiti@2.6.1: {}
 
   joycon@3.1.1: {}
@@ -8494,6 +8581,8 @@ snapshots:
   media-typer@1.1.0: {}
 
   merge-descriptors@2.0.0: {}
+
+  meriyah@6.1.4: {}
 
   micromark-core-commonmark@2.0.3:
     dependencies:
@@ -9968,12 +10057,10 @@ snapshots:
     dependencies:
       lib0: 0.2.117
 
-  youtubei.js@14.0.0:
+  youtubei.js@17.0.1:
     dependencies:
       '@bufbuild/protobuf': 2.11.0
-      jintr: 3.3.1
-      tslib: 2.8.1
-      undici: 5.29.0
+      meriyah: 6.1.4
 
   zip-stream@6.0.1:
     dependencies:
