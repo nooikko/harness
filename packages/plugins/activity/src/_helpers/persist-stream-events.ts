@@ -31,9 +31,13 @@ const persistStreamEvents: PersistStreamEvents = async (db, threadId, events) =>
           threadId,
           role: 'assistant',
           kind: 'tool_result',
-          source: 'builtin',
+          source: event.toolName ? parsePluginSource(event.toolName) : 'builtin',
           content: event.content,
-          metadata: { toolUseId: event.toolUseId ?? null, success: true },
+          metadata: {
+            toolUseId: event.toolUseId ?? null,
+            toolName: event.toolName ?? null,
+            success: true,
+          },
         },
       });
     }

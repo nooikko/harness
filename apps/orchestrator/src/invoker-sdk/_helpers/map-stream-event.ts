@@ -51,8 +51,22 @@ export const mapStreamEvent: MapStreamEvent = (message) => {
   }
 
   if (message.type === 'tool_use_summary') {
-    const summaryMsg = message as SDKMessage & { summary?: string };
-    return [{ type: 'tool_use_summary', content: summaryMsg.summary, timestamp, raw: message }];
+    const summaryMsg = message as SDKMessage & {
+      summary?: string;
+      tool_use_id?: string;
+      is_error?: boolean;
+      tool_name?: string;
+    };
+    return [
+      {
+        type: 'tool_use_summary',
+        content: summaryMsg.summary,
+        toolUseId: summaryMsg.tool_use_id,
+        toolName: summaryMsg.tool_name,
+        timestamp,
+        raw: message,
+      },
+    ];
   }
 
   return [];
