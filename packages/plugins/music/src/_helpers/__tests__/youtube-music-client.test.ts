@@ -496,8 +496,8 @@ describe('youtube-music-client', () => {
         },
       });
 
-      // The filter requires f.url to be truthy, so this results in 0 audio formats
-      await expect(getAudioStreamUrl('vid1')).rejects.toThrow('No audio streams found');
+      // No url and no decipher function — should fail at decipher step
+      await expect(getAudioStreamUrl('vid1')).rejects.toThrow('Failed to decipher stream URL');
     });
 
     it('defaults mimeType to audio/webm when mime_type is null', async () => {

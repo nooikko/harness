@@ -106,7 +106,7 @@ export const getAudioStreamUrl = async (videoId: string): Promise<AudioStream> =
   const info = await yt.music.getInfo(videoId);
 
   const adaptiveFormats = info.streaming_data?.adaptive_formats ?? [];
-  const audioFormats = adaptiveFormats.filter((f) => f.has_audio && !f.has_video && f.url);
+  const audioFormats = adaptiveFormats.filter((f) => f.has_audio && !f.has_video);
 
   if (audioFormats.length === 0) {
     throw new Error(`No audio streams found for videoId: ${videoId}`);
@@ -120,12 +120,21 @@ export const getAudioStreamUrl = async (videoId: string): Promise<AudioStream> =
   candidates.sort((a, b) => (b.average_bitrate ?? b.bitrate ?? 0) - (a.average_bitrate ?? a.bitrate ?? 0));
 
   const best = candidates[0];
-  if (!best?.url) {
+  if (!best) {
+    throw new Error(`No suitable audio format for videoId: ${videoId}`);
+  }
+
+  // v17+: URLs may not be pre-deciphered — call decipher() if needed
+  let url = best.url;
+  if (!url && typeof best.decipher === 'function') {
+    url = await best.decipher();
+  }
+  if (!url) {
     throw new Error(`Failed to decipher stream URL for videoId: ${videoId}`);
   }
 
   return {
-    url: best.url,
+    url,
     mimeType: best.mime_type ?? 'audio/webm',
     bitrate: best.average_bitrate ?? best.bitrate ?? 0,
     durationMs: best.approx_duration_ms,
