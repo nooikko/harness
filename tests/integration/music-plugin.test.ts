@@ -62,7 +62,7 @@ vi.mock('castv2-client', () => ({
 const { musicPlugin } = await import('@harness/plugin-music');
 
 const prisma = new PrismaClient({
-  datasourceUrl: process.env['TEST_DATABASE_URL'],
+  datasourceUrl: process.env.TEST_DATABASE_URL,
 });
 
 beforeEach(async () => {

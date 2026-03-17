@@ -6,7 +6,6 @@
   "scripts": {
     "dev": "vite --port 4003",
     "build": "tsc -b && vite build",
-    "lint": "biome check .",
     "typecheck": "tsc --noEmit",
     "preview": "vite preview"
   },

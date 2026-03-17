@@ -21,7 +21,7 @@ vi.mock('@harness/vector-search', () => ({
 const { plugin: searchPlugin } = await import('@harness/plugin-search');
 
 const prisma = new PrismaClient({
-  datasourceUrl: process.env['TEST_DATABASE_URL'],
+  datasourceUrl: process.env.TEST_DATABASE_URL,
 });
 
 beforeEach(async () => {

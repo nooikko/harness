@@ -10,7 +10,7 @@ vi.mock('@harness/oauth', () => ({
 }));
 
 const prisma = new PrismaClient({
-  datasourceUrl: process.env['TEST_DATABASE_URL'],
+  datasourceUrl: process.env.TEST_DATABASE_URL,
 });
 
 beforeEach(async () => {
@@ -75,7 +75,8 @@ describe('outlook plugin integration', () => {
 
     const tool = getTool('search_emails');
     const result = await tool.handler(ctx, { query: 'project update' }, makeMeta(harness.threadId));
-    const parsed = JSON.parse(result);
+    const text = typeof result === 'string' ? result : result.text;
+    const parsed = JSON.parse(text);
 
     expect(parsed).toHaveLength(1);
     expect(parsed[0].subject).toBe('Project Update');
@@ -170,7 +171,8 @@ describe('outlook plugin integration', () => {
 
     const tool = getTool('find_unsubscribe_links');
     const result = await tool.handler(ctx, {}, makeMeta(harness.threadId));
-    const parsed = JSON.parse(result);
+    const text = typeof result === 'string' ? result : result.text;
+    const parsed = JSON.parse(text);
 
     expect(parsed).toHaveLength(1);
     expect(parsed[0].sender).toContain('news@company.com');

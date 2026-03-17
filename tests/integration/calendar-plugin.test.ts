@@ -12,7 +12,7 @@ vi.mock('@harness/oauth', () => ({
 }));
 
 const prisma = new PrismaClient({
-  datasourceUrl: process.env['TEST_DATABASE_URL'],
+  datasourceUrl: process.env.TEST_DATABASE_URL,
 });
 
 beforeEach(async () => {
@@ -87,7 +87,8 @@ describe('calendar plugin integration', () => {
 
     const tool = getTool('list_events');
     const result = await tool.handler(ctx, {}, makeMeta(harness.threadId));
-    const parsed = JSON.parse(result);
+    const text = typeof result === 'string' ? result : result.text;
+    const parsed = JSON.parse(text);
 
     expect(parsed).toHaveLength(1);
     expect(parsed[0].subject).toBe('Team Standup');
@@ -171,7 +172,8 @@ describe('calendar plugin integration', () => {
       makeMeta(harness.threadId),
     );
 
-    const parsed = JSON.parse(result);
+    const text = typeof result === 'string' ? result : result.text;
+    const parsed = JSON.parse(text);
     expect(parsed).toHaveLength(1);
     expect(parsed[0].start).toBe('2026-03-18T09:00:00');
   });
@@ -195,7 +197,8 @@ describe('calendar plugin integration', () => {
 
     const tool = getTool('list_calendars');
     const result = await tool.handler(ctx, {}, makeMeta(harness.threadId));
-    const parsed = JSON.parse(result);
+    const text = typeof result === 'string' ? result : result.text;
+    const parsed = JSON.parse(text);
 
     expect(parsed).toHaveLength(1);
     expect(parsed[0].name).toBe('Personal');
