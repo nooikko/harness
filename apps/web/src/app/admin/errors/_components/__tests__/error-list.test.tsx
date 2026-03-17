@@ -2,14 +2,14 @@ import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
-let modalProps: { error: unknown; open: boolean; onOpenChange: (v: boolean) => void } | null = null;
+let modalProps: { error: unknown; open: boolean; onOpenChangeAction: (v: boolean) => void } | null = null;
 
 vi.mock('../error-detail-modal', () => ({
-  ErrorDetailModal: (props: { error: unknown; open: boolean; onOpenChange: (v: boolean) => void }) => {
+  ErrorDetailModal: (props: { error: unknown; open: boolean; onOpenChangeAction: (v: boolean) => void }) => {
     modalProps = props;
     return props.open && props.error ? (
       <div data-testid='error-modal'>
-        <button type='button' onClick={() => props.onOpenChange(false)}>
+        <button type='button' onClick={() => props.onOpenChangeAction(false)}>
           close
         </button>
       </div>
@@ -148,7 +148,7 @@ describe('ErrorList', () => {
   });
 
   // --- modal close ---
-  it('closes detail modal when onOpenChange fires with false', async () => {
+  it('closes detail modal when onOpenChangeAction fires with false', async () => {
     const user = userEvent.setup();
     render(<ErrorList errors={[makeError()]} />);
 
