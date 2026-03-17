@@ -47,7 +47,7 @@ export const DeleteThreadModal: DeleteThreadModalComponent = ({ open, onOpenChan
       await deleteThread(threadId);
       onOpenChange(false);
       onDeleted?.();
-      router.push('/chat');
+      router.push('/');
     });
   };
 

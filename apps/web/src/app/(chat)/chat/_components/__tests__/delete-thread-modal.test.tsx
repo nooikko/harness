@@ -64,7 +64,7 @@ describe('DeleteThreadModal', () => {
 
     expect(mockDeleteThread).toHaveBeenCalledWith('t-1');
     expect(onOpenChange).toHaveBeenCalledWith(false);
-    expect(mockPush).toHaveBeenCalledWith('/chat');
+    expect(mockPush).toHaveBeenCalledWith('/');
   });
 
   it('calls onDeleted callback after delete without audit', async () => {
