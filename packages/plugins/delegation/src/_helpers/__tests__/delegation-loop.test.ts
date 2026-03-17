@@ -614,7 +614,7 @@ describe('runDelegationLoop', () => {
     });
 
     expect(result.status).toBe('completed');
-    expect(mockCtx.logger.error).toHaveBeenCalledWith(expect.stringContaining('onTaskCreate'));
+    expect(mockCtx.logger.error).toHaveBeenCalledWith(expect.stringContaining('onTaskCreate'), expect.anything());
   });
 
   it('handles onTaskFailed hook errors gracefully', async () => {
@@ -630,7 +630,7 @@ describe('runDelegationLoop', () => {
     });
 
     expect(result.status).toBe('failed');
-    expect(mockCtx.logger.error).toHaveBeenCalledWith(expect.stringContaining('onTaskFailed'));
+    expect(mockCtx.logger.error).toHaveBeenCalledWith(expect.stringContaining('onTaskFailed'), expect.anything());
   });
 
   it('fires multiple onTaskCreate hooks from different plugins', async () => {
@@ -720,7 +720,7 @@ describe('runDelegationLoop', () => {
     });
 
     expect(result.status).toBe('failed');
-    expect(mockCtx.logger.error).toHaveBeenCalledWith(expect.stringContaining('not an Error object'));
+    expect(mockCtx.logger.error).toHaveBeenCalledWith(expect.stringContaining('not an Error object'), expect.anything());
   });
 
   it('handles onTaskCreate throwing non-Error value', async () => {
@@ -733,7 +733,7 @@ describe('runDelegationLoop', () => {
     });
 
     expect(result.status).toBe('completed');
-    expect(mockCtx.logger.error).toHaveBeenCalledWith(expect.stringContaining('42'));
+    expect(mockCtx.logger.error).toHaveBeenCalledWith(expect.stringContaining('42'), expect.anything());
   });
 
   it('uses fallback feedback when task rejected without specific feedback', async () => {

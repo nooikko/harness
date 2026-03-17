@@ -2,6 +2,7 @@
 
 import type { PrismaClient } from '@harness/database';
 import type { Logger } from '@harness/logger';
+import { createChildLogger } from '@harness/logger';
 import type {
   InvokeResult,
   Invoker,
@@ -20,6 +21,13 @@ import { getPluginSettings } from './_helpers/get-plugin-settings';
 import { assemblePrompt } from './_helpers/prompt-assembler';
 import { runChainHooks } from './_helpers/run-chain-hooks';
 import { runNotifyHooks } from './_helpers/run-notify-hooks';
+
+export type PluginHealth = {
+  name: string;
+  status: 'healthy' | 'failed' | 'disabled';
+  error?: string;
+  startedAt?: number;
+};
 
 export type OrchestratorDeps = {
   db: PrismaClient;
@@ -44,6 +52,7 @@ type CreateOrchestrator = (deps: OrchestratorDeps) => {
   start: () => Promise<void>;
   stop: () => Promise<void>;
   getPlugins: () => string[];
+  getPluginHealth: () => PluginHealth[];
   getContext: () => PluginContext;
   getHooks: () => PluginHooks[];
   handleMessage: (threadId: string, role: string, content: string, traceId?: string) => Promise<HandleMessageResult>;
@@ -51,11 +60,13 @@ type CreateOrchestrator = (deps: OrchestratorDeps) => {
 
 export const createOrchestrator: CreateOrchestrator = (deps) => {
   const plugins: Array<{ definition: PluginDefinition; hooks: PluginHooks; ctx: PluginContext }> = [];
+  const pluginHealth: PluginHealth[] = [];
 
   const allHooks = (): PluginHooks[] => plugins.map((p) => p.hooks);
+  const pluginNames = (): string[] => plugins.map((p) => p.definition.name);
 
   // Mutable ref for late-binding — handleMessage is set after the return object is created
-  type HandleMessageFn = (threadId: string, role: string, content: string, traceId?: string) => Promise<HandleMessageResult>;
+  type HandleMessageFn = (threadId: string, role: string, content: string, traceId?: string, logger?: Logger) => Promise<HandleMessageResult>;
   const pipeline: { handleMessage: HandleMessageFn | null } = { handleMessage: null };
 
   const context: PluginContext = {
@@ -71,12 +82,14 @@ export const createOrchestrator: CreateOrchestrator = (deps) => {
       try {
         const traceId = crypto.randomUUID();
         deps.setActiveTraceId?.(traceId);
-        deps.logger.info(`sendToThread: starting [thread=${threadId}, contentLength=${content.length}, traceId=${traceId}]`);
+        const pipelineLogger = createChildLogger(deps.logger, { traceId, threadId });
+        const names = pluginNames();
+        pipelineLogger.info(`sendToThread: starting [contentLength=${content.length}]`);
 
         // Notify plugins pipeline is starting
-        await runNotifyHooks(allHooks(), 'onPipelineStart', (h) => h.onPipelineStart?.(threadId), deps.logger);
+        await runNotifyHooks(allHooks(), 'onPipelineStart', (h) => h.onPipelineStart?.(threadId), pipelineLogger, names);
 
-        const result = await pipeline.handleMessage(threadId, 'user', content, traceId);
+        const result = await pipeline.handleMessage(threadId, 'user', content, traceId, pipelineLogger);
         const { invokeResult, pipelineSteps, streamEvents } = result;
 
         // Notify plugins pipeline is complete BEFORE innate writes.
@@ -86,13 +99,14 @@ export const createOrchestrator: CreateOrchestrator = (deps) => {
           allHooks(),
           'onPipelineComplete',
           (h) => h.onPipelineComplete?.(threadId, { invokeResult, pipelineSteps, streamEvents }),
-          deps.logger,
+          pipelineLogger,
+          names,
         );
 
         // INNATE: Persist assistant text reply and update thread activity (after activity plugin
         // so the reply appears after thinking/tool records in the sorted message list)
         if (invokeResult.output) {
-          deps.logger.info(`sendToThread: persisting assistant response [thread=${threadId}, outputLength=${invokeResult.output.length}]`);
+          pipelineLogger.info(`sendToThread: persisting assistant response [outputLength=${invokeResult.output.length}]`);
           await deps.db.message.create({
             data: {
               threadId,
@@ -107,9 +121,7 @@ export const createOrchestrator: CreateOrchestrator = (deps) => {
             data: { lastActivity: new Date() },
           });
         } else {
-          deps.logger.warn(
-            `sendToThread: no output from pipeline [thread=${threadId}, error=${invokeResult.error ?? 'none'}, exit=${invokeResult.exitCode}]`,
-          );
+          pipelineLogger.warn(`sendToThread: no output from pipeline [error=${invokeResult.error ?? 'none'}, exit=${invokeResult.exitCode}]`);
         }
 
         // Broadcast pipeline:complete AFTER DB writes so router.refresh() on the client
@@ -149,8 +161,11 @@ export const createOrchestrator: CreateOrchestrator = (deps) => {
     };
   };
 
-  const handleMessage = async (threadId: string, role: string, content: string, traceId?: string): Promise<HandleMessageResult> => {
+  const handleMessage = async (threadId: string, role: string, content: string, traceId?: string, logger?: Logger): Promise<HandleMessageResult> => {
+    // Use the pipeline logger if provided (has traceId+threadId bound), otherwise fall back to deps.logger
+    const log = logger ?? createChildLogger(deps.logger, { traceId: traceId ?? 'unknown', threadId });
     const hooks = allHooks();
+    const names = pluginNames();
     const pipelineSteps: PipelineStep[] = [];
     const streamEvents: InvokeStreamEvent[] = [];
 
@@ -161,9 +176,9 @@ export const createOrchestrator: CreateOrchestrator = (deps) => {
     });
 
     // Step 1: Fire onMessage hooks (notification — no modification)
-    deps.logger.info(`Pipeline: onMessage [thread=${threadId}, role=${role}]`);
+    log.info(`Pipeline: onMessage [role=${role}]`);
     const onMessagePlugins = plugins.filter((p) => p.hooks.onMessage).map((p) => p.definition.name);
-    await runNotifyHooks(hooks, 'onMessage', (h) => h.onMessage?.(threadId, role, content), deps.logger);
+    await runNotifyHooks(hooks, 'onMessage', (h) => h.onMessage?.(threadId, role, content), log, names);
     const onMessageMeta = { plugins: onMessagePlugins };
     pipelineSteps.push({ step: 'onMessage', detail: onMessagePlugins.join(', ') || 'none', metadata: onMessageMeta, timestamp: Date.now() });
     await context.broadcast('pipeline:step', {
@@ -184,10 +199,10 @@ export const createOrchestrator: CreateOrchestrator = (deps) => {
     const { prompt: basePrompt } = assemblePrompt(content, threadMeta);
 
     // Step 3: Run onBeforeInvoke hooks in sequence (each can modify prompt)
-    deps.logger.info(`Pipeline: onBeforeInvoke [thread=${threadId}]`);
+    log.info('Pipeline: onBeforeInvoke');
     const onBeforePlugins = plugins.filter((p) => p.hooks.onBeforeInvoke).map((p) => p.definition.name);
     const promptBefore = basePrompt.length;
-    const prompt = await runChainHooks(hooks, threadId, basePrompt, deps.logger);
+    const prompt = await runChainHooks(hooks, threadId, basePrompt, log, names);
     const promptAfter = prompt.length;
     const onBeforeMeta = { plugins: onBeforePlugins, promptBefore, promptAfter };
     const onBeforeDetail = `${onBeforePlugins.join(', ') || 'none'} | ${promptBefore.toLocaleString()} → ${promptAfter.toLocaleString()} chars`;
@@ -212,20 +227,18 @@ export const createOrchestrator: CreateOrchestrator = (deps) => {
       model = project?.model ?? undefined;
     }
     const sessionId = thread?.sessionId ?? undefined;
-    deps.logger.info(
-      `Pipeline: invoking Claude [thread=${threadId}, promptLength=${prompt.length}, model=${model ?? 'default'}, sessionId=${sessionId ?? 'none'}]`,
-    );
+    log.info(`Pipeline: invoking Claude [promptLength=${prompt.length}, model=${model ?? 'default'}, sessionId=${sessionId ?? 'none'}]`);
     const invokingMeta = { model: model ?? 'default', promptLength: prompt.length };
     const invokingDetail = `${model ?? 'default'} | ${prompt.length.toLocaleString()} chars`;
     pipelineSteps.push({ step: 'invoking', detail: invokingDetail, metadata: invokingMeta, timestamp: Date.now() });
     await context.broadcast('pipeline:step', { threadId, step: 'invoking', detail: invokingDetail, metadata: invokingMeta, timestamp: Date.now() });
     const invokeResult = await deps.invoker.invoke(prompt, { model, sessionId, threadId, traceId, onMessage: (event) => streamEvents.push(event) });
 
-    deps.logger.info(
-      `Pipeline: invoke complete [thread=${threadId}, duration=${invokeResult.durationMs}ms, exit=${invokeResult.exitCode}, outputLength=${invokeResult.output.length}, model=${invokeResult.model ?? 'unknown'}, sessionId=${invokeResult.sessionId ?? 'none'}]`,
+    log.info(
+      `Pipeline: invoke complete [duration=${invokeResult.durationMs}ms, exit=${invokeResult.exitCode}, outputLength=${invokeResult.output.length}, model=${invokeResult.model ?? 'unknown'}, sessionId=${invokeResult.sessionId ?? 'none'}]`,
     );
     if (invokeResult.error) {
-      deps.logger.warn(`Pipeline: invoke error [thread=${threadId}]: ${invokeResult.error}`);
+      log.warn(`Pipeline: invoke error: ${invokeResult.error}`);
     }
 
     // Step 4b: Sync sessionId — update if changed (handles set, clear, and rotation)
@@ -238,7 +251,7 @@ export const createOrchestrator: CreateOrchestrator = (deps) => {
     }
 
     // Step 5: Fire onAfterInvoke hooks (notification)
-    await runNotifyHooks(hooks, 'onAfterInvoke', (h) => h.onAfterInvoke?.(threadId, invokeResult), deps.logger);
+    await runNotifyHooks(hooks, 'onAfterInvoke', (h) => h.onAfterInvoke?.(threadId, invokeResult), log, names);
     const onAfterMeta = {
       inputTokens: invokeResult.inputTokens ?? null,
       outputTokens: invokeResult.outputTokens ?? null,
@@ -288,13 +301,19 @@ export const createOrchestrator: CreateOrchestrator = (deps) => {
         }
       }
 
+      pluginHealth.length = 0;
       for (const plugin of plugins) {
         if (plugin.definition.start) {
           try {
             await plugin.definition.start(plugin.ctx);
+            pluginHealth.push({ name: plugin.definition.name, status: 'healthy', startedAt: Date.now() });
           } catch (error) {
-            deps.logger.error(`Plugin start failed [plugin=${plugin.definition.name}]: ${error instanceof Error ? error.message : String(error)}`);
+            const message = error instanceof Error ? error.message : String(error);
+            deps.logger.error(`Plugin start failed [plugin=${plugin.definition.name}]: ${message}`);
+            pluginHealth.push({ name: plugin.definition.name, status: 'failed', error: message });
           }
+        } else {
+          pluginHealth.push({ name: plugin.definition.name, status: 'healthy', startedAt: Date.now() });
         }
       }
       deps.logger.info('Orchestrator started');
@@ -317,6 +336,7 @@ export const createOrchestrator: CreateOrchestrator = (deps) => {
       }
     },
     getPlugins: () => plugins.map((p) => p.definition.name),
+    getPluginHealth: () => [...pluginHealth],
     getContext: () => context,
     getHooks: () => allHooks(),
     handleMessage,

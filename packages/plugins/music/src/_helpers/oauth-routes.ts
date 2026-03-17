@@ -59,7 +59,7 @@ export const createOAuthRoutes: CreateOAuthRoutes = (clientRef) => [
         // Fetch account info if possible
         const innertube = clientRef.getClient();
         if (innertube) {
-          const accountInfo = await getAccountInfo(innertube as Parameters<typeof getAccountInfo>[0]);
+          const accountInfo = await getAccountInfo(innertube as Parameters<typeof getAccountInfo>[0], ctx.logger);
           if (accountInfo) {
             oauthStored.accountEmail = accountInfo.email;
             oauthStored.accountName = accountInfo.name;

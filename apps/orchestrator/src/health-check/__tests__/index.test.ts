@@ -27,6 +27,8 @@ const makeServer = (): MockServer => ({
   stop: vi.fn().mockResolvedValue(undefined),
 });
 
+const mockGetPluginHealth = vi.fn().mockReturnValue([]);
+
 describe('createHealthCheck', () => {
   let logger: Logger;
 
@@ -45,7 +47,7 @@ describe('createHealthCheck', () => {
     const server = makeServer();
     mockCreateHealthServer.mockReturnValue(server as ReturnType<typeof createHealthServer>);
 
-    createHealthCheck({ port: 4002, logger, version: '1.0.0' });
+    createHealthCheck({ port: 4002, logger, version: '1.0.0', getPluginHealth: mockGetPluginHealth });
 
     expect(mockCreateHealthServer).toHaveBeenCalledWith({
       port: 4002,
@@ -62,6 +64,7 @@ describe('createHealthCheck', () => {
       port: 4002,
       logger,
       version: '1.0.0',
+      getPluginHealth: mockGetPluginHealth,
     });
     await healthCheck.start();
 
@@ -76,6 +79,7 @@ describe('createHealthCheck', () => {
       port: 4002,
       logger,
       version: '1.0.0',
+      getPluginHealth: mockGetPluginHealth,
     });
     await healthCheck.stop();
 
@@ -90,7 +94,7 @@ describe('createHealthCheck', () => {
       return makeServer() as ReturnType<typeof createHealthServer>;
     });
 
-    createHealthCheck({ port: 4002, logger, version: '2.0.0' });
+    createHealthCheck({ port: 4002, logger, version: '2.0.0', getPluginHealth: mockGetPluginHealth });
 
     // Advance time by 5 seconds
     vi.advanceTimersByTime(5000);
@@ -103,6 +107,7 @@ describe('createHealthCheck', () => {
       uptime: 5,
       timestamp: expect.any(String),
       version: '2.0.0',
+      plugins: [],
     });
   });
 
@@ -118,6 +123,7 @@ describe('createHealthCheck', () => {
       port: 4002,
       logger,
       version: '1.0.0',
+      getPluginHealth: mockGetPluginHealth,
     });
 
     healthCheck.setShuttingDown();
@@ -136,7 +142,7 @@ describe('createHealthCheck', () => {
       return makeServer() as ReturnType<typeof createHealthServer>;
     });
 
-    createHealthCheck({ port: 4002, logger, version: '1.0.0' });
+    createHealthCheck({ port: 4002, logger, version: '1.0.0', getPluginHealth: mockGetPluginHealth });
 
     // Advance by 3.7 seconds — should floor to 3
     vi.advanceTimersByTime(3700);
@@ -155,11 +161,35 @@ describe('createHealthCheck', () => {
       return makeServer() as ReturnType<typeof createHealthServer>;
     });
 
-    createHealthCheck({ port: 4002, logger, version: '1.0.0' });
+    createHealthCheck({ port: 4002, logger, version: '1.0.0', getPluginHealth: mockGetPluginHealth });
 
     expect(capturedGetStatus).not.toBeNull();
     const status = capturedGetStatus!() as { timestamp: string };
 
     expect(status.timestamp).toBe('2026-01-15T10:00:00.000Z');
+  });
+
+  it('getStatus includes plugin health from the provided callback', () => {
+    let capturedGetStatus: (() => unknown) | null = null;
+
+    mockCreateHealthServer.mockImplementation((opts) => {
+      capturedGetStatus = opts.getStatus as () => unknown;
+      return makeServer() as ReturnType<typeof createHealthServer>;
+    });
+
+    const pluginData = [
+      { name: 'identity', status: 'healthy' as const, startedAt: 1234567890 },
+      { name: 'music', status: 'failed' as const, error: 'Bonjour is not a constructor' },
+      { name: 'search', status: 'disabled' as const },
+    ];
+    const getHealth = vi.fn().mockReturnValue(pluginData);
+
+    createHealthCheck({ port: 4002, logger, version: '1.0.0', getPluginHealth: getHealth });
+
+    expect(capturedGetStatus).not.toBeNull();
+    const status = capturedGetStatus!() as { plugins: unknown[] };
+
+    expect(status.plugins).toEqual(pluginData);
+    expect(getHealth).toHaveBeenCalled();
   });
 });

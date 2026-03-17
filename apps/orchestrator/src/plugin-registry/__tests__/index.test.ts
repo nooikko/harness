@@ -13,7 +13,7 @@ vi.mock('../_helpers/filter-disabled-plugins', () => ({
 
 import { filterDisabledPlugins } from '../_helpers/filter-disabled-plugins';
 import { syncPluginConfigs } from '../_helpers/sync-plugin-configs';
-import { getPlugins } from '../index';
+import { getAllPluginNames, getPlugins } from '../index';
 
 const mockSyncPluginConfigs = vi.mocked(syncPluginConfigs);
 const mockFilterDisabledPlugins = vi.mocked(filterDisabledPlugins);
@@ -116,5 +116,16 @@ describe('getPlugins', () => {
     await getPlugins(db, logger);
 
     expect(mockFilterDisabledPlugins).toHaveBeenCalledWith(expect.any(Array), db, logger);
+  });
+});
+
+describe('getAllPluginNames', () => {
+  it('returns all plugin names including disabled ones', () => {
+    const names = getAllPluginNames();
+    expect(Array.isArray(names)).toBe(true);
+    expect(names.length).toBeGreaterThan(0);
+    expect(names).toContain('identity');
+    expect(names).toContain('web');
+    expect(names).toContain('music');
   });
 });

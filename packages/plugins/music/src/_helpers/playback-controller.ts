@@ -75,8 +75,8 @@ export const destroyPlaybackController = (): void => {
       session.player.removeAllListeners();
       session.client.removeAllListeners();
       session.client.close();
-    } catch {
-      // best effort cleanup
+    } catch (err) {
+      logger?.warn(`music: cleanup failed for session: ${err instanceof Error ? err.message : String(err)}`);
     }
   }
   sessions.clear();

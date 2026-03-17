@@ -77,7 +77,10 @@ describe('runNotifyHooks', () => {
 
     await runNotifyHooks(hookObjects, 'onAfterInvoke', callHook, mockLogger);
 
-    expect(mockLogger.error).toHaveBeenCalledWith('Hook "onAfterInvoke" threw: something went wrong');
+    expect(mockLogger.error).toHaveBeenCalledWith(
+      'Hook "onAfterInvoke" failed: something went wrong',
+      expect.objectContaining({ hookName: 'onAfterInvoke' }),
+    );
   });
 
   it('logs error with hook name for non-Error thrown values', async () => {
@@ -87,7 +90,23 @@ describe('runNotifyHooks', () => {
 
     await runNotifyHooks(hookObjects, 'onTaskCreate', callHook, mockLogger);
 
-    expect(mockLogger.error).toHaveBeenCalledWith('Hook "onTaskCreate" threw: unexpected rejection value');
+    expect(mockLogger.error).toHaveBeenCalledWith(
+      'Hook "onTaskCreate" failed: unexpected rejection value',
+      expect.objectContaining({ hookName: 'onTaskCreate' }),
+    );
+  });
+
+  it('includes plugin name in error message when names are provided', async () => {
+    const hookObjects: PluginHooks[] = [{}];
+
+    const callHook = vi.fn(() => Promise.reject(new Error('boom')));
+
+    await runNotifyHooks(hookObjects, 'onMessage', callHook, mockLogger, ['identity']);
+
+    expect(mockLogger.error).toHaveBeenCalledWith(
+      'Hook "onMessage" failed [plugin=identity]: boom',
+      expect.objectContaining({ hookName: 'onMessage' }),
+    );
   });
 
   it('does not call logger.error when all hooks succeed', async () => {

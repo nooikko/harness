@@ -11,6 +11,7 @@ const SEGMENT_LABELS: Record<string, string> = {
   plugins: 'Plugins',
   tasks: 'Tasks',
   'agent-runs': 'Agent Runs',
+  errors: 'Errors',
   threads: 'Threads',
   usage: 'Usage',
   profile: 'Profile',

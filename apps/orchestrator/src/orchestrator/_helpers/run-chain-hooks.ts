@@ -4,9 +4,9 @@ import type { Logger } from '@harness/logger';
 import type { PluginHooks } from '@harness/plugin-contract';
 import { runChainHook } from '@harness/plugin-contract';
 
-type RunChainHooks = (allHooks: PluginHooks[], threadId: string, initialPrompt: string, logger: Logger) => Promise<string>;
+type RunChainHooks = (allHooks: PluginHooks[], threadId: string, initialPrompt: string, logger: Logger, names?: string[]) => Promise<string>;
 
-export const runChainHooks: RunChainHooks = async (allHooks, threadId, initialPrompt, logger) => {
+export const runChainHooks: RunChainHooks = async (allHooks, threadId, initialPrompt, logger, names) => {
   return runChainHook(
     allHooks,
     'onBeforeInvoke',
@@ -18,5 +18,6 @@ export const runChainHooks: RunChainHooks = async (allHooks, threadId, initialPr
       return undefined;
     },
     logger,
+    names,
   );
 };

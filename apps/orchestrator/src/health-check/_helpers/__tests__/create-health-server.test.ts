@@ -9,11 +9,19 @@ const makeLogger = (): Logger => ({
   debug: vi.fn(),
 });
 
+type PluginHealthEntry = {
+  name: string;
+  status: 'healthy' | 'failed' | 'disabled';
+  error?: string;
+  startedAt?: number;
+};
+
 type HealthStatus = {
   status: 'ok' | 'shutting_down';
   uptime: number;
   timestamp: string;
   version: string;
+  plugins: PluginHealthEntry[];
 };
 
 const makeStatus = (overrides?: Partial<HealthStatus>): HealthStatus => ({
@@ -21,6 +29,7 @@ const makeStatus = (overrides?: Partial<HealthStatus>): HealthStatus => ({
   uptime: 42,
   timestamp: '2026-01-01T00:00:00.000Z',
   version: '0.1.0',
+  plugins: [],
   ...overrides,
 });
 
@@ -174,6 +183,33 @@ describe('createHealthServer', () => {
       const contentType = response.headers.get('content-type');
 
       expect(contentType).toBe('application/json');
+    } finally {
+      await server.stop();
+    }
+  });
+
+  it('includes plugin health data in the /health response', async () => {
+    const pluginHealth = [
+      { name: 'identity', status: 'healthy' as const, startedAt: 1234567890 },
+      { name: 'music', status: 'failed' as const, error: 'Bonjour is not a constructor' },
+      { name: 'search', status: 'disabled' as const },
+    ];
+    const status = makeStatus({ plugins: pluginHealth });
+    const server = createHealthServer({
+      port,
+      logger,
+      getStatus: () => status,
+    });
+
+    await server.start();
+
+    try {
+      const response = await fetch(`http://localhost:${port}/health`);
+      const body = (await response.json()) as HealthStatus;
+
+      expect(response.status).toBe(200);
+      expect(body.plugins).toEqual(pluginHealth);
+      expect(body.plugins[1]?.error).toBe('Bonjour is not a constructor');
     } finally {
       await server.stop();
     }

@@ -30,6 +30,7 @@ vi.mock('../invoker-sdk', () => ({
 
 vi.mock('../plugin-registry', () => ({
   getPlugins: vi.fn(),
+  getAllPluginNames: vi.fn().mockReturnValue([]),
 }));
 
 vi.mock('../plugin-loader', () => ({
@@ -112,6 +113,7 @@ type MockOrchestrator = {
   start: ReturnType<typeof vi.fn>;
   stop: ReturnType<typeof vi.fn>;
   getPlugins: ReturnType<typeof vi.fn>;
+  getPluginHealth: ReturnType<typeof vi.fn>;
   getContext: ReturnType<typeof vi.fn>;
   getHooks: ReturnType<typeof vi.fn>;
   handleMessage: ReturnType<typeof vi.fn>;
@@ -122,6 +124,7 @@ const makeOrchestrator = (): MockOrchestrator => ({
   start: vi.fn().mockResolvedValue(undefined),
   stop: vi.fn().mockResolvedValue(undefined),
   getPlugins: vi.fn().mockReturnValue([]),
+  getPluginHealth: vi.fn().mockReturnValue([]),
   getContext: vi.fn(),
   getHooks: vi.fn().mockReturnValue([]),
   handleMessage: vi.fn(),

@@ -6,8 +6,8 @@ import { runHook } from '@harness/plugin-contract';
 
 type NotifyHookCaller = (hooks: PluginHooks) => Promise<void> | undefined;
 
-type RunNotifyHooks = (allHooks: PluginHooks[], hookName: string, callHook: NotifyHookCaller, logger: Logger) => Promise<void>;
+type RunNotifyHooks = (allHooks: PluginHooks[], hookName: string, callHook: NotifyHookCaller, logger: Logger, names?: string[]) => Promise<void>;
 
-export const runNotifyHooks: RunNotifyHooks = async (allHooks, hookName, callHook, logger) => {
-  await runHook(allHooks, hookName, callHook, logger);
+export const runNotifyHooks: RunNotifyHooks = async (allHooks, hookName, callHook, logger, names) => {
+  await runHook(allHooks, hookName, callHook, logger, names);
 };

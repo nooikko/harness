@@ -71,7 +71,11 @@ export const runDelegationLoop: RunDelegationLoop = async (ctx, allHooks, option
           iteration: iterations,
           event,
         })
-        .catch(() => {});
+        .catch((err) => {
+          ctx.logger.warn('delegation: failed to broadcast task:stream', {
+            error: err instanceof Error ? err.message : String(err),
+          });
+        });
     };
     const invokeResult = await invokeSubAgent(ctx, iterationPrompt, taskId, threadId, options.model, onMessage, options.traceId);
 

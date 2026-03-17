@@ -65,10 +65,10 @@ describe('AdminSidebar', () => {
     expect(screen.getByRole('link', { name: 'Usage' })).toHaveAttribute('href', '/admin/usage');
   });
 
-  it('renders all 7 navigation links', () => {
+  it('renders all 9 navigation links', () => {
     renderWithProvider(<AdminSidebar />);
     const links = screen.getAllByRole('link');
-    expect(links).toHaveLength(7);
+    expect(links).toHaveLength(9);
   });
 
   it('renders an SVG icon for each nav item', () => {

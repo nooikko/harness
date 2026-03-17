@@ -41,6 +41,7 @@ EXCLUDED_PATTERNS = [
     r"packages/database/src/index\.ts$",  # Prisma singleton — no testable logic
     r"prisma/seed\.ts$",  # Seed script — requires database connection
     r"settings-schema\.ts$",  # pure data declarations — no logic to test
+    r"/env\.ts$",  # environment variable readers — pure config, tested indirectly
     r"packages/ui/src/components/",  # ShadCN primitives — thin Radix wrappers, no logic
     r"cast-types\.ts$",  # pure type declarations — no runtime code
     r"packages/plugins/music/src/castv2-client\.d\.ts$",  # type declaration — no runtime code

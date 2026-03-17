@@ -38,7 +38,11 @@ export const handleCheckin: HandleCheckin = async (ctx, threadId, message) => {
       parentThreadId: thread.parentThreadId,
       message: message.trim(),
     })
-    .catch(() => {});
+    .catch((err) => {
+      ctx.logger.warn('delegation: failed to broadcast task:checkin', {
+        error: err instanceof Error ? err.message : String(err),
+      });
+    });
 
   return true;
 };

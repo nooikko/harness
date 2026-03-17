@@ -67,7 +67,10 @@ describe('runChainHook', () => {
     const result = await runChainHook(hookObjects, 'onTransform', 'initial value', callHook, mockLogger);
 
     expect(result).toBe('from second hook');
-    expect(mockLogger.error).toHaveBeenCalledWith('Hook "onTransform" threw: hook blew up');
+    expect(mockLogger.error).toHaveBeenCalledWith('Hook "onTransform" failed: hook blew up', {
+      stack: expect.stringContaining('hook blew up'),
+      hookName: 'onTransform',
+    });
   });
 
   it('logs error for non-Error thrown values', async () => {
@@ -77,7 +80,38 @@ describe('runChainHook', () => {
 
     await runChainHook(hookObjects, 'onTransform', 'initial value', callHook, mockLogger);
 
-    expect(mockLogger.error).toHaveBeenCalledWith('Hook "onTransform" threw: a plain string error');
+    expect(mockLogger.error).toHaveBeenCalledWith('Hook "onTransform" failed: a plain string error', {
+      stack: undefined,
+      hookName: 'onTransform',
+    });
+  });
+
+  it('includes stack trace in error metadata for Error instances', async () => {
+    const error = new Error('chain trace test');
+    const hookObjects: TestHooks[] = [{ onTransform: vi.fn().mockRejectedValue(error) }];
+
+    const callHook = vi.fn((hooks: TestHooks, currentValue: string) => (hooks.onTransform ? hooks.onTransform(currentValue) : undefined));
+
+    await runChainHook(hookObjects, 'onTransform', 'initial value', callHook, mockLogger);
+
+    const call = vi.mocked(mockLogger.error).mock.calls[0];
+    const meta = call?.[1] as { stack?: string; hookName: string };
+    expect(meta.stack).toBe(error.stack);
+    expect(meta.stack).toContain('chain trace test');
+    expect(meta.hookName).toBe('onTransform');
+  });
+
+  it('includes plugin name in error message when names are provided', async () => {
+    const hookObjects: TestHooks[] = [{ onTransform: vi.fn().mockRejectedValue(new Error('crash')) }];
+
+    const callHook = vi.fn((hooks: TestHooks, currentValue: string) => (hooks.onTransform ? hooks.onTransform(currentValue) : undefined));
+
+    await runChainHook(hookObjects, 'onTransform', 'initial value', callHook, mockLogger, ['context']);
+
+    expect(mockLogger.error).toHaveBeenCalledWith(
+      'Hook "onTransform" failed [plugin=context]: crash',
+      expect.objectContaining({ hookName: 'onTransform' }),
+    );
   });
 
   it('passes current value to each hook in sequence', async () => {

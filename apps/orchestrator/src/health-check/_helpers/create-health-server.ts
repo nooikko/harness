@@ -4,11 +4,19 @@ import type { Server } from 'node:http';
 import { createServer } from 'node:http';
 import type { Logger } from '@harness/logger';
 
+type PluginHealthEntry = {
+  name: string;
+  status: 'healthy' | 'failed' | 'disabled';
+  error?: string;
+  startedAt?: number;
+};
+
 type HealthStatus = {
   status: 'ok' | 'shutting_down';
   uptime: number;
   timestamp: string;
   version: string;
+  plugins: PluginHealthEntry[];
 };
 
 type HealthServerOptions = {

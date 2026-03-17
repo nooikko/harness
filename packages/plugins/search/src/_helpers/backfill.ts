@@ -44,8 +44,8 @@ export const backfill: Backfill = async (qdrant, db, logger) => {
       try {
         await indexMessage(qdrant, db, msg.id);
         messagesIndexed++;
-      } catch {
-        // Skip individual message failures during backfill
+      } catch (err) {
+        logger.warn(`search: failed to index message ${msg.id}: ${err instanceof Error ? err.message : String(err)}`);
       }
     }
 
@@ -72,8 +72,8 @@ export const backfill: Backfill = async (qdrant, db, logger) => {
       try {
         await indexThread(qdrant, db, thread.id);
         threadsIndexed++;
-      } catch {
-        // Skip individual thread failures during backfill
+      } catch (err) {
+        logger.warn(`search: failed to index thread ${thread.id}: ${err instanceof Error ? err.message : String(err)}`);
       }
     }
 

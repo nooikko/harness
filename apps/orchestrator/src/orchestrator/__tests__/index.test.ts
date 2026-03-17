@@ -5,6 +5,15 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import type { OrchestratorDeps } from '../index';
 import { createOrchestrator } from '../index';
 
+vi.mock('@harness/logger', () => ({
+  createChildLogger: vi.fn((_parent: unknown, _context: unknown) => ({
+    debug: vi.fn(),
+    info: vi.fn(),
+    warn: vi.fn(),
+    error: vi.fn(),
+  })),
+}));
+
 vi.mock('../_helpers/run-chain-hooks', () => ({
   runChainHooks: vi.fn().mockImplementation((_hooks, _threadId, prompt) => Promise.resolve(prompt)),
 }));
@@ -212,6 +221,72 @@ describe('createOrchestrator', () => {
     });
   });
 
+  describe('getPluginHealth', () => {
+    it('records healthy status for plugins with successful start', async () => {
+      const deps = makeDeps();
+      const orchestrator = createOrchestrator(deps);
+      const startFn = vi.fn().mockResolvedValue(undefined);
+
+      await orchestrator.registerPlugin(makePluginDefinition('healthy-plugin', {}, { start: startFn }));
+      await orchestrator.start();
+
+      const health = orchestrator.getPluginHealth();
+      expect(health).toEqual([{ name: 'healthy-plugin', status: 'healthy', startedAt: expect.any(Number) }]);
+    });
+
+    it('records healthy status for plugins without a start method', async () => {
+      const deps = makeDeps();
+      const orchestrator = createOrchestrator(deps);
+
+      await orchestrator.registerPlugin(makePluginDefinition('no-start-plugin'));
+      await orchestrator.start();
+
+      const health = orchestrator.getPluginHealth();
+      expect(health).toEqual([{ name: 'no-start-plugin', status: 'healthy', startedAt: expect.any(Number) }]);
+    });
+
+    it('records failed status with error message when plugin start throws', async () => {
+      const deps = makeDeps();
+      const orchestrator = createOrchestrator(deps);
+      const failingStart = vi.fn().mockRejectedValue(new Error('Bonjour is not a constructor'));
+
+      await orchestrator.registerPlugin(makePluginDefinition('broken-plugin', {}, { start: failingStart }));
+      await orchestrator.start();
+
+      const health = orchestrator.getPluginHealth();
+      expect(health).toEqual([{ name: 'broken-plugin', status: 'failed', error: 'Bonjour is not a constructor' }]);
+    });
+
+    it('tracks health for multiple plugins with mixed results', async () => {
+      const deps = makeDeps();
+      const orchestrator = createOrchestrator(deps);
+
+      await orchestrator.registerPlugin(makePluginDefinition('plugin-ok', {}, { start: vi.fn().mockResolvedValue(undefined) }));
+      await orchestrator.registerPlugin(makePluginDefinition('plugin-fail', {}, { start: vi.fn().mockRejectedValue(new Error('boom')) }));
+      await orchestrator.registerPlugin(makePluginDefinition('plugin-no-start'));
+      await orchestrator.start();
+
+      const health = orchestrator.getPluginHealth();
+      expect(health).toHaveLength(3);
+      expect(health[0]).toEqual({ name: 'plugin-ok', status: 'healthy', startedAt: expect.any(Number) });
+      expect(health[1]).toEqual({ name: 'plugin-fail', status: 'failed', error: 'boom' });
+      expect(health[2]).toEqual({ name: 'plugin-no-start', status: 'healthy', startedAt: expect.any(Number) });
+    });
+
+    it('returns a defensive copy of the health array', async () => {
+      const deps = makeDeps();
+      const orchestrator = createOrchestrator(deps);
+
+      await orchestrator.registerPlugin(makePluginDefinition('plugin'));
+      await orchestrator.start();
+
+      const health1 = orchestrator.getPluginHealth();
+      const health2 = orchestrator.getPluginHealth();
+      expect(health1).not.toBe(health2);
+      expect(health1).toEqual(health2);
+    });
+  });
+
   describe('stop', () => {
     it('calls stop() on each registered plugin that defines it', async () => {
       const deps = makeDeps();
@@ -331,8 +406,14 @@ describe('createOrchestrator', () => {
 
       await orchestrator.getContext().sendToThread('thread-1', 'hello');
 
-      // runNotifyHooks is mocked — assert it was called with the correct hookName
-      expect(mockRunNotifyHooks).toHaveBeenCalledWith(expect.any(Array), 'onPipelineStart', expect.any(Function), expect.anything());
+      // runNotifyHooks is mocked — assert it was called with the correct hookName and plugin names
+      expect(mockRunNotifyHooks).toHaveBeenCalledWith(
+        expect.any(Array),
+        'onPipelineStart',
+        expect.any(Function),
+        expect.anything(),
+        expect.any(Array),
+      );
     });
 
     it('calls runNotifyHooks with onPipelineComplete after the pipeline runs', async () => {
@@ -341,7 +422,13 @@ describe('createOrchestrator', () => {
 
       await orchestrator.getContext().sendToThread('thread-1', 'hello');
 
-      expect(mockRunNotifyHooks).toHaveBeenCalledWith(expect.any(Array), 'onPipelineComplete', expect.any(Function), expect.anything());
+      expect(mockRunNotifyHooks).toHaveBeenCalledWith(
+        expect.any(Array),
+        'onPipelineComplete',
+        expect.any(Function),
+        expect.anything(),
+        expect.any(Array),
+      );
     });
   });
 
@@ -400,7 +487,7 @@ describe('createOrchestrator', () => {
       ]);
     });
 
-    it('calls runNotifyHooks for onMessage with correct arguments', async () => {
+    it('calls runNotifyHooks for onMessage with correct arguments including plugin names', async () => {
       const deps = makeDeps();
       const orchestrator = createOrchestrator(deps);
       const hooks: PluginHooks = { onMessage: vi.fn() };
@@ -408,7 +495,7 @@ describe('createOrchestrator', () => {
 
       await orchestrator.handleMessage('thread-99', 'user', 'hello');
 
-      expect(mockRunNotifyHooks).toHaveBeenCalledWith([hooks], 'onMessage', expect.any(Function), deps.logger);
+      expect(mockRunNotifyHooks).toHaveBeenCalledWith([hooks], 'onMessage', expect.any(Function), expect.anything(), ['p']);
     });
 
     it('calls runChainHooks with the assembled prompt and returns modified prompt to invoker', async () => {
@@ -418,7 +505,7 @@ describe('createOrchestrator', () => {
 
       const result = await orchestrator.handleMessage('thread-1', 'user', 'original');
 
-      expect(mockRunChainHooks).toHaveBeenCalledWith([], 'thread-1', '[assembled] original', deps.logger);
+      expect(mockRunChainHooks).toHaveBeenCalledWith([], 'thread-1', '[assembled] original', expect.anything(), []);
       expect(result.prompt).toBe('augmented prompt');
       expect(deps.invoker.invoke).toHaveBeenCalledWith(
         'augmented prompt',
@@ -446,7 +533,7 @@ describe('createOrchestrator', () => {
       );
     });
 
-    it('calls runNotifyHooks for onAfterInvoke with the invoke result', async () => {
+    it('calls runNotifyHooks for onAfterInvoke with the invoke result and plugin names', async () => {
       const invokeResult = makeInvokeResult({ output: 'out', durationMs: 55 });
       const deps = makeDeps({
         invoker: { invoke: vi.fn().mockResolvedValue(invokeResult) } as unknown as Invoker,
@@ -455,7 +542,7 @@ describe('createOrchestrator', () => {
 
       await orchestrator.handleMessage('thread-1', 'user', 'content');
 
-      expect(mockRunNotifyHooks).toHaveBeenCalledWith([], 'onAfterInvoke', expect.any(Function), deps.logger);
+      expect(mockRunNotifyHooks).toHaveBeenCalledWith([], 'onAfterInvoke', expect.any(Function), expect.anything(), []);
     });
 
     it('returns the invoke result and prompt in the result object', async () => {
@@ -537,7 +624,7 @@ describe('createOrchestrator', () => {
       const orchestrator = createOrchestrator(deps);
       await orchestrator.handleMessage('thread-1', 'user', 'hello');
 
-      expect(mockRunChainHooks).toHaveBeenCalledWith(expect.any(Array), 'thread-1', '[assembled] hello', deps.logger);
+      expect(mockRunChainHooks).toHaveBeenCalledWith(expect.any(Array), 'thread-1', '[assembled] hello', expect.anything(), []);
     });
 
     it('uses kind "general" when thread is not found', async () => {
@@ -563,8 +650,8 @@ describe('createOrchestrator', () => {
 
       await orchestrator.handleMessage('t', 'user', 'hi');
 
-      expect(mockRunNotifyHooks).toHaveBeenCalledWith([hooks], 'onMessage', expect.any(Function), deps.logger);
-      expect(mockRunChainHooks).toHaveBeenCalledWith([hooks], 't', '[assembled] hi', deps.logger);
+      expect(mockRunNotifyHooks).toHaveBeenCalledWith([hooks], 'onMessage', expect.any(Function), expect.anything(), ['p']);
+      expect(mockRunChainHooks).toHaveBeenCalledWith([hooks], 't', '[assembled] hi', expect.anything(), ['p']);
     });
 
     it('looks up thread for sessionId and model before invoking', async () => {

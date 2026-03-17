@@ -5,6 +5,7 @@ import type { Logger } from '@harness/logger';
 import { plugin as activityPlugin } from '@harness/plugin-activity';
 import { plugin as auditPlugin } from '@harness/plugin-audit';
 import { plugin as autoNamerPlugin } from '@harness/plugin-auto-namer';
+import { plugin as calendarPlugin } from '@harness/plugin-calendar';
 import { plugin as contextPlugin } from '@harness/plugin-context';
 import type { PluginDefinition } from '@harness/plugin-contract';
 import { plugin as cronPlugin } from '@harness/plugin-cron';
@@ -13,6 +14,7 @@ import { plugin as discordPlugin } from '@harness/plugin-discord';
 import { plugin as identityPlugin } from '@harness/plugin-identity';
 import { plugin as metricsPlugin } from '@harness/plugin-metrics';
 import { musicPlugin } from '@harness/plugin-music';
+import { plugin as outlookPlugin } from '@harness/plugin-outlook';
 import { projectPlugin } from '@harness/plugin-project';
 import { plugin as searchPlugin } from '@harness/plugin-search';
 import { plugin as summarizationPlugin } from '@harness/plugin-summarization';
@@ -39,6 +41,8 @@ const ALL_PLUGINS: PluginDefinition[] = [
   timePlugin,
   projectPlugin,
   tasksPlugin,
+  outlookPlugin,
+  calendarPlugin,
   musicPlugin,
   searchPlugin,
 ];
@@ -49,3 +53,5 @@ export const getPlugins: GetPlugins = async (db, logger) => {
   await syncPluginConfigs(ALL_PLUGINS, db, logger);
   return filterDisabledPlugins(ALL_PLUGINS, db, logger);
 };
+
+export const getAllPluginNames = (): string[] => ALL_PLUGINS.map((p) => p.name);

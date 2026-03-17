@@ -353,3 +353,40 @@ model UserProfile {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 }
+
+// ── OAuth Token Storage ──────────────────────────────────────────────────
+
+model OAuthToken {
+  id           String   @id @default(cuid())
+  provider     String
+  accountId    String
+  accessToken  String   @db.Text
+  refreshToken String?  @db.Text
+  expiresAt    DateTime
+  scopes       String[]
+  metadata     Json?
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  @@unique([provider, accountId])
+  @@index([provider])
+}
+
+// ── Error Logging ─────────────────────────────────────────────────────────
+
+model ErrorLog {
+  id        String   @id @default(cuid())
+  level     String   // 'error' | 'warn'
+  source    String   // plugin name, 'orchestrator', 'web'
+  message   String   @db.Text
+  stack     String?  @db.Text
+  traceId   String?
+  threadId  String?
+  metadata  Json?
+  createdAt DateTime @default(now())
+
+  @@index([source])
+  @@index([level])
+  @@index([createdAt])
+  @@index([traceId])
+}

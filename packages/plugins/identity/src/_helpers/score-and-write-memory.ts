@@ -75,8 +75,13 @@ export const scoreAndWriteMemory: ScoreAndWriteMemory = async (ctx, agentId, age
     );
     const parsed = ImportanceSchema.parse(JSON.parse(extractJson(result.output)));
     importance = parsed.importance;
-  } catch {
-    return; // Don't fail the pipeline on importance scoring errors
+  } catch (err) {
+    const e = err instanceof Error ? err : new Error(String(err));
+    ctx.logger.warn('identity: importance scoring failed', {
+      error: e.message,
+      stack: e.stack,
+    });
+    return;
   }
 
   if (importance < importanceThreshold) {
@@ -95,7 +100,12 @@ export const scoreAndWriteMemory: ScoreAndWriteMemory = async (ctx, agentId, age
     const parsed = SummarySchema.parse(JSON.parse(extractJson(summary.output)));
     content = parsed.summary;
     haikuScope = parsed.scope ?? null;
-  } catch {
+  } catch (err) {
+    const e = err instanceof Error ? err : new Error(String(err));
+    ctx.logger.warn('identity: memory summarization failed, using fallback snippet', {
+      error: e.message,
+      stack: e.stack,
+    });
     content = scoringSnippet.slice(0, 200);
   }
 

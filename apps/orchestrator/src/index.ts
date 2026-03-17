@@ -9,9 +9,10 @@ import { recoverOrphanedTasks } from './_helpers/recover-orphaned-tasks';
 import { loadConfig } from './config';
 import { createHealthCheck } from './health-check';
 import { createSdkInvoker } from './invoker-sdk';
+import type { PluginHealth } from './orchestrator';
 import { createOrchestrator } from './orchestrator';
 import { createPluginLoader } from './plugin-loader';
-import { getPlugins } from './plugin-registry';
+import { getAllPluginNames, getPlugins } from './plugin-registry';
 import type { ToolContextRef } from './tool-server';
 import { collectTools, createToolServer } from './tool-server';
 
@@ -113,11 +114,18 @@ export const boot: Boot = async () => {
   logger.info('Starting plugins');
   await orchestrator.start();
 
+  // Compute disabled plugins (in registry but not loaded)
+  const loadedNames = new Set(loaded.map((p: PluginDefinition) => p.name));
+  const disabledHealth: PluginHealth[] = getAllPluginNames()
+    .filter((name) => !loadedNames.has(name))
+    .map((name) => ({ name, status: 'disabled' as const }));
+
   const healthPort = Number(process.env.HEALTH_PORT ?? '4002');
   const healthCheck = createHealthCheck({
     port: healthPort,
     logger,
     version: process.env.npm_package_version ?? '0.1.0',
+    getPluginHealth: () => [...orchestrator.getPluginHealth(), ...disabledHealth],
   });
 
   logger.info('Starting health check server', { port: healthPort });
@@ -238,5 +246,5 @@ if (process.env.NODE_ENV !== 'test' && !process.env.VITEST) {
   main();
 }
 
-export type { HandleMessageResult, OrchestratorDeps } from './orchestrator';
+export type { HandleMessageResult, OrchestratorDeps, PluginHealth } from './orchestrator';
 export { createOrchestrator } from './orchestrator';

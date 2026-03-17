@@ -1,12 +1,14 @@
 // Health check module — exposes a lightweight HTTP server for production monitoring
 
 import type { Logger } from '@harness/logger';
+import type { PluginHealth } from '../orchestrator';
 import { createHealthServer } from './_helpers/create-health-server';
 
 type HealthCheckOptions = {
   port: number;
   logger: Logger;
   version: string;
+  getPluginHealth: () => PluginHealth[];
 };
 
 type HealthCheckModule = {
@@ -17,7 +19,7 @@ type HealthCheckModule = {
 
 type CreateHealthCheck = (options: HealthCheckOptions) => HealthCheckModule;
 
-export const createHealthCheck: CreateHealthCheck = ({ port, logger, version }) => {
+export const createHealthCheck: CreateHealthCheck = ({ port, logger, version, getPluginHealth }) => {
   const startTime = Date.now();
   let shuttingDown = false;
 
@@ -26,6 +28,7 @@ export const createHealthCheck: CreateHealthCheck = ({ port, logger, version }) 
     uptime: Math.floor((Date.now() - startTime) / 1000),
     timestamp: new Date().toISOString(),
     version,
+    plugins: getPluginHealth(),
   });
 
   const server = createHealthServer({

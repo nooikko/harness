@@ -143,6 +143,7 @@ export const pollDeviceCodeFlow = (): {
 
 export const getAccountInfo = async (
   innertube: InnertubeClient,
+  log?: { warn: (msg: string, meta?: Record<string, unknown>) => void },
 ): Promise<{
   email?: string;
   name?: string;
@@ -170,7 +171,10 @@ export const getAccountInfo = async (
       name: account.account_name?.toString?.(),
       photo: account.account_photo?.[0]?.url,
     };
-  } catch {
+  } catch (err) {
+    log?.warn('music: failed to fetch account info', {
+      error: err instanceof Error ? err.message : String(err),
+    });
     return null;
   }
 };

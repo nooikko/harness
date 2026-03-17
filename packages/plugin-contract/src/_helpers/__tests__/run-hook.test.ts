@@ -82,7 +82,10 @@ describe('runHook', () => {
 
     await runHook(hookObjects, 'onAfterInvoke', callHook, mockLogger);
 
-    expect(mockLogger.error).toHaveBeenCalledWith('Hook "onAfterInvoke" threw: something went wrong');
+    expect(mockLogger.error).toHaveBeenCalledWith('Hook "onAfterInvoke" failed: something went wrong', {
+      stack: expect.stringContaining('something went wrong'),
+      hookName: 'onAfterInvoke',
+    });
   });
 
   it('logs error for non-Error thrown values', async () => {
@@ -92,7 +95,48 @@ describe('runHook', () => {
 
     await runHook(hookObjects, 'onTaskCreate', callHook, mockLogger);
 
-    expect(mockLogger.error).toHaveBeenCalledWith('Hook "onTaskCreate" threw: unexpected rejection value');
+    expect(mockLogger.error).toHaveBeenCalledWith('Hook "onTaskCreate" failed: unexpected rejection value', {
+      stack: undefined,
+      hookName: 'onTaskCreate',
+    });
+  });
+
+  it('includes stack trace in error metadata for Error instances', async () => {
+    const hookObjects: TestHooks[] = [{}];
+    const error = new Error('trace test');
+
+    const callHook = vi.fn(() => Promise.reject(error));
+
+    await runHook(hookObjects, 'onNotify', callHook, mockLogger);
+
+    const call = vi.mocked(mockLogger.error).mock.calls[0];
+    const meta = call?.[1] as { stack?: string; hookName: string };
+    expect(meta.stack).toBe(error.stack);
+    expect(meta.stack).toContain('trace test');
+    expect(meta.hookName).toBe('onNotify');
+  });
+
+  it('includes plugin name in error message when names are provided', async () => {
+    const hookObjects: TestHooks[] = [{}];
+
+    const callHook = vi.fn(() => Promise.reject(new Error('boom')));
+
+    await runHook(hookObjects, 'onMessage', callHook, mockLogger, ['identity']);
+
+    expect(mockLogger.error).toHaveBeenCalledWith(
+      'Hook "onMessage" failed [plugin=identity]: boom',
+      expect.objectContaining({ hookName: 'onMessage' }),
+    );
+  });
+
+  it('omits plugin label when names array is not provided', async () => {
+    const hookObjects: TestHooks[] = [{}];
+
+    const callHook = vi.fn(() => Promise.reject(new Error('boom')));
+
+    await runHook(hookObjects, 'onMessage', callHook, mockLogger);
+
+    expect(mockLogger.error).toHaveBeenCalledWith('Hook "onMessage" failed: boom', expect.objectContaining({ hookName: 'onMessage' }));
   });
 
   it('does not call logger.error when all hooks succeed', async () => {

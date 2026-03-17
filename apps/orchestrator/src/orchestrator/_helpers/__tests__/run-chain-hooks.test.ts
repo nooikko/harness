@@ -62,7 +62,10 @@ describe('runChainHooks', () => {
     const result = await runChainHooks(allHooks, 'thread-1', 'initial prompt', mockLogger);
 
     expect(result).toBe('from second hook');
-    expect(mockLogger.error).toHaveBeenCalledWith('Hook "onBeforeInvoke" threw: hook blew up');
+    expect(mockLogger.error).toHaveBeenCalledWith(
+      'Hook "onBeforeInvoke" failed: hook blew up',
+      expect.objectContaining({ hookName: 'onBeforeInvoke' }),
+    );
     expect(allHooks[1]!.onBeforeInvoke).toHaveBeenCalledWith('thread-1', 'initial prompt');
   });
 
@@ -75,7 +78,25 @@ describe('runChainHooks', () => {
 
     await runChainHooks(allHooks, 'thread-1', 'initial prompt', mockLogger);
 
-    expect(mockLogger.error).toHaveBeenCalledWith('Hook "onBeforeInvoke" threw: a plain string error');
+    expect(mockLogger.error).toHaveBeenCalledWith(
+      'Hook "onBeforeInvoke" failed: a plain string error',
+      expect.objectContaining({ hookName: 'onBeforeInvoke' }),
+    );
+  });
+
+  it('includes plugin name in error message when names are provided', async () => {
+    const allHooks: PluginHooks[] = [
+      {
+        onBeforeInvoke: vi.fn().mockRejectedValue(new Error('crash')),
+      },
+    ];
+
+    await runChainHooks(allHooks, 'thread-1', 'initial prompt', mockLogger, ['identity']);
+
+    expect(mockLogger.error).toHaveBeenCalledWith(
+      'Hook "onBeforeInvoke" failed [plugin=identity]: crash',
+      expect.objectContaining({ hookName: 'onBeforeInvoke' }),
+    );
   });
 
   it('passes threadId to each hook', async () => {
