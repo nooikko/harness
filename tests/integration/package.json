@@ -20,6 +20,7 @@
     "@harness/plugin-discord": "workspace:*",
     "@harness/plugin-identity": "workspace:*",
     "@harness/plugin-metrics": "workspace:*",
+    "@harness/plugin-playwright": "workspace:*",
     "@harness/plugin-project": "workspace:*",
     "@harness/plugin-tasks": "workspace:*",
     "@harness/plugin-summarization": "workspace:*",

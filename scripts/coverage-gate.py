@@ -48,6 +48,7 @@ EXCLUDED_PATTERNS = [
     r"packages/plugins/music/src/castv2-client\.d\.ts$",  # type declaration — no runtime code
     r"apps/design/",  # design playground — no unit test coverage required
     r"packages/vector-search/",  # thin Qdrant + HuggingFace client — requires external services
+    r"browser-manager\.ts$",  # Chromium lifecycle — requires real browser, tested via integration tests
     r"/page\.tsx$",  # Next.js route handlers — server components with data fetching, not unit-testable
     r"/layout\.tsx$",  # Next.js layouts — thin wrappers, not unit-testable
     r"/loading\.tsx$",  # Next.js loading states — pure UI, no logic
@@ -81,6 +82,7 @@ PROJECT_DIRS = [
     ("packages/plugins/music/", "packages/plugins/music"),
     ("packages/plugins/search/", "packages/plugins/search"),
     ("packages/plugins/tasks/", "packages/plugins/tasks"),
+    ("packages/plugins/playwright/", "packages/plugins/playwright"),
     ("packages/oauth/", "packages/oauth"),
     ("packages/plugins/outlook/", "packages/plugins/outlook"),
     ("packages/plugins/calendar/", "packages/plugins/calendar"),

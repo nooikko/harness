@@ -15,6 +15,7 @@ import { plugin as identityPlugin } from '@harness/plugin-identity';
 import { plugin as metricsPlugin } from '@harness/plugin-metrics';
 import { musicPlugin } from '@harness/plugin-music';
 import { plugin as outlookPlugin } from '@harness/plugin-outlook';
+import { plugin as playwrightPlugin } from '@harness/plugin-playwright';
 import { projectPlugin } from '@harness/plugin-project';
 import { plugin as searchPlugin } from '@harness/plugin-search';
 import { plugin as summarizationPlugin } from '@harness/plugin-summarization';
@@ -45,6 +46,7 @@ const ALL_PLUGINS: PluginDefinition[] = [
   calendarPlugin,
   musicPlugin,
   searchPlugin,
+  playwrightPlugin,
 ];
 
 type GetPlugins = (db: PrismaClient, logger: Logger) => Promise<PluginDefinition[]>;
