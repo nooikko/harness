@@ -1149,6 +1149,9 @@ importers:
       '@harness/logger':
         specifier: workspace:*
         version: link:../../packages/logger
+      '@harness/oauth':
+        specifier: workspace:*
+        version: link:../../packages/oauth
       '@harness/plugin-activity':
         specifier: workspace:*
         version: link:../../packages/plugins/activity
@@ -1158,6 +1161,9 @@ importers:
       '@harness/plugin-auto-namer':
         specifier: workspace:*
         version: link:../../packages/plugins/auto-namer
+      '@harness/plugin-calendar':
+        specifier: workspace:*
+        version: link:../../packages/plugins/calendar
       '@harness/plugin-context':
         specifier: workspace:*
         version: link:../../packages/plugins/context
@@ -1179,12 +1185,21 @@ importers:
       '@harness/plugin-metrics':
         specifier: workspace:*
         version: link:../../packages/plugins/metrics
+      '@harness/plugin-music':
+        specifier: workspace:*
+        version: link:../../packages/plugins/music
+      '@harness/plugin-outlook':
+        specifier: workspace:*
+        version: link:../../packages/plugins/outlook
       '@harness/plugin-playwright':
         specifier: workspace:*
         version: link:../../packages/plugins/playwright
       '@harness/plugin-project':
         specifier: workspace:*
         version: link:../../packages/plugins/project
+      '@harness/plugin-search':
+        specifier: workspace:*
+        version: link:../../packages/plugins/search
       '@harness/plugin-summarization':
         specifier: workspace:*
         version: link:../../packages/plugins/summarization
@@ -1200,6 +1215,9 @@ importers:
       '@harness/plugin-web':
         specifier: workspace:*
         version: link:../../packages/plugins/web
+      '@harness/vector-search':
+        specifier: workspace:*
+        version: link:../../packages/vector-search
       '@testcontainers/postgresql':
         specifier: ^10.24.2
         version: 10.28.0

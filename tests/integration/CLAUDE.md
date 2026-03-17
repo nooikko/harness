@@ -156,8 +156,14 @@ harness.invoker.invoke.mockImplementation(async (_prompt, opts) => {
 | audit | `audit-plugin.test.ts` | 4 | ✓ |
 | time | `time-plugin.test.ts` | 4 | ✓ |
 | project | `project-plugin.test.ts` | 5 | ✓ |
+| tasks | `tasks-plugin.test.ts` | 7 | ✓ |
+| playwright | `playwright-plugin.test.ts` | 3 | ✓ |
+| calendar | `calendar-plugin.test.ts` | 6 | ✓ |
+| outlook | `outlook-plugin.test.ts` | 6 | ✓ |
+| search | `search-plugin.test.ts` | 5 | ✓ |
+| music | `music-plugin.test.ts` | 6 | ✓ |
 | **full pipeline** | `full-pipeline.test.ts` | 4 | ✓ |
-| **Total** | **15 files** | **63** | |
+| **Total** | **21 files** | **103** | |
 
 When adding a new plugin to `packages/plugins/`, add it to `package.json` devDependencies here and create `{plugin-name}-plugin.test.ts`.
 

@@ -38,6 +38,12 @@ path_parts = file_path.replace("\\", "/").split("/")
 if "__tests__" in path_parts:
     sys.exit(0)
 
+# Exempt integration test directory (tests live directly in tests/integration/)
+project_dir = os.environ.get("CLAUDE_PROJECT_DIR", os.getcwd())
+rel_path = os.path.relpath(file_path, project_dir)
+if rel_path.startswith("tests/integration/"):
+    sys.exit(0)
+
 # This is a test file NOT in a __tests__/ directory — block it
 print(f"Test file '{filename}' must be inside a __tests__/ directory.", file=sys.stderr)
 print("", file=sys.stderr)
