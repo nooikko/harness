@@ -43,6 +43,7 @@ EXCLUDED_PATTERNS = [
     r"settings-schema\.ts$",  # pure data declarations — no logic to test
     r"/env\.ts$",  # environment variable readers — pure config, tested indirectly
     r"packages/ui/src/components/",  # ShadCN primitives — thin Radix wrappers, no logic
+    r"packages/plugins/[^/]+/src/index\.ts$",  # Plugin definitions — orchestration, tested via plugin shape tests
     r"cast-types\.ts$",  # pure type declarations — no runtime code
     r"packages/plugins/music/src/castv2-client\.d\.ts$",  # type declaration — no runtime code
     r"apps/design/",  # design playground — no unit test coverage required
@@ -80,6 +81,9 @@ PROJECT_DIRS = [
     ("packages/plugins/music/", "packages/plugins/music"),
     ("packages/plugins/search/", "packages/plugins/search"),
     ("packages/plugins/tasks/", "packages/plugins/tasks"),
+    ("packages/oauth/", "packages/oauth"),
+    ("packages/plugins/outlook/", "packages/plugins/outlook"),
+    ("packages/plugins/calendar/", "packages/plugins/calendar"),
 ]
 
 MAX_RETRIES = 2  # ESM race condition is non-deterministic; retry on failure

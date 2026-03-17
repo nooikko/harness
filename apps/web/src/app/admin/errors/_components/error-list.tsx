@@ -108,7 +108,7 @@ export const ErrorList: ErrorListComponent = ({ errors }) => {
       <ErrorDetailModal
         error={selectedError}
         open={selectedError !== null}
-        onOpenChange={(open) => {
+        onOpenChangeAction={(open: boolean) => {
           if (!open) {
             setSelectedError(null);
           }

@@ -74,6 +74,7 @@ const makeDeps = (overrides?: Partial<OrchestratorDeps>): OrchestratorDeps => ({
     thread: {
       findUnique: vi.fn().mockResolvedValue({ sessionId: null, model: null, kind: 'primary', name: 'Main', projectId: null }),
       update: vi.fn().mockResolvedValue({}),
+      updateMany: vi.fn().mockResolvedValue({ count: 0 }),
     },
     project: {
       findUnique: vi.fn().mockResolvedValue(null),
@@ -218,6 +219,31 @@ describe('createOrchestrator', () => {
       await orchestrator.start();
 
       expect(deps.logger.info).toHaveBeenCalledWith('Orchestrator started');
+    });
+
+    it('clears stale sessionIds from all threads on startup', async () => {
+      const deps = makeDeps();
+      (deps.db.thread.updateMany as ReturnType<typeof vi.fn>).mockResolvedValue({ count: 3 });
+      const orchestrator = createOrchestrator(deps);
+
+      await orchestrator.start();
+
+      expect(deps.db.thread.updateMany).toHaveBeenCalledWith({
+        where: { sessionId: { not: null } },
+        data: { sessionId: null },
+      });
+      expect(deps.logger.info).toHaveBeenCalledWith('Cleared 3 stale session ID(s) from threads');
+    });
+
+    it('does not log session clearing when no stale sessions exist', async () => {
+      const deps = makeDeps();
+      (deps.db.thread.updateMany as ReturnType<typeof vi.fn>).mockResolvedValue({ count: 0 });
+      const orchestrator = createOrchestrator(deps);
+
+      await orchestrator.start();
+
+      expect(deps.db.thread.updateMany).toHaveBeenCalled();
+      expect(deps.logger.info).not.toHaveBeenCalledWith(expect.stringContaining('stale session'));
     });
   });
 

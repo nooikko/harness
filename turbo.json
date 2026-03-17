@@ -3,7 +3,7 @@
   "ui": "tui",
   "concurrency": "30",
   "globalEnv": ["NODE_ENV"],
-  "globalDependencies": ["tsconfig.base.json"],
+  "globalDependencies": ["tsconfig.base.json", ".env"],
   "tasks": {
     "build": {
       "dependsOn": ["^build"],

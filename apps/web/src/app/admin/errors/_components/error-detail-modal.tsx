@@ -20,7 +20,7 @@ type SerializedError = {
 type ErrorDetailModalProps = {
   error: SerializedError | null;
   open: boolean;
-  onOpenChange: (open: boolean) => void;
+  onOpenChangeAction: (open: boolean) => void;
 };
 
 type ErrorDetailModalComponent = (props: ErrorDetailModalProps) => React.ReactNode;
@@ -42,7 +42,7 @@ const formatMetadata: FormatMetadata = (metadata) => {
   }
 };
 
-export const ErrorDetailModal: ErrorDetailModalComponent = ({ error, open, onOpenChange }) => {
+export const ErrorDetailModal: ErrorDetailModalComponent = ({ error, open, onOpenChangeAction }) => {
   if (!error) {
     return null;
   }
@@ -50,7 +50,7 @@ export const ErrorDetailModal: ErrorDetailModalComponent = ({ error, open, onOpe
   const formattedMeta = formatMetadata(error.metadata);
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
+    <Dialog open={open} onOpenChange={onOpenChangeAction}>
       <DialogContent className='max-h-[80vh] max-w-2xl overflow-y-auto' aria-describedby={undefined}>
         <DialogHeader>
           <DialogTitle className='flex items-center gap-2'>
@@ -71,7 +71,7 @@ export const ErrorDetailModal: ErrorDetailModalComponent = ({ error, open, onOpe
           {/* Message */}
           <div className='flex flex-col gap-1'>
             <span className='text-xs font-medium text-muted-foreground'>Message</span>
-            <p className='text-sm whitespace-pre-wrap break-words'>{error.message}</p>
+            <p className='text-sm whitespace-pre-wrap wrap-break-words'>{error.message}</p>
           </div>
 
           {/* Stack trace */}

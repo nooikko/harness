@@ -14,6 +14,7 @@
   "dependencies": {
     "@anthropic-ai/sdk": "^0.78.0",
     "@harness/database": "workspace:*",
+    "@harness/oauth": "workspace:*",
     "@harness/plugin-contract": "workspace:*",
     "@harness/ui": "workspace:*",
     "@lexical/react": "^0.41.0",

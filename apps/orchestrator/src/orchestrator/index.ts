@@ -282,6 +282,16 @@ export const createOrchestrator: CreateOrchestrator = (deps) => {
       deps.logger.info(`Plugin registered: ${definition.name}@${definition.version}`);
     },
     start: async () => {
+      // Clear stale sessionIds — in-memory session pool is gone after restart, so any
+      // persisted sessionId would cause the context plugin to skip history injection
+      const cleared = await deps.db.thread.updateMany({
+        where: { sessionId: { not: null } },
+        data: { sessionId: null },
+      });
+      if (cleared.count > 0) {
+        deps.logger.info(`Cleared ${cleared.count} stale session ID(s) from threads`);
+      }
+
       // Collect plugin routes BEFORE starting plugins so the web plugin can mount them in start()
       const pluginRoutes: PluginRouteEntry[] = [];
       for (const plugin of plugins) {

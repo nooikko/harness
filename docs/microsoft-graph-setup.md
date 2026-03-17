@@ -34,6 +34,7 @@
 |------------|----------|---------|
 | `openid` | OpenID | Required for sign-in |
 | `profile` | OpenID | User profile (display name) |
+| `User.Read` | User | Read user profile via Graph API |
 | `offline_access` | OpenID | Refresh tokens (keeps session alive) |
 | `Mail.Read` | Mail | Search and read emails |
 | `Mail.ReadWrite` | Mail | Move emails between folders |
