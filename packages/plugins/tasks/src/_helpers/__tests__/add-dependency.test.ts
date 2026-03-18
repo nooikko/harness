@@ -214,6 +214,60 @@ describe('addDependency', () => {
     expect(result).toContain('Dependency added');
   });
 
+  it('returns friendly message when dependency already exists (P2002)', async () => {
+    const ctx = createMockContext({
+      db: {
+        userTask: {
+          findUnique: vi.fn().mockImplementation(({ where }: { where: { id: string } }) => {
+            if (where.id === 'task-a') {
+              return Promise.resolve({ id: 'task-a', title: 'Task A' });
+            }
+            if (where.id === 'task-b') {
+              return Promise.resolve({ id: 'task-b', title: 'Task B' });
+            }
+            return Promise.resolve(null);
+          }),
+        },
+        userTaskDependency: {
+          findMany: vi.fn().mockResolvedValue([]),
+          create: vi.fn().mockRejectedValue(Object.assign(new Error('Unique constraint failed'), { code: 'P2002' })),
+        },
+      } as never,
+    });
+
+    const result = await addDependency(ctx, { taskId: 'task-a', blockedById: 'task-b' }, defaultMeta);
+
+    expect(result).toContain('already exists');
+    expect(result).toContain('Task A');
+    expect(result).toContain('Task B');
+  });
+
+  it('returns friendly message when a task is deleted during create (P2003)', async () => {
+    const ctx = createMockContext({
+      db: {
+        userTask: {
+          findUnique: vi.fn().mockImplementation(({ where }: { where: { id: string } }) => {
+            if (where.id === 'task-a') {
+              return Promise.resolve({ id: 'task-a', title: 'Task A' });
+            }
+            if (where.id === 'task-b') {
+              return Promise.resolve({ id: 'task-b', title: 'Task B' });
+            }
+            return Promise.resolve(null);
+          }),
+        },
+        userTaskDependency: {
+          findMany: vi.fn().mockResolvedValue([]),
+          create: vi.fn().mockRejectedValue(Object.assign(new Error('Foreign key constraint failed'), { code: 'P2003' })),
+        },
+      } as never,
+    });
+
+    const result = await addDependency(ctx, { taskId: 'task-a', blockedById: 'task-b' }, defaultMeta);
+
+    expect(result).toContain('task not found');
+  });
+
   it('BFS visited guard prevents redundant traversal in diamond dependency graph', async () => {
     // Diamond: X is blocked by B and C; both B and C are blocked by D
     // Adding A→X (A blocked by X) should succeed with no cycle
