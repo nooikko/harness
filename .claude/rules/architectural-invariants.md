@@ -150,3 +150,41 @@ If you are about to add any of these to the orchestrator core, stop and implemen
 
 **Wrong:** "I need to add persistence to sendToThread for feature X"
 **Correct:** Persistence is extension behavior. Use `onPipelineStart` or `onPipelineComplete` hooks in a plugin. The activity plugin already demonstrates this pattern — it persists all rich activity records via these hooks.
+
+---
+
+## Agent Execution Isolation
+
+Claude subprocesses spawned by the invoker run with `permissionMode: 'bypassPermissions'` and `allowDangerouslySkipPermissions: true`. This is intentional — this is a single-user, local-first home lab application. The operator runs everything with bypass permissions.
+
+File: `apps/orchestrator/src/invoker-sdk/_helpers/create-session.ts`
+
+### What this means
+
+- The Claude subprocess can execute any tool or command without user confirmation
+- It has full filesystem access (cwd is `os.tmpdir()` to avoid loading project config, but the process can navigate anywhere)
+- No `disallowedTools` are configured
+- Network access is unrestricted
+
+### Why this is acceptable
+
+This is a personal orchestrator running on a private machine behind a home network. There is no multi-tenant isolation because there is no multi-tenancy. The operator accepts the risk of full-permission agent execution as a trade-off for zero-friction automation.
+
+### Known risk: prompt injection → command execution
+
+A malicious or adversarial prompt (via Discord message, cron job prompt, or delegation chain) could instruct Claude to execute arbitrary shell commands. The current mitigations are:
+
+- **Discord:** Only processes messages from configured channels/guilds
+- **Cron:** Prompts are operator-authored via admin UI or MCP tool (not user-facing)
+- **Delegation:** Sub-agent prompts are constructed by the parent agent, not by external users
+- **Session isolation:** Each thread gets its own SDK session with a per-session `contextRef` — one thread cannot access another's tool context
+
+### If hardening is needed later
+
+The `query()` options in `create-session.ts` accept `disallowedTools` and `permissionMode`. To restrict a specific agent or thread kind:
+
+1. Add a `permissionMode` field to `Agent` or `Thread` model
+2. Read it in `createSession` (passed through from `InvokeOptions`)
+3. Pass it to the `query()` options object
+
+Do not add blanket restrictions — the operator explicitly chose bypass mode for the primary use case.

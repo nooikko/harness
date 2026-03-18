@@ -102,18 +102,7 @@
         ]
       }
     ],
-    "Stop": [
-      {
-        "matcher": "",
-        "hooks": [
-          {
-            "type": "command",
-            "command": "$CLAUDE_PROJECT_DIR/.claude/hooks/suggest-doc-updates.py",
-            "timeout": 10
-          }
-        ]
-      }
-    ],
+    "Stop": [],
     "WorktreeCreate": [
       {
         "matcher": "",

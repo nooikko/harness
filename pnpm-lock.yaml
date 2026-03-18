@@ -147,6 +147,9 @@ importers:
       '@harness/logger':
         specifier: workspace:*
         version: link:../../packages/logger
+      '@harness/oauth':
+        specifier: workspace:*
+        version: link:../../packages/oauth
       '@harness/plugin-activity':
         specifier: workspace:*
         version: link:../../packages/plugins/activity

@@ -32,6 +32,10 @@
       "env": {
         "GITHUB_TOKEN": "${GITHUB_TOKEN}"
       }
+    },
+    "semgrep": {
+      "command": "uvx",
+      "args": ["semgrep-mcp"]
     }
   }
 }
