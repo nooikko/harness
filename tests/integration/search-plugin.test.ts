@@ -2,6 +2,7 @@ import { PrismaClient } from '@harness/database';
 import { afterAll, afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { TestHarness } from './helpers/create-harness';
 import { createTestHarness } from './helpers/create-harness';
+import { requireTestDatabaseUrl } from './setup/require-test-db';
 import { resetDatabase } from './setup/reset-db';
 
 // Mock the Qdrant vector search layer — all mock values must be inline
@@ -20,9 +21,7 @@ vi.mock('@harness/vector-search', () => ({
 // Dynamic import after mocks are set up
 const { plugin: searchPlugin } = await import('@harness/plugin-search');
 
-const prisma = new PrismaClient({
-  datasourceUrl: process.env.TEST_DATABASE_URL,
-});
+const prisma = new PrismaClient({ datasourceUrl: requireTestDatabaseUrl() });
 
 beforeEach(async () => {
   await resetDatabase(prisma);

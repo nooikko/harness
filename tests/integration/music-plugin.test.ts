@@ -2,6 +2,7 @@ import { PrismaClient } from '@harness/database';
 import { afterAll, afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { TestHarness } from './helpers/create-harness';
 import { createTestHarness } from './helpers/create-harness';
+import { requireTestDatabaseUrl } from './setup/require-test-db';
 import { resetDatabase } from './setup/reset-db';
 
 // Mock youtubei.js — the core npm dependency for YouTube Music. The
@@ -61,9 +62,7 @@ vi.mock('castv2-client', () => ({
 
 const { musicPlugin } = await import('@harness/plugin-music');
 
-const prisma = new PrismaClient({
-  datasourceUrl: process.env.TEST_DATABASE_URL,
-});
+const prisma = new PrismaClient({ datasourceUrl: requireTestDatabaseUrl() });
 
 beforeEach(async () => {
   await resetDatabase(prisma);

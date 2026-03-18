@@ -3,6 +3,7 @@ import { plugin as outlookCalendarPlugin } from '@harness/plugin-outlook-calenda
 import { afterAll, afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { TestHarness } from './helpers/create-harness';
 import { createTestHarness } from './helpers/create-harness';
+import { requireTestDatabaseUrl } from './setup/require-test-db';
 import { resetDatabase } from './setup/reset-db';
 
 // Mock the OAuth token layer — all calendar tools flow through graphFetch which
@@ -11,9 +12,7 @@ vi.mock('@harness/oauth', () => ({
   getValidToken: vi.fn().mockResolvedValue('test-access-token'),
 }));
 
-const prisma = new PrismaClient({
-  datasourceUrl: process.env.TEST_DATABASE_URL,
-});
+const prisma = new PrismaClient({ datasourceUrl: requireTestDatabaseUrl() });
 
 beforeEach(async () => {
   await resetDatabase(prisma);

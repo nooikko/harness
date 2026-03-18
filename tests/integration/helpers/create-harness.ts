@@ -3,6 +3,7 @@ import { createLogger } from '@harness/logger';
 import type { InvokeResult, Invoker, OrchestratorConfig, PluginDefinition } from '@harness/plugin-contract';
 import { createOrchestrator } from 'orchestrator';
 import { type MockedFunction, vi } from 'vitest';
+import { requireTestDatabaseUrl } from '../setup/require-test-db';
 
 export type TestHarness = {
   orchestrator: ReturnType<typeof createOrchestrator>;
@@ -13,7 +14,7 @@ export type TestHarness = {
 };
 
 const makeTestConfig = (port = 0): OrchestratorConfig => ({
-  databaseUrl: process.env.TEST_DATABASE_URL ?? '',
+  databaseUrl: requireTestDatabaseUrl(),
   timezone: 'UTC',
   maxConcurrentAgents: 3,
   claudeModel: 'claude-haiku-4-5-20251001',
@@ -43,7 +44,7 @@ const makeDefaultResult = (opts?: CreateTestHarnessOpts): InvokeResult => ({
 });
 
 export const createTestHarness = async (plugin: PluginDefinition, opts?: CreateTestHarnessOpts): Promise<TestHarness> => {
-  const prisma = new PrismaClient({ datasourceUrl: process.env.TEST_DATABASE_URL });
+  const prisma = new PrismaClient({ datasourceUrl: requireTestDatabaseUrl() });
   await prisma.$connect();
 
   const mockInvoke: MockedFunction<Invoker['invoke']> = vi.fn().mockResolvedValue(makeDefaultResult(opts));
@@ -101,7 +102,7 @@ export type CreateMultiPluginHarnessOpts = CreateTestHarnessOpts & {
  *   afterRegister: (orch) => delegationState.setHooks!(orch.getHooks())
  */
 export const createMultiPluginHarness = async (pluginDefs: PluginDefinition[], opts?: CreateMultiPluginHarnessOpts): Promise<TestHarness> => {
-  const prisma = new PrismaClient({ datasourceUrl: process.env.TEST_DATABASE_URL });
+  const prisma = new PrismaClient({ datasourceUrl: requireTestDatabaseUrl() });
   await prisma.$connect();
 
   const mockInvoke: MockedFunction<Invoker['invoke']> = vi.fn().mockResolvedValue(makeDefaultResult(opts));

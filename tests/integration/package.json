@@ -13,6 +13,7 @@
     "@harness/plugin-activity": "workspace:*",
     "@harness/plugin-audit": "workspace:*",
     "@harness/plugin-auto-namer": "workspace:*",
+    "@harness/plugin-calendar": "workspace:*",
     "@harness/plugin-context": "workspace:*",
     "@harness/plugin-cron": "workspace:*",
     "@harness/plugin-contract": "workspace:*",

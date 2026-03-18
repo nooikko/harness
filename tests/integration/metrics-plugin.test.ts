@@ -3,9 +3,10 @@ import { plugin as metricsPlugin } from '@harness/plugin-metrics';
 import { afterAll, afterEach, beforeEach, describe, expect, it } from 'vitest';
 import type { TestHarness } from './helpers/create-harness';
 import { createTestHarness } from './helpers/create-harness';
+import { requireTestDatabaseUrl } from './setup/require-test-db';
 import { resetDatabase } from './setup/reset-db';
 
-const prisma = new PrismaClient({ datasourceUrl: process.env.TEST_DATABASE_URL });
+const prisma = new PrismaClient({ datasourceUrl: requireTestDatabaseUrl() });
 
 beforeEach(async () => {
   await resetDatabase(prisma);
