@@ -48,11 +48,7 @@ const listEvents: ListEvents = async (ctx, input) => {
     isAllDay: evt.isAllDay,
     location: evt.location,
     organizer: evt.organizer,
-    attendees: evt.attendees as Array<{
-      name: string;
-      email: string;
-      response: string;
-    }> | null,
+    attendees: evt.attendees as Array<{ name: string; email: string; response: string }> | null,
     isCancelled: evt.isCancelled,
     joinUrl: evt.joinUrl,
     source: evt.source,
@@ -63,15 +59,7 @@ const listEvents: ListEvents = async (ctx, input) => {
 
   return {
     text: JSON.stringify(mapped, null, 2),
-    blocks: [
-      {
-        type: 'calendar-day-summary',
-        data: {
-          date: startDate.toISOString().slice(0, 10),
-          events: mapped,
-        },
-      },
-    ],
+    blocks: [{ type: 'calendar-day-summary', data: { date: startDate.toISOString().slice(0, 10), events: mapped } }],
   };
 };
 

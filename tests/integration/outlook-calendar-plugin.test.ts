@@ -1,5 +1,5 @@
 import { PrismaClient } from '@harness/database';
-import { plugin as calendarPlugin } from '@harness/plugin-calendar';
+import { plugin as outlookCalendarPlugin } from '@harness/plugin-outlook-calendar';
 import { afterAll, afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { TestHarness } from './helpers/create-harness';
 import { createTestHarness } from './helpers/create-harness';
@@ -24,9 +24,9 @@ afterAll(async () => {
 });
 
 const getTool = (name: string) => {
-  const tool = calendarPlugin.tools!.find((t) => t.name === name)!;
+  const tool = outlookCalendarPlugin.tools!.find((t) => t.name === name)!;
   if (!tool) {
-    throw new Error(`Tool "${name}" not found in calendar plugin`);
+    throw new Error(`Tool "${name}" not found in outlook-calendar plugin`);
   }
   return tool;
 };
@@ -49,7 +49,7 @@ const mockGraph204 = () => {
   vi.spyOn(globalThis, 'fetch').mockResolvedValueOnce(new Response(null, { status: 204 }));
 };
 
-describe('calendar plugin integration', () => {
+describe('outlook-calendar plugin integration', () => {
   let harness: TestHarness;
 
   afterEach(async () => {
@@ -58,7 +58,7 @@ describe('calendar plugin integration', () => {
   });
 
   it('list_events returns formatted events from Graph API', async () => {
-    harness = await createTestHarness(calendarPlugin);
+    harness = await createTestHarness(outlookCalendarPlugin);
     const ctx = harness.orchestrator.getContext();
 
     mockGraphResponse({
@@ -96,7 +96,7 @@ describe('calendar plugin integration', () => {
   });
 
   it('create_event sends POST to Graph API and returns confirmation', async () => {
-    harness = await createTestHarness(calendarPlugin);
+    harness = await createTestHarness(outlookCalendarPlugin);
     const ctx = harness.orchestrator.getContext();
 
     mockGraphResponse({
@@ -126,7 +126,7 @@ describe('calendar plugin integration', () => {
   });
 
   it('delete_event sends DELETE to Graph API', async () => {
-    harness = await createTestHarness(calendarPlugin);
+    harness = await createTestHarness(outlookCalendarPlugin);
     const ctx = harness.orchestrator.getContext();
 
     mockGraph204();
@@ -140,7 +140,7 @@ describe('calendar plugin integration', () => {
   });
 
   it('find_free_time returns available slots', async () => {
-    harness = await createTestHarness(calendarPlugin);
+    harness = await createTestHarness(outlookCalendarPlugin);
     const ctx = harness.orchestrator.getContext();
 
     mockGraphResponse({
@@ -179,7 +179,7 @@ describe('calendar plugin integration', () => {
   });
 
   it('list_calendars returns calendar list', async () => {
-    harness = await createTestHarness(calendarPlugin);
+    harness = await createTestHarness(outlookCalendarPlugin);
     const ctx = harness.orchestrator.getContext();
 
     mockGraphResponse({
@@ -206,7 +206,7 @@ describe('calendar plugin integration', () => {
   });
 
   it('tool throws when Graph API returns error status', async () => {
-    harness = await createTestHarness(calendarPlugin);
+    harness = await createTestHarness(outlookCalendarPlugin);
     const ctx = harness.orchestrator.getContext();
 
     vi.spyOn(globalThis, 'fetch').mockResolvedValueOnce(

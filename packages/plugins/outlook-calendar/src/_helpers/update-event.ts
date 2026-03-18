@@ -35,9 +35,7 @@ const updateEvent: UpdateEvent = async (ctx, input) => {
       ...(input.endAt !== undefined && { endAt: new Date(input.endAt) }),
       ...(input.isAllDay !== undefined && { isAllDay: input.isAllDay }),
       ...(input.location !== undefined && { location: input.location }),
-      ...(input.description !== undefined && {
-        description: input.description,
-      }),
+      ...(input.description !== undefined && { description: input.description }),
       ...(input.category !== undefined && { category: input.category }),
       ...(input.color !== undefined && { color: input.color }),
     },

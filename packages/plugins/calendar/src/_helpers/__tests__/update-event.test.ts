@@ -1,82 +1,63 @@
 import { describe, expect, it, vi } from 'vitest';
+import { updateEvent } from '../update-event';
 
-vi.mock('../graph-fetch', () => ({
-  graphFetch: vi.fn(),
-}));
+const mockFindUnique = vi.fn();
+const mockUpdate = vi.fn();
+
+const ctx = {
+  db: { calendarEvent: { findUnique: mockFindUnique, update: mockUpdate } },
+} as unknown as Parameters<typeof updateEvent>[0];
 
 describe('updateEvent', () => {
-  it('patches an event via Graph API', async () => {
-    const { graphFetch } = await import('../graph-fetch');
-    const { updateEvent } = await import('../update-event');
+  it('updates a local event', async () => {
+    mockFindUnique.mockResolvedValue({ id: 'evt-1', source: 'LOCAL', title: 'Old' });
+    mockUpdate.mockResolvedValue({ id: 'evt-1', title: 'New Title' });
 
-    (graphFetch as ReturnType<typeof vi.fn>).mockResolvedValue({
-      id: 'evt-1',
-      subject: 'Updated Title',
-    });
+    const result = await updateEvent(ctx, { eventId: 'evt-1', title: 'New Title' });
+    expect(result).toContain('Updated');
+    expect(result).toContain('New Title');
+  });
 
-    const result = await updateEvent({} as Parameters<typeof updateEvent>[0], {
+  it('includes all optional fields in update', async () => {
+    mockFindUnique.mockResolvedValue({ id: 'evt-1', source: 'LOCAL', title: 'Old' });
+    mockUpdate.mockResolvedValue({ id: 'evt-1', title: 'Full Update' });
+
+    await updateEvent(ctx, {
       eventId: 'evt-1',
-      subject: 'Updated Title',
-    });
-
-    const parsed = JSON.parse(result);
-    expect(parsed.id).toBe('evt-1');
-    expect(parsed.message).toContain('updated');
-
-    expect(graphFetch).toHaveBeenCalledWith(
-      expect.anything(),
-      '/me/events/evt-1',
-      expect.objectContaining({
-        method: 'PATCH',
-        body: expect.objectContaining({ subject: 'Updated Title' }),
-      }),
-    );
-  });
-
-  it('includes all optional fields in patch', async () => {
-    const { graphFetch } = await import('../graph-fetch');
-    const { updateEvent } = await import('../update-event');
-
-    (graphFetch as ReturnType<typeof vi.fn>).mockResolvedValue({
-      id: 'evt-2',
-      subject: 'Full Update',
-    });
-
-    await updateEvent({} as Parameters<typeof updateEvent>[0], {
-      eventId: 'evt-2',
-      subject: 'Full Update',
-      start: '2026-03-17T10:00:00',
-      end: '2026-03-17T11:00:00',
-      timeZone: 'UTC',
+      title: 'Full Update',
+      startAt: '2026-03-17T10:00:00',
+      endAt: '2026-03-17T11:00:00',
+      isAllDay: true,
       location: 'Room 202',
-      body: 'Meeting notes',
+      description: 'Meeting notes',
+      category: 'meeting',
+      color: '#FF0000',
     });
 
-    const call = (graphFetch as ReturnType<typeof vi.fn>).mock.calls.at(-1);
-    const body = call?.[2]?.body as Record<string, unknown>;
-    expect(body.subject).toBe('Full Update');
-    expect(body.start).toEqual({ dateTime: '2026-03-17T10:00:00', timeZone: 'UTC' });
-    expect(body.end).toEqual({ dateTime: '2026-03-17T11:00:00', timeZone: 'UTC' });
-    expect(body.location).toEqual({ displayName: 'Room 202' });
-    expect(body.body).toEqual({ contentType: 'Text', content: 'Meeting notes' });
+    expect(mockUpdate).toHaveBeenCalledWith({
+      where: { id: 'evt-1' },
+      data: expect.objectContaining({
+        title: 'Full Update',
+        isAllDay: true,
+        location: 'Room 202',
+        description: 'Meeting notes',
+        category: 'meeting',
+        color: '#FF0000',
+      }),
+    });
   });
 
-  it('uses default timezone when not specified', async () => {
-    const { graphFetch } = await import('../graph-fetch');
-    const { updateEvent } = await import('../update-event');
+  it('returns not found for missing event', async () => {
+    mockFindUnique.mockResolvedValue(null);
 
-    (graphFetch as ReturnType<typeof vi.fn>).mockResolvedValue({
-      id: 'evt-3',
-      subject: 'TZ Test',
-    });
+    const result = await updateEvent(ctx, { eventId: 'missing', title: 'X' });
+    expect(result).toContain('not found');
+  });
 
-    await updateEvent({} as Parameters<typeof updateEvent>[0], {
-      eventId: 'evt-3',
-      start: '2026-03-17T10:00:00',
-    });
+  it('rejects non-LOCAL events', async () => {
+    mockFindUnique.mockResolvedValue({ id: 'evt-2', source: 'OUTLOOK', title: 'External' });
 
-    const call = (graphFetch as ReturnType<typeof vi.fn>).mock.calls.at(-1);
-    const body = call?.[2]?.body as Record<string, unknown>;
-    expect(body.start).toEqual({ dateTime: '2026-03-17T10:00:00', timeZone: 'America/Phoenix' });
+    const result = await updateEvent(ctx, { eventId: 'evt-2', title: 'Try Edit' });
+    expect(result).toContain('Cannot edit');
   });
 });

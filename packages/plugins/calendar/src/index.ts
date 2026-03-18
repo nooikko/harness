@@ -1,178 +1,105 @@
 import type { PluginDefinition } from '@harness/plugin-contract';
 import { createEvent } from './_helpers/create-event';
 import { deleteEvent } from './_helpers/delete-event';
-import { findFreeTime } from './_helpers/find-free-time';
 import { getEvent } from './_helpers/get-event';
-import { listCalendars } from './_helpers/list-calendars';
 import { listEvents } from './_helpers/list-events';
+import { projectVirtualEvents } from './_helpers/project-virtual-events';
+import { startSyncTimer, stopSyncTimer } from './_helpers/start-sync-timer';
+import { syncOutlookCalendars } from './_helpers/sync-outlook-calendars';
 import { updateEvent } from './_helpers/update-event';
 
 const plugin: PluginDefinition = {
   name: 'calendar',
   version: '1.0.0',
+  system: true,
   tools: [
     {
-      name: 'list_events',
-      description: 'List upcoming calendar events. Defaults to the next 7 days. Provide ISO date strings to customize the range.',
-      schema: {
-        type: 'object',
-        properties: {
-          startDateTime: {
-            type: 'string',
-            description: 'Start of date range (ISO 8601). Default: now.',
-          },
-          endDateTime: {
-            type: 'string',
-            description: 'End of date range (ISO 8601). Default: 7 days from now.',
-          },
-          top: {
-            type: 'number',
-            description: 'Maximum events to return (default 25)',
-          },
-        },
-        required: [],
-      },
-      handler: async (ctx, input) => {
-        const { startDateTime, endDateTime, top } = input as {
-          startDateTime?: string;
-          endDateTime?: string;
-          top?: number;
-        };
-        return listEvents(ctx, { startDateTime, endDateTime, top });
-      },
-    },
-    {
-      name: 'get_event',
-      description: 'Get full details of a calendar event by its ID, including body, attendees, recurrence, and meeting link.',
-      schema: {
-        type: 'object',
-        properties: {
-          eventId: {
-            type: 'string',
-            description: 'The calendar event ID',
-          },
-        },
-        required: ['eventId'],
-      },
-      handler: async (ctx, input) => {
-        const { eventId } = input as { eventId: string };
-        return getEvent(ctx, eventId);
-      },
-    },
-    {
       name: 'create_event',
-      description: 'Create a new calendar event. Times should be in ISO 8601 format. Default timezone is America/Phoenix.',
+      description:
+        'Create a local calendar event (birthday, reminder, appointment, etc.). For Outlook events, use the outlook-calendar plugin instead.',
       schema: {
         type: 'object',
         properties: {
-          subject: { type: 'string', description: 'Event title' },
-          start: {
-            type: 'string',
-            description: "Start time (ISO 8601, e.g., '2026-03-17T10:00:00')",
-          },
-          end: { type: 'string', description: 'End time (ISO 8601)' },
-          timeZone: {
-            type: 'string',
-            description: 'IANA timezone (default: America/Phoenix)',
-          },
-          location: {
-            type: 'string',
-            description: 'Event location (optional)',
-          },
-          body: {
-            type: 'string',
-            description: 'Event description (optional)',
-          },
-          attendees: {
-            type: 'array',
-            items: { type: 'string' },
-            description: 'Attendee email addresses (optional)',
-          },
+          title: { type: 'string', description: 'Event title' },
+          startAt: { type: 'string', description: 'Start time (ISO 8601)' },
+          endAt: { type: 'string', description: 'End time (ISO 8601)' },
           isAllDay: {
             type: 'boolean',
             description: 'Whether this is an all-day event (default: false)',
           },
+          location: { type: 'string', description: 'Event location' },
+          description: { type: 'string', description: 'Event description' },
+          category: {
+            type: 'string',
+            description: 'Event category (e.g., "birthday", "medical", "reminder", "meeting")',
+          },
+          color: {
+            type: 'string',
+            description: 'Hex color override (e.g., #EC4899)',
+          },
         },
-        required: ['subject', 'start', 'end'],
+        required: ['title', 'startAt', 'endAt'],
       },
       handler: async (ctx, input) => {
-        const { subject, start, end, timeZone, location, body, attendees, isAllDay } = input as {
-          subject: string;
-          start: string;
-          end: string;
-          timeZone?: string;
-          location?: string;
-          body?: string;
-          attendees?: string[];
+        const { title, startAt, endAt, isAllDay, location, description, category, color } = input as {
+          title: string;
+          startAt: string;
+          endAt: string;
           isAllDay?: boolean;
+          location?: string;
+          description?: string;
+          category?: string;
+          color?: string;
         };
         return createEvent(ctx, {
-          subject,
-          start,
-          end,
-          timeZone,
-          location,
-          body,
-          attendees,
+          title,
+          startAt,
+          endAt,
           isAllDay,
+          location,
+          description,
+          category,
+          color,
         });
       },
     },
     {
       name: 'update_event',
-      description: 'Update an existing calendar event. Only provide the fields you want to change.',
+      description: 'Update a local calendar event. Only LOCAL events can be edited. Provide only the fields to change.',
       schema: {
         type: 'object',
         properties: {
           eventId: {
             type: 'string',
-            description: 'The calendar event ID to update',
+            description: 'The event ID to update',
           },
-          subject: { type: 'string', description: 'New event title' },
-          start: {
+          title: { type: 'string', description: 'New title' },
+          startAt: {
             type: 'string',
             description: 'New start time (ISO 8601)',
           },
-          end: {
-            type: 'string',
-            description: 'New end time (ISO 8601)',
-          },
-          timeZone: { type: 'string', description: 'IANA timezone' },
+          endAt: { type: 'string', description: 'New end time (ISO 8601)' },
+          isAllDay: { type: 'boolean', description: 'All-day toggle' },
           location: { type: 'string', description: 'New location' },
-          body: { type: 'string', description: 'New description' },
+          description: { type: 'string', description: 'New description' },
+          category: { type: 'string', description: 'New category' },
+          color: { type: 'string', description: 'New hex color' },
         },
         required: ['eventId'],
       },
       handler: async (ctx, input) => {
-        const { eventId, subject, start, end, timeZone, location, body } = input as {
-          eventId: string;
-          subject?: string;
-          start?: string;
-          end?: string;
-          timeZone?: string;
-          location?: string;
-          body?: string;
-        };
-        return updateEvent(ctx, {
-          eventId,
-          subject,
-          start,
-          end,
-          timeZone,
-          location,
-          body,
-        });
+        return updateEvent(ctx, input as Parameters<typeof updateEvent>[1]);
       },
     },
     {
       name: 'delete_event',
-      description: 'Delete/cancel a calendar event by its ID.',
+      description: 'Delete a local calendar event. Only LOCAL events can be deleted.',
       schema: {
         type: 'object',
         properties: {
           eventId: {
             type: 'string',
-            description: 'The calendar event ID to delete',
+            description: 'The event ID to delete',
           },
         },
         required: ['eventId'],
@@ -183,53 +110,98 @@ const plugin: PluginDefinition = {
       },
     },
     {
-      name: 'find_free_time',
-      description: 'Find available meeting time slots in a date range. Uses Microsoft Graph findMeetingTimes API.',
+      name: 'list_events',
+      description: 'List events from the unified calendar (Outlook, local, memories, tasks, cron). Defaults to the next 7 days.',
       schema: {
         type: 'object',
         properties: {
-          startDateTime: {
+          startDate: {
             type: 'string',
-            description: 'Start of date range (ISO 8601)',
+            description: 'Start of date range (ISO 8601). Default: now.',
           },
-          endDateTime: {
+          endDate: {
             type: 'string',
-            description: 'End of date range (ISO 8601)',
+            description: 'End of date range (ISO 8601). Default: 7 days from now.',
           },
-          durationMinutes: {
+          sources: {
+            type: 'array',
+            items: {
+              type: 'string',
+              enum: ['OUTLOOK', 'LOCAL', 'MEMORY', 'TASK', 'CRON'],
+            },
+            description: 'Filter by event source(s)',
+          },
+          categories: {
+            type: 'array',
+            items: { type: 'string' },
+            description: 'Filter by category (e.g., "birthday", "meeting", "medical")',
+          },
+          limit: {
             type: 'number',
-            description: 'Desired meeting duration in minutes (default: 30)',
+            description: 'Maximum events to return (default 50)',
           },
         },
-        required: ['startDateTime', 'endDateTime'],
+        required: [],
       },
       handler: async (ctx, input) => {
-        const { startDateTime, endDateTime, durationMinutes } = input as {
-          startDateTime: string;
-          endDateTime: string;
-          durationMinutes?: number;
-        };
-        return findFreeTime(ctx, {
-          startDateTime,
-          endDateTime,
-          durationMinutes,
-        });
+        return listEvents(ctx, input as Parameters<typeof listEvents>[1]);
       },
     },
     {
-      name: 'list_calendars',
-      description: 'List all available calendars (personal, shared, etc.) with their properties.',
+      name: 'get_event',
+      description: 'Get full details of a calendar event by its ID.',
+      schema: {
+        type: 'object',
+        properties: {
+          eventId: { type: 'string', description: 'The event ID' },
+        },
+        required: ['eventId'],
+      },
+      handler: async (ctx, input) => {
+        const { eventId } = input as { eventId: string };
+        return getEvent(ctx, eventId);
+      },
+    },
+    {
+      name: 'sync_now',
+      description: 'Trigger an immediate sync of Outlook calendar events into the local calendar database.',
       schema: {
         type: 'object',
         properties: {},
         required: [],
       },
       handler: async (ctx) => {
-        return listCalendars(ctx);
+        await syncOutlookCalendars(ctx);
+        await projectVirtualEvents(ctx);
+        return 'Calendar sync completed.';
       },
     },
   ],
-  register: async () => ({}),
+  register: async (ctx) => ({
+    onSettingsChange: async (pluginName) => {
+      if (pluginName === 'calendar') {
+        stopSyncTimer();
+        await syncOutlookCalendars(ctx);
+        await projectVirtualEvents(ctx);
+        startSyncTimer(ctx);
+      }
+    },
+  }),
+  start: async (ctx) => {
+    void (async () => {
+      try {
+        await syncOutlookCalendars(ctx);
+        await projectVirtualEvents(ctx);
+      } catch (err) {
+        ctx.logger.warn(`calendar: initial sync failed — ${err instanceof Error ? err.message : String(err)}`);
+      }
+    })();
+
+    startSyncTimer(ctx);
+  },
+  stop: async () => {
+    stopSyncTimer();
+  },
 };
 
 export { plugin };

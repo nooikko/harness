@@ -33,9 +33,16 @@ describe('findFreeTime', () => {
       endDateTime: '2026-03-17T17:00:00',
     });
 
-    const parsed = JSON.parse(result);
+    expect(typeof result).toBe('object');
+    const { text, blocks } = result as { text: string; blocks: Array<{ type: string; data: { events: Array<Record<string, unknown>> } }> };
+    const parsed = JSON.parse(text);
     expect(parsed).toHaveLength(1);
     expect(parsed[0].confidence).toBe(100);
+
+    expect(blocks).toHaveLength(1);
+    expect(blocks[0]!.type).toBe('calendar-events');
+    expect(blocks[0]!.data.events).toHaveLength(1);
+    expect(blocks[0]!.data.events[0]!.subject).toBe('Free');
   });
 
   it('returns message when no slots available', async () => {

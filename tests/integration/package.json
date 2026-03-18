@@ -19,7 +19,7 @@
     "@harness/plugin-delegation": "workspace:*",
     "@harness/plugin-discord": "workspace:*",
     "@harness/plugin-identity": "workspace:*",
-    "@harness/plugin-calendar": "workspace:*",
+    "@harness/plugin-outlook-calendar": "workspace:*",
     "@harness/plugin-metrics": "workspace:*",
     "@harness/plugin-music": "workspace:*",
     "@harness/plugin-outlook": "workspace:*",

@@ -20,11 +20,7 @@ const getEvent: GetEvent = async (ctx, eventId) => {
     location: event.location,
     description: event.description,
     organizer: event.organizer,
-    attendees: event.attendees as Array<{
-      name: string;
-      email: string;
-      response: string;
-    }> | null,
+    attendees: event.attendees as Array<{ name: string; email: string; response: string }> | null,
     isCancelled: event.isCancelled,
     joinUrl: event.joinUrl,
     source: event.source,

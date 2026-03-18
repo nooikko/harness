@@ -12,6 +12,7 @@ describe('deleteEvent', () => {
   beforeEach(() => {
     vi.clearAllMocks();
   });
+
   it('deletes a local event', async () => {
     mockFindUnique.mockResolvedValue({ id: 'evt-1', title: 'Old Event', source: 'LOCAL' });
     mockDelete.mockResolvedValue({});

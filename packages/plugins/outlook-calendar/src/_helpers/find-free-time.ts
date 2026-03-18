@@ -1,4 +1,4 @@
-import type { PluginContext } from '@harness/plugin-contract';
+import type { PluginContext, ToolResult } from '@harness/plugin-contract';
 import { graphFetch } from './graph-fetch';
 
 type FindFreeTimeInput = {
@@ -7,7 +7,7 @@ type FindFreeTimeInput = {
   durationMinutes?: number;
 };
 
-type FindFreeTime = (ctx: PluginContext, input: FindFreeTimeInput, timezone?: string) => Promise<string>;
+type FindFreeTime = (ctx: PluginContext, input: FindFreeTimeInput, timezone?: string) => Promise<ToolResult>;
 
 const findFreeTime: FindFreeTime = async (ctx, input, timezone) => {
   const tz = timezone ?? ctx.config.timezone ?? 'America/Phoenix';
@@ -59,7 +59,20 @@ const findFreeTime: FindFreeTime = async (ctx, input, timezone) => {
     reason: s.suggestionReason,
   }));
 
-  return JSON.stringify(slots, null, 2);
+  const text = JSON.stringify(slots, null, 2);
+
+  const events = slots.map((slot, i) => ({
+    id: i.toString(),
+    subject: slot.reason ?? 'Available',
+    start: slot.start,
+    end: slot.end,
+    isAllDay: false,
+  }));
+
+  return {
+    text,
+    blocks: [{ type: 'calendar-events', data: { events } }],
+  };
 };
 
 export { findFreeTime };

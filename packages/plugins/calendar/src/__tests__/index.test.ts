@@ -7,17 +7,18 @@ describe('plugin', () => {
     expect(plugin.version).toBe('1.0.0');
   });
 
-  it('defines 7 tools', () => {
-    expect(plugin.tools).toHaveLength(7);
+  it('defines 6 tools', () => {
+    expect(plugin.tools).toHaveLength(6);
   });
 
   it('has expected tool names', () => {
     const toolNames = plugin.tools!.map((t) => t.name);
-    expect(toolNames).toEqual(['list_events', 'get_event', 'create_event', 'update_event', 'delete_event', 'find_free_time', 'list_calendars']);
+    expect(toolNames).toEqual(['create_event', 'update_event', 'delete_event', 'list_events', 'get_event', 'sync_now']);
   });
 
-  it('register returns empty hooks', async () => {
-    const hooks = await plugin.register({} as Parameters<typeof plugin.register>[0]);
-    expect(hooks).toEqual({});
+  it('register returns onSettingsChange hook', async () => {
+    const ctx = { logger: { warn: () => {} } } as unknown as Parameters<typeof plugin.register>[0];
+    const hooks = await plugin.register(ctx);
+    expect(hooks.onSettingsChange).toBeDefined();
   });
 });
