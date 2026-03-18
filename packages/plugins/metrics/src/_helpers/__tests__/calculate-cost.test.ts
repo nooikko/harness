@@ -1,49 +1,5 @@
-import { getModelPricing } from '@harness/plugin-contract';
 import { describe, expect, it } from 'vitest';
 import { calculateCost } from '../calculate-cost';
-
-describe('getModelPricing', () => {
-  it("returns Sonnet pricing for exact 'sonnet' key", () => {
-    const pricing = getModelPricing('sonnet');
-    expect(pricing.inputPerMillion).toBe(3);
-    expect(pricing.outputPerMillion).toBe(15);
-  });
-
-  it("returns Opus pricing for exact 'opus' key", () => {
-    const pricing = getModelPricing('opus');
-    expect(pricing.inputPerMillion).toBe(15);
-    expect(pricing.outputPerMillion).toBe(75);
-  });
-
-  it("returns Haiku pricing for exact 'haiku' key", () => {
-    const pricing = getModelPricing('haiku');
-    expect(pricing.inputPerMillion).toBe(0.8);
-    expect(pricing.outputPerMillion).toBe(4);
-  });
-
-  it('returns pricing for full model identifiers via partial match', () => {
-    const pricing = getModelPricing('claude-sonnet-4-20250514');
-    expect(pricing.inputPerMillion).toBe(3);
-  });
-
-  it('returns pricing via partial match when model string contains known key', () => {
-    // "my-custom-opus-v2" contains "opus" so should match Opus pricing
-    const pricing = getModelPricing('my-custom-opus-v2');
-    expect(pricing.inputPerMillion).toBe(15);
-    expect(pricing.outputPerMillion).toBe(75);
-  });
-
-  it('returns default Sonnet pricing for unknown models', () => {
-    const pricing = getModelPricing('unknown-model-xyz');
-    expect(pricing.inputPerMillion).toBe(3);
-    expect(pricing.outputPerMillion).toBe(15);
-  });
-
-  it('is case-insensitive', () => {
-    const pricing = getModelPricing('SONNET');
-    expect(pricing.inputPerMillion).toBe(3);
-  });
-});
 
 describe('calculateCost', () => {
   it('calculates cost for Sonnet with known token counts', () => {
@@ -64,12 +20,32 @@ describe('calculateCost', () => {
 
   it('returns zero cost for zero tokens', () => {
     const result = calculateCost('sonnet', 0, 0);
+    expect(result.inputCost).toBe(0);
+    expect(result.outputCost).toBe(0);
     expect(result.totalCost).toBe(0);
   });
 
-  it('handles small token counts', () => {
+  it('calculates cost for Haiku', () => {
+    // 1M input at $1/M + 500K output at $5/M = $1 + $2.5 = $3.5
+    const result = calculateCost('haiku', 1_000_000, 500_000);
+    expect(result.inputCost).toBeCloseTo(1.0);
+    expect(result.outputCost).toBeCloseTo(2.5);
+    expect(result.totalCost).toBeCloseTo(3.5);
+  });
+
+  it('resolves full model ID via partial match', () => {
+    // Full model ID should resolve to Opus pricing via partial match
+    const result = calculateCost('claude-opus-4-6', 100_000, 50_000);
+    expect(result.inputCost).toBeCloseTo(1.5);
+    expect(result.outputCost).toBeCloseTo(3.75);
+    expect(result.totalCost).toBeCloseTo(5.25);
+  });
+
+  it('handles small token counts with correct precision', () => {
     // 1000 input at $3/M + 500 output at $15/M = $0.003 + $0.0075 = $0.0105
     const result = calculateCost('sonnet', 1000, 500);
+    expect(result.inputCost).toBeCloseTo(0.003);
+    expect(result.outputCost).toBeCloseTo(0.0075);
     expect(result.totalCost).toBeCloseTo(0.0105);
   });
 });

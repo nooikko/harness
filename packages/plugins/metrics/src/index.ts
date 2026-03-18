@@ -1,6 +1,7 @@
 // Metrics plugin — tracks token usage and cost via onAfterInvoke hook
 
 import type { PluginContext, PluginDefinition, PluginHooks } from '@harness/plugin-contract';
+import { isKnownModel } from '@harness/plugin-contract';
 import { calculateCost } from './_helpers/calculate-cost';
 import { recordUsageMetrics } from './_helpers/record-usage-metrics';
 
@@ -12,7 +13,7 @@ const createRegister: CreateRegister = () => {
 
     return {
       onAfterInvoke: async (threadId, result) => {
-        const { model, inputTokens, outputTokens, traceId } = result;
+        const { model, inputTokens, outputTokens } = result;
 
         if (!model || inputTokens == null || outputTokens == null) {
           const missing = [!model && 'model', inputTokens == null && 'inputTokens', outputTokens == null && 'outputTokens']
@@ -20,6 +21,10 @@ const createRegister: CreateRegister = () => {
             .join(', ');
           ctx.logger.warn(`Metrics: skipping — missing fields [${missing}] [thread=${threadId}]`);
           return;
+        }
+
+        if (!isKnownModel(model)) {
+          ctx.logger.warn(`Metrics: unknown model "${model}", using fallback Sonnet pricing [thread=${threadId}]`);
         }
 
         try {
@@ -31,7 +36,6 @@ const createRegister: CreateRegister = () => {
             inputTokens,
             outputTokens,
             costEstimate: totalCost,
-            traceId,
           });
         } catch (err) {
           ctx.logger.error(`Metrics: failed to record usage: ${err instanceof Error ? err.message : String(err)}`);

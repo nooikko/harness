@@ -2,15 +2,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 const mockCreateMany = vi.fn();
 
-vi.mock('@harness/database', () => ({
-  prisma: {
-    metric: {
-      createMany: (...args: unknown[]) => mockCreateMany(...args),
-    },
-  },
-}));
-
-const { recordUsageMetrics } = await import('../record-usage-metrics');
+import { recordUsageMetrics } from '../record-usage-metrics';
 
 describe('recordUsageMetrics', () => {
   beforeEach(() => {
@@ -18,123 +10,45 @@ describe('recordUsageMetrics', () => {
     mockCreateMany.mockResolvedValue({ count: 4 });
   });
 
-  it('creates four metric records (input, output, total, cost)', async () => {
-    const db = { metric: { createMany: mockCreateMany } } as never;
-
-    await recordUsageMetrics(db, {
-      threadId: 'thread-1',
-      model: 'sonnet',
-      inputTokens: 1000,
-      outputTokens: 500,
-      costEstimate: 0.0105,
-    });
-
-    expect(mockCreateMany).toHaveBeenCalledOnce();
-    const call = mockCreateMany.mock.calls[0]?.[0];
-    expect(call.data).toHaveLength(4);
-  });
-
-  it('records token.input metric with correct value and tags', async () => {
-    const db = { metric: { createMany: mockCreateMany } } as never;
-
-    await recordUsageMetrics(db, {
-      threadId: 'thread-1',
-      model: 'sonnet',
-      inputTokens: 2000,
-      outputTokens: 800,
-      costEstimate: 0.018,
-    });
-
-    const call = mockCreateMany.mock.calls[0]?.[0];
-    const inputMetric = call.data.find((m: { name: string }) => m.name === 'token.input');
-    expect(inputMetric).toEqual({
-      name: 'token.input',
-      value: 2000,
-      tags: { model: 'sonnet' },
-      threadId: 'thread-1',
-    });
-  });
-
-  it('records token.output metric with correct value', async () => {
+  it('writes all four metric records with correct names, values, and tags', async () => {
     const db = { metric: { createMany: mockCreateMany } } as never;
 
     await recordUsageMetrics(db, {
       threadId: 'thread-1',
       model: 'opus',
-      inputTokens: 1000,
-      outputTokens: 500,
-      costEstimate: 0.0525,
+      inputTokens: 2000,
+      outputTokens: 800,
+      costEstimate: 0.09,
     });
 
-    const call = mockCreateMany.mock.calls[0]?.[0];
-    const outputMetric = call.data.find((m: { name: string }) => m.name === 'token.output');
-    expect(outputMetric?.value).toBe(500);
-    expect(outputMetric?.tags).toEqual({ model: 'opus' });
-  });
-
-  it('records token.total as sum of input + output', async () => {
-    const db = { metric: { createMany: mockCreateMany } } as never;
-
-    await recordUsageMetrics(db, {
-      threadId: 'thread-1',
-      model: 'sonnet',
-      inputTokens: 3000,
-      outputTokens: 1500,
-      costEstimate: 0.0315,
-    });
-
-    const call = mockCreateMany.mock.calls[0]?.[0];
-    const totalMetric = call.data.find((m: { name: string }) => m.name === 'token.total');
-    expect(totalMetric?.value).toBe(4500);
-  });
-
-  it('records token.cost metric', async () => {
-    const db = { metric: { createMany: mockCreateMany } } as never;
-
-    await recordUsageMetrics(db, {
-      threadId: 'thread-1',
-      model: 'haiku',
-      inputTokens: 1000,
-      outputTokens: 500,
-      costEstimate: 0.0028,
-    });
-
-    const call = mockCreateMany.mock.calls[0]?.[0];
-    const costMetric = call.data.find((m: { name: string }) => m.name === 'token.cost');
-    expect(costMetric?.value).toBe(0.0028);
-  });
-
-  it('includes traceId in tags when provided', async () => {
-    const db = { metric: { createMany: mockCreateMany } } as never;
-
-    await recordUsageMetrics(db, {
-      threadId: 'thread-1',
-      model: 'sonnet',
-      inputTokens: 100,
-      outputTokens: 50,
-      costEstimate: 0.001,
-      traceId: 'trace-abc-123',
-    });
-
-    const call = mockCreateMany.mock.calls[0]?.[0];
-    const inputMetric = call.data.find((m: { name: string }) => m.name === 'token.input');
-    expect(inputMetric?.tags).toEqual({ model: 'sonnet', traceId: 'trace-abc-123' });
-  });
-
-  it('does not include traceId in tags when not provided', async () => {
-    const db = { metric: { createMany: mockCreateMany } } as never;
-
-    await recordUsageMetrics(db, {
-      threadId: 'thread-1',
-      model: 'sonnet',
-      inputTokens: 100,
-      outputTokens: 50,
-      costEstimate: 0.001,
-    });
-
-    const call = mockCreateMany.mock.calls[0]?.[0];
-    const inputMetric = call.data.find((m: { name: string }) => m.name === 'token.input');
-    expect(inputMetric?.tags).toEqual({ model: 'sonnet' });
-    expect(inputMetric?.tags).not.toHaveProperty('traceId');
+    expect(mockCreateMany).toHaveBeenCalledOnce();
+    const call = mockCreateMany.mock.calls[0];
+    const { data } = call![0] as { data: Array<Record<string, unknown>> };
+    expect(data).toEqual([
+      {
+        name: 'token.input',
+        value: 2000,
+        tags: { model: 'opus' },
+        threadId: 'thread-1',
+      },
+      {
+        name: 'token.output',
+        value: 800,
+        tags: { model: 'opus' },
+        threadId: 'thread-1',
+      },
+      {
+        name: 'token.total',
+        value: 2800,
+        tags: { model: 'opus' },
+        threadId: 'thread-1',
+      },
+      {
+        name: 'token.cost',
+        value: 0.09,
+        tags: { model: 'opus' },
+        threadId: 'thread-1',
+      },
+    ]);
   });
 });

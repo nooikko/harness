@@ -1,23 +1,13 @@
 import type { InvokeResult, PluginContext } from '@harness/plugin-contract';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
-vi.mock('../_helpers/calculate-cost', () => ({
-  calculateCost: vi.fn().mockReturnValue({
-    inputCost: 0.003,
-    outputCost: 0.0075,
-    totalCost: 0.0105,
-  }),
-}));
-
 vi.mock('../_helpers/record-usage-metrics', () => ({
   recordUsageMetrics: vi.fn().mockResolvedValue(undefined),
 }));
 
-import { calculateCost } from '../_helpers/calculate-cost';
 import { recordUsageMetrics } from '../_helpers/record-usage-metrics';
 import { plugin } from '../index';
 
-const mockCalculateCost = vi.mocked(calculateCost);
 const mockRecordUsageMetrics = vi.mocked(recordUsageMetrics);
 
 type CreateMockContext = () => PluginContext;
@@ -52,7 +42,6 @@ const createMockContext: CreateMockContext = () => ({
 
 describe('metrics plugin', () => {
   beforeEach(() => {
-    mockCalculateCost.mockClear();
     mockRecordUsageMetrics.mockClear();
   });
 
@@ -61,15 +50,7 @@ describe('metrics plugin', () => {
     expect(plugin.version).toBe('1.0.0');
   });
 
-  it('registers and returns onAfterInvoke hook', async () => {
-    const ctx = createMockContext();
-    const hooks = await plugin.register(ctx);
-
-    expect(hooks.onAfterInvoke).toBeDefined();
-    expect(typeof hooks.onAfterInvoke).toBe('function');
-  });
-
-  it('calculates cost and records metrics on invoke', async () => {
+  it('calculates real cost and records metrics for sonnet', async () => {
     const ctx = createMockContext();
     const hooks = await plugin.register(ctx);
 
@@ -77,20 +58,43 @@ describe('metrics plugin', () => {
       output: 'Hello!',
       durationMs: 1000,
       exitCode: 0,
-      model: 'claude-sonnet-4-20250514',
+      model: 'sonnet',
       inputTokens: 1000,
       outputTokens: 500,
     };
 
     await hooks.onAfterInvoke?.('thread-1', result);
 
-    expect(mockCalculateCost).toHaveBeenCalledWith('claude-sonnet-4-20250514', 1000, 500);
     expect(mockRecordUsageMetrics).toHaveBeenCalledWith(ctx.db, {
       threadId: 'thread-1',
-      model: 'claude-sonnet-4-20250514',
+      model: 'sonnet',
       inputTokens: 1000,
       outputTokens: 500,
-      costEstimate: 0.0105,
+      costEstimate: expect.closeTo(0.0105),
+    });
+  });
+
+  it('records metrics for zero-token invocations', async () => {
+    const ctx = createMockContext();
+    const hooks = await plugin.register(ctx);
+
+    const result: InvokeResult = {
+      output: '',
+      durationMs: 100,
+      exitCode: 0,
+      model: 'sonnet',
+      inputTokens: 0,
+      outputTokens: 0,
+    };
+
+    await hooks.onAfterInvoke?.('thread-1', result);
+
+    expect(mockRecordUsageMetrics).toHaveBeenCalledWith(ctx.db, {
+      threadId: 'thread-1',
+      model: 'sonnet',
+      inputTokens: 0,
+      outputTokens: 0,
+      costEstimate: 0,
     });
   });
 
@@ -106,11 +110,11 @@ describe('metrics plugin', () => {
 
     await hooks.onAfterInvoke?.('thread-1', result);
 
-    expect(mockCalculateCost).not.toHaveBeenCalled();
     expect(mockRecordUsageMetrics).not.toHaveBeenCalled();
+    expect(ctx.logger.warn).toHaveBeenCalledWith(expect.stringContaining('model'));
   });
 
-  it('skips recording when token counts are missing', async () => {
+  it('skips recording when only outputTokens is missing', async () => {
     const ctx = createMockContext();
     const hooks = await plugin.register(ctx);
 
@@ -119,11 +123,57 @@ describe('metrics plugin', () => {
       durationMs: 1000,
       exitCode: 0,
       model: 'sonnet',
+      inputTokens: 1000,
     };
 
     await hooks.onAfterInvoke?.('thread-1', result);
 
     expect(mockRecordUsageMetrics).not.toHaveBeenCalled();
+    expect(ctx.logger.warn).toHaveBeenCalledWith(expect.stringContaining('outputTokens'));
+  });
+
+  it('skips recording when only inputTokens is missing', async () => {
+    const ctx = createMockContext();
+    const hooks = await plugin.register(ctx);
+
+    const result: InvokeResult = {
+      output: 'Hello!',
+      durationMs: 1000,
+      exitCode: 0,
+      model: 'sonnet',
+      outputTokens: 500,
+    };
+
+    await hooks.onAfterInvoke?.('thread-1', result);
+
+    expect(mockRecordUsageMetrics).not.toHaveBeenCalled();
+    expect(ctx.logger.warn).toHaveBeenCalledWith(expect.stringContaining('inputTokens'));
+  });
+
+  it('logs warning for unknown model but still records metrics', async () => {
+    const ctx = createMockContext();
+    const hooks = await plugin.register(ctx);
+
+    const result: InvokeResult = {
+      output: 'Hello!',
+      durationMs: 1000,
+      exitCode: 0,
+      model: 'unknown-future-model',
+      inputTokens: 1000,
+      outputTokens: 500,
+    };
+
+    await hooks.onAfterInvoke?.('thread-1', result);
+
+    expect(ctx.logger.warn).toHaveBeenCalledWith(expect.stringContaining('unknown model "unknown-future-model"'));
+    // Still records with fallback Sonnet pricing
+    expect(mockRecordUsageMetrics).toHaveBeenCalledWith(
+      ctx.db,
+      expect.objectContaining({
+        model: 'unknown-future-model',
+        costEstimate: expect.closeTo(0.0105),
+      }),
+    );
   });
 
   it('logs error and continues when recording fails', async () => {
