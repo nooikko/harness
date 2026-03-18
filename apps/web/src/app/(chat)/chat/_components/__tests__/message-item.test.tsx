@@ -60,6 +60,10 @@ vi.mock('../message-files', () => ({
   MessageFiles: ({ files }: { files: { id: string }[] }) => <div data-testid='message-files'>{files.length} files</div>,
 }));
 
+vi.mock('../narrative-content', () => ({
+  NarrativeContent: ({ content }: { content: string }) => <div data-testid='narrative-content'>{content}</div>,
+}));
+
 import { MessageItem } from '../message-item';
 
 const makeMessage = (overrides: Partial<Message> = {}): Message => ({
@@ -185,5 +189,29 @@ describe('MessageItem', () => {
   it('does not render MessageFiles when files is undefined', () => {
     render(<MessageItem message={makeMessage({ role: 'user' })} />);
     expect(screen.queryByTestId('message-files')).not.toBeInTheDocument();
+  });
+
+  it('renders NarrativeContent for assistant messages in storytelling threads', () => {
+    render(<MessageItem message={makeMessage({ role: 'assistant', content: '**SAM**: "Hello"' })} threadKind='storytelling' />);
+    expect(screen.getByTestId('narrative-content')).toBeInTheDocument();
+    expect(screen.queryByTestId('markdown-content')).not.toBeInTheDocument();
+  });
+
+  it('renders MarkdownContent for assistant messages in non-storytelling threads', () => {
+    render(<MessageItem message={makeMessage({ role: 'assistant', content: 'Hello' })} threadKind='general' />);
+    expect(screen.getByTestId('markdown-content')).toBeInTheDocument();
+    expect(screen.queryByTestId('narrative-content')).not.toBeInTheDocument();
+  });
+
+  it('renders OOC user messages as director note in storytelling threads', () => {
+    render(<MessageItem message={makeMessage({ role: 'user', content: '// make her more assertive' })} threadKind='storytelling' />);
+    expect(screen.getByText('Director:')).toBeInTheDocument();
+    expect(screen.getByText('make her more assertive')).toBeInTheDocument();
+  });
+
+  it('renders normal user messages in storytelling threads without director styling', () => {
+    render(<MessageItem message={makeMessage({ role: 'user', content: 'I walk over to her' })} threadKind='storytelling' />);
+    expect(screen.queryByText('Director:')).not.toBeInTheDocument();
+    expect(screen.getByText('I walk over to her')).toBeInTheDocument();
   });
 });

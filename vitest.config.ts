@@ -25,6 +25,7 @@ export default defineConfig({
       'packages/plugins/tasks',
       'packages/plugins/music',
       'packages/plugins/search',
+      'packages/plugins/storytelling',
       'packages/vector-search',
       'packages/database',
       'packages/oauth',

@@ -104,6 +104,7 @@ PROJECT_DIRS = [
     ("packages/plugins/project/", "packages/plugins/project"),
     ("packages/plugins/music/", "packages/plugins/music"),
     ("packages/plugins/search/", "packages/plugins/search"),
+    ("packages/plugins/storytelling/", "packages/plugins/storytelling"),
     ("packages/plugins/tasks/", "packages/plugins/tasks"),
     ("packages/plugins/playwright/", "packages/plugins/playwright"),
     ("packages/oauth/", "packages/oauth"),

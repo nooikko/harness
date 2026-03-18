@@ -11,7 +11,7 @@ type MessageListProps = {
 
 /** @internal Exported for testing only — consumers should use MessageList. */
 export const MessageListInternal = async ({ threadId }: MessageListProps) => {
-  const [messages, files] = await Promise.all([
+  const [messages, files, thread] = await Promise.all([
     prisma.message.findMany({
       where: { threadId },
       orderBy: { createdAt: 'asc' },
@@ -20,7 +20,13 @@ export const MessageListInternal = async ({ threadId }: MessageListProps) => {
       where: { threadId },
       select: { id: true, name: true, mimeType: true, size: true, messageId: true, createdAt: true },
     }),
+    prisma.thread.findUnique({
+      where: { id: threadId },
+      select: { kind: true },
+    }),
   ]);
+
+  const threadKind = thread?.kind ?? 'general';
 
   // Group files by messageId. Files without a messageId (plugin-uploaded via ctx.uploadFile)
   // are attached to the nearest preceding assistant text message based on creation time.
@@ -106,7 +112,7 @@ export const MessageListInternal = async ({ threadId }: MessageListProps) => {
           );
         }
 
-        return <MessageItem key={group.message.id} message={group.message} files={filesByMessage.get(group.message.id)} />;
+        return <MessageItem key={group.message.id} message={group.message} files={filesByMessage.get(group.message.id)} threadKind={threadKind} />;
       })}
       <div data-scroll-anchor aria-hidden='true' />
     </>

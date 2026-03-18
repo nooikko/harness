@@ -27,6 +27,8 @@ const KIND_INSTRUCTIONS: KindInstructionMap = {
   task: 'You are working on a delegated task. Stay focused on the assigned objective. Report completion clearly when finished.',
   cron: 'This is an automated cron invocation. Execute the scheduled task and report results concisely.',
   general: 'You are in a general conversation thread. Respond helpfully and stay on topic.',
+  storytelling:
+    'You are collaborating on an interactive story. Stay in character, maintain narrative consistency, and follow the formatting conventions provided. When the author sends an out-of-character message (marked with [OUT OF CHARACTER]), acknowledge the direction and continue the story.',
 };
 
 type GetKindInstruction = (kind: string) => string;

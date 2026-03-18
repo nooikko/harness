@@ -4,6 +4,7 @@ import { formatMessageTime } from '../_helpers/format-message-time';
 import { isCrossThreadNotification } from '../_helpers/is-cross-thread-notification';
 import { MarkdownContent } from './markdown-content';
 import { MessageFiles } from './message-files';
+import { NarrativeContent } from './narrative-content';
 import { NotificationMessage } from './notification-message';
 import type { ActivityMessageProps } from './pipeline-step';
 import { PipelineStep } from './pipeline-step';
@@ -18,6 +19,7 @@ type FileRef = { id: string; name: string; mimeType: string; size: number };
 export type MessageItemProps = {
   message: Message;
   files?: FileRef[];
+  threadKind?: string;
 };
 
 // Splits message content into text and /slash-command tokens, rendering
@@ -60,7 +62,7 @@ const renderUserContent: RenderUserContent = (content) => {
 
 type MessageItemComponent = (props: MessageItemProps) => React.ReactNode;
 
-export const MessageItem: MessageItemComponent = ({ message, files }) => {
+export const MessageItem: MessageItemComponent = ({ message, files, threadKind }) => {
   if (isCrossThreadNotification(message)) {
     return <NotificationMessage message={message} />;
   }
@@ -92,6 +94,22 @@ export const MessageItem: MessageItemComponent = ({ message, files }) => {
   }
 
   if (message.role === 'user') {
+    if (threadKind === 'storytelling' && message.content.trimStart().startsWith('//')) {
+      return (
+        <div
+          style={{
+            padding: '6px 12px',
+            fontSize: 12,
+            color: 'var(--text-tertiary)',
+            fontStyle: 'italic',
+            borderLeft: '2px solid var(--border)',
+          }}
+        >
+          <span style={{ fontWeight: 500, marginRight: 6 }}>Director:</span>
+          {message.content.trimStart().slice(2).trim()}
+        </div>
+      );
+    }
     return (
       <div data-message-id={message.id} style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end' }}>
         <div
@@ -117,6 +135,7 @@ export const MessageItem: MessageItemComponent = ({ message, files }) => {
   }
 
   if (message.role === 'assistant') {
+    const ContentRenderer = threadKind === 'storytelling' ? NarrativeContent : MarkdownContent;
     return (
       <div data-message-id={message.id}>
         <article
@@ -129,7 +148,7 @@ export const MessageItem: MessageItemComponent = ({ message, files }) => {
           }}
         >
           <div style={{ padding: '10px 12px' }}>
-            <MarkdownContent content={message.content} />
+            <ContentRenderer content={message.content} />
             {files && files.length > 0 && <MessageFiles files={files} />}
           </div>
         </article>

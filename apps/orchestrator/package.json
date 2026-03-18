@@ -35,6 +35,7 @@
     "@harness/plugin-project": "workspace:*",
     "@harness/plugin-search": "workspace:*",
     "@harness/plugin-ssh": "workspace:*",
+    "@harness/plugin-storytelling": "workspace:*",
     "@harness/plugin-summarization": "workspace:*",
     "@harness/plugin-tasks": "workspace:*",
     "@harness/plugin-time": "workspace:*",

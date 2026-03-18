@@ -3,6 +3,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 const mockMessageFindMany = vi.fn();
 const mockFileFindMany = vi.fn().mockResolvedValue([]);
+const mockThreadFindUnique = vi.fn().mockResolvedValue({ kind: 'general' });
 
 vi.mock('@harness/database', () => ({
   prisma: {
@@ -11,6 +12,9 @@ vi.mock('@harness/database', () => ({
     },
     file: {
       findMany: (...args: unknown[]) => mockFileFindMany(...args),
+    },
+    thread: {
+      findUnique: (...args: unknown[]) => mockThreadFindUnique(...args),
     },
   },
 }));
