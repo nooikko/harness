@@ -12,13 +12,14 @@ export const parseVerdict: ParseVerdict = (response) => {
     return { verdict: 'unknown', feedback: '' };
   }
 
-  const verdictValue = lastMatch[1]!.toUpperCase();
+  const verdictValue = (lastMatch[1] ?? '').toUpperCase();
 
   if (verdictValue === 'PASS') {
     return { verdict: 'pass', feedback: '' };
   }
 
   // Extract feedback: everything after the last VERDICT: FAIL
-  const afterVerdict = response.slice(lastMatch.index! + lastMatch[0].length).trim();
+  const matchIndex = lastMatch.index ?? 0;
+  const afterVerdict = response.slice(matchIndex + lastMatch[0].length).trim();
   return { verdict: 'fail', feedback: afterVerdict || 'Validation failed without specific feedback.' };
 };
