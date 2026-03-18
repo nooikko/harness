@@ -62,9 +62,25 @@ export const addDependency: PluginToolHandler = async (ctx, input, _meta) => {
     return `(adding this dependency would create a cycle: "${blocker.title}" already depends on "${task.title}")`;
   }
 
-  await ctx.db.userTaskDependency.create({
-    data: { dependentId: taskId, dependsOnId: blockedById },
-  });
+  // Note: the BFS cycle check above is not atomic with the create below. A concurrent call could
+  // pass the check and then collide here. This is accepted as low-risk for single-user MCP tool
+  // calls — Prisma error codes are caught and returned as friendly messages instead of throwing.
+  try {
+    await ctx.db.userTaskDependency.create({
+      data: { dependentId: taskId, dependsOnId: blockedById },
+    });
+  } catch (err) {
+    if (err instanceof Error && 'code' in err) {
+      const code = (err as Record<string, unknown>).code;
+      if (code === 'P2002') {
+        return `Dependency already exists: "${task.title}" is already blocked by "${blocker.title}"`;
+      }
+      if (code === 'P2003') {
+        return '(task not found — one of the tasks was deleted)';
+      }
+    }
+    throw err;
+  }
 
   return `Dependency added: "${task.title}" is now blocked by "${blocker.title}"`;
 };

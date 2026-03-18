@@ -6,7 +6,7 @@ import { listTasks } from './_helpers/list-tasks';
 import { removeDependency } from './_helpers/remove-dependency';
 import { updateTask } from './_helpers/update-task';
 
-export const tasksPlugin: PluginDefinition = {
+export const plugin: PluginDefinition = {
   name: 'tasks',
   version: '1.0.0',
   tools: [

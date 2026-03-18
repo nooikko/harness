@@ -1,5 +1,5 @@
 import { PrismaClient } from '@harness/database';
-import { tasksPlugin } from '@harness/plugin-tasks';
+import { plugin as tasksPlugin } from '@harness/plugin-tasks';
 import { afterAll, afterEach, beforeEach, describe, expect, it } from 'vitest';
 import type { TestHarness } from './helpers/create-harness';
 import { createTestHarness } from './helpers/create-harness';

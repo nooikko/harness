@@ -36,7 +36,17 @@ export const updateTask: PluginToolHandler = async (ctx, input, _meta) => {
     data.priority = priority;
   }
   if (dueDate !== undefined) {
-    data.dueDate = dueDate ? new Date(dueDate) : null;
+    const parsedDueDate = dueDate ? new Date(dueDate) : null;
+    if (parsedDueDate !== null && Number.isNaN(parsedDueDate.getTime())) {
+      return '(invalid input: dueDate is not a valid date)';
+    }
+    data.dueDate = parsedDueDate;
+  }
+
+  if (data.status === 'DONE') {
+    data.completedAt = new Date();
+  } else if (data.status !== undefined) {
+    data.completedAt = null;
   }
 
   if (Object.keys(data).length === 0) {

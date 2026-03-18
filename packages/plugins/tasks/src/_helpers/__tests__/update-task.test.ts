@@ -109,7 +109,7 @@ describe('updateTask', () => {
     const db = ctx.db as unknown as MockDb;
     expect(db.userTask.update).toHaveBeenCalledWith({
       where: { id: 'task-1' },
-      data: { status: 'IN_PROGRESS' },
+      data: { status: 'IN_PROGRESS', completedAt: null },
     });
   });
 
@@ -177,7 +177,7 @@ describe('updateTask', () => {
     const db = ctx.db as unknown as MockDb;
     expect(db.userTask.update).toHaveBeenCalledWith({
       where: { id: 'task-1' },
-      data: { title: 'Updated', status: 'DONE', priority: 'HIGH' },
+      data: { title: 'Updated', status: 'DONE', priority: 'HIGH', completedAt: expect.any(Date) },
     });
   });
 
@@ -187,5 +187,69 @@ describe('updateTask', () => {
 
     expect(result).toContain('Task updated');
     expect(result).toContain('Updated Title');
+  });
+
+  it('sets completedAt when status is set to DONE', async () => {
+    const ctx = createMockContext();
+    await updateTask(ctx, { id: 'task-1', status: 'DONE' }, defaultMeta);
+
+    const db = ctx.db as unknown as MockDb;
+    expect(db.userTask.update).toHaveBeenCalledWith({
+      where: { id: 'task-1' },
+      data: { status: 'DONE', completedAt: expect.any(Date) },
+    });
+  });
+
+  it('clears completedAt when status is set to IN_PROGRESS', async () => {
+    const ctx = createMockContext();
+    await updateTask(ctx, { id: 'task-1', status: 'IN_PROGRESS' }, defaultMeta);
+
+    const db = ctx.db as unknown as MockDb;
+    expect(db.userTask.update).toHaveBeenCalledWith({
+      where: { id: 'task-1' },
+      data: { status: 'IN_PROGRESS', completedAt: null },
+    });
+  });
+
+  it('clears completedAt when status is set to TODO', async () => {
+    const ctx = createMockContext();
+    await updateTask(ctx, { id: 'task-1', status: 'TODO' }, defaultMeta);
+
+    const db = ctx.db as unknown as MockDb;
+    expect(db.userTask.update).toHaveBeenCalledWith({
+      where: { id: 'task-1' },
+      data: { status: 'TODO', completedAt: null },
+    });
+  });
+
+  it('clears completedAt when status is set to CANCELLED', async () => {
+    const ctx = createMockContext();
+    await updateTask(ctx, { id: 'task-1', status: 'CANCELLED' }, defaultMeta);
+
+    const db = ctx.db as unknown as MockDb;
+    expect(db.userTask.update).toHaveBeenCalledWith({
+      where: { id: 'task-1' },
+      data: { status: 'CANCELLED', completedAt: null },
+    });
+  });
+
+  it('does not set completedAt when only title is updated', async () => {
+    const ctx = createMockContext();
+    await updateTask(ctx, { id: 'task-1', title: 'New name' }, defaultMeta);
+
+    const db = ctx.db as unknown as MockDb;
+    expect(db.userTask.update).toHaveBeenCalledWith({
+      where: { id: 'task-1' },
+      data: { title: 'New name' },
+    });
+  });
+
+  it('returns error for invalid dueDate string', async () => {
+    const ctx = createMockContext();
+    const result = await updateTask(ctx, { id: 'task-1', dueDate: 'not-a-date' }, defaultMeta);
+
+    expect(result).toBe('(invalid input: dueDate is not a valid date)');
+    const db = ctx.db as unknown as MockDb;
+    expect(db.userTask.update).not.toHaveBeenCalled();
   });
 });

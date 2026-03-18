@@ -40,28 +40,48 @@ export const addTask: PluginToolHandler = async (ctx, input, meta) => {
   const validPriorities = ['LOW', 'MEDIUM', 'HIGH', 'URGENT'];
   const resolvedPriority = validPriorities.includes(priority ?? '') ? (priority as 'LOW' | 'MEDIUM' | 'HIGH' | 'URGENT') : 'MEDIUM';
 
-  const task = await ctx.db.userTask.create({
-    data: {
-      title,
-      description: description ?? null,
-      priority: resolvedPriority,
-      dueDate: dueDate ? new Date(dueDate) : null,
-      projectId: resolvedProjectId,
-      sourceThreadId: meta.threadId,
-      createdBy: 'agent',
-    },
-  });
-
-  // Create dependency links if provided
-  if (blockedBy && Array.isArray(blockedBy) && blockedBy.length > 0) {
-    await ctx.db.userTaskDependency.createMany({
-      data: blockedBy.map((depId) => ({
-        dependentId: task.id,
-        dependsOnId: depId,
-      })),
-      skipDuplicates: true,
-    });
+  // Validate dueDate before DB call
+  const parsedDueDate = dueDate ? new Date(dueDate) : null;
+  if (parsedDueDate !== null && Number.isNaN(parsedDueDate.getTime())) {
+    return '(invalid input: dueDate is not a valid date)';
   }
+
+  // Validate blockedBy IDs exist before creating anything
+  if (blockedBy && Array.isArray(blockedBy) && blockedBy.length > 0) {
+    const foundTasks = await ctx.db.userTask.findMany({
+      where: { id: { in: blockedBy } },
+      select: { id: true },
+    });
+    if (foundTasks.length !== blockedBy.length) {
+      return '(invalid input: one or more blockedBy task IDs not found)';
+    }
+  }
+
+  const task = await ctx.db.$transaction(async (tx) => {
+    const created = await tx.userTask.create({
+      data: {
+        title,
+        description: description ?? null,
+        priority: resolvedPriority,
+        dueDate: parsedDueDate,
+        projectId: resolvedProjectId,
+        sourceThreadId: meta.threadId,
+        createdBy: 'agent',
+      },
+    });
+
+    if (blockedBy && Array.isArray(blockedBy) && blockedBy.length > 0) {
+      await tx.userTaskDependency.createMany({
+        data: blockedBy.map((depId) => ({
+          dependentId: created.id,
+          dependsOnId: depId,
+        })),
+        skipDuplicates: true,
+      });
+    }
+
+    return created;
+  });
 
   return `Task created: "${task.title}" (id: ${task.id}, priority: ${task.priority})`;
 };

@@ -20,7 +20,7 @@ import { plugin as playwrightPlugin } from '@harness/plugin-playwright';
 import { projectPlugin } from '@harness/plugin-project';
 import { plugin as searchPlugin } from '@harness/plugin-search';
 import { plugin as summarizationPlugin } from '@harness/plugin-summarization';
-import { tasksPlugin } from '@harness/plugin-tasks';
+import { plugin as tasksPlugin } from '@harness/plugin-tasks';
 import { plugin as timePlugin } from '@harness/plugin-time';
 import { plugin as validatorPlugin } from '@harness/plugin-validator';
 import { plugin as webPlugin } from '@harness/plugin-web';
