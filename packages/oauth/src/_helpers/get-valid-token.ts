@@ -30,6 +30,7 @@ const refreshAccessToken: RefreshAccessToken = async (tokenId, encryptedRefreshT
       grant_type: 'refresh_token',
       scope: config.scopes.join(' '),
     }),
+    signal: AbortSignal.timeout(10_000),
   });
 
   if (!response.ok) {

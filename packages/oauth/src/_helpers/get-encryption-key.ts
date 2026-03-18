@@ -15,4 +15,18 @@ const getEncryptionKey: GetEncryptionKey = () => {
   return buf;
 };
 
-export { getEncryptionKey };
+/**
+ * Validates OAUTH_ENCRYPTION_KEY format at startup if the env var is set.
+ * Does nothing if the key is unset (OAuth is optional).
+ * Throws immediately if the key is set but malformed, so typos are caught early.
+ */
+type ValidateEncryptionKeyIfSet = () => void;
+
+const validateEncryptionKeyIfSet: ValidateEncryptionKeyIfSet = () => {
+  const env = loadEnv();
+  if (env.OAUTH_ENCRYPTION_KEY) {
+    getEncryptionKey();
+  }
+};
+
+export { getEncryptionKey, validateEncryptionKeyIfSet };

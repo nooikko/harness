@@ -1,3 +1,4 @@
+export { validateEncryptionKeyIfSet } from './_helpers/get-encryption-key';
 export { getValidToken } from './_helpers/get-valid-token';
 export { handleOAuthCallback } from './_helpers/handle-oauth-callback';
 export { revokeToken } from './_helpers/revoke-token';

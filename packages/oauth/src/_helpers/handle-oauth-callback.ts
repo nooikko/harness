@@ -28,6 +28,7 @@ const handleOAuthCallback: HandleOAuthCallback = async ({ code, provider, db }) 
       grant_type: 'authorization_code',
       scope: config.scopes.join(' '),
     }),
+    signal: AbortSignal.timeout(10_000),
   });
 
   if (!tokenResponse.ok) {
@@ -45,6 +46,7 @@ const handleOAuthCallback: HandleOAuthCallback = async ({ code, provider, db }) 
   // Fetch user profile to get accountId
   const profileResponse = await fetch('https://graph.microsoft.com/v1.0/me', {
     headers: { Authorization: `Bearer ${tokenData.access_token}` },
+    signal: AbortSignal.timeout(10_000),
   });
 
   if (!profileResponse.ok) {
