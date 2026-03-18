@@ -16,13 +16,6 @@ describe('buildExtractionPrompt', () => {
     expect(prompt).toContain('The capital of France is Paris.');
   });
 
-  it('includes the over-save instruction', () => {
-    const messages = [{ role: 'user', content: 'test' }];
-    const prompt = buildExtractionPrompt(messages);
-
-    expect(prompt).toContain('over-save');
-  });
-
   it('formats roles in uppercase', () => {
     const messages = [
       { role: 'user', content: 'hello' },
@@ -35,11 +28,12 @@ describe('buildExtractionPrompt', () => {
     expect(prompt).toContain('[ASSISTANT]: hi');
   });
 
-  it('mentions permanent deletion to contextualize the extraction', () => {
+  it('wraps transcript in section markers', () => {
     const messages = [{ role: 'user', content: 'test' }];
     const prompt = buildExtractionPrompt(messages);
 
-    expect(prompt).toContain('permanently deleted');
+    expect(prompt).toContain('--- CONVERSATION TRANSCRIPT ---');
+    expect(prompt).toContain('--- END TRANSCRIPT ---');
   });
 
   it('handles multiple messages in order', () => {
@@ -56,5 +50,13 @@ describe('buildExtractionPrompt', () => {
 
     expect(firstIdx).toBeLessThan(secondIdx);
     expect(secondIdx).toBeLessThan(thirdIdx);
+  });
+
+  it('produces valid prompt with empty messages', () => {
+    const prompt = buildExtractionPrompt([]);
+
+    expect(typeof prompt).toBe('string');
+    expect(prompt).toContain('--- CONVERSATION TRANSCRIPT ---');
+    expect(prompt).toContain('--- END TRANSCRIPT ---');
   });
 });

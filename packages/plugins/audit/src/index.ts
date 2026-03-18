@@ -8,6 +8,10 @@ import { settingsSchema } from './_helpers/settings-schema';
 const DEFAULT_MESSAGE_LIMIT = 200;
 const DEFAULT_DUPLICATE_GUARD_SECONDS = 60;
 
+// In-memory guard against concurrent audits on the same thread.
+// The DB-based duplicate guard remains as a secondary check for process restarts.
+export const activeAudits = new Set<string>();
+
 type DeleteThreadSafely = (ctx: PluginContext, threadId: string) => Promise<void>;
 
 const deleteThreadSafely: DeleteThreadSafely = async (ctx, threadId) => {
@@ -16,7 +20,22 @@ const deleteThreadSafely: DeleteThreadSafely = async (ctx, threadId) => {
     where: { parentThreadId: threadId },
     data: { parentThreadId: null },
   });
-  await ctx.db.thread.delete({ where: { id: threadId } });
+  // Null out CronJob references to prevent dangling threadIds
+  await ctx.db.cronJob.updateMany({
+    where: { threadId },
+    data: { threadId: null },
+  });
+  try {
+    await ctx.db.thread.delete({ where: { id: threadId } });
+  } catch (err) {
+    // Thread may already be deleted by a concurrent audit — treat as success
+    const message = err instanceof Error ? err.message : String(err);
+    if (message.includes('Record to delete does not exist') || message.includes('RecordNotFound')) {
+      ctx.logger.warn(`audit: thread already deleted [thread=${threadId}]`);
+      return;
+    }
+    throw err;
+  }
 };
 
 type RunAuditInBackground = (ctx: PluginContext, threadId: string, messageLimit: number) => Promise<void>;
@@ -45,13 +64,21 @@ const runAuditInBackground: RunAuditInBackground = async (ctx, threadId, message
     }
 
     const prompt = buildExtractionPrompt(messages);
-    const result = await ctx.invoker.invoke(prompt, { model: 'claude-haiku-4-5-20251001' });
+    let extractedContent: string;
+    try {
+      const result = await ctx.invoker.invoke(prompt, { model: 'claude-haiku-4-5-20251001' });
+      extractedContent = result.output ?? '(no extraction output)';
+    } catch (invokeErr) {
+      // Extraction failed — write a degraded audit record so the thread can still be deleted
+      ctx.logger.warn(`audit: extraction failed, writing degraded record [thread=${threadId}]: ${invokeErr}`);
+      extractedContent = `(extraction failed: ${invokeErr instanceof Error ? invokeErr.message : String(invokeErr)})`;
+    }
 
     await ctx.db.threadAudit.create({
       data: {
         threadId,
         threadName: thread?.name ?? null,
-        content: result.output ?? '(no extraction output)',
+        content: extractedContent,
         metadata: { messageCount: messages.length },
       },
     });
@@ -61,6 +88,8 @@ const runAuditInBackground: RunAuditInBackground = async (ctx, threadId, message
   } catch (err) {
     ctx.logger.error(`audit: failed [thread=${threadId}]: ${err}`);
     await ctx.broadcast('audit:failed', { threadId, reason: String(err) });
+  } finally {
+    activeAudits.delete(threadId);
   }
 };
 
@@ -88,9 +117,14 @@ export const plugin: PluginDefinition = {
         }
         const { threadId } = data as { threadId: string };
 
+        // In-memory guard: prevents concurrent fire-and-forget runs on the same thread
+        if (activeAudits.has(threadId)) {
+          return;
+        }
+
         const duplicateGuardMs = (settings.duplicateGuardSeconds ?? DEFAULT_DUPLICATE_GUARD_SECONDS) * 1000;
 
-        // Duplicate guard: skip if an audit was already created within the guard window
+        // DB-based duplicate guard: skip if an audit was already created within the guard window
         const recent = await ctx.db.threadAudit.findFirst({
           where: {
             threadId,
@@ -101,6 +135,7 @@ export const plugin: PluginDefinition = {
           return;
         }
 
+        activeAudits.add(threadId);
         const messageLimit = settings.messageLimit ?? DEFAULT_MESSAGE_LIMIT;
         void runAuditInBackground(ctx, threadId, messageLimit);
       },
