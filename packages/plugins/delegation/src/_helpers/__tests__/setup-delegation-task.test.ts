@@ -60,42 +60,44 @@ const makeOptions: MakeOptions = (overrides) => ({
 describe('setupDelegationTask', () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    mockThreadFindUnique.mockResolvedValue({ projectId: 'project-1' });
+    mockThreadFindUnique.mockResolvedValue({ projectId: 'project-1', agentId: 'agent-1' });
     mockThreadCreate.mockResolvedValue({ id: 'new-thread-1' });
     mockTaskCreate.mockResolvedValue({ id: 'new-task-1' });
   });
 
-  it('task thread inherits projectId from parent thread', async () => {
+  it('task thread inherits projectId and agentId from parent thread', async () => {
     const ctx = createMockContext();
-    mockThreadFindUnique.mockResolvedValue({ projectId: 'project-42' });
+    mockThreadFindUnique.mockResolvedValue({ projectId: 'project-42', agentId: 'agent-99' });
 
     await setupDelegationTask(ctx, [], makeOptions());
 
     expect(mockThreadFindUnique).toHaveBeenCalledWith({
       where: { id: 'parent-thread-1' },
-      select: { projectId: true },
+      select: { projectId: true, agentId: true },
     });
     expect(mockThreadCreate).toHaveBeenCalledWith({
       data: expect.objectContaining({
         projectId: 'project-42',
+        agentId: 'agent-99',
       }),
     });
   });
 
-  it('task thread has null projectId when parent has no project', async () => {
+  it('task thread has null projectId and agentId when parent has neither', async () => {
     const ctx = createMockContext();
-    mockThreadFindUnique.mockResolvedValue({ projectId: null });
+    mockThreadFindUnique.mockResolvedValue({ projectId: null, agentId: null });
 
     await setupDelegationTask(ctx, [], makeOptions());
 
     expect(mockThreadCreate).toHaveBeenCalledWith({
       data: expect.objectContaining({
         projectId: null,
+        agentId: null,
       }),
     });
   });
 
-  it('task thread has null projectId when parent thread not found', async () => {
+  it('task thread has null projectId and agentId when parent thread not found', async () => {
     const ctx = createMockContext();
     mockThreadFindUnique.mockResolvedValue(null);
 
@@ -104,6 +106,7 @@ describe('setupDelegationTask', () => {
     expect(mockThreadCreate).toHaveBeenCalledWith({
       data: expect.objectContaining({
         projectId: null,
+        agentId: null,
       }),
     });
   });

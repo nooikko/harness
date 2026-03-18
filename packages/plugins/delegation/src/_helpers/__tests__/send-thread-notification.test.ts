@@ -6,7 +6,7 @@ type CreateMockContext = () => PluginContext;
 
 const createMockContext: CreateMockContext = () =>
   ({
-    db: {} as never,
+    db: { message: { create: vi.fn().mockResolvedValue({}) } } as never,
     invoker: { invoke: vi.fn() },
     config: {
       claudeModel: 'claude-sonnet-4-20250514',
@@ -144,5 +144,23 @@ describe('sendThreadNotification', () => {
       taskId: 'task-1',
       status: 'completed',
     });
+  });
+
+  it('propagates error when sendToThread rejects', async () => {
+    const ctx = createMockContext();
+    (ctx.sendToThread as ReturnType<typeof vi.fn>).mockRejectedValue(new Error('Parent thread deleted'));
+
+    const input = makeInput();
+
+    await expect(sendThreadNotification(ctx, input)).rejects.toThrow('Parent thread deleted');
+  });
+
+  it('propagates error when broadcast rejects', async () => {
+    const ctx = createMockContext();
+    (ctx.broadcast as ReturnType<typeof vi.fn>).mockRejectedValue(new Error('WS down'));
+
+    const input = makeInput();
+
+    await expect(sendThreadNotification(ctx, input)).rejects.toThrow('WS down');
   });
 });

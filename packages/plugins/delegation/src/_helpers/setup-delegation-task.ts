@@ -29,7 +29,7 @@ export const setupDelegationTask: SetupDelegationTask = async (ctx, allHooks, op
   const { threadId, taskId } = await ctx.db.$transaction(async (tx) => {
     const parentThread = await tx.thread.findUnique({
       where: { id: options.parentThreadId },
-      select: { projectId: true },
+      select: { projectId: true, agentId: true },
     });
 
     const thread = await tx.thread.create({
@@ -40,6 +40,7 @@ export const setupDelegationTask: SetupDelegationTask = async (ctx, allHooks, op
         kind: 'task',
         status: 'active',
         parentThreadId: options.parentThreadId,
+        agentId: parentThread?.agentId ?? null,
         projectId: parentThread?.projectId ?? null,
         lastActivity: new Date(),
       },

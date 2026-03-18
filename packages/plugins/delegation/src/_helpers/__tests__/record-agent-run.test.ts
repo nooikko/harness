@@ -2,6 +2,17 @@
 
 import type { InvokeResult, PluginContext } from '@harness/plugin-contract';
 import { describe, expect, it, vi } from 'vitest';
+
+vi.mock('@harness/plugin-contract', () => ({
+  getModelCost: vi.fn().mockImplementation((_model: string, input: number, output: number) => {
+    if (input === 0 && output === 0) {
+      return 0;
+    }
+    return (input / 1_000_000) * 3 + (output / 1_000_000) * 15;
+  }),
+  isKnownModel: vi.fn().mockReturnValue(true),
+}));
+
 import { recordAgentRun } from '../record-agent-run';
 
 type CreateMockContext = () => PluginContext;
@@ -17,7 +28,7 @@ const createMockContext: CreateMockContext = () =>
       },
     },
     config: {
-      claudeModel: 'claude-sonnet-4-20250514',
+      claudeModel: 'claude-sonnet-4-6',
     },
     logger: { info: vi.fn(), warn: vi.fn(), error: vi.fn(), debug: vi.fn() },
   }) as unknown as PluginContext;
@@ -40,7 +51,7 @@ describe('recordAgentRun', () => {
     await recordAgentRun(ctx, {
       taskId: 'task-1',
       threadId: 'thread-1',
-      model: 'claude-opus-4-20250514',
+      model: 'claude-opus-4-6',
       prompt: 'Do the thing',
       invokeResult: createInvokeResult(),
     });
@@ -93,7 +104,7 @@ describe('recordAgentRun', () => {
     await recordAgentRun(ctx, {
       taskId: 'task-1',
       threadId: 'thread-1',
-      model: 'claude-opus-4-20250514',
+      model: 'claude-opus-4-6',
       prompt: 'Do the thing',
       invokeResult: createInvokeResult(),
     });
@@ -101,7 +112,7 @@ describe('recordAgentRun', () => {
     const agentRunCreate = (ctx.db as unknown as { agentRun: { create: ReturnType<typeof vi.fn> } }).agentRun.create;
     expect(agentRunCreate).toHaveBeenCalledWith({
       data: expect.objectContaining({
-        model: 'claude-opus-4-20250514',
+        model: 'claude-opus-4-6',
       }),
     });
   });
@@ -120,7 +131,7 @@ describe('recordAgentRun', () => {
     const agentRunCreate = (ctx.db as unknown as { agentRun: { create: ReturnType<typeof vi.fn> } }).agentRun.create;
     expect(agentRunCreate).toHaveBeenCalledWith({
       data: expect.objectContaining({
-        model: 'claude-sonnet-4-20250514',
+        model: 'claude-sonnet-4-6',
       }),
     });
   });
@@ -174,10 +185,12 @@ describe('recordAgentRun', () => {
       invokeResult: createInvokeResult(),
     });
 
+    // Default createInvokeResult: 100 input + 50 output, Sonnet pricing ($3/M input, $15/M output)
+    const expectedCost = (100 / 1_000_000) * 3 + (50 / 1_000_000) * 15;
     const agentRunCreate = (ctx.db as unknown as { agentRun: { create: ReturnType<typeof vi.fn> } }).agentRun.create;
     expect(agentRunCreate).toHaveBeenCalledWith({
       data: expect.objectContaining({
-        costEstimate: expect.any(Number),
+        costEstimate: expectedCost,
       }),
     });
   });
@@ -323,9 +336,11 @@ describe('recordAgentRun', () => {
       invokeResult: createInvokeResult({ inputTokens: 1000, outputTokens: 500 }),
     });
 
+    // Sonnet pricing: $3/M input + $15/M output
+    const expectedCost = (1000 / 1_000_000) * 3 + (500 / 1_000_000) * 15;
     expect(result.inputTokens).toBe(1000);
     expect(result.outputTokens).toBe(500);
-    expect(result.costEstimate).toBeGreaterThan(0);
+    expect(result.costEstimate).toBeCloseTo(expectedCost, 10);
   });
 
   it('records usage metrics for dashboard aggregation', async () => {
@@ -349,5 +364,39 @@ describe('recordAgentRun', () => {
     expect(names).toContain('token.output');
     expect(names).toContain('token.total');
     expect(names).toContain('token.cost');
+  });
+
+  it('warns when model is not in known pricing table', async () => {
+    const { isKnownModel } = await import('@harness/plugin-contract');
+    (isKnownModel as ReturnType<typeof vi.fn>).mockReturnValueOnce(false);
+    const ctx = createMockContext();
+
+    await recordAgentRun(ctx, {
+      taskId: 'task-1',
+      threadId: 'thread-1',
+      model: 'unknown-model-xyz',
+      prompt: 'Do the thing',
+      invokeResult: createInvokeResult(),
+    });
+
+    expect(ctx.logger.warn).toHaveBeenCalledWith(expect.stringContaining('unknown model'));
+  });
+
+  it('uses fallback Sonnet pricing for unknown models', async () => {
+    const { isKnownModel } = await import('@harness/plugin-contract');
+    (isKnownModel as ReturnType<typeof vi.fn>).mockReturnValueOnce(false);
+    const ctx = createMockContext();
+
+    const result = await recordAgentRun(ctx, {
+      taskId: 'task-1',
+      threadId: 'thread-1',
+      model: 'unknown-model-xyz',
+      prompt: 'Do the thing',
+      invokeResult: createInvokeResult({ inputTokens: 1000, outputTokens: 500 }),
+    });
+
+    // Fallback is Sonnet pricing: $3/M input + $15/M output
+    const expectedCost = (1000 / 1_000_000) * 3 + (500 / 1_000_000) * 15;
+    expect(result.costEstimate).toBeCloseTo(expectedCost, 10);
   });
 });

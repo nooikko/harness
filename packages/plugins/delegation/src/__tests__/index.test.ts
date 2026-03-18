@@ -1,5 +1,20 @@
 import type { PluginContext } from '@harness/plugin-contract';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
+
+vi.mock('@harness/plugin-contract', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('@harness/plugin-contract')>();
+  return {
+    ...actual,
+    getModelCost: vi.fn().mockImplementation((_model: string, input: number, output: number) => {
+      if (input === 0 && output === 0) {
+        return 0;
+      }
+      return (input / 1_000_000) * 3 + (output / 1_000_000) * 15;
+    }),
+    isKnownModel: vi.fn().mockReturnValue(true),
+  };
+});
+
 import { createDelegationPlugin, plugin, state } from '../index';
 
 type CreateMockContext = () => PluginContext;
@@ -90,6 +105,24 @@ describe('delegation plugin', () => {
     await hooks.onSettingsChange!('identity');
 
     expect(ctx.getSettings).toHaveBeenCalledTimes(1);
+  });
+
+  it('reloaded settings are reflected in state.getSettings', async () => {
+    const ctx = createMockContext();
+    (ctx.getSettings as ReturnType<typeof vi.fn>)
+      .mockResolvedValueOnce({ maxIterations: 5, costCapUsd: 5 })
+      .mockResolvedValueOnce({ maxIterations: 2, costCapUsd: 1 });
+
+    const hooks = await plugin.register(ctx);
+
+    // Initial settings from first getSettings call during register
+    expect(state.getSettings?.()).toEqual({ maxIterations: 5, costCapUsd: 5 });
+
+    // Trigger settings reload
+    await hooks.onSettingsChange!('delegation');
+
+    // state.getSettings should now return the reloaded values
+    expect(state.getSettings?.()).toEqual({ maxIterations: 2, costCapUsd: 1 });
   });
 
   it('logs registration message', async () => {

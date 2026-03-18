@@ -4,7 +4,7 @@
 // determining run status, and recording usage metrics for dashboard aggregation.
 
 import type { InvokeResult, PluginContext } from '@harness/plugin-contract';
-import { getModelCost } from '@harness/plugin-contract';
+import { getModelCost, isKnownModel } from '@harness/plugin-contract';
 
 export type RecordAgentRunInput = {
   taskId: string;
@@ -26,6 +26,9 @@ type RecordAgentRun = (ctx: PluginContext, input: RecordAgentRunInput) => Promis
 
 export const recordAgentRun: RecordAgentRun = async (ctx, input) => {
   const resolvedModel = input.model ?? ctx.config.claudeModel;
+  if (!isKnownModel(resolvedModel)) {
+    ctx.logger.warn(`Delegation: unknown model "${resolvedModel}", using fallback Sonnet pricing [task=${input.taskId}]`);
+  }
   const isSuccess = input.invokeResult.exitCode === 0;
   const inputTokens = input.invokeResult.inputTokens ?? 0;
   const outputTokens = input.invokeResult.outputTokens ?? 0;
@@ -48,9 +51,6 @@ export const recordAgentRun: RecordAgentRun = async (ctx, input) => {
 
   // Record usage metrics for dashboard aggregation
   const tags: Record<string, string> = { model: resolvedModel };
-  if (input.traceId) {
-    tags.traceId = input.traceId;
-  }
   await ctx.db.metric.createMany({
     data: [
       { name: 'token.input', value: inputTokens, tags, threadId: input.threadId },

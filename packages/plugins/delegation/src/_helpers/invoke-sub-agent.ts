@@ -18,14 +18,17 @@ type InvokeSubAgent = (
 export const invokeSubAgent: InvokeSubAgent = async (ctx, prompt, taskId, threadId, model, onMessage, traceId) => {
   const result = await ctx.invoker.invoke(prompt, { model, threadId, timeout: ctx.config.claudeTimeout, onMessage, traceId, taskId });
 
-  // Persist the sub-agent output as a message in the task thread
-  await ctx.db.message.create({
-    data: {
-      threadId,
-      role: 'assistant',
-      content: result.output,
-    },
-  });
+  // Persist non-empty sub-agent output as a message in the task thread
+  // (failed invocations often return empty output — don't pollute history)
+  if (result.output) {
+    await ctx.db.message.create({
+      data: {
+        threadId,
+        role: 'assistant',
+        content: result.output,
+      },
+    });
+  }
 
   // Record the agent run with token usage and cost tracking
   await recordAgentRun(ctx, {

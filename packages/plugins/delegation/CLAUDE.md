@@ -38,9 +38,23 @@ Sub-agents are expected to signal completion via their output. Feedback from rej
 
 Cost cap is read from `process.env.DELEGATION_COST_CAP_USD` at import time as a module-level constant: `const DELEGATION_COST_CAP_USD = Number(process.env.DELEGATION_COST_CAP_USD ?? '5')`. Changing the env var at runtime has no effect.
 
+## Parent notification triggers a full pipeline run — THIS IS INTENTIONAL
+
+`sendThreadNotification` calls `ctx.sendToThread` on the parent thread. This runs the full pipeline — including invoking Claude on the parent thread. **This is the entire point of delegation.** The parent agent receives the result, evaluates it, and decides whether to re-delegate. The flow is:
+
+1. Parent says "Do A" via `delegation__delegate`
+2. Sub-agent does A
+3. `sendThreadNotification` fires `ctx.sendToThread` on the parent thread with the result
+4. Parent agent evaluates the work — if it's bad, it calls `delegation__delegate` again with feedback
+5. Repeat until satisfied
+
+Do NOT replace `ctx.sendToThread` with `ctx.db.message.create`. That would break the feedback loop and turn delegation into fire-and-forget with no parent evaluation. The notification content deliberately includes guidance to re-delegate if the result is insufficient.
+
+Cost is bounded by the per-task cost cap and the concurrency semaphore (`maxConcurrentAgents`). Each re-delegation is a new task with its own cost cap.
+
 ## Only the final result reaches the parent thread
 
-`sendThreadNotification` is called once: at the end of the loop, whether the task succeeded or failed. Intermediate iterations are visible only in the task's own thread. The parent sees a single structured notification summarizing the outcome. If the task completes, the summary is the first 200 characters of the sub-agent's final output.
+`sendThreadNotification` is called once per delegation loop: at the end, whether the task succeeded or failed. Intermediate iterations (within the invoke-validate loop) are visible only in the task's own thread. The parent sees a single structured notification summarizing the outcome. If the task completes, the summary is the first 200 characters of the sub-agent's final output.
 
 Sub-agents can call the `checkin` MCP tool at any point during their work to send an interim message to the parent. This uses `ctx.sendToThread` on the parent thread, not `sendThreadNotification`. The message appears as `[Check-in from task thread <id>]: <message>`.
 

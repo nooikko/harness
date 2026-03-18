@@ -264,6 +264,6 @@ export const runDelegationLoop: RunDelegationLoop = async (ctx, allHooks, option
     threadId,
     status: 'failed',
     result: null,
-    iterations: maxIterations,
+    iterations,
   };
 };

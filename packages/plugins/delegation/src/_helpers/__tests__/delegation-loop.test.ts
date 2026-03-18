@@ -1,5 +1,20 @@
 import type { InvokeResult, PluginContext, PluginHooks } from '@harness/plugin-contract';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
+
+vi.mock('@harness/plugin-contract', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('@harness/plugin-contract')>();
+  return {
+    ...actual,
+    getModelCost: vi.fn().mockImplementation((_model: string, input: number, output: number) => {
+      if (input === 0 && output === 0) {
+        return 0;
+      }
+      return (input / 1_000_000) * 3 + (output / 1_000_000) * 15;
+    }),
+    isKnownModel: vi.fn().mockReturnValue(true),
+  };
+});
+
 import { runDelegationLoop } from '../delegation-loop';
 
 vi.mock('../calculate-backoff-ms', () => ({
@@ -37,7 +52,7 @@ type CreateMockContext = (overrides?: { invokeResult?: Partial<InvokeResult> }) 
 const createMockContext: CreateMockContext = (overrides) => {
   const db: MockDb = {
     thread: {
-      findUnique: vi.fn().mockResolvedValue({ projectId: 'project-1' }),
+      findUnique: vi.fn().mockResolvedValue({ projectId: 'project-1', agentId: 'agent-1' }),
       create: vi.fn().mockResolvedValue({ id: 'thread-task-1' }),
       update: vi.fn().mockResolvedValue({}),
     },
@@ -130,7 +145,7 @@ describe('runDelegationLoop', () => {
 
   it('inherits projectId from the parent thread', async () => {
     const hooks: PluginHooks[] = [];
-    mockDb.thread.findUnique.mockResolvedValue({ projectId: 'proj-abc' });
+    mockDb.thread.findUnique.mockResolvedValue({ projectId: 'proj-abc', agentId: 'agent-abc' });
 
     await runDelegationLoop(mockCtx, hooks, {
       prompt: 'Do work',
@@ -139,18 +154,19 @@ describe('runDelegationLoop', () => {
 
     expect(mockDb.thread.findUnique).toHaveBeenCalledWith({
       where: { id: 'parent-thread-1' },
-      select: { projectId: true },
+      select: { projectId: true, agentId: true },
     });
     expect(mockDb.thread.create).toHaveBeenCalledWith({
       data: expect.objectContaining({
         projectId: 'proj-abc',
+        agentId: 'agent-abc',
       }),
     });
   });
 
   it('handles parent thread with no projectId', async () => {
     const hooks: PluginHooks[] = [];
-    mockDb.thread.findUnique.mockResolvedValue({ projectId: null });
+    mockDb.thread.findUnique.mockResolvedValue({ projectId: null, agentId: null });
 
     await runDelegationLoop(mockCtx, hooks, {
       prompt: 'Do work',
@@ -908,6 +924,8 @@ describe('runDelegationLoop', () => {
     // Logic errors must break immediately — no retries
     expect(invokeMock).toHaveBeenCalledTimes(1);
     expect(result.status).toBe('failed');
+    // Must return actual iteration count (1), not maxIterations (5)
+    expect(result.iterations).toBe(1);
   });
 
   it('circuit breaker retries on timeout and succeeds on the third attempt', async () => {
@@ -935,5 +953,75 @@ describe('runDelegationLoop', () => {
     expect(invokeMock).toHaveBeenCalledTimes(3);
     expect(result.status).toBe('completed');
     expect(result.result).toBe('done');
+  });
+
+  it('cost cap stops the loop when budget is exceeded after validator rejection', async () => {
+    // Validator rejects on first pass, cost is over cap
+    let callCount = 0;
+    const onTaskComplete = vi.fn().mockImplementation(async () => {
+      callCount++;
+      if (callCount === 1) {
+        throw new Error('Quality too low');
+      }
+    });
+    const hooks: PluginHooks[] = [{ onTaskComplete }];
+
+    const { ctx, db } = createMockContext();
+    // After first iteration, cost query returns over-cap amount
+    db.agentRun.aggregate.mockResolvedValue({ _sum: { costEstimate: 6.0 } });
+
+    const result = await runDelegationLoop(ctx, hooks, {
+      prompt: 'Expensive rejected task',
+      parentThreadId: 'parent-1',
+      maxIterations: 5,
+      costCapUsd: 5,
+    });
+
+    // Loop must exit after 1 iteration — cost cap hit after rejection
+    expect(result.status).toBe('failed');
+    expect(result.iterations).toBe(1);
+    expect(ctx.invoker.invoke as ReturnType<typeof vi.fn>).toHaveBeenCalledTimes(1);
+
+    // task:cost-cap must have been broadcast
+    const broadcastCalls = (ctx.broadcast as ReturnType<typeof vi.fn>).mock.calls;
+    const costCapEvent = broadcastCalls.find((call) => call[0] === 'task:cost-cap');
+    expect(costCapEvent).toBeDefined();
+    expect(costCapEvent?.[1]).toMatchObject({ spent: 6.0, cap: 5 });
+  });
+
+  it('propagates error when orchestratorTask.update throws mid-loop', async () => {
+    const { ctx, db } = createMockContext();
+    // First update call (status: running) succeeds, second (status: evaluating) throws
+    let updateCount = 0;
+    db.orchestratorTask.update.mockImplementation(async () => {
+      updateCount++;
+      if (updateCount === 2) {
+        throw new Error('DB connection lost');
+      }
+      return {};
+    });
+
+    const hooks: PluginHooks[] = [];
+
+    await expect(
+      runDelegationLoop(ctx, hooks, {
+        prompt: 'DB crash task',
+        parentThreadId: 'parent-1',
+      }),
+    ).rejects.toThrow('DB connection lost');
+  });
+
+  it('propagates error when invoker.invoke rejects with thrown Error', async () => {
+    const { ctx } = createMockContext();
+    (ctx.invoker.invoke as ReturnType<typeof vi.fn>).mockRejectedValue(new Error('SDK subprocess crashed'));
+
+    const hooks: PluginHooks[] = [];
+
+    await expect(
+      runDelegationLoop(ctx, hooks, {
+        prompt: 'SDK crash task',
+        parentThreadId: 'parent-1',
+      }),
+    ).rejects.toThrow('SDK subprocess crashed');
   });
 });
