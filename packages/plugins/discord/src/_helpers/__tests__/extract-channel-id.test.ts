@@ -14,7 +14,7 @@ describe('extractChannelId', () => {
     expect(extractChannelId('')).toBeNull();
   });
 
-  it('handles sourceId with only prefix', () => {
-    expect(extractChannelId('discord:')).toBe('');
+  it('returns null when sourceId has only the prefix', () => {
+    expect(extractChannelId('discord:')).toBeNull();
   });
 });

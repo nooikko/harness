@@ -28,15 +28,34 @@ export const sendDiscordReply: SendDiscordReply = async ({ client, ctx, threadId
     return;
   }
 
-  // Fetch the most recent assistant message for this thread
-  const message = await ctx.db.message.findFirst({
-    where: { threadId, role: 'assistant', kind: 'text' },
-    orderBy: { createdAt: 'desc' },
-    select: { content: true },
-  });
+  // Fetch the most recent assistant message and most recent pipeline error in parallel
+  const [assistantMsg, pipelineError] = await Promise.all([
+    ctx.db.message.findFirst({
+      where: { threadId, role: 'assistant', kind: 'text' },
+      orderBy: { createdAt: 'desc' },
+      select: { content: true, createdAt: true },
+    }),
+    ctx.db.message.findFirst({
+      where: {
+        threadId,
+        role: 'system',
+        kind: 'status',
+        metadata: { path: ['event'], equals: 'pipeline_error' },
+      },
+      orderBy: { createdAt: 'desc' },
+      select: { createdAt: true },
+    }),
+  ]);
 
-  if (!message?.content) {
+  if (!assistantMsg?.content) {
     ctx.logger.debug(`discord: no assistant message to deliver [thread=${threadId}]`);
+    return;
+  }
+
+  // Skip delivery if a pipeline error occurred after the last assistant message —
+  // this prevents re-delivering a stale response from a prior conversation turn
+  if (pipelineError && pipelineError.createdAt >= assistantMsg.createdAt) {
+    ctx.logger.debug(`discord: skipping delivery — pipeline errored after last assistant message [thread=${threadId}]`);
     return;
   }
 
@@ -55,7 +74,7 @@ export const sendDiscordReply: SendDiscordReply = async ({ client, ctx, threadId
   }
 
   // Split and send each chunk in sequence
-  const chunks = splitMessage(message.content);
+  const chunks = splitMessage(assistantMsg.content);
   for (const chunk of chunks) {
     await channel.send(chunk);
   }

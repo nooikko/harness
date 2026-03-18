@@ -45,7 +45,7 @@ describe('sendDiscordReply', () => {
 
   it('sends a reply to the Discord channel for a discord-sourced thread', async () => {
     db.thread.findUnique.mockResolvedValue({ source: 'discord', sourceId: 'discord:channel-123' });
-    db.message.findFirst.mockResolvedValue({ content: 'Hello from Claude' });
+    db.message.findFirst.mockResolvedValueOnce({ content: 'Hello from Claude', createdAt: new Date() }).mockResolvedValueOnce(null);
     const channel = makeSendableChannel();
     const client = makeClient(channel);
     const ctx = makeCtx(db);
@@ -82,7 +82,7 @@ describe('sendDiscordReply', () => {
 
   it('does nothing when there is no assistant message to deliver', async () => {
     db.thread.findUnique.mockResolvedValue({ source: 'discord', sourceId: 'discord:channel-123' });
-    db.message.findFirst.mockResolvedValue(null);
+    db.message.findFirst.mockResolvedValueOnce(null).mockResolvedValueOnce(null);
     const channel = makeSendableChannel();
     const client = makeClient(channel);
     const ctx = makeCtx(db);
@@ -94,7 +94,7 @@ describe('sendDiscordReply', () => {
 
   it('does nothing when the assistant message has empty content', async () => {
     db.thread.findUnique.mockResolvedValue({ source: 'discord', sourceId: 'discord:channel-123' });
-    db.message.findFirst.mockResolvedValue({ content: '' });
+    db.message.findFirst.mockResolvedValueOnce({ content: '', createdAt: new Date() }).mockResolvedValueOnce(null);
     const channel = makeSendableChannel();
     const client = makeClient(channel);
     const ctx = makeCtx(db);
@@ -106,7 +106,7 @@ describe('sendDiscordReply', () => {
 
   it('warns and returns when the channel cannot be fetched', async () => {
     db.thread.findUnique.mockResolvedValue({ source: 'discord', sourceId: 'discord:channel-123' });
-    db.message.findFirst.mockResolvedValue({ content: 'Hello' });
+    db.message.findFirst.mockResolvedValueOnce({ content: 'Hello', createdAt: new Date() }).mockResolvedValueOnce(null);
     const client = {
       channels: { fetch: vi.fn().mockRejectedValue(new Error('Unknown Channel')) },
     } as unknown as Client;
@@ -118,7 +118,7 @@ describe('sendDiscordReply', () => {
 
   it('warns and returns when the channel is not sendable', async () => {
     db.thread.findUnique.mockResolvedValue({ source: 'discord', sourceId: 'discord:channel-123' });
-    db.message.findFirst.mockResolvedValue({ content: 'Hello' });
+    db.message.findFirst.mockResolvedValueOnce({ content: 'Hello', createdAt: new Date() }).mockResolvedValueOnce(null);
     const unsendableChannel = { isSendable: () => false };
     const client = makeClient(unsendableChannel as ReturnType<typeof makeSendableChannel>);
     const ctx = makeCtx(db);
@@ -130,7 +130,7 @@ describe('sendDiscordReply', () => {
 
   it('sends multiple chunks when splitMessage returns more than one', async () => {
     db.thread.findUnique.mockResolvedValue({ source: 'discord', sourceId: 'discord:channel-123' });
-    db.message.findFirst.mockResolvedValue({ content: 'chunk1\nchunk2' });
+    db.message.findFirst.mockResolvedValueOnce({ content: 'chunk1\nchunk2', createdAt: new Date() }).mockResolvedValueOnce(null);
     const channel = makeSendableChannel();
     const client = makeClient(channel);
     const ctx = makeCtx(db);
@@ -152,5 +152,64 @@ describe('sendDiscordReply', () => {
 
     expect(ctx.logger.warn as ReturnType<typeof vi.fn>).toHaveBeenCalledWith(expect.stringContaining('could not extract channel ID'));
     expect(client.channels.fetch).not.toHaveBeenCalled();
+  });
+
+  it('skips delivery when pipeline error is newer than last assistant message', async () => {
+    db.thread.findUnique.mockResolvedValue({ source: 'discord', sourceId: 'discord:channel-123' });
+    db.message.findFirst
+      .mockResolvedValueOnce({ content: 'old response', createdAt: new Date('2026-01-01T00:00:00Z') })
+      .mockResolvedValueOnce({ createdAt: new Date('2026-01-01T00:01:00Z') });
+    const channel = makeSendableChannel();
+    const client = makeClient(channel);
+    const ctx = makeCtx(db);
+
+    await sendDiscordReply({ client, ctx, threadId: 'thread-1', splitMessage });
+
+    expect(channel.send).not.toHaveBeenCalled();
+  });
+
+  it('delivers when pipeline error is older than last assistant message', async () => {
+    db.thread.findUnique.mockResolvedValue({ source: 'discord', sourceId: 'discord:channel-123' });
+    db.message.findFirst
+      .mockResolvedValueOnce({ content: 'new response', createdAt: new Date('2026-01-01T00:02:00Z') })
+      .mockResolvedValueOnce({ createdAt: new Date('2026-01-01T00:01:00Z') });
+    const channel = makeSendableChannel();
+    const client = makeClient(channel);
+    const ctx = makeCtx(db);
+
+    await sendDiscordReply({ client, ctx, threadId: 'thread-1', splitMessage });
+
+    expect(channel.send).toHaveBeenCalledWith('new response');
+  });
+
+  it('propagates error when channel.send rejects mid-delivery', async () => {
+    db.thread.findUnique.mockResolvedValue({ source: 'discord', sourceId: 'discord:channel-123' });
+    db.message.findFirst.mockResolvedValueOnce({ content: 'chunk1\nchunk2\nchunk3', createdAt: new Date() }).mockResolvedValueOnce(null);
+    const channel = makeSendableChannel();
+    channel.send
+      .mockResolvedValueOnce(undefined) // chunk 1 succeeds
+      .mockRejectedValueOnce(new Error('Rate limited')); // chunk 2 fails
+    const client = makeClient(channel);
+    const ctx = makeCtx(db);
+    const multiSplit = (_content: string) => ['chunk1', 'chunk2', 'chunk3'];
+
+    await expect(sendDiscordReply({ client, ctx, threadId: 'thread-1', splitMessage: multiSplit })).rejects.toThrow('Rate limited');
+
+    // Only first chunk was sent before error
+    expect(channel.send).toHaveBeenCalledTimes(2);
+    expect(channel.send).toHaveBeenNthCalledWith(1, 'chunk1');
+    expect(channel.send).toHaveBeenNthCalledWith(2, 'chunk2');
+  });
+
+  it('delivers when no pipeline error exists', async () => {
+    db.thread.findUnique.mockResolvedValue({ source: 'discord', sourceId: 'discord:channel-123' });
+    db.message.findFirst.mockResolvedValueOnce({ content: 'response', createdAt: new Date() }).mockResolvedValueOnce(null);
+    const channel = makeSendableChannel();
+    const client = makeClient(channel);
+    const ctx = makeCtx(db);
+
+    await sendDiscordReply({ client, ctx, threadId: 'thread-1', splitMessage });
+
+    expect(channel.send).toHaveBeenCalledWith('response');
   });
 });

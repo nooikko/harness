@@ -3,6 +3,7 @@
 import type { PluginContext, PluginDefinition, PluginHooks } from '@harness/plugin-contract';
 import { Client, Events, GatewayIntentBits } from 'discord.js';
 import { toPipelineMessage } from './_helpers/message-adapter';
+import { parseAllowedChannels } from './_helpers/parse-allowed-channels';
 import { sendDiscordReply } from './_helpers/send-discord-reply';
 import { settingsSchema } from './_helpers/settings-schema';
 import { shouldProcessMessage } from './_helpers/should-process-message';
@@ -73,8 +74,10 @@ export const splitMessage: SplitMessage = (content) => {
   return chunks;
 };
 
-// Shared mutable token resolved during register(), used by start() and onSettingsChange()
+// Shared mutable state resolved during register(), used by start() and onSettingsChange()
 let resolvedToken: string | undefined;
+let allowedChannels: Set<string> = new Set();
+let defaultAgentId: string | undefined;
 
 type CreateRegister = () => PluginDefinition['register'];
 
@@ -84,6 +87,11 @@ const createRegister: CreateRegister = () => {
 
     const settings = await ctx.getSettings(settingsSchema);
     resolvedToken = settings.botToken ?? ctx.config.discordToken;
+    allowedChannels = parseAllowedChannels(settings.allowedChannelIds);
+
+    // Cache default agent for thread creation (avoid per-message DB lookup)
+    const defaultAgent = await ctx.db.agent.findFirst({ where: { slug: 'default', enabled: true }, select: { id: true } });
+    defaultAgentId = defaultAgent?.id;
 
     const hooks: PluginHooks = {
       onBroadcast: async (event, data) => {
@@ -105,16 +113,30 @@ const createRegister: CreateRegister = () => {
           return;
         }
         const newSettings = await ctx.getSettings(settingsSchema);
+        allowedChannels = parseAllowedChannels(newSettings.allowedChannelIds);
+
+        // Re-cache default agent in case it changed
+        const freshAgent = await ctx.db.agent.findFirst({ where: { slug: 'default', enabled: true }, select: { id: true } });
+        defaultAgentId = freshAgent?.id;
+
         const newToken = newSettings.botToken ?? ctx.config.discordToken;
+
+        // Destroy existing client before reconnecting or disconnecting
+        if (state.client) {
+          await state.client.destroy();
+          state.client = null;
+          state.connected = false;
+        }
+
         if (newToken) {
           resolvedToken = newToken;
-          if (state.client) {
-            await state.client.destroy();
-            state.client = null;
-            state.connected = false;
-          }
           await start(ctx);
           ctx.logger.info('Discord: reconnected with updated token');
+        } else {
+          // Token was cleared — stay disconnected
+          resolvedToken = undefined;
+          ctx.logger.info('Discord: bot token removed, disconnected');
+          ctx.reportStatus('degraded', 'No bot token configured');
         }
       },
     };
@@ -143,14 +165,18 @@ const start: StartDiscordPlugin = async (ctx) => {
     state.connected = true;
     ctx.logger.info(`Discord plugin: connected as ${readyClient.user.tag}`);
     ctx.reportStatus('healthy', `Connected as ${readyClient.user.tag}`);
-    void ctx.broadcast('discord:connection', { connected: true, username: readyClient.user.tag });
+    void ctx.broadcast('discord:connection', { connected: true, username: readyClient.user.tag }).catch((err) => {
+      ctx.logger.warn(`discord: broadcast failed: ${err instanceof Error ? err.message : String(err)}`);
+    });
   });
 
   client.on(Events.ShardDisconnect, () => {
     state.connected = false;
     ctx.logger.warn('Discord plugin: disconnected from gateway');
     ctx.reportStatus('error', 'Disconnected from gateway');
-    void ctx.broadcast('discord:connection', { connected: false });
+    void ctx.broadcast('discord:connection', { connected: false }).catch((err) => {
+      ctx.logger.warn(`discord: broadcast failed: ${err instanceof Error ? err.message : String(err)}`);
+    });
   });
 
   client.on(Events.ShardReconnecting, () => {
@@ -162,7 +188,9 @@ const start: StartDiscordPlugin = async (ctx) => {
     state.connected = true;
     ctx.logger.info('Discord plugin: reconnected to gateway');
     ctx.reportStatus('healthy', 'Reconnected to gateway');
-    void ctx.broadcast('discord:connection', { connected: true });
+    void ctx.broadcast('discord:connection', { connected: true }).catch((err) => {
+      ctx.logger.warn(`discord: broadcast failed: ${err instanceof Error ? err.message : String(err)}`);
+    });
   });
 
   // Register message listener
@@ -172,7 +200,7 @@ const start: StartDiscordPlugin = async (ctx) => {
       return;
     }
 
-    if (!shouldProcessMessage(message, botUserId)) {
+    if (!shouldProcessMessage(message, botUserId, allowedChannels)) {
       return;
     }
 
@@ -202,6 +230,7 @@ const start: StartDiscordPlugin = async (ctx) => {
           kind: 'general',
           status: 'active',
           lastActivity: new Date(),
+          ...(defaultAgentId ? { agent: { connect: { id: defaultAgentId } } } : {}),
         },
       });
 

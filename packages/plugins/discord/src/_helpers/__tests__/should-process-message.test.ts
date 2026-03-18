@@ -12,6 +12,7 @@ type MockMessage = {
   mentions: { users: Map<string, unknown> };
   guild: { id: string } | null;
   content: string;
+  channelId: string;
   channel: {
     id: string;
     name: string;
@@ -29,6 +30,7 @@ const createMockMessage = (overrides: Partial<MockMessage> = {}): MockMessage =>
   mentions: { users: new Map() },
   guild: { id: 'guild-1' },
   content: 'hello bot',
+  channelId: 'channel-456',
   channel: {
     id: 'channel-456',
     name: 'general',
@@ -73,5 +75,32 @@ describe('shouldProcessMessage', () => {
     });
 
     expect(shouldProcessMessage(msg as unknown as DiscordMessage, botUserId)).toBe(false);
+  });
+
+  it('allows mentioned message when allowedChannelIds is empty set', () => {
+    const mentions = new Map([['bot-999', { id: 'bot-999' }]]);
+    const msg = createMockMessage({ mentions: { users: mentions } });
+
+    expect(shouldProcessMessage(msg as unknown as DiscordMessage, botUserId, new Set())).toBe(true);
+  });
+
+  it('allows mentioned message when channel is in allowedChannelIds', () => {
+    const mentions = new Map([['bot-999', { id: 'bot-999' }]]);
+    const msg = createMockMessage({ mentions: { users: mentions } });
+
+    expect(shouldProcessMessage(msg as unknown as DiscordMessage, botUserId, new Set(['channel-456']))).toBe(true);
+  });
+
+  it('blocks mentioned message when channel is NOT in allowedChannelIds', () => {
+    const mentions = new Map([['bot-999', { id: 'bot-999' }]]);
+    const msg = createMockMessage({ mentions: { users: mentions } });
+
+    expect(shouldProcessMessage(msg as unknown as DiscordMessage, botUserId, new Set(['other-channel']))).toBe(false);
+  });
+
+  it('allows DMs regardless of allowedChannelIds', () => {
+    const msg = createMockMessage({ guild: null });
+
+    expect(shouldProcessMessage(msg as unknown as DiscordMessage, botUserId, new Set(['other-channel']))).toBe(true);
   });
 });

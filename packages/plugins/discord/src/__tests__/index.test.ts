@@ -1,6 +1,5 @@
-import type { PluginContext } from '@harness/plugin-contract';
+import type { PluginContext, PluginDefinition } from '@harness/plugin-contract';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { plugin, splitMessage } from '../index';
 
 const { mockSendDiscordReply } = vi.hoisted(() => ({
   mockSendDiscordReply: vi.fn().mockResolvedValue(undefined),
@@ -70,48 +69,61 @@ const getEventNames: GetEventNames = (mock) => {
   return calls.map((c) => String(c[0]));
 };
 
-const createMockContext = (overrides: Partial<PluginContext['config']> = {}): PluginContext => ({
-  db: {
-    thread: {
-      upsert: vi.fn().mockResolvedValue({ id: 'thread-1' }),
+const createMockContext = (overrides: Partial<PluginContext['config']> = {}): PluginContext =>
+  ({
+    db: {
+      thread: {
+        upsert: vi.fn().mockResolvedValue({ id: 'thread-1' }),
+      },
+      message: {
+        create: vi.fn(),
+      },
+      agent: {
+        findFirst: vi.fn().mockResolvedValue({ id: 'default-agent-id' }),
+      },
+      pluginConfig: {
+        update: vi.fn().mockResolvedValue({}),
+      },
+    } as unknown as PluginContext['db'],
+    invoker: { invoke: vi.fn() },
+    config: {
+      databaseUrl: 'postgres://localhost:5432/test',
+      timezone: 'America/Phoenix',
+      maxConcurrentAgents: 3,
+      claudeModel: 'sonnet',
+      claudeTimeout: 300000,
+      discordToken: undefined,
+      discordChannelId: undefined,
+      port: 3001,
+      logLevel: 'info',
+      uploadDir: '/tmp/uploads',
+      ...overrides,
     },
-    message: {
-      create: vi.fn(),
+    logger: {
+      info: vi.fn(),
+      warn: vi.fn(),
+      error: vi.fn(),
+      debug: vi.fn(),
     },
-    pluginConfig: {
-      update: vi.fn().mockResolvedValue({}),
-    },
-  } as unknown as PluginContext['db'],
-  invoker: { invoke: vi.fn() },
-  config: {
-    databaseUrl: 'postgres://localhost:5432/test',
-    timezone: 'America/Phoenix',
-    maxConcurrentAgents: 3,
-    claudeModel: 'sonnet',
-    claudeTimeout: 300000,
-    discordToken: undefined,
-    discordChannelId: undefined,
-    port: 3001,
-    logLevel: 'info',
-    uploadDir: '/tmp/uploads',
-    ...overrides,
-  },
-  logger: {
-    info: vi.fn(),
-    warn: vi.fn(),
-    error: vi.fn(),
-    debug: vi.fn(),
-  },
-  sendToThread: vi.fn().mockResolvedValue(undefined),
-  broadcast: vi.fn(),
-  getSettings: vi.fn().mockResolvedValue({}),
-  notifySettingsChange: vi.fn().mockResolvedValue(undefined),
-  reportStatus: vi.fn(),
-});
+    sendToThread: vi.fn().mockResolvedValue(undefined),
+    broadcast: vi.fn().mockResolvedValue(undefined),
+    getSettings: vi.fn().mockResolvedValue({}),
+    notifySettingsChange: vi.fn().mockResolvedValue(undefined),
+    reportStatus: vi.fn(),
+  }) as unknown as PluginContext;
+
+// Module-level let variables for dynamic re-import (Phase 1: test isolation)
+let plugin: PluginDefinition;
+let splitMessage: (content: string) => string[];
 
 describe('discord plugin', () => {
-  beforeEach(() => {
+  beforeEach(async () => {
     vi.clearAllMocks();
+    vi.resetModules();
+    // Re-import to get fresh module-level state (resolvedToken, allowedChannels, defaultAgentId)
+    const mod = await import('../index');
+    plugin = mod.plugin;
+    splitMessage = mod.splitMessage;
   });
 
   describe('plugin definition', () => {
@@ -128,12 +140,16 @@ describe('discord plugin', () => {
       expect(typeof plugin.settingsSchema?.toFieldArray).toBe('function');
     });
 
-    it('register returns a hooks object', async () => {
+    it('register returns onBroadcast and onSettingsChange hooks', async () => {
       const ctx = createMockContext();
       const hooks = await plugin.register(ctx);
 
-      expect(hooks).toBeDefined();
-      expect(typeof hooks).toBe('object');
+      expect(hooks.onBroadcast).toBeTypeOf('function');
+      expect(hooks.onSettingsChange).toBeTypeOf('function');
+      // Discord plugin should NOT implement pipeline hooks
+      expect(hooks.onBeforeInvoke).toBeUndefined();
+      expect(hooks.onAfterInvoke).toBeUndefined();
+      expect(hooks.onMessage).toBeUndefined();
     });
 
     it('register calls ctx.getSettings and returns onSettingsChange hook', async () => {
@@ -167,7 +183,9 @@ describe('discord plugin', () => {
     it('uses botToken from settings over ctx.config.discordToken', async () => {
       mockLogin.mockResolvedValue('token');
       const ctx = createMockContext({ discordToken: 'env-token' });
-      (ctx.getSettings as ReturnType<typeof vi.fn>).mockResolvedValue({ botToken: 'settings-token' });
+      (ctx.getSettings as ReturnType<typeof vi.fn>).mockResolvedValue({
+        botToken: 'settings-token',
+      });
 
       await plugin.register(ctx);
       await plugin.start?.(ctx);
@@ -335,6 +353,74 @@ describe('discord plugin', () => {
       expect(ctx.db.thread.upsert as ReturnType<typeof vi.fn>).toHaveBeenCalled();
       expect(ctx.db.message.create as ReturnType<typeof vi.fn>).toHaveBeenCalled();
       expect(ctx.broadcast).toHaveBeenCalledWith('discord:message', expect.any(Object));
+      expect(ctx.sendToThread).toHaveBeenCalledWith('thread-1', 'hello');
+    });
+
+    it('includes default agentId when creating a new thread', async () => {
+      mockLogin.mockResolvedValue('token');
+      const ctx = createMockContext({ discordToken: 'test-token' });
+      (ctx.db.agent.findFirst as ReturnType<typeof vi.fn>).mockResolvedValue({
+        id: 'agent-abc',
+      });
+
+      await plugin.register(ctx);
+      await plugin.start?.(ctx);
+
+      type MessageHandler = (msg: unknown) => Promise<void>;
+      const handler = findHandler<MessageHandler>(mockOn, 'messageCreate');
+
+      const mockMessage = {
+        author: {
+          bot: false,
+          id: 'user-1',
+          username: 'test',
+          displayName: 'Test',
+        },
+        mentions: { users: new Map([['bot-123', {}]]) },
+        guild: { id: 'guild-1' },
+        content: '<@bot-123> hello',
+        channel: { id: 'chan-1', name: 'general', isThread: () => false },
+      };
+
+      await handler?.(mockMessage);
+
+      expect(ctx.db.thread.upsert as ReturnType<typeof vi.fn>).toHaveBeenCalledWith(
+        expect.objectContaining({
+          create: expect.objectContaining({
+            agent: { connect: { id: 'agent-abc' } },
+          }),
+        }),
+      );
+    });
+
+    it('creates thread without agentId when no default agent exists', async () => {
+      mockLogin.mockResolvedValue('token');
+      const ctx = createMockContext({ discordToken: 'test-token' });
+      (ctx.db.agent.findFirst as ReturnType<typeof vi.fn>).mockResolvedValue(null);
+
+      await plugin.register(ctx);
+      await plugin.start?.(ctx);
+
+      type MessageHandler = (msg: unknown) => Promise<void>;
+      const handler = findHandler<MessageHandler>(mockOn, 'messageCreate');
+
+      const mockMessage = {
+        author: {
+          bot: false,
+          id: 'user-1',
+          username: 'test',
+          displayName: 'Test',
+        },
+        mentions: { users: new Map([['bot-123', {}]]) },
+        guild: { id: 'guild-1' },
+        content: '<@bot-123> hello',
+        channel: { id: 'chan-1', name: 'general', isThread: () => false },
+      };
+
+      await handler?.(mockMessage);
+
+      const upsertCall = (ctx.db.thread.upsert as ReturnType<typeof vi.fn>).mock.calls[0]?.[0];
+      expect(upsertCall?.create).not.toHaveProperty('agent');
     });
 
     it('ignores messages from bots', async () => {
@@ -418,7 +504,9 @@ describe('discord plugin', () => {
       mockLogin.mockResolvedValue('token');
       const ctx = createMockContext({ discordToken: 'test-token' });
 
-      const p2002Error = Object.assign(new Error('Unique constraint'), { code: 'P2002' });
+      const p2002Error = Object.assign(new Error('Unique constraint'), {
+        code: 'P2002',
+      });
       const mockFindUnique = vi.fn().mockResolvedValue({ id: 'thread-existing' });
       (ctx.db.thread.upsert as ReturnType<typeof vi.fn>).mockRejectedValue(p2002Error);
       (ctx.db.thread as unknown as Record<string, unknown>).findUnique = mockFindUnique;
@@ -429,7 +517,12 @@ describe('discord plugin', () => {
       const handler = findHandler<MessageHandler>(mockOn, 'messageCreate');
 
       const validMessage = {
-        author: { bot: false, id: 'user-1', username: 'test', displayName: 'Test' },
+        author: {
+          bot: false,
+          id: 'user-1',
+          username: 'test',
+          displayName: 'Test',
+        },
         mentions: { users: new Map([['bot-123', {}]]) },
         guild: { id: 'guild-1' },
         content: '<@bot-123> hello',
@@ -439,16 +532,21 @@ describe('discord plugin', () => {
       await handler?.(validMessage);
 
       expect(ctx.db.message.create as ReturnType<typeof vi.fn>).toHaveBeenCalledWith(
-        expect.objectContaining({ data: expect.objectContaining({ threadId: 'thread-existing' }) }),
+        expect.objectContaining({
+          data: expect.objectContaining({ threadId: 'thread-existing' }),
+        }),
       );
       expect(ctx.broadcast).toHaveBeenCalledWith('discord:message', expect.objectContaining({ threadId: 'thread-existing' }));
+      expect(ctx.sendToThread).toHaveBeenCalledWith('thread-existing', 'hello');
     });
 
     it('handles P2002 race silently when retry find returns null', async () => {
       mockLogin.mockResolvedValue('token');
       const ctx = createMockContext({ discordToken: 'test-token' });
 
-      const p2002Error = Object.assign(new Error('Unique constraint'), { code: 'P2002' });
+      const p2002Error = Object.assign(new Error('Unique constraint'), {
+        code: 'P2002',
+      });
       const mockFindUnique = vi.fn().mockResolvedValue(null);
       (ctx.db.thread.upsert as ReturnType<typeof vi.fn>).mockRejectedValue(p2002Error);
       (ctx.db.thread as unknown as Record<string, unknown>).findUnique = mockFindUnique;
@@ -459,7 +557,12 @@ describe('discord plugin', () => {
       const handler = findHandler<MessageHandler>(mockOn, 'messageCreate');
 
       const validMessage = {
-        author: { bot: false, id: 'user-1', username: 'test', displayName: 'Test' },
+        author: {
+          bot: false,
+          id: 'user-1',
+          username: 'test',
+          displayName: 'Test',
+        },
         mentions: { users: new Map([['bot-123', {}]]) },
         guild: { id: 'guild-1' },
         content: '<@bot-123> hello',
@@ -478,7 +581,9 @@ describe('discord plugin', () => {
       mockLogin.mockResolvedValue('token');
       const ctx = createMockContext({ discordToken: 'test-token' });
 
-      const p2002Error = Object.assign(new Error('Unique constraint'), { code: 'P2002' });
+      const p2002Error = Object.assign(new Error('Unique constraint'), {
+        code: 'P2002',
+      });
       const mockFindUnique = vi.fn().mockRejectedValue(new Error('retry DB failed'));
       (ctx.db.thread.upsert as ReturnType<typeof vi.fn>).mockRejectedValue(p2002Error);
       (ctx.db.thread as unknown as Record<string, unknown>).findUnique = mockFindUnique;
@@ -489,7 +594,12 @@ describe('discord plugin', () => {
       const handler = findHandler<MessageHandler>(mockOn, 'messageCreate');
 
       const validMessage = {
-        author: { bot: false, id: 'user-1', username: 'test', displayName: 'Test' },
+        author: {
+          bot: false,
+          id: 'user-1',
+          username: 'test',
+          displayName: 'Test',
+        },
         mentions: { users: new Map([['bot-123', {}]]) },
         guild: { id: 'guild-1' },
         content: '<@bot-123> hello',
@@ -611,15 +721,177 @@ describe('discord plugin', () => {
       expect(ctx.logger.info).toHaveBeenCalledWith(expect.stringContaining('reconnected with updated token'));
     });
 
-    it('does not reconnect when no client is active', async () => {
+    it('disconnects when token is cleared from settings', async () => {
+      mockLogin.mockResolvedValue('token');
+      mockDestroy.mockResolvedValue(undefined);
+      const ctx = createMockContext({ discordToken: undefined });
+      (ctx.getSettings as ReturnType<typeof vi.fn>)
+        .mockResolvedValueOnce({ botToken: 'initial-token' }) // register
+        .mockResolvedValue({}); // onSettingsChange — no botToken, no env fallback
+
+      const hooks = await plugin.register(ctx);
+      await plugin.start?.(ctx);
+      vi.clearAllMocks();
+      mockDestroy.mockResolvedValue(undefined);
+
+      await hooks.onSettingsChange?.('discord');
+
+      expect(mockDestroy).toHaveBeenCalled();
+      expect(mockLogin).not.toHaveBeenCalled();
+      expect(ctx.logger.info).toHaveBeenCalledWith(expect.stringContaining('bot token removed'));
+      expect(ctx.reportStatus).toHaveBeenCalledWith('degraded', 'No bot token configured');
+    });
+
+    it('destroys existing client even when reconnecting with new token', async () => {
+      mockLogin.mockResolvedValue('token');
+      mockDestroy.mockResolvedValue(undefined);
+      const ctx = createMockContext({ discordToken: 'env-token' });
+      (ctx.getSettings as ReturnType<typeof vi.fn>)
+        .mockResolvedValueOnce({}) // register
+        .mockResolvedValue({ botToken: 'new-token' }); // onSettingsChange
+
+      const hooks = await plugin.register(ctx);
+      await plugin.start?.(ctx);
+      vi.clearAllMocks();
+      mockLogin.mockResolvedValue('token');
+      mockDestroy.mockResolvedValue(undefined);
+
+      await hooks.onSettingsChange?.('discord');
+
+      // Client should be destroyed before reconnecting
+      expect(mockDestroy).toHaveBeenCalled();
+      expect(mockLogin).toHaveBeenCalledWith('new-token');
+    });
+
+    it('does not crash when no client is active and token is cleared', async () => {
       const ctx = createMockContext();
       const hooks = await plugin.register(ctx);
 
       // Do not call start — no client is set
       await hooks.onSettingsChange?.('discord');
 
-      expect(mockDestroy).not.toHaveBeenCalled();
+      // Should not attempt login since there is no token
       expect(mockLogin).not.toHaveBeenCalled();
+    });
+
+    it('reloads allowedChannels on settings change', async () => {
+      mockLogin.mockResolvedValue('token');
+      const ctx = createMockContext({ discordToken: 'test-token' });
+      (ctx.getSettings as ReturnType<typeof vi.fn>)
+        .mockResolvedValueOnce({}) // register
+        .mockResolvedValue({
+          botToken: 'test-token',
+          allowedChannelIds: 'chan-1, chan-2',
+        }); // onSettingsChange
+
+      const hooks = await plugin.register(ctx);
+      await plugin.start?.(ctx);
+
+      await hooks.onSettingsChange?.('discord');
+
+      // Verify it re-fetched settings (the allowed channels parsing is internal,
+      // but we verify getSettings was called during onSettingsChange)
+      expect(ctx.getSettings).toHaveBeenCalledTimes(2);
+    });
+
+    it('applies updated allowedChannels to subsequent message filtering', async () => {
+      mockLogin.mockResolvedValue('token');
+      const ctx = createMockContext({ discordToken: 'test-token' });
+      // First register: no channel restrictions
+      (ctx.getSettings as ReturnType<typeof vi.fn>)
+        .mockResolvedValueOnce({}) // register — no allowedChannelIds
+        .mockResolvedValue({
+          botToken: 'test-token',
+          allowedChannelIds: 'other-channel-only',
+        }); // onSettingsChange
+
+      const hooks = await plugin.register(ctx);
+      await plugin.start?.(ctx);
+
+      type MessageHandler = (msg: unknown) => Promise<void>;
+      const handler = findHandler<MessageHandler>(mockOn, 'messageCreate');
+
+      const mentionedMessage = {
+        author: {
+          bot: false,
+          id: 'user-1',
+          username: 'test',
+          displayName: 'Test',
+        },
+        mentions: { users: new Map([['bot-123', {}]]) },
+        guild: { id: 'guild-1' },
+        channelId: 'chan-1',
+        content: '<@bot-123> hello',
+        channel: {
+          id: 'chan-1',
+          name: 'general',
+          isThread: () => false,
+        },
+      };
+
+      // Before settings change: chan-1 should be processed (no restrictions)
+      await handler?.(mentionedMessage);
+      expect(ctx.sendToThread).toHaveBeenCalled();
+      (ctx.sendToThread as ReturnType<typeof vi.fn>).mockClear();
+      (ctx.db.thread.upsert as ReturnType<typeof vi.fn>).mockClear();
+      (ctx.db.message.create as ReturnType<typeof vi.fn>).mockClear();
+      (ctx.broadcast as ReturnType<typeof vi.fn>).mockClear();
+
+      // Trigger settings change — now only 'other-channel-only' is allowed
+      await hooks.onSettingsChange?.('discord');
+
+      // After settings change: chan-1 should be filtered out
+      await handler?.(mentionedMessage);
+      expect(ctx.sendToThread).not.toHaveBeenCalled();
+    });
+
+    it('uses re-cached defaultAgentId after settings change', async () => {
+      mockLogin.mockResolvedValue('token');
+      const ctx = createMockContext({ discordToken: 'test-token' });
+
+      // Initial register: agent-original
+      (ctx.db.agent.findFirst as ReturnType<typeof vi.fn>)
+        .mockResolvedValueOnce({ id: 'agent-original' }) // register
+        .mockResolvedValue({ id: 'agent-updated' }); // onSettingsChange re-cache
+      (ctx.getSettings as ReturnType<typeof vi.fn>)
+        .mockResolvedValueOnce({}) // register
+        .mockResolvedValue({ botToken: 'test-token' }); // onSettingsChange
+
+      const hooks = await plugin.register(ctx);
+      await plugin.start?.(ctx);
+
+      // Trigger settings change — should re-cache defaultAgentId to 'agent-updated'
+      await hooks.onSettingsChange?.('discord');
+
+      type MessageHandler = (msg: unknown) => Promise<void>;
+      const handler = findHandler<MessageHandler>(mockOn, 'messageCreate');
+
+      const mockMessage = {
+        author: {
+          bot: false,
+          id: 'user-1',
+          username: 'test',
+          displayName: 'Test',
+        },
+        mentions: { users: new Map([['bot-123', {}]]) },
+        guild: { id: 'guild-1' },
+        content: '<@bot-123> hello',
+        channel: {
+          id: 'chan-new',
+          name: 'new-channel',
+          isThread: () => false,
+        },
+      };
+
+      await handler?.(mockMessage);
+
+      expect(ctx.db.thread.upsert as ReturnType<typeof vi.fn>).toHaveBeenCalledWith(
+        expect.objectContaining({
+          create: expect.objectContaining({
+            agent: { connect: { id: 'agent-updated' } },
+          }),
+        }),
+      );
     });
   });
 
@@ -685,7 +957,9 @@ describe('discord plugin', () => {
       const ctx = createMockContext({ discordToken: 'test-token' });
       const hooks = await plugin.register(ctx);
 
-      await hooks.onBroadcast!('pipeline:complete', { threadId: 'thread-1' });
+      await hooks.onBroadcast!('pipeline:complete', {
+        threadId: 'thread-1',
+      });
 
       expect(mockSendDiscordReply).not.toHaveBeenCalled();
     });
@@ -698,7 +972,9 @@ describe('discord plugin', () => {
       await plugin.start!(ctx);
 
       // state.connected is false until the 'ready' event fires
-      await hooks.onBroadcast!('pipeline:complete', { threadId: 'thread-1' });
+      await hooks.onBroadcast!('pipeline:complete', {
+        threadId: 'thread-1',
+      });
 
       expect(mockSendDiscordReply).not.toHaveBeenCalled();
     });
@@ -713,7 +989,9 @@ describe('discord plugin', () => {
       const readyHandler = findHandler<(client: { user: { tag: string } }) => void>(mockOnce, 'ready');
       readyHandler?.({ user: { tag: 'TestBot#1234' } });
 
-      await hooks.onBroadcast!('pipeline:complete', { threadId: 'thread-1' });
+      await hooks.onBroadcast!('pipeline:complete', {
+        threadId: 'thread-1',
+      });
 
       expect(mockSendDiscordReply).toHaveBeenCalledWith(expect.objectContaining({ threadId: 'thread-1' }));
     });
@@ -729,9 +1007,39 @@ describe('discord plugin', () => {
 
       mockSendDiscordReply.mockRejectedValueOnce(new Error('delivery failed'));
 
-      await hooks.onBroadcast!('pipeline:complete', { threadId: 'thread-1' });
+      await hooks.onBroadcast!('pipeline:complete', {
+        threadId: 'thread-1',
+      });
 
       expect(ctx.logger.error).toHaveBeenCalledWith(expect.stringContaining('delivery failed'));
+    });
+
+    it('skips onBroadcast delivery after ShardDisconnect fires', async () => {
+      mockLogin.mockResolvedValue('token');
+      const ctx = createMockContext({ discordToken: 'test-token' });
+      const hooks = await plugin.register(ctx);
+      await plugin.start!(ctx);
+
+      // Simulate ready -> connected
+      const readyHandler = findHandler<(client: { user: { tag: string } }) => void>(mockOnce, 'ready');
+      readyHandler?.({ user: { tag: 'TestBot#1234' } });
+
+      // Verify delivery works when connected
+      await hooks.onBroadcast!('pipeline:complete', {
+        threadId: 'thread-1',
+      });
+      expect(mockSendDiscordReply).toHaveBeenCalledTimes(1);
+
+      // Simulate disconnect
+      const disconnectHandler = findHandler<() => void>(mockOn, 'shardDisconnect');
+      disconnectHandler?.();
+
+      // Verify delivery is skipped when disconnected
+      mockSendDiscordReply.mockClear();
+      await hooks.onBroadcast!('pipeline:complete', {
+        threadId: 'thread-1',
+      });
+      expect(mockSendDiscordReply).not.toHaveBeenCalled();
     });
   });
 });

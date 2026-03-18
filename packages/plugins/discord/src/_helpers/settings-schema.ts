@@ -8,4 +8,10 @@ export const settingsSchema = createSettingsSchema({
     secret: true,
     required: true,
   },
+  allowedChannelIds: {
+    type: 'string' as const,
+    label: 'Allowed Channel IDs',
+    description: 'Comma-separated Discord channel IDs. When set, the bot only responds in these channels. Leave empty to allow all channels.',
+    required: false,
+  },
 });

@@ -12,7 +12,12 @@ describe('settingsSchema', () => {
     });
   });
 
-  it('toFieldArray returns at least one field', () => {
-    expect(settingsSchema.toFieldArray().length).toBeGreaterThan(0);
+  it('allowedChannelIds is an optional string field', () => {
+    const fields = settingsSchema.toFieldArray();
+    const allowedChannelIds = fields.find((f) => f.name === 'allowedChannelIds');
+    expect(allowedChannelIds).toMatchObject({
+      type: 'string',
+      required: false,
+    });
   });
 });

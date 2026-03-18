@@ -6,5 +6,6 @@ export const extractChannelId: ExtractChannelId = (sourceId) => {
   if (!sourceId.startsWith('discord:')) {
     return null;
   }
-  return sourceId.slice('discord:'.length);
+  const id = sourceId.slice('discord:'.length);
+  return id || null;
 };

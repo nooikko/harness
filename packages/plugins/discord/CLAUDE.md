@@ -4,7 +4,7 @@ Implementation notes and gotchas for the Discord plugin. Read this before editin
 
 ## What hooks this plugin implements
 
-This plugin implements **only** `start` and `stop` lifecycle hooks, plus `onSettingsChange`. It does not implement `onCommand`, `onBeforeInvoke`, `onAfterInvoke`, or `onBroadcast`. It is purely a message source and message sink — it does not participate in the prompt transformation or command handling pipeline at all.
+This plugin implements `start` and `stop` lifecycle hooks, `onSettingsChange` for token/channel reload, and `onBroadcast` for delivering assistant responses to Discord channels. It does not implement `onBeforeInvoke`, `onAfterInvoke`, or `onMessage`. It is purely a message source and message sink — it does not participate in the prompt transformation or command handling pipeline at all.
 
 Do not add pipeline hooks to this plugin without a clear reason. If you need to intercept or modify Claude's output before it reaches Discord, consider a separate plugin or a new hook type rather than entangling Discord delivery with prompt logic.
 
@@ -69,6 +69,14 @@ The plugin is designed to tolerate `stop` being called before `start` completes 
 
 If the Discord token is invalid, Discord.js will throw during `start`. This exception propagates to the plugin loader. The orchestrator will log it but continue running — other plugins are not affected.
 
-## No onBroadcast hook
+## onBroadcast — reply delivery
 
-The Discord plugin does not listen to `onBroadcast` events. It does not forward pipeline events or other orchestrator activity to Discord. If you want to post pipeline notifications or alerts to a Discord channel, that is a separate concern — either a new plugin or an extension of this one — but it would require adding an `onBroadcast` implementation and deciding which events to forward and to which channel.
+The plugin listens for `pipeline:complete` broadcast events via `onBroadcast`. When a pipeline completes, `sendDiscordReply` checks whether the thread originated from Discord (`thread.source === 'discord'`), fetches the most recent assistant message, resolves the Discord channel from `thread.sourceId`, and sends the response.
+
+Key behaviors:
+- Skips delivery if the thread is not Discord-sourced
+- Skips delivery if a `pipeline_error` status record is newer than the last assistant message (prevents re-delivering stale responses)
+- Splits long responses into 2000-character chunks at natural boundaries (newlines > spaces > hard cut)
+- Errors in delivery are caught and logged at the `onBroadcast` call site — they do not propagate
+
+The `sendDiscordReply` helper is in `_helpers/send-discord-reply.ts`. It depends on `extractChannelId` and the `splitMessage` utility from the main plugin module.
