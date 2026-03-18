@@ -2,7 +2,9 @@ import type { PluginContext } from '@harness/plugin-contract';
 import { z } from 'zod';
 import { checkReflectionTrigger } from './check-reflection-trigger';
 import { classifyMemoryScope } from './classify-memory-scope';
+import { detectUserFacts } from './detect-user-facts';
 import { runReflection } from './run-reflection';
+import { synthesizeUserInsight } from './synthesize-user-insight';
 
 const DEFAULT_IMPORTANCE_THRESHOLD = 6;
 const SNIPPET_HEAD = 250;
@@ -11,6 +13,7 @@ const SUMMARY_MAX_CHARS = 1500;
 
 const ImportanceSchema = z.object({
   importance: z.number().int().min(1).max(10),
+  userFact: z.string().optional(),
 });
 
 const SummarySchema = z.object({
@@ -68,13 +71,15 @@ export const scoreAndWriteMemory: ScoreAndWriteMemory = async (ctx, agentId, age
   const summarySnippet = output.slice(0, SUMMARY_MAX_CHARS);
 
   let importance = 0;
+  let userFact: string | null = null;
   try {
     const result = await ctx.invoker.invoke(
-      `Rate the importance of this AI response for long-term memory on a scale 1-10.\n1 = mundane exchange (greeting, simple acknowledgment)\n10 = significant event, insight, or decision that shapes understanding\nOutput ONLY valid JSON: {"importance": <number 1-10>}\n\nResponse:\n${scoringSnippet}`,
+      `Rate the importance of this AI response for long-term memory on a scale 1-10.\n1 = mundane exchange (greeting, simple acknowledgment)\n10 = significant event, insight, or decision that shapes understanding\n\nAlso: if the conversation reveals a fact about the USER (not about you the AI, not about third parties) — something about their preferences, habits, conditions, personality, or life — include it as a short phrase in "userFact".\nExamples: "has ADD", "prefers short responses", "doesn't like toffee", "works in data engineering"\n\nOutput ONLY valid JSON: {"importance": <number 1-10>, "userFact": "<optional short phrase>"}\n\nResponse:\n${scoringSnippet}`,
       { model: 'claude-haiku-4-5-20251001' },
     );
     const parsed = ImportanceSchema.parse(JSON.parse(extractJson(result.output)));
     importance = parsed.importance;
+    userFact = detectUserFacts(parsed);
   } catch (err) {
     const e = err instanceof Error ? err : new Error(String(err));
     ctx.logger.warn('identity: importance scoring failed', {
@@ -82,6 +87,16 @@ export const scoreAndWriteMemory: ScoreAndWriteMemory = async (ctx, agentId, age
       stack: e.stack,
     });
     return;
+  }
+
+  // User insight synthesis — fire-and-forget, independent of importance threshold
+  if (userFact) {
+    void synthesizeUserInsight(ctx, agentId, agentName, userFact).catch((err) => {
+      ctx.logger.warn('identity: user insight synthesis failed', {
+        agentId,
+        error: err instanceof Error ? err.message : String(err),
+      });
+    });
   }
 
   if (importance < importanceThreshold) {
@@ -141,6 +156,8 @@ export const scoreAndWriteMemory: ScoreAndWriteMemory = async (ctx, agentId, age
       if (trigger.shouldReflect) {
         await runReflection(ctx, agentId, agentName, trigger.memories, projectId);
       }
-    })();
+    })().catch((err) => {
+      ctx.logger.warn(`identity: reflection trigger failed [agent=${agentId}]: ${err instanceof Error ? err.message : String(err)}`);
+    });
   }
 };

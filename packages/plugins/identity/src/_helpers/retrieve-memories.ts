@@ -4,7 +4,9 @@ const DEFAULT_CANDIDATE_POOL = 100;
 const DEFAULT_DECAY_RATE = 0.995;
 const MS_PER_HOUR = 3_600_000;
 const DEFAULT_REFLECTION_BOOST = 0.3;
+const DEFAULT_SEMANTIC_BOOST = 0.3;
 const MIN_REFLECTION_SLOTS = 2;
+const MIN_SEMANTIC_SLOTS = 2;
 
 type MemoryContext = {
   projectId?: string | null;
@@ -15,6 +17,7 @@ export type RetrievalConfig = {
   candidatePool?: number;
   decayRate?: number;
   reflectionBoost?: number;
+  semanticBoost?: number;
 };
 
 type RetrieveMemories = (
@@ -30,6 +33,7 @@ export const retrieveMemories: RetrieveMemories = async (db, agentId, _query, li
   const CANDIDATE_POOL = config?.candidatePool ?? DEFAULT_CANDIDATE_POOL;
   const DECAY_RATE = config?.decayRate ?? DEFAULT_DECAY_RATE;
   const REFLECTION_BOOST = config?.reflectionBoost ?? DEFAULT_REFLECTION_BOOST;
+  const SEMANTIC_BOOST = config?.semanticBoost ?? DEFAULT_SEMANTIC_BOOST;
   // Build scope-aware filter: AGENT memories always, plus PROJECT/THREAD when context provided
   const scopeFilters: Prisma.AgentMemoryWhereInput[] = [{ agentId, scope: 'AGENT' }];
 
@@ -68,7 +72,7 @@ export const retrieveMemories: RetrieveMemories = async (db, agentId, _query, li
     const hoursSince = (now - memory.lastAccessedAt.getTime()) / MS_PER_HOUR;
     const recency = DECAY_RATE ** hoursSince;
     const importance = memory.importance / 10;
-    const typeBoost = memory.type === 'REFLECTION' ? REFLECTION_BOOST : 0;
+    const typeBoost = memory.type === 'REFLECTION' ? REFLECTION_BOOST : memory.type === 'SEMANTIC' ? SEMANTIC_BOOST : 0;
     // Phase 2: relevance omitted (no embeddings). Full scoring in Phase 3.
     const score = recency + importance + typeBoost;
     return { memory, score };
@@ -98,6 +102,29 @@ export const retrieveMemories: RetrieveMemories = async (db, agentId, _query, li
         break;
       }
       top[lowestNonReflIdx] = refl;
+    }
+  }
+
+  // Guarantee at least MIN_SEMANTIC_SLOTS semantic (user insight) memories when they exist
+  const semanticsInTop = top.filter((s) => s.memory.type === 'SEMANTIC');
+  if (semanticsInTop.length < MIN_SEMANTIC_SLOTS) {
+    const excludedSemantics = scored.slice(limit).filter((s) => s.memory.type === 'SEMANTIC');
+    const needed = MIN_SEMANTIC_SLOTS - semanticsInTop.length;
+    const toSwapIn = excludedSemantics.slice(0, needed);
+
+    for (const sem of toSwapIn) {
+      let lowestSwappableIdx = -1;
+      for (let i = top.length - 1; i >= 0; i--) {
+        const t = top[i]?.memory.type;
+        if (t !== 'REFLECTION' && t !== 'SEMANTIC') {
+          lowestSwappableIdx = i;
+          break;
+        }
+      }
+      if (lowestSwappableIdx === -1) {
+        break;
+      }
+      top[lowestSwappableIdx] = sem;
     }
   }
 

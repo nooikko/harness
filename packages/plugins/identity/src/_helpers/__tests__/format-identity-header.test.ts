@@ -97,12 +97,12 @@ describe('formatIdentityHeader', () => {
     expect(result).toContain('Discussed project requirements');
   });
 
-  it('formats memory lines with date, type, and content', () => {
+  it('formats EPISODIC memory lines with date, type, and content', () => {
     const agent = makeAgent();
-    const memories = [makeMemory('A key insight', 'SEMANTIC')];
+    const memories = [makeMemory('A key insight', 'EPISODIC')];
     const result = formatIdentityHeader(agent, memories, { soulMaxChars: 5000, identityMaxChars: 2000 });
     expect(result).toContain('[2026-02-15]');
-    expect(result).toContain('[SEMANTIC]');
+    expect(result).toContain('[EPISODIC]');
     expect(result).toContain('A key insight');
   });
 
@@ -172,6 +172,50 @@ describe('formatIdentityHeader', () => {
     const result = formatIdentityHeader(agent, [], { soulMaxChars: 5000, identityMaxChars: 2000 });
     expect(result).toContain('Before responding, briefly consider');
     expect(result).toContain('Aria');
+  });
+
+  // ── "What I Know About You" section (SEMANTIC memories) ─────────────
+
+  it('renders SEMANTIC memories in "What I Know About You" section', () => {
+    const agent = makeAgent();
+    const memories = [makeMemory('User has ADD — keep responses concise and front-loaded', 'SEMANTIC')];
+    const result = formatIdentityHeader(agent, memories, { soulMaxChars: 5000, identityMaxChars: 2000 });
+    expect(result).toContain('## What I Know About You');
+    expect(result).toContain('- User has ADD — keep responses concise and front-loaded');
+  });
+
+  it('does not include date prefix for SEMANTIC memories', () => {
+    const agent = makeAgent();
+    const memories = [makeMemory('Prefers dark mode', 'SEMANTIC')];
+    const result = formatIdentityHeader(agent, memories, { soulMaxChars: 5000, identityMaxChars: 2000 });
+    const section = result.split('## What I Know About You')[1]!.split('##')[0]!;
+    expect(section).not.toContain('[2026-02-15]');
+    expect(section).not.toContain('[SEMANTIC]');
+  });
+
+  it('does not render SEMANTIC memories in "Relevant Memory" section', () => {
+    const agent = makeAgent();
+    const memories = [makeMemory('User insight here', 'SEMANTIC'), makeMemory('Episodic event here', 'EPISODIC')];
+    const result = formatIdentityHeader(agent, memories, { soulMaxChars: 5000, identityMaxChars: 2000 });
+    const relevantSection = result.split('## Relevant Memory')[1] ?? '';
+    expect(relevantSection).not.toContain('User insight here');
+    expect(relevantSection).toContain('Episodic event here');
+  });
+
+  it('omits "What I Know About You" when no SEMANTIC memories exist', () => {
+    const agent = makeAgent();
+    const memories = [makeMemory('Just an episodic memory', 'EPISODIC')];
+    const result = formatIdentityHeader(agent, memories, { soulMaxChars: 5000, identityMaxChars: 2000 });
+    expect(result).not.toContain('## What I Know About You');
+  });
+
+  it('places "What I Know About You" before "Relevant Memory"', () => {
+    const agent = makeAgent();
+    const memories = [makeMemory('User fact', 'SEMANTIC'), makeMemory('Episodic event', 'EPISODIC')];
+    const result = formatIdentityHeader(agent, memories, { soulMaxChars: 5000, identityMaxChars: 2000 });
+    const knowIdx = result.indexOf('## What I Know About You');
+    const memoryIdx = result.indexOf('## Relevant Memory');
+    expect(knowIdx).toBeLessThan(memoryIdx);
   });
 
   // ── Multi-scope grouping tests ──────────────────────────────────────

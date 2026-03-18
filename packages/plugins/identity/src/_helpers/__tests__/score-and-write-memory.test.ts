@@ -150,6 +150,44 @@ describe('scoreAndWriteMemory', () => {
     expect(scoringPrompt).not.toContain('[...]');
   });
 
+  describe('userFact detection and synthesis trigger', () => {
+    it('triggers synthesis when importance response includes userFact', async () => {
+      const ctx = makeCtx('{"importance": 8, "userFact": "has ADD"}', '{"summary": "Summary.", "scope": "AGENT"}');
+      // Add findMany for synthesizeUserInsight (no existing SEMANTIC memories)
+      ctx.db.agentMemory.findMany.mockResolvedValue([]);
+      await scoreAndWriteMemory(ctx as never, 'agent-1', 'Aria', 'thread-1', 'Meaningful output.');
+      // Allow fire-and-forget to settle
+      await new Promise<void>((resolve) => setImmediate(resolve));
+      // Should have called findMany for SEMANTIC memories (synthesis check)
+      expect(ctx.db.agentMemory.findMany).toHaveBeenCalledWith(expect.objectContaining({ where: { agentId: 'agent-1', type: 'SEMANTIC' } }));
+    });
+
+    it('does not trigger synthesis when no userFact in response', async () => {
+      const ctx = makeCtx('{"importance": 8}', '{"summary": "Summary.", "scope": "AGENT"}');
+      await scoreAndWriteMemory(ctx as never, 'agent-1', 'Aria', 'thread-1', 'Meaningful output.');
+      await new Promise<void>((resolve) => setImmediate(resolve));
+      // findMany should NOT have been called for SEMANTIC type
+      const findManyCalls = ctx.db.agentMemory.findMany.mock.calls;
+      const semanticCall = findManyCalls.find((call: unknown[]) => (call[0] as { where: { type?: string } })?.where?.type === 'SEMANTIC');
+      expect(semanticCall).toBeUndefined();
+    });
+
+    it('triggers synthesis even when importance is below episodic threshold', async () => {
+      const ctx = makeCtx('{"importance": 3, "userFact": "has ADD"}', '{"summary": "Summary.", "scope": "AGENT"}');
+      ctx.db.agentMemory.findMany.mockResolvedValue([]);
+      await scoreAndWriteMemory(ctx as never, 'agent-1', 'Aria', 'thread-1', 'Casual chat mentioning ADD.');
+      // Allow fire-and-forget synthesis to settle
+      await new Promise<void>((resolve) => setImmediate(resolve));
+      // Episodic memory should NOT be written (below threshold) but SEMANTIC should be
+      const createCalls = ctx.db.agentMemory.create.mock.calls;
+      const episodicCall = createCalls.find((call: unknown[]) => (call[0] as { data: { type: string } }).data.type === 'EPISODIC');
+      const semanticCall = createCalls.find((call: unknown[]) => (call[0] as { data: { type: string } }).data.type === 'SEMANTIC');
+      expect(episodicCall).toBeUndefined();
+      expect(semanticCall).toBeDefined();
+      expect((semanticCall![0] as { data: { content: string } }).data.content).toBe('has ADD');
+    });
+  });
+
   describe('reflectionEnabled parameter', () => {
     const makeReflectionCtx = (importanceOutput: string, summaryOutput: string, unreflectedCount: number) => {
       const unreflectedMemories = Array.from({ length: unreflectedCount }, (_, i) => ({
@@ -209,6 +247,26 @@ describe('scoreAndWriteMemory', () => {
       expect(ctx.db.agentMemory.create).toHaveBeenCalled();
       await new Promise<void>((resolve) => setImmediate(resolve));
       expect(ctx.db.agentMemory.findFirst).not.toHaveBeenCalled();
+    });
+
+    it('logs warning when reflection trigger throws', async () => {
+      const ctx = makeReflectionCtx('{"importance": 8}', '{"summary": "Important event.", "scope": "AGENT"}', 15);
+      ctx.db.agentMemory.findFirst.mockRejectedValue(new Error('DB failure'));
+      await scoreAndWriteMemory(ctx as never, 'agent-1', 'Aria', 'thread-1', 'Meaningful output.', { reflectionEnabled: true });
+
+      await new Promise<void>((resolve) => setImmediate(resolve));
+      expect(ctx.logger.warn).toHaveBeenCalledWith(expect.stringContaining('reflection trigger failed'));
+    });
+  });
+
+  describe('synthesizeUserInsight error handling', () => {
+    it('logs warning when synthesis fails', async () => {
+      const ctx = makeCtx('{"importance": 3, "userFact": "has ADD"}', '');
+      // Make findMany throw to simulate synthesis failure
+      ctx.db.agentMemory.findMany.mockRejectedValue(new Error('DB error'));
+      await scoreAndWriteMemory(ctx as never, 'agent-1', 'Aria', 'thread-1', 'Chat.');
+      await new Promise<void>((resolve) => setImmediate(resolve));
+      expect(ctx.logger.warn).toHaveBeenCalledWith(expect.stringContaining('user insight synthesis failed'), expect.any(Object));
     });
   });
 });

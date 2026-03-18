@@ -50,6 +50,11 @@ export const plugin: PluginDefinition = {
 
     let settings = await ctx.getSettings(settingsSchema);
 
+    // Per-pipeline agent cache — onBeforeInvoke loads the agent, onAfterInvoke reuses it.
+    // Avoids 4 redundant DB queries per pipeline run (2 in each hook).
+    // Safe because hooks run sequentially within a pipeline for the same threadId.
+    const agentCache = new Map<string, Awaited<ReturnType<typeof loadAgent>>>();
+
     return {
       onSettingsChange: async (pluginName: string) => {
         if (pluginName !== 'identity') {
@@ -62,8 +67,10 @@ export const plugin: PluginDefinition = {
       onBeforeInvoke: async (threadId, prompt) => {
         const agent = await loadAgent(ctx.db, threadId);
         if (!agent) {
+          agentCache.delete(threadId);
           return prompt;
         }
+        agentCache.set(threadId, agent);
 
         const config = await loadAgentConfig(ctx.db, agent.id);
 
@@ -72,6 +79,7 @@ export const plugin: PluginDefinition = {
           candidatePool: settings.candidatePool,
           decayRate: settings.decayRate,
           reflectionBoost: settings.reflectionBoost,
+          semanticBoost: settings.semanticBoost,
         };
 
         const memories = await retrieveMemories(
@@ -104,7 +112,9 @@ export const plugin: PluginDefinition = {
       },
 
       onAfterInvoke: async (threadId, result) => {
-        const agent = await loadAgent(ctx.db, threadId);
+        // Reuse the agent loaded during onBeforeInvoke (same pipeline, same threadId)
+        const agent = agentCache.get(threadId) ?? (await loadAgent(ctx.db, threadId));
+        agentCache.delete(threadId);
         if (!agent) {
           return;
         }
@@ -114,12 +124,15 @@ export const plugin: PluginDefinition = {
           return;
         }
 
-        // Fire-and-forget — do not block the pipeline
+        // Fire-and-forget — do not block the pipeline.
+        // .catch() ensures unhandled rejections include agent/thread context for debugging.
         void scoreAndWriteMemory(ctx, agent.id, agent.name, threadId, result.output, {
           reflectionEnabled: config?.reflectionEnabled ?? false,
           projectId: agent.threadProjectId,
           importanceThreshold: settings.importanceThreshold,
           reflectionThreshold: settings.reflectionThreshold,
+        }).catch((err) => {
+          ctx.logger.error(`scoreAndWriteMemory failed [agent=${agent.id}, thread=${threadId}]: ${err instanceof Error ? err.message : String(err)}`);
         });
       },
     };

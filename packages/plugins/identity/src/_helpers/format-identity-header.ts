@@ -32,10 +32,19 @@ export const formatIdentityHeader: FormatIdentityHeader = (agent, memories, opti
     parts.push(`## Backstory\n\n${agent.backstory}`);
   }
 
-  if (memories.length > 0) {
-    const coreMemories = memories.filter((m) => m.scope === 'AGENT' || !m.scope);
-    const projectMemories = memories.filter((m) => m.scope === 'PROJECT');
-    const threadMemories = memories.filter((m) => m.scope === 'THREAD');
+  // Separate SEMANTIC (user insight) memories into their own section
+  const semanticMemories = memories.filter((m) => m.type === 'SEMANTIC');
+  const nonSemanticMemories = memories.filter((m) => m.type !== 'SEMANTIC');
+
+  if (semanticMemories.length > 0) {
+    const lines = semanticMemories.map((m) => `- ${m.content}`);
+    parts.push(`## What I Know About You\n\n${lines.join('\n')}`);
+  }
+
+  if (nonSemanticMemories.length > 0) {
+    const coreMemories = nonSemanticMemories.filter((m) => m.scope === 'AGENT' || !m.scope);
+    const projectMemories = nonSemanticMemories.filter((m) => m.scope === 'PROJECT');
+    const threadMemories = nonSemanticMemories.filter((m) => m.scope === 'THREAD');
 
     const formatLine = (m: AgentMemory) => {
       const date = m.createdAt.toISOString().split('T')[0];

@@ -37,4 +37,11 @@ export const settingsSchema = createSettingsSchema({
     description: 'Extra score added to REFLECTION-type memories during retrieval. Higher values prioritize reflections over episodic memories.',
     default: 0.3,
   },
+  semanticBoost: {
+    type: 'number' as const,
+    label: 'User Insight Boost',
+    description:
+      'Extra score added to SEMANTIC (user insight) memories during retrieval. Higher values prioritize user facts over episodic memories.',
+    default: 0.3,
+  },
 });
