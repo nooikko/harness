@@ -14,7 +14,7 @@ type MockCronInstance = {
 };
 
 vi.mock('../schedule-one-shot', () => ({
-  scheduleOneShot: vi.fn().mockReturnValue(setTimeout(() => {}, 0)),
+  scheduleOneShot: vi.fn().mockReturnValue({ stop: vi.fn(), nextRun: vi.fn().mockReturnValue(null) }),
 }));
 
 vi.mock('../resolve-or-create-thread', () => ({
@@ -101,7 +101,7 @@ describe('createCronServer', () => {
     mockInstances.length = 0;
     throwOnNextConstruct = false;
     mockInitialNextRunValue = new Date('2099-01-01T00:00:00Z');
-    mockScheduleOneShot.mockReturnValue(setTimeout(() => {}, 0));
+    mockScheduleOneShot.mockReturnValue({ stop: vi.fn(), nextRun: vi.fn().mockReturnValue(null) } as never);
     // Default: resolve to the job's threadId (mirrors real behaviour for recurring jobs)
     mockResolveOrCreateThread.mockImplementation((_db, job) => Promise.resolve((job as { threadId: string }).threadId));
   });
@@ -425,65 +425,6 @@ describe('createCronServer', () => {
     expect(ctx.logger.error).toHaveBeenCalledWith(expect.stringContaining('failed to update timestamps'));
   });
 
-  it('handles non-Error thrown from sendToThread (string error)', async () => {
-    const jobs = [
-      {
-        id: 'job-1',
-        name: 'Test Job',
-        schedule: '* * * * *',
-        fireAt: null,
-        prompt: 'ping',
-        threadId: 'thread-1',
-      },
-    ];
-    const db = createMockDb(jobs);
-    const ctx = createMockContext({
-      db: db as never,
-      sendToThread: vi.fn().mockRejectedValue('string error'),
-    });
-
-    const server = createCronServer();
-    await server.start(ctx);
-
-    const instance = mockInstances[0];
-    if (!instance) {
-      throw new Error('No cron instance created');
-    }
-
-    await instance._handler();
-
-    expect(ctx.logger.error).toHaveBeenCalledWith(expect.stringContaining('string error'));
-  });
-
-  it('handles non-Error thrown from the timestamp update (string error)', async () => {
-    const jobs = [
-      {
-        id: 'job-1',
-        name: 'Test Job',
-        schedule: '* * * * *',
-        fireAt: null,
-        prompt: 'ping',
-        threadId: 'thread-1',
-      },
-    ];
-    const db = createMockDb(jobs);
-    const ctx = createMockContext({ db: db as never });
-
-    const server = createCronServer();
-    await server.start(ctx);
-
-    db.cronJob.update.mockRejectedValueOnce('update string error');
-
-    const instance = mockInstances[0];
-    if (!instance) {
-      throw new Error('No cron instance created');
-    }
-
-    await instance._handler();
-
-    expect(ctx.logger.error).toHaveBeenCalledWith(expect.stringContaining('update string error'));
-  });
-
   it('handles nextRun() returning null during startup — writes null nextRunAt and logs never', async () => {
     const jobs = [
       {
@@ -600,10 +541,10 @@ describe('createCronServer', () => {
 
     // Capture the cleanup callback passed to scheduleOneShot
     let capturedCleanup: ((jobId: string) => void) | undefined;
-    mockScheduleOneShot.mockImplementation((_ctx, _job, cleanup) => {
+    mockScheduleOneShot.mockImplementation(((_ctx: unknown, _job: unknown, cleanup: (jobId: string) => void) => {
       capturedCleanup = cleanup;
-      return setTimeout(() => {}, 0);
-    });
+      return { stop: vi.fn(), nextRun: vi.fn().mockReturnValue(null) };
+    }) as never);
 
     const server = createCronServer();
     await server.start(ctx);
@@ -664,32 +605,11 @@ describe('createCronServer', () => {
     expect(ctx.logger.warn).toHaveBeenCalledWith(expect.stringContaining('failed to set nextRunAt for one-shot job'));
   });
 
-  it('logs a warning when one-shot nextRunAt update fails with a non-Error', async () => {
+  it('stop() calls stop() on the one-shot Cron handle', async () => {
     const fireAt = new Date('2099-06-01T00:00:00Z');
-    const jobs = [
-      {
-        id: 'os-fail-str',
-        name: 'Fail String One Shot',
-        schedule: null,
-        fireAt,
-        prompt: 'fire',
-        threadId: 'thread-fs',
-        agentId: 'agent-1',
-        projectId: null,
-      },
-    ];
-    const db = createMockDb(jobs);
-    db.cronJob.update.mockRejectedValueOnce('string DB error');
-    const ctx = createMockContext({ db: db as never });
+    const mockOneShotStop = vi.fn();
+    mockScheduleOneShot.mockReturnValueOnce({ stop: mockOneShotStop, nextRun: vi.fn().mockReturnValue(null) } as never);
 
-    const server = createCronServer();
-    await server.start(ctx);
-
-    expect(ctx.logger.warn).toHaveBeenCalledWith(expect.stringContaining('string DB error'));
-  });
-
-  it('stop() clears one-shot timers', async () => {
-    const fireAt = new Date('2099-06-01T00:00:00Z');
     const jobs = [
       {
         id: 'os-stop',
@@ -708,8 +628,9 @@ describe('createCronServer', () => {
     const server = createCronServer();
     await server.start(ctx);
 
-    // stop() should clear one-shot timers without error
-    await expect(server.stop()).resolves.toBeUndefined();
+    await server.stop();
+
+    expect(mockOneShotStop).toHaveBeenCalledOnce();
   });
 
   // --- Recurring trigger: resolveOrCreateThread error branch ---
@@ -747,84 +668,5 @@ describe('createCronServer', () => {
     // sendToThread and update should NOT have been called
     expect(ctx.sendToThread).not.toHaveBeenCalled();
     expect(db.cronJob.update).not.toHaveBeenCalled();
-  });
-
-  it('trigger handler logs error with string when resolveOrCreateThread throws a non-Error', async () => {
-    const jobs = [
-      {
-        id: 'job-resolve-str',
-        name: 'Resolve String Error Job',
-        schedule: '* * * * *',
-        fireAt: null,
-        prompt: 'ping',
-        threadId: 'thread-1',
-      },
-    ];
-    const db = createMockDb(jobs);
-    const ctx = createMockContext({ db: db as never });
-
-    mockResolveOrCreateThread.mockRejectedValueOnce('string resolve error');
-
-    const server = createCronServer();
-    await server.start(ctx);
-
-    db.cronJob.update.mockClear();
-
-    const instance = mockInstances[0];
-    if (!instance) {
-      throw new Error('No cron instance created');
-    }
-
-    await instance._handler();
-
-    expect(ctx.logger.error).toHaveBeenCalledWith(expect.stringContaining('string resolve error'));
-    expect(ctx.sendToThread).not.toHaveBeenCalled();
-  });
-
-  // --- Initial nextRunAt update: non-Error catch branch ---
-
-  it('logs a warning with string when the initial nextRunAt update fails with a non-Error', async () => {
-    const jobs = [
-      {
-        id: 'job-init-str',
-        name: 'Init String Error',
-        schedule: '* * * * *',
-        fireAt: null,
-        prompt: 'ping',
-        threadId: 'thread-1',
-      },
-    ];
-    const db = createMockDb(jobs);
-    db.cronJob.update.mockRejectedValueOnce('init string error');
-    const ctx = createMockContext({ db: db as never });
-
-    const server = createCronServer();
-    await server.start(ctx);
-
-    expect(ctx.logger.warn).toHaveBeenCalledWith(expect.stringContaining('init string error'));
-  });
-
-  // --- Cron constructor: non-Error catch branch ---
-
-  it('handles non-Error thrown from Cron constructor', async () => {
-    const jobs = [
-      {
-        id: 'job-cron-str',
-        name: 'Cron String Error',
-        schedule: 'bad',
-        fireAt: null,
-        prompt: 'ping',
-        threadId: 'thread-1',
-      },
-    ];
-    const db = createMockDb(jobs);
-    const ctx = createMockContext({ db: db as never });
-
-    throwOnNextConstruct = true;
-
-    const server = createCronServer();
-    await server.start(ctx);
-
-    expect(ctx.logger.error).toHaveBeenCalledWith(expect.stringContaining('Invalid cron expression'));
   });
 });

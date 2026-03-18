@@ -42,18 +42,24 @@ export const plugin: PluginDefinition = {
   register: async (ctx) => {
     ctx.logger.info('Cron plugin registered');
 
+    // Serialize concurrent hot-reloads so they don't race on stopServer
+    let reloadLock: Promise<void> = Promise.resolve();
+
     const hooks: PluginHooks = {
       onSettingsChange: async (pluginName: string) => {
         if (pluginName !== 'cron') {
           return;
         }
-        ctx.logger.info('Cron plugin: reloading scheduled jobs...');
-        if (stopServer) {
-          await stopServer();
-          stopServer = null;
-        }
-        await start(ctx);
-        ctx.logger.info('Cron plugin: reload complete');
+        reloadLock = reloadLock.then(async () => {
+          ctx.logger.info('Cron plugin: reloading scheduled jobs...');
+          if (stopServer) {
+            await stopServer();
+            stopServer = null;
+          }
+          await start(ctx);
+          ctx.logger.info('Cron plugin: reload complete');
+        });
+        await reloadLock;
       },
     };
 

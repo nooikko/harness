@@ -74,7 +74,9 @@ export const updateCronJob: UpdateCronJob = async (ctx, input, meta) => {
   }
 
   await ctx.db.cronJob.update({ where: { id: job.id }, data });
-  void ctx.notifySettingsChange('cron');
+  void ctx.notifySettingsChange('cron').catch((err: unknown) => {
+    ctx.logger.warn(`Cron plugin: hot-reload failed after update_task: ${err instanceof Error ? err.message : String(err)}`);
+  });
 
   return `Updated "${name}". Changes take effect immediately.`;
 };

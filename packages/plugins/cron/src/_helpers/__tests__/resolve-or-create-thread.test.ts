@@ -83,4 +83,40 @@ describe('resolveOrCreateThread', () => {
       }),
     });
   });
+
+  it('propagates error when db.thread.create throws', async () => {
+    const db = createMockDb();
+    db.thread.create.mockRejectedValueOnce(new Error('unique constraint on sourceId'));
+
+    await expect(
+      resolveOrCreateThread(db as never, {
+        id: 'job-4',
+        threadId: null,
+        agentId: 'agent-4',
+        projectId: null,
+        name: 'Create Fail Job',
+      }),
+    ).rejects.toThrow('unique constraint on sourceId');
+
+    // cronJob.update should NOT have been called since thread.create failed
+    expect(db.cronJob.update).not.toHaveBeenCalled();
+  });
+
+  it('propagates error when db.cronJob.update throws after thread creation', async () => {
+    const db = createMockDb();
+    db.cronJob.update.mockRejectedValueOnce(new Error('update failed'));
+
+    await expect(
+      resolveOrCreateThread(db as never, {
+        id: 'job-5',
+        threadId: null,
+        agentId: 'agent-5',
+        projectId: null,
+        name: 'Update Fail Job',
+      }),
+    ).rejects.toThrow('update failed');
+
+    // thread.create should have been called successfully
+    expect(db.thread.create).toHaveBeenCalledOnce();
+  });
 });

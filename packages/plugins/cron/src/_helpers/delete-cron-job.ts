@@ -24,7 +24,9 @@ export const deleteCronJob: DeleteCronJob = async (ctx, input, meta) => {
   }
 
   await ctx.db.cronJob.delete({ where: { id: job.id } });
-  void ctx.notifySettingsChange('cron');
+  void ctx.notifySettingsChange('cron').catch((err: unknown) => {
+    ctx.logger.warn(`Cron plugin: hot-reload failed after delete_task: ${err instanceof Error ? err.message : String(err)}`);
+  });
 
   return `Deleted "${name}". Scheduler reloaded.`;
 };

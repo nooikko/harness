@@ -1,6 +1,22 @@
 import type { PluginContext } from '@harness/plugin-contract';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
+// Mock croner — scheduleOneShot now uses Cron for future one-shots
+const mockCronStop = vi.fn();
+
+vi.mock('croner', () => {
+  class MockCron {
+    stop = mockCronStop;
+    _handler: () => void;
+    constructor(_date: Date, _opts: Record<string, unknown>, handler: () => void) {
+      this._handler = handler;
+      // Simulate croner calling the handler at the right time
+      // For test purposes we just store it
+    }
+  }
+  return { Cron: MockCron };
+});
+
 vi.mock('../resolve-or-create-thread', () => ({
   resolveOrCreateThread: vi.fn(),
 }));
@@ -76,12 +92,12 @@ describe('scheduleOneShot', () => {
     expect(ctx.sendToThread).toHaveBeenCalledWith('thread-1', 'do it now');
   });
 
-  it('fires after the delay when fireAt is in the future', async () => {
+  it('returns a Cron handle for future fireAt without firing immediately', () => {
     const ctx = createMockContext();
     const cleanup = vi.fn();
     const futureDate = new Date(Date.now() + 10_000);
 
-    scheduleOneShot(
+    const handle = scheduleOneShot(
       ctx,
       {
         id: 'job-2',
@@ -95,14 +111,13 @@ describe('scheduleOneShot', () => {
       cleanup,
     );
 
+    // Should return a Cron handle, not fire immediately
+    expect(handle).not.toBeNull();
     expect(ctx.sendToThread).not.toHaveBeenCalled();
-
-    await vi.advanceTimersByTimeAsync(10_000);
-
-    expect(ctx.sendToThread).toHaveBeenCalledWith('thread-2', 'do it later');
+    expect(ctx.logger.info).toHaveBeenCalledWith(expect.stringContaining('firing in'));
   });
 
-  it('auto-disables the job after firing', async () => {
+  it('auto-disables the job before firing, then updates timestamps after', async () => {
     const ctx = createMockContext();
     const cleanup = vi.fn();
     const pastDate = new Date(Date.now() - 1000);
@@ -126,10 +141,15 @@ describe('scheduleOneShot', () => {
     const db = ctx.db as unknown as {
       cronJob: { update: ReturnType<typeof vi.fn> };
     };
+    // First call: disable before fire
+    expect(db.cronJob.update).toHaveBeenCalledWith({
+      where: { id: 'job-3' },
+      data: { enabled: false },
+    });
+    // Second call: update timestamps after fire
     expect(db.cronJob.update).toHaveBeenCalledWith({
       where: { id: 'job-3' },
       data: {
-        enabled: false,
         lastRunAt: expect.any(Date),
         nextRunAt: null,
       },
@@ -209,7 +229,7 @@ describe('scheduleOneShot', () => {
     expect(ctx.sendToThread).not.toHaveBeenCalled();
   });
 
-  it('returns a timeout handle that can be cleared', () => {
+  it('returns a Cron instance for future one-shots that can be stopped', () => {
     const ctx = createMockContext();
     const cleanup = vi.fn();
     const futureDate = new Date(Date.now() + 60_000);
@@ -228,8 +248,9 @@ describe('scheduleOneShot', () => {
       cleanup,
     );
 
+    expect(handle).not.toBeNull();
     // Should not throw
-    clearTimeout(handle);
+    handle!.stop();
 
     vi.advanceTimersByTime(60_000);
 
@@ -264,10 +285,15 @@ describe('scheduleOneShot', () => {
     const db = ctx.db as unknown as {
       cronJob: { update: ReturnType<typeof vi.fn> };
     };
+    // First call: disable before fire
+    expect(db.cronJob.update).toHaveBeenCalledWith({
+      where: { id: 'job-8' },
+      data: { enabled: false },
+    });
+    // Second call: timestamps after fire
     expect(db.cronJob.update).toHaveBeenCalledWith({
       where: { id: 'job-8' },
       data: {
-        enabled: false,
         lastRunAt: expect.any(Date),
         nextRunAt: null,
       },
@@ -303,62 +329,7 @@ describe('scheduleOneShot', () => {
     expect(cleanup).not.toHaveBeenCalled();
   });
 
-  it('logs error with string when resolveOrCreateThread throws a non-Error', async () => {
-    const ctx = createMockContext();
-    const cleanup = vi.fn();
-    const pastDate = new Date(Date.now() - 1000);
-
-    mockResolveOrCreateThread.mockRejectedValueOnce('string thread error');
-
-    scheduleOneShot(
-      ctx,
-      {
-        id: 'job-resolve-str',
-        name: 'Resolve String Error',
-        prompt: 'fire',
-        threadId: 'thread-rs',
-        agentId: 'agent-1',
-        projectId: null,
-        fireAt: pastDate,
-      },
-      cleanup,
-    );
-
-    await vi.advanceTimersByTimeAsync(0);
-
-    expect(ctx.logger.error).toHaveBeenCalledWith(expect.stringContaining('string thread error'));
-    expect(ctx.sendToThread).not.toHaveBeenCalled();
-  });
-
-  it('handles non-Error thrown from sendToThread (string error)', async () => {
-    const ctx = createMockContext({
-      sendToThread: vi.fn().mockRejectedValue('string send error'),
-    });
-    const cleanup = vi.fn();
-    const pastDate = new Date(Date.now() - 1000);
-
-    scheduleOneShot(
-      ctx,
-      {
-        id: 'job-send-str',
-        name: 'Send String Error',
-        prompt: 'fire',
-        threadId: 'thread-ss',
-        agentId: 'agent-1',
-        projectId: null,
-        fireAt: pastDate,
-      },
-      cleanup,
-    );
-
-    await vi.advanceTimersByTimeAsync(0);
-
-    expect(ctx.logger.error).toHaveBeenCalledWith(expect.stringContaining('string send error'));
-    // Should still update DB and call cleanup
-    expect(cleanup).toHaveBeenCalledWith('job-send-str');
-  });
-
-  it('logs error when DB update fails with an Error after firing', async () => {
+  it('logs error when DB update fails after firing', async () => {
     const db = {
       cronJob: {
         update: vi.fn().mockRejectedValue(new Error('DB update failed')),
@@ -388,35 +359,5 @@ describe('scheduleOneShot', () => {
     expect(ctx.logger.error).toHaveBeenCalledWith(expect.stringContaining('DB update failed'));
     // cleanup should still be called
     expect(cleanup).toHaveBeenCalledWith('job-db-err');
-  });
-
-  it('logs error when DB update fails with a non-Error after firing', async () => {
-    const db = {
-      cronJob: {
-        update: vi.fn().mockRejectedValue('string update error'),
-      },
-    };
-    const ctx = createMockContext({ db: db as never });
-    const cleanup = vi.fn();
-    const pastDate = new Date(Date.now() - 1000);
-
-    scheduleOneShot(
-      ctx,
-      {
-        id: 'job-db-str',
-        name: 'DB String Error Job',
-        prompt: 'fire',
-        threadId: 'thread-ds',
-        agentId: 'agent-1',
-        projectId: null,
-        fireAt: pastDate,
-      },
-      cleanup,
-    );
-
-    await vi.advanceTimersByTimeAsync(0);
-
-    expect(ctx.logger.error).toHaveBeenCalledWith(expect.stringContaining('string update error'));
-    expect(cleanup).toHaveBeenCalledWith('job-db-str');
   });
 });

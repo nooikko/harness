@@ -1,6 +1,8 @@
 // schedule-one-shot — schedules a one-shot job to fire at a specific time
+// Uses croner instead of setTimeout to avoid 32-bit overflow (~24.85 day limit)
 
 import type { PluginContext } from '@harness/plugin-contract';
+import { Cron } from 'croner';
 import { resolveOrCreateThread } from './resolve-or-create-thread';
 
 type OneShotJob = {
@@ -15,19 +17,31 @@ type OneShotJob = {
 
 type CleanupCallback = (jobId: string) => void;
 
-type ScheduleOneShot = (ctx: PluginContext, job: OneShotJob, cleanup: CleanupCallback) => ReturnType<typeof setTimeout>;
+type ScheduleOneShot = (ctx: PluginContext, job: OneShotJob, cleanup: CleanupCallback) => Cron | null;
 
 export const scheduleOneShot: ScheduleOneShot = (ctx, job, cleanup) => {
   if (!job.fireAt) {
     ctx.logger.warn(`Cron plugin: skipping one-shot job "${job.name}" — no fireAt configured`);
-    return setTimeout(() => {}, 0);
+    return null;
   }
 
   const now = Date.now();
   const fireAtMs = job.fireAt.getTime();
-  const delay = Math.max(0, fireAtMs - now);
+  const isPast = fireAtMs <= now;
 
   const fire = async () => {
+    // Disable FIRST — prevents re-scheduling during concurrent hot-reload
+    await ctx.db.cronJob
+      .update({
+        where: { id: job.id },
+        data: { enabled: false },
+      })
+      .catch((err: unknown) => {
+        ctx.logger.error(
+          `Cron plugin: failed to disable one-shot job "${job.name}" before fire: ${err instanceof Error ? err.message : String(err)}`,
+        );
+      });
+
     let threadId: string;
     try {
       threadId = await resolveOrCreateThread(ctx.db, job);
@@ -49,7 +63,7 @@ export const scheduleOneShot: ScheduleOneShot = (ctx, job, cleanup) => {
     await ctx.db.cronJob
       .update({
         where: { id: job.id },
-        data: { enabled: false, lastRunAt: firedAt, nextRunAt: null },
+        data: { lastRunAt: firedAt, nextRunAt: null },
       })
       .catch((updateErr: unknown) => {
         ctx.logger.error(
@@ -60,13 +74,19 @@ export const scheduleOneShot: ScheduleOneShot = (ctx, job, cleanup) => {
     cleanup(job.id);
   };
 
-  if (delay === 0) {
+  if (isPast) {
     ctx.logger.info(`Cron plugin: one-shot job "${job.name}" fireAt is in the past — firing immediately`);
-  } else {
-    ctx.logger.info(`Cron plugin: scheduled one-shot job "${job.name}" — firing in ${Math.round(delay / 1000)}s`);
+    void fire();
+    return null;
   }
 
-  return setTimeout(() => {
+  const delay = Math.round((fireAtMs - now) / 1000);
+  ctx.logger.info(`Cron plugin: scheduled one-shot job "${job.name}" — firing in ${delay}s`);
+
+  // Use croner with a Date target — avoids setTimeout's 32-bit ms overflow (~24.85 day limit)
+  const cronJob = new Cron(job.fireAt, { maxRuns: 1 }, () => {
     void fire();
-  }, delay);
+  });
+
+  return cronJob;
 };

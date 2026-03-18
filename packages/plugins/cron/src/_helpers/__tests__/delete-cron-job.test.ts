@@ -149,4 +149,15 @@ describe('deleteCronJob', () => {
 
     expect(result).toContain('Error:');
   });
+
+  it('logs a warning when notifySettingsChange rejects after successful deletion', async () => {
+    const ctx = createMockContext();
+    (ctx.notifySettingsChange as ReturnType<typeof vi.fn>).mockRejectedValueOnce(new Error('reload failed'));
+
+    await deleteCronJob(ctx, { name: 'Morning Digest' }, defaultMeta);
+
+    await vi.waitFor(() => {
+      expect(ctx.logger.warn).toHaveBeenCalledWith(expect.stringContaining('hot-reload failed after delete_task'));
+    });
+  });
 });

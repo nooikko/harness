@@ -1,6 +1,7 @@
 // handle-schedule-task — MCP tool handler for creating scheduled tasks at runtime
 
 import type { PluginContext, PluginToolMeta } from '@harness/plugin-contract';
+import { Cron } from 'croner';
 import { validateCronJob } from './validate-cron-job';
 
 type HandleScheduleTask = (ctx: PluginContext, input: Record<string, unknown>, meta: PluginToolMeta) => Promise<string>;
@@ -22,10 +23,22 @@ export const handleScheduleTask: HandleScheduleTask = async (ctx, input, meta) =
 
   const fireAt = fireAtRaw ? new Date(fireAtRaw) : null;
 
+  if (fireAt && Number.isNaN(fireAt.getTime())) {
+    return 'Error: fireAt is not a valid ISO 8601 datetime.';
+  }
+
   const validation = validateCronJob({ schedule, fireAt });
 
   if (!validation.valid) {
     return `Error: ${validation.reason}`;
+  }
+
+  if (schedule) {
+    try {
+      new Cron(schedule, { maxRuns: 0 });
+    } catch {
+      return `Error: invalid cron expression "${schedule}".`;
+    }
   }
 
   const thread = await ctx.db.thread.findUnique({
@@ -55,7 +68,9 @@ export const handleScheduleTask: HandleScheduleTask = async (ctx, input, meta) =
   });
 
   // Trigger hot-reload so the new job is picked up by the cron scheduler immediately
-  void ctx.notifySettingsChange('cron');
+  void ctx.notifySettingsChange('cron').catch((err: unknown) => {
+    ctx.logger.warn(`Cron plugin: hot-reload failed after schedule_task: ${err instanceof Error ? err.message : String(err)}`);
+  });
 
   const nextFire = fireAt ? fireAt.toISOString() : schedule ? `per schedule (${schedule})` : 'unknown';
 

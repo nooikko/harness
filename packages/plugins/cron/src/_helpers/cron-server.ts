@@ -21,7 +21,7 @@ type CreateCronServer = (options?: CronServerOptions) => CronServer;
 export const createCronServer: CreateCronServer = (options) => {
   const timezone = options?.timezone || 'UTC';
   const scheduledJobs: Cron[] = [];
-  const oneShotTimers: Map<string, ReturnType<typeof setTimeout>> = new Map();
+  const oneShotJobs: Map<string, Cron> = new Map();
 
   const start = async (ctx: PluginContext): Promise<void> => {
     const jobs = await ctx.db.cronJob.findMany({
@@ -39,10 +39,12 @@ export const createCronServer: CreateCronServer = (options) => {
       }
 
       if (validation.type === 'one-shot') {
-        const handle = scheduleOneShot(ctx, job, (jobId) => {
-          oneShotTimers.delete(jobId);
+        const cronHandle = scheduleOneShot(ctx, job, (jobId) => {
+          oneShotJobs.delete(jobId);
         });
-        oneShotTimers.set(job.id, handle);
+        if (cronHandle) {
+          oneShotJobs.set(job.id, cronHandle);
+        }
 
         // Set nextRunAt to fireAt for admin UI visibility
         if (job.fireAt) {
@@ -69,6 +71,11 @@ export const createCronServer: CreateCronServer = (options) => {
           let threadId: string;
           try {
             threadId = await resolveOrCreateThread(ctx.db, job);
+            // Persist back to in-memory object so subsequent fires reuse this thread
+            // (resolveOrCreateThread updates the DB but not the closure-captured object)
+            if (!job.threadId) {
+              (job as { threadId: string | null }).threadId = threadId;
+            }
           } catch (err) {
             ctx.logger.error(`Cron plugin: failed to resolve thread for job "${job.name}": ${err instanceof Error ? err.message : String(err)}`);
             return;
@@ -128,10 +135,10 @@ export const createCronServer: CreateCronServer = (options) => {
     }
     scheduledJobs.length = 0;
 
-    for (const timer of oneShotTimers.values()) {
-      clearTimeout(timer);
+    for (const cronHandle of oneShotJobs.values()) {
+      cronHandle.stop();
     }
-    oneShotTimers.clear();
+    oneShotJobs.clear();
   };
 
   return { start, stop };

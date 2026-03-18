@@ -230,4 +230,54 @@ describe('handleScheduleTask', () => {
 
     expect(ctx.notifySettingsChange).not.toHaveBeenCalled();
   });
+
+  it('errors when cron expression is invalid', async () => {
+    const ctx = createMockContext();
+
+    const result = await handleScheduleTask(ctx, { name: 'Bad Cron', prompt: 'Run', schedule: 'not a cron expression' }, defaultMeta);
+
+    expect(result).toContain('Error: invalid cron expression');
+    expect(result).toContain('not a cron expression');
+  });
+
+  it('propagates error when cronJob.create throws (e.g. duplicate name)', async () => {
+    const ctx = createMockContext({
+      db: {
+        thread: {
+          findUnique: vi.fn().mockResolvedValue({
+            id: 'thread-1',
+            agentId: 'agent-1',
+            projectId: 'project-1',
+          }),
+        },
+        cronJob: {
+          create: vi.fn().mockRejectedValue(new Error('Unique constraint failed on the fields: (`name`)')),
+        },
+      } as never,
+    });
+
+    await expect(handleScheduleTask(ctx, { name: 'Duplicate Name', prompt: 'Run', schedule: '0 9 * * *' }, defaultMeta)).rejects.toThrow(
+      'Unique constraint',
+    );
+  });
+
+  it('logs a warning when notifySettingsChange rejects after successful creation', async () => {
+    const ctx = createMockContext();
+    (ctx.notifySettingsChange as ReturnType<typeof vi.fn>).mockRejectedValueOnce(new Error('reload failed'));
+
+    await handleScheduleTask(ctx, { name: 'Reload Fail Job', prompt: 'Run', schedule: '0 9 * * *' }, defaultMeta);
+
+    // Fire-and-forget: need to flush microtasks for the .catch() handler to run
+    await vi.waitFor(() => {
+      expect(ctx.logger.warn).toHaveBeenCalledWith(expect.stringContaining('hot-reload failed after schedule_task'));
+    });
+  });
+
+  it('errors when fireAt is not a valid datetime string', async () => {
+    const ctx = createMockContext();
+
+    const result = await handleScheduleTask(ctx, { name: 'Bad Date', prompt: 'Run', fireAt: 'not-a-date' }, defaultMeta);
+
+    expect(result).toContain('Error: fireAt is not a valid ISO 8601 datetime');
+  });
 });

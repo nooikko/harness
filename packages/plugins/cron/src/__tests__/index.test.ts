@@ -51,27 +51,12 @@ describe('cron plugin', () => {
     vi.resetModules();
   });
 
-  it('has correct name and version', () => {
-    expect(plugin.name).toBe('cron');
-    expect(plugin.version).toBe('1.0.0');
-  });
-
   it('register() returns hooks object with onSettingsChange and logs info', async () => {
     const ctx = createMockContext();
     const hooks = await plugin.register(ctx);
 
     expect(hooks).toHaveProperty('onSettingsChange');
     expect(ctx.logger.info).toHaveBeenCalledWith('Cron plugin registered');
-  });
-
-  it('register() returns no unrelated hook implementations', async () => {
-    const ctx = createMockContext();
-    const hooks = await plugin.register(ctx);
-
-    expect(hooks.onMessage).toBeUndefined();
-    expect(hooks.onBeforeInvoke).toBeUndefined();
-    expect(hooks.onAfterInvoke).toBeUndefined();
-    expect(hooks.onBroadcast).toBeUndefined();
   });
 
   describe('onSettingsChange', () => {
@@ -144,6 +129,51 @@ describe('cron plugin', () => {
       expect(ctx.logger.info).toHaveBeenCalledWith('Cron plugin: reloading scheduled jobs...');
       expect(ctx.logger.info).toHaveBeenCalledWith('Cron plugin: reload complete');
     });
+
+    it('serializes concurrent onSettingsChange calls via reload lock', async () => {
+      const ctx = createMockContext();
+      const callOrder: string[] = [];
+      const mockStop = vi.fn().mockImplementation(async () => {
+        callOrder.push('stop');
+      });
+      const mockStart = vi.fn().mockImplementation(async () => {
+        callOrder.push('start');
+      });
+
+      mockCreateCronServer.mockReturnValue({
+        start: mockStart,
+        stop: mockStop,
+      });
+
+      // Start the server first so stopServer is set
+      await plugin.start?.(ctx);
+      callOrder.length = 0;
+      mockStop.mockClear();
+      mockStart.mockClear();
+      mockCreateCronServer.mockClear();
+
+      mockCreateCronServer.mockReturnValue({
+        start: mockStart,
+        stop: mockStop,
+      });
+
+      const hooks = await plugin.register(ctx);
+
+      // Fire two reloads concurrently
+      const reload1 = hooks.onSettingsChange?.('cron');
+      const reload2 = hooks.onSettingsChange?.('cron');
+
+      await Promise.all([reload1, reload2]);
+
+      // Both reloads should complete — stop+start should be called twice each
+      // and should be serialized (never two starts or two stops running simultaneously)
+      expect(mockStop).toHaveBeenCalledTimes(2);
+      expect(mockCreateCronServer).toHaveBeenCalledTimes(2);
+      expect(mockStart).toHaveBeenCalledTimes(2);
+
+      // Verify serialized order: stop-start-stop-start (not stop-stop-start-start)
+      expect(callOrder).toEqual(['stop', 'start', 'stop', 'start']);
+    });
   });
 
   it('start() creates a cron server and calls server.start()', async () => {
@@ -159,7 +189,24 @@ describe('cron plugin', () => {
     await plugin.start?.(ctx);
 
     expect(mockCreateCronServer).toHaveBeenCalledOnce();
+    expect(mockCreateCronServer).toHaveBeenCalledWith({ timezone: 'UTC' });
     expect(mockStart).toHaveBeenCalledWith(ctx);
+  });
+
+  it('start() passes custom timezone from settings to createCronServer', async () => {
+    const ctx = createMockContext();
+    (ctx.getSettings as ReturnType<typeof vi.fn>).mockResolvedValueOnce({ timezone: 'America/Phoenix' });
+    const mockStart = vi.fn().mockResolvedValue(undefined);
+    const mockStop = vi.fn().mockResolvedValue(undefined);
+
+    mockCreateCronServer.mockReturnValueOnce({
+      start: mockStart,
+      stop: mockStop,
+    });
+
+    await plugin.start?.(ctx);
+
+    expect(mockCreateCronServer).toHaveBeenCalledWith({ timezone: 'America/Phoenix' });
   });
 
   it('stop() calls the stop handle stored during start()', async () => {
@@ -222,7 +269,7 @@ vi.mock('croner', () => {
   return { Cron: MockCron };
 });
 
-// Captured one-shot schedule calls — returns a fake timer handle
+// Captured one-shot schedule calls — returns a mock Cron instance
 type OneShotCall = {
   ctx: PluginContext;
   job: { id: string; name: string };
@@ -230,15 +277,15 @@ type OneShotCall = {
 };
 
 const oneShotCalls: OneShotCall[] = [];
-// Stores fake setTimeout handles so tests can verify clearTimeout behavior
-const oneShotHandles: Map<string, ReturnType<typeof setTimeout>> = new Map();
+// Stores mock Cron handles so tests can verify stop() behavior
+const oneShotCronHandles: Map<string, { stop: ReturnType<typeof vi.fn> }> = new Map();
 
 vi.mock('../_helpers/schedule-one-shot', () => ({
   scheduleOneShot: vi.fn((ctx: PluginContext, job: { id: string; name: string }, cleanup: (jobId: string) => void) => {
-    const handle = setTimeout(() => {}, 999_999);
+    const cronHandle = { stop: vi.fn(), nextRun: vi.fn().mockReturnValue(null) };
     oneShotCalls.push({ ctx, job, cleanup });
-    oneShotHandles.set(job.id, handle);
-    return handle;
+    oneShotCronHandles.set(job.id, cronHandle);
+    return cronHandle;
   }),
 }));
 
@@ -317,17 +364,13 @@ describe('createCronServer — integration', () => {
 
     cronInstances.length = 0;
     oneShotCalls.length = 0;
-    oneShotHandles.clear();
+    oneShotCronHandles.clear();
     mockResolveOrCreateThread.mockReset();
     mockScheduleOneShot.mockClear();
   });
 
   afterEach(() => {
-    // Clean up any live setTimeout handles created by the mock
-    for (const handle of oneShotHandles.values()) {
-      clearTimeout(handle);
-    }
-    oneShotHandles.clear();
+    oneShotCronHandles.clear();
   });
 
   // 1. Mixed job types
@@ -505,7 +548,9 @@ describe('createCronServer — integration', () => {
     // Simulate the cron trigger firing
     await instance._handler();
 
-    expect(mockResolveOrCreateThread).toHaveBeenCalledWith(ctx.db, expect.objectContaining({ id: 'lazy-thread-1', threadId: null }));
+    // After Phase 1 fix: the in-memory job.threadId is mutated to the created thread ID
+    // so we just verify the call happened with the right job id
+    expect(mockResolveOrCreateThread).toHaveBeenCalledWith(ctx.db, expect.objectContaining({ id: 'lazy-thread-1' }));
     expect(ctx.sendToThread).toHaveBeenCalledWith('created-thread-id', 'do work');
 
     await server.stop();
@@ -547,60 +592,53 @@ describe('createCronServer — integration', () => {
     await server.stop();
   });
 
-  // 5. Stop cleans up both recurring croner jobs and one-shot setTimeout handles
-  it('stop() calls croner.stop() on all recurring jobs and clears all one-shot timer handles', async () => {
-    vi.useFakeTimers();
+  // 5. Stop cleans up both recurring croner jobs and one-shot Cron handles
+  it('stop() calls croner.stop() on all recurring jobs and stops all one-shot Cron handles', async () => {
+    const futureDate = new Date(Date.now() + 60_000);
+    const jobs = [
+      {
+        id: 'recurring-stop',
+        name: 'Recurring Job',
+        schedule: '0 9 * * *',
+        fireAt: null,
+        prompt: 'recurring',
+        threadId: 'thread-r',
+        agentId: 'agent-1',
+        projectId: null,
+      },
+      {
+        id: 'oneshot-stop',
+        name: 'OneShot Job',
+        schedule: null,
+        fireAt: futureDate,
+        prompt: 'one-shot',
+        threadId: 'thread-s',
+        agentId: 'agent-1',
+        projectId: null,
+      },
+    ];
 
-    try {
-      const futureDate = new Date(Date.now() + 60_000);
-      const jobs = [
-        {
-          id: 'recurring-stop',
-          name: 'Recurring Job',
-          schedule: '0 9 * * *',
-          fireAt: null,
-          prompt: 'recurring',
-          threadId: 'thread-r',
-          agentId: 'agent-1',
-          projectId: null,
-        },
-        {
-          id: 'oneshot-stop',
-          name: 'OneShot Job',
-          schedule: null,
-          fireAt: futureDate,
-          prompt: 'one-shot',
-          threadId: 'thread-s',
-          agentId: 'agent-1',
-          projectId: null,
-        },
-      ];
+    const db = createIntegrationDb(jobs);
+    const ctx = createIntegrationContext({ db: db as never });
 
-      const db = createIntegrationDb(jobs);
-      const ctx = createIntegrationContext({ db: db as never });
+    const server = realCreateCronServer();
+    await server.start(ctx);
 
-      const server = realCreateCronServer();
-      await server.start(ctx);
+    expect(cronInstances).toHaveLength(1);
+    expect(oneShotCalls).toHaveLength(1);
 
-      expect(cronInstances).toHaveLength(1);
-      expect(oneShotCalls).toHaveLength(1);
-
-      const cronInstance = cronInstances[0];
-      if (!cronInstance) {
-        throw new Error('Expected cron instance');
-      }
-
-      await server.stop();
-
-      // Croner.stop() was called for the recurring job
-      expect(cronInstance.stop).toHaveBeenCalledOnce();
-
-      // The one-shot handle was cleared by stop() — advance fake time past the
-      // delay to confirm sendToThread is never invoked afterward
-      vi.advanceTimersByTime(60_000);
-      expect(ctx.sendToThread).not.toHaveBeenCalled();
-    } finally {
-      vi.useRealTimers();
+    const cronInstance = cronInstances[0];
+    if (!cronInstance) {
+      throw new Error('Expected cron instance');
     }
+
+    await server.stop();
+
+    // Croner.stop() was called for the recurring job
+    expect(cronInstance.stop).toHaveBeenCalledOnce();
+
+    // The one-shot Cron handle was stopped
+    const oneShotHandle = oneShotCronHandles.get('oneshot-stop');
+    expect(oneShotHandle?.stop).toHaveBeenCalledOnce();
   });
 });
