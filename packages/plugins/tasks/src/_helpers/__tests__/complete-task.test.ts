@@ -127,6 +127,24 @@ describe('completeTask', () => {
     expect(result).toContain('task-1');
   });
 
+  it('rethrows unknown errors from task update', async () => {
+    const unknownError = new Error('Database connection lost');
+    const ctx = createMockContext({
+      db: {
+        userTask: {
+          findUnique: vi.fn().mockResolvedValue({
+            id: 'task-1',
+            title: 'My Task',
+            status: 'TODO',
+          }),
+          update: vi.fn().mockRejectedValue(unknownError),
+        },
+      } as never,
+    });
+
+    await expect(completeTask(ctx, { id: 'task-1' }, defaultMeta)).rejects.toThrow('Database connection lost');
+  });
+
   it('completes an IN_PROGRESS task', async () => {
     const ctx = createMockContext({
       db: {

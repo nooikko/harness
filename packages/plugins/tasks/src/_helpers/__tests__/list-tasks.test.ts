@@ -285,14 +285,16 @@ describe('listTasks', () => {
     expect(call.take).toBe(50);
   });
 
-  it('includes blockedBy and project in the query', async () => {
+  it('includes blockedBy and project in the query with correct select shapes', async () => {
     const ctx = createMockContext();
     await listTasks(ctx, {}, defaultMeta);
 
     const db = ctx.db as unknown as MockDb;
     const call = db.userTask.findMany.mock.calls[0]?.[0];
-    expect(call.include.blockedBy).toBeDefined();
-    expect(call.include.project).toBeDefined();
+    expect(call.include.blockedBy).toEqual({
+      select: { dependsOn: { select: { id: true, title: true, status: true } } },
+    });
+    expect(call.include.project).toEqual({ select: { name: true } });
   });
 
   it('formats multiple tasks as newline-separated lines', async () => {

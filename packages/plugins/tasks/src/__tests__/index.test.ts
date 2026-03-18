@@ -1,5 +1,5 @@
-import { describe, expect, it } from 'vitest';
-import { tasksPlugin } from '../index';
+import { describe, expect, it, vi } from 'vitest';
+import { plugin as tasksPlugin } from '../index';
 
 describe('tasksPlugin', () => {
   it('has the correct name', () => {
@@ -59,10 +59,28 @@ describe('tasksPlugin', () => {
     expect(hooks).toEqual({});
   });
 
-  it('has handlers for all tools', () => {
-    for (const tool of tasksPlugin.tools ?? []) {
-      expect(typeof tool.handler).toBe('function');
-    }
+  it('add_task handler rejects missing title when invoked through the tool', async () => {
+    const tool = tasksPlugin.tools?.find((t) => t.name === 'add_task');
+    const mockCtx = {
+      db: {
+        thread: { findUnique: vi.fn().mockResolvedValue(null) },
+        userTask: { findFirst: vi.fn().mockResolvedValue(null), findMany: vi.fn().mockResolvedValue([]) },
+        userTaskDependency: { createMany: vi.fn() },
+        $transaction: vi.fn(),
+      },
+      invoker: { invoke: vi.fn() },
+      config: {},
+      logger: { info: vi.fn(), warn: vi.fn(), error: vi.fn(), debug: vi.fn() },
+      sendToThread: vi.fn(),
+      broadcast: vi.fn(),
+      getSettings: vi.fn(),
+      notifySettingsChange: vi.fn(),
+      reportStatus: vi.fn(),
+    } as Parameters<typeof tasksPlugin.register>[0];
+
+    const result = await tool!.handler(mockCtx, {}, { threadId: 'thread-1' });
+
+    expect(result).toBe('(invalid input: title is required)');
   });
 
   it('tool names are unique', () => {

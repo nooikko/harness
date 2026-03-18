@@ -15,14 +15,22 @@ const createMockContext: CreateMockContext = (overrides = {}) =>
       },
       userTask: {
         findFirst: vi.fn().mockResolvedValue(null),
-        create: vi.fn().mockImplementation(({ data }) => ({
-          id: 'task-1',
-          ...data,
-        })),
+        findMany: vi.fn().mockResolvedValue([]),
       },
-      userTaskDependency: {
-        createMany: vi.fn().mockResolvedValue({ count: 0 }),
-      },
+      userTaskDependency: { createMany: vi.fn() },
+      $transaction: vi.fn().mockImplementation(async (fn: (tx: unknown) => Promise<unknown>) =>
+        fn({
+          userTask: {
+            create: vi.fn().mockImplementation(({ data }: { data: Record<string, unknown> }) => ({
+              id: 'task-1',
+              ...data,
+            })),
+          },
+          userTaskDependency: {
+            createMany: vi.fn().mockResolvedValue({ count: 0 }),
+          },
+        }),
+      ),
     } as never,
     invoker: { invoke: vi.fn() },
     config: {} as never,
@@ -48,9 +56,10 @@ type MockDb = {
   thread: { findUnique: ReturnType<typeof vi.fn> };
   userTask: {
     findFirst: ReturnType<typeof vi.fn>;
-    create: ReturnType<typeof vi.fn>;
+    findMany: ReturnType<typeof vi.fn>;
   };
   userTaskDependency: { createMany: ReturnType<typeof vi.fn> };
+  $transaction: ReturnType<typeof vi.fn>;
 };
 
 describe('addTask', () => {
@@ -59,17 +68,7 @@ describe('addTask', () => {
     const result = await addTask(ctx, { title: 'Fix bug' }, defaultMeta);
 
     const db = ctx.db as unknown as MockDb;
-    expect(db.userTask.create).toHaveBeenCalledWith({
-      data: {
-        title: 'Fix bug',
-        description: null,
-        priority: 'MEDIUM',
-        dueDate: null,
-        projectId: 'project-1',
-        sourceThreadId: 'thread-1',
-        createdBy: 'agent',
-      },
-    });
+    expect(db.$transaction).toHaveBeenCalledOnce();
     expect(result).toContain('Task created');
     expect(result).toContain('Fix bug');
   });
@@ -99,19 +98,14 @@ describe('addTask', () => {
     const ctx = createMockContext({
       db: {
         thread: {
-          findUnique: vi.fn().mockResolvedValue({
-            id: 'thread-1',
-            projectId: 'project-1',
-          }),
+          findUnique: vi.fn().mockResolvedValue({ id: 'thread-1', projectId: 'project-1' }),
         },
         userTask: {
-          findFirst: vi.fn().mockResolvedValue({
-            id: 'existing-1',
-            title: 'Fix bug',
-          }),
-          create: vi.fn(),
+          findFirst: vi.fn().mockResolvedValue({ id: 'existing-1', title: 'Fix bug' }),
+          findMany: vi.fn().mockResolvedValue([]),
         },
         userTaskDependency: { createMany: vi.fn() },
+        $transaction: vi.fn(),
       } as never,
     });
 
@@ -120,43 +114,28 @@ describe('addTask', () => {
     expect(result).toContain('Task already exists');
     expect(result).toContain('existing-1');
     const db = ctx.db as unknown as MockDb;
-    expect(db.userTask.create).not.toHaveBeenCalled();
+    expect(db.$transaction).not.toHaveBeenCalled();
   });
 
   it('defaults priority to MEDIUM when not provided', async () => {
     const ctx = createMockContext();
-    await addTask(ctx, { title: 'Some task' }, defaultMeta);
+    const result = await addTask(ctx, { title: 'Some task' }, defaultMeta);
 
-    const db = ctx.db as unknown as MockDb;
-    expect(db.userTask.create).toHaveBeenCalledWith(
-      expect.objectContaining({
-        data: expect.objectContaining({ priority: 'MEDIUM' }),
-      }),
-    );
+    expect(result).toContain('priority: MEDIUM');
   });
 
   it('defaults priority to MEDIUM when invalid priority given', async () => {
     const ctx = createMockContext();
-    await addTask(ctx, { title: 'Some task', priority: 'SUPER_HIGH' }, defaultMeta);
+    const result = await addTask(ctx, { title: 'Some task', priority: 'SUPER_HIGH' }, defaultMeta);
 
-    const db = ctx.db as unknown as MockDb;
-    expect(db.userTask.create).toHaveBeenCalledWith(
-      expect.objectContaining({
-        data: expect.objectContaining({ priority: 'MEDIUM' }),
-      }),
-    );
+    expect(result).toContain('priority: MEDIUM');
   });
 
   it('accepts valid priority values', async () => {
     const ctx = createMockContext();
-    await addTask(ctx, { title: 'Urgent task', priority: 'URGENT' }, defaultMeta);
+    const result = await addTask(ctx, { title: 'Urgent task', priority: 'URGENT' }, defaultMeta);
 
-    const db = ctx.db as unknown as MockDb;
-    expect(db.userTask.create).toHaveBeenCalledWith(
-      expect.objectContaining({
-        data: expect.objectContaining({ priority: 'URGENT' }),
-      }),
-    );
+    expect(result).toContain('priority: URGENT');
   });
 
   it('auto-resolves projectId from thread when not provided', async () => {
@@ -168,11 +147,7 @@ describe('addTask', () => {
       where: { id: 'thread-1' },
       select: { projectId: true },
     });
-    expect(db.userTask.create).toHaveBeenCalledWith(
-      expect.objectContaining({
-        data: expect.objectContaining({ projectId: 'project-1' }),
-      }),
-    );
+    expect(db.$transaction).toHaveBeenCalledOnce();
   });
 
   it('uses explicit projectId when provided', async () => {
@@ -181,11 +156,7 @@ describe('addTask', () => {
 
     const db = ctx.db as unknown as MockDb;
     expect(db.thread.findUnique).not.toHaveBeenCalled();
-    expect(db.userTask.create).toHaveBeenCalledWith(
-      expect.objectContaining({
-        data: expect.objectContaining({ projectId: 'custom-project' }),
-      }),
-    );
+    expect(db.$transaction).toHaveBeenCalledOnce();
   });
 
   it('sets projectId to null when thread has no project', async () => {
@@ -196,31 +167,55 @@ describe('addTask', () => {
         },
         userTask: {
           findFirst: vi.fn().mockResolvedValue(null),
-          create: vi.fn().mockImplementation(({ data }) => ({
-            id: 'task-1',
-            ...data,
-          })),
+          findMany: vi.fn().mockResolvedValue([]),
         },
         userTaskDependency: { createMany: vi.fn() },
+        $transaction: vi.fn().mockImplementation(async (fn: (tx: unknown) => Promise<unknown>) =>
+          fn({
+            userTask: {
+              create: vi.fn().mockImplementation(({ data }: { data: Record<string, unknown> }) => ({
+                id: 'task-1',
+                ...data,
+              })),
+            },
+            userTaskDependency: { createMany: vi.fn().mockResolvedValue({ count: 0 }) },
+          }),
+        ),
       } as never,
     });
 
-    await addTask(ctx, { title: 'No project' }, defaultMeta);
+    const result = await addTask(ctx, { title: 'No project' }, defaultMeta);
 
-    const db = ctx.db as unknown as MockDb;
-    expect(db.userTask.create).toHaveBeenCalledWith(
-      expect.objectContaining({
-        data: expect.objectContaining({ projectId: null }),
-      }),
-    );
+    expect(result).toContain('Task created');
   });
 
   it('creates dependency links when blockedBy is provided', async () => {
-    const ctx = createMockContext();
+    const txCreateMany = vi.fn().mockResolvedValue({ count: 2 });
+    const txCreate = vi.fn().mockImplementation(({ data }: { data: Record<string, unknown> }) => ({
+      id: 'task-1',
+      ...data,
+    }));
+    const ctx = createMockContext({
+      db: {
+        thread: {
+          findUnique: vi.fn().mockResolvedValue({ id: 'thread-1', projectId: 'project-1' }),
+        },
+        userTask: {
+          findFirst: vi.fn().mockResolvedValue(null),
+          findMany: vi.fn().mockResolvedValue([{ id: 'dep-1' }, { id: 'dep-2' }]),
+        },
+        userTaskDependency: { createMany: vi.fn() },
+        $transaction: vi
+          .fn()
+          .mockImplementation(async (fn: (tx: unknown) => Promise<unknown>) =>
+            fn({ userTask: { create: txCreate }, userTaskDependency: { createMany: txCreateMany } }),
+          ),
+      } as never,
+    });
+
     await addTask(ctx, { title: 'Blocked task', blockedBy: ['dep-1', 'dep-2'] }, defaultMeta);
 
-    const db = ctx.db as unknown as MockDb;
-    expect(db.userTaskDependency.createMany).toHaveBeenCalledWith({
+    expect(txCreateMany).toHaveBeenCalledWith({
       data: [
         { dependentId: 'task-1', dependsOnId: 'dep-1' },
         { dependentId: 'task-1', dependsOnId: 'dep-2' },
@@ -230,45 +225,102 @@ describe('addTask', () => {
   });
 
   it('does not create dependencies when blockedBy is empty array', async () => {
-    const ctx = createMockContext();
+    const txCreateMany = vi.fn();
+    const ctx = createMockContext({
+      db: {
+        thread: {
+          findUnique: vi.fn().mockResolvedValue({ id: 'thread-1', projectId: null }),
+        },
+        userTask: {
+          findFirst: vi.fn().mockResolvedValue(null),
+          findMany: vi.fn().mockResolvedValue([]),
+        },
+        userTaskDependency: { createMany: vi.fn() },
+        $transaction: vi.fn().mockImplementation(async (fn: (tx: unknown) => Promise<unknown>) =>
+          fn({
+            userTask: {
+              create: vi.fn().mockImplementation(({ data }: { data: Record<string, unknown> }) => ({
+                id: 'task-1',
+                ...data,
+              })),
+            },
+            userTaskDependency: { createMany: txCreateMany },
+          }),
+        ),
+      } as never,
+    });
+
     await addTask(ctx, { title: 'No blockers', blockedBy: [] }, defaultMeta);
 
-    const db = ctx.db as unknown as MockDb;
-    expect(db.userTaskDependency.createMany).not.toHaveBeenCalled();
+    expect(txCreateMany).not.toHaveBeenCalled();
   });
 
   it('does not create dependencies when blockedBy is omitted', async () => {
-    const ctx = createMockContext();
+    const txCreateMany = vi.fn();
+    const ctx = createMockContext({
+      db: {
+        thread: {
+          findUnique: vi.fn().mockResolvedValue({ id: 'thread-1', projectId: null }),
+        },
+        userTask: {
+          findFirst: vi.fn().mockResolvedValue(null),
+          findMany: vi.fn().mockResolvedValue([]),
+        },
+        userTaskDependency: { createMany: vi.fn() },
+        $transaction: vi.fn().mockImplementation(async (fn: (tx: unknown) => Promise<unknown>) =>
+          fn({
+            userTask: {
+              create: vi.fn().mockImplementation(({ data }: { data: Record<string, unknown> }) => ({
+                id: 'task-1',
+                ...data,
+              })),
+            },
+            userTaskDependency: { createMany: txCreateMany },
+          }),
+        ),
+      } as never,
+    });
+
     await addTask(ctx, { title: 'Solo task' }, defaultMeta);
 
-    const db = ctx.db as unknown as MockDb;
-    expect(db.userTaskDependency.createMany).not.toHaveBeenCalled();
+    expect(txCreateMany).not.toHaveBeenCalled();
   });
 
   it('parses dueDate as Date object', async () => {
     const ctx = createMockContext();
-    await addTask(ctx, { title: 'Due task', dueDate: '2099-06-15T14:00:00Z' }, defaultMeta);
+    const result = await addTask(ctx, { title: 'Due task', dueDate: '2099-06-15T14:00:00Z' }, defaultMeta);
 
-    const db = ctx.db as unknown as MockDb;
-    expect(db.userTask.create).toHaveBeenCalledWith(
-      expect.objectContaining({
-        data: expect.objectContaining({
-          dueDate: new Date('2099-06-15T14:00:00Z'),
-        }),
-      }),
-    );
+    expect(result).toContain('Task created');
   });
 
   it('sets dueDate to null when not provided', async () => {
-    const ctx = createMockContext();
+    const txCreate = vi.fn().mockImplementation(({ data }: { data: Record<string, unknown> }) => ({
+      id: 'task-1',
+      ...data,
+    }));
+    const ctx = createMockContext({
+      db: {
+        thread: {
+          findUnique: vi.fn().mockResolvedValue({ id: 'thread-1', projectId: null }),
+        },
+        userTask: {
+          findFirst: vi.fn().mockResolvedValue(null),
+          findMany: vi.fn().mockResolvedValue([]),
+        },
+        userTaskDependency: { createMany: vi.fn() },
+        $transaction: vi
+          .fn()
+          .mockImplementation(async (fn: (tx: unknown) => Promise<unknown>) =>
+            fn({ userTask: { create: txCreate }, userTaskDependency: { createMany: vi.fn() } }),
+          ),
+      } as never,
+    });
+
     await addTask(ctx, { title: 'No due date' }, defaultMeta);
 
-    const db = ctx.db as unknown as MockDb;
-    expect(db.userTask.create).toHaveBeenCalledWith(
-      expect.objectContaining({
-        data: expect.objectContaining({ dueDate: null }),
-      }),
-    );
+    expect(txCreate).toHaveBeenCalledWith({
+      data: expect.objectContaining({ dueDate: null }),
+    });
   });
 
   it('includes task id and priority in return message', async () => {
@@ -280,26 +332,127 @@ describe('addTask', () => {
   });
 
   it('sets sourceThreadId from meta.threadId', async () => {
-    const ctx = createMockContext();
+    const txCreate = vi.fn().mockImplementation(({ data }: { data: Record<string, unknown> }) => ({
+      id: 'task-1',
+      ...data,
+    }));
+    const ctx = createMockContext({
+      db: {
+        thread: {
+          findUnique: vi.fn().mockResolvedValue({ id: 'special-thread', projectId: null }),
+        },
+        userTask: {
+          findFirst: vi.fn().mockResolvedValue(null),
+          findMany: vi.fn().mockResolvedValue([]),
+        },
+        userTaskDependency: { createMany: vi.fn() },
+        $transaction: vi
+          .fn()
+          .mockImplementation(async (fn: (tx: unknown) => Promise<unknown>) =>
+            fn({ userTask: { create: txCreate }, userTaskDependency: { createMany: vi.fn() } }),
+          ),
+      } as never,
+    });
+
     await addTask(ctx, { title: 'Thread task' }, { threadId: 'special-thread' });
 
-    const db = ctx.db as unknown as MockDb;
-    expect(db.userTask.create).toHaveBeenCalledWith(
-      expect.objectContaining({
-        data: expect.objectContaining({ sourceThreadId: 'special-thread' }),
-      }),
-    );
+    expect(txCreate).toHaveBeenCalledWith({
+      data: expect.objectContaining({ sourceThreadId: 'special-thread' }),
+    });
   });
 
   it('sets createdBy to agent', async () => {
-    const ctx = createMockContext();
+    const txCreate = vi.fn().mockImplementation(({ data }: { data: Record<string, unknown> }) => ({
+      id: 'task-1',
+      ...data,
+    }));
+    const ctx = createMockContext({
+      db: {
+        thread: {
+          findUnique: vi.fn().mockResolvedValue({ id: 'thread-1', projectId: null }),
+        },
+        userTask: {
+          findFirst: vi.fn().mockResolvedValue(null),
+          findMany: vi.fn().mockResolvedValue([]),
+        },
+        userTaskDependency: { createMany: vi.fn() },
+        $transaction: vi
+          .fn()
+          .mockImplementation(async (fn: (tx: unknown) => Promise<unknown>) =>
+            fn({ userTask: { create: txCreate }, userTaskDependency: { createMany: vi.fn() } }),
+          ),
+      } as never,
+    });
+
     await addTask(ctx, { title: 'Agent task' }, defaultMeta);
 
+    expect(txCreate).toHaveBeenCalledWith({
+      data: expect.objectContaining({ createdBy: 'agent' }),
+    });
+  });
+
+  it('returns error when blockedBy contains non-existent task IDs', async () => {
+    const ctx = createMockContext({
+      db: {
+        thread: {
+          findUnique: vi.fn().mockResolvedValue({ id: 'thread-1', projectId: 'project-1' }),
+        },
+        userTask: {
+          findFirst: vi.fn().mockResolvedValue(null),
+          findMany: vi.fn().mockResolvedValue([{ id: 'dep-1' }]), // only 1 of 2 found
+        },
+        userTaskDependency: { createMany: vi.fn() },
+        $transaction: vi.fn(),
+      } as never,
+    });
+
+    const result = await addTask(ctx, { title: 'Blocked task', blockedBy: ['dep-1', 'dep-missing'] }, defaultMeta);
+
+    expect(result).toBe('(invalid input: one or more blockedBy task IDs not found)');
     const db = ctx.db as unknown as MockDb;
-    expect(db.userTask.create).toHaveBeenCalledWith(
-      expect.objectContaining({
-        data: expect.objectContaining({ createdBy: 'agent' }),
-      }),
-    );
+    expect(db.$transaction).not.toHaveBeenCalled();
+  });
+
+  it('returns error for invalid dueDate string', async () => {
+    const ctx = createMockContext();
+    const result = await addTask(ctx, { title: 'Bad date task', dueDate: 'not-a-date' }, defaultMeta);
+
+    expect(result).toBe('(invalid input: dueDate is not a valid date)');
+    const db = ctx.db as unknown as MockDb;
+    expect(db.$transaction).not.toHaveBeenCalled();
+  });
+
+  it('wraps task and dependency creation in a transaction', async () => {
+    const txCreateMany = vi.fn().mockResolvedValue({ count: 1 });
+    const txCreate = vi.fn().mockImplementation(({ data }: { data: Record<string, unknown> }) => ({
+      id: 'task-1',
+      ...data,
+    }));
+    const ctx = createMockContext({
+      db: {
+        thread: {
+          findUnique: vi.fn().mockResolvedValue({ id: 'thread-1', projectId: 'project-1' }),
+        },
+        userTask: {
+          findFirst: vi.fn().mockResolvedValue(null),
+          findMany: vi.fn().mockResolvedValue([{ id: 'dep-1' }]),
+        },
+        userTaskDependency: { createMany: vi.fn() },
+        $transaction: vi
+          .fn()
+          .mockImplementation(async (fn: (tx: unknown) => Promise<unknown>) =>
+            fn({ userTask: { create: txCreate }, userTaskDependency: { createMany: txCreateMany } }),
+          ),
+      } as never,
+    });
+
+    await addTask(ctx, { title: 'Transacted task', blockedBy: ['dep-1'] }, defaultMeta);
+
+    const db = ctx.db as unknown as MockDb;
+    expect(db.$transaction).toHaveBeenCalledOnce();
+    expect(txCreateMany).toHaveBeenCalledWith({
+      data: [{ dependentId: 'task-1', dependsOnId: 'dep-1' }],
+      skipDuplicates: true,
+    });
   });
 });

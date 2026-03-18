@@ -213,4 +213,70 @@ describe('addDependency', () => {
 
     expect(result).toContain('Dependency added');
   });
+
+  it('BFS visited guard prevents redundant traversal in diamond dependency graph', async () => {
+    // Diamond: X is blocked by B and C; both B and C are blocked by D
+    // Adding A→X (A blocked by X) should succeed with no cycle
+    // Without the visited guard, D would be queued and traversed twice
+    const findMany = vi.fn().mockImplementation(({ where }: { where: { dependentId: string } }) => {
+      if (where.dependentId === 'task-x') {
+        return Promise.resolve([{ dependsOnId: 'task-b' }, { dependsOnId: 'task-c' }]);
+      }
+      if (where.dependentId === 'task-b') {
+        return Promise.resolve([{ dependsOnId: 'task-d' }]);
+      }
+      if (where.dependentId === 'task-c') {
+        return Promise.resolve([{ dependsOnId: 'task-d' }]);
+      }
+      return Promise.resolve([]);
+    });
+    const create = vi.fn().mockResolvedValue({ id: 'dep-new' });
+    const ctx = createMockContext({
+      db: {
+        userTask: {
+          findUnique: vi.fn().mockImplementation(({ where }: { where: { id: string } }) => {
+            const tasks: Record<string, { id: string; title: string }> = {
+              'task-a': { id: 'task-a', title: 'Task A' },
+              'task-x': { id: 'task-x', title: 'Task X' },
+            };
+            return Promise.resolve(tasks[where.id] ?? null);
+          }),
+        },
+        userTaskDependency: { findMany, create },
+      } as never,
+    });
+
+    // A→X: X cannot reach A through the diamond, so no cycle
+    const result = await addDependency(ctx, { taskId: 'task-a', blockedById: 'task-x' }, defaultMeta);
+
+    expect(result).toContain('Dependency added');
+    // D should only be traversed once despite being reachable via both B and C
+    const dCalls = findMany.mock.calls.filter((args: [{ where: { dependentId: string } }]) => args[0]?.where.dependentId === 'task-d');
+    expect(dCalls).toHaveLength(1);
+  });
+
+  it('rethrows unknown errors from dependency create', async () => {
+    const unknownError = new Error('Database connection lost');
+    const ctx = createMockContext({
+      db: {
+        userTask: {
+          findUnique: vi.fn().mockImplementation(({ where }: { where: { id: string } }) => {
+            if (where.id === 'task-a') {
+              return Promise.resolve({ id: 'task-a', title: 'Task A' });
+            }
+            if (where.id === 'task-b') {
+              return Promise.resolve({ id: 'task-b', title: 'Task B' });
+            }
+            return Promise.resolve(null);
+          }),
+        },
+        userTaskDependency: {
+          findMany: vi.fn().mockResolvedValue([]),
+          create: vi.fn().mockRejectedValue(unknownError),
+        },
+      } as never,
+    });
+
+    await expect(addDependency(ctx, { taskId: 'task-a', blockedById: 'task-b' }, defaultMeta)).rejects.toThrow('Database connection lost');
+  });
 });
