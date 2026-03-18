@@ -237,6 +237,18 @@ describe('identity plugin', () => {
     });
   });
 
+  it('returns the original prompt when onBeforeInvoke encounters a DB error', async () => {
+    const ctx = createMockContext();
+    // Make loadAgent throw by having thread.findUnique throw
+    (ctx.db as never as { thread: { findUnique: ReturnType<typeof vi.fn> } }).thread.findUnique.mockRejectedValue(new Error('DB connection lost'));
+    const hooks = await plugin.register(ctx);
+
+    const result = await hooks.onBeforeInvoke?.('thread-1', 'My prompt');
+
+    expect(result).toBe('My prompt');
+    expect(ctx.logger.error).toHaveBeenCalledWith(expect.stringContaining('onBeforeInvoke failed'));
+  });
+
   describe('onAfterInvoke', () => {
     // Helper: flush all pending microtasks/promises
     const flushPromises = () => new Promise<void>((resolve) => setImmediate(resolve));

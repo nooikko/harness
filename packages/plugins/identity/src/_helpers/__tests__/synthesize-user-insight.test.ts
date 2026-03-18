@@ -110,4 +110,11 @@ describe('synthesizeUserInsight', () => {
       data: expect.objectContaining({ importance: 8 }),
     });
   });
+
+  it('limits SEMANTIC memory query to 50 records', async () => {
+    const existing = [{ id: 'mem-1', content: 'Some fact' }];
+    const ctx = makeCtx(existing, '{"action": "skip"}');
+    await synthesizeUserInsight(ctx as never, 'agent-1', 'Aria', 'new fact');
+    expect(ctx.db.agentMemory.findMany).toHaveBeenCalledWith(expect.objectContaining({ take: 50 }));
+  });
 });

@@ -26,6 +26,7 @@ export const synthesizeUserInsight: SynthesizeUserInsight = async (ctx, agentId,
   const existing = await ctx.db.agentMemory.findMany({
     where: { agentId, type: 'SEMANTIC' },
     orderBy: { createdAt: 'desc' },
+    take: 50,
   });
 
   // First SEMANTIC memory — write the fact directly, no synthesis needed

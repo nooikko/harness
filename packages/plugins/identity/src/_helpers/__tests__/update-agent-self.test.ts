@@ -1,11 +1,21 @@
 import { describe, expect, it, vi } from 'vitest';
 import { updateAgentSelf } from '../update-agent-self';
 
-const makeMockDb = () => ({
-  thread: { findUnique: vi.fn() },
-  agent: { update: vi.fn() },
-  agentConfig: { upsert: vi.fn() },
-});
+const makeMockDb = () => {
+  const agentUpdate = vi.fn();
+  const agentConfigUpsert = vi.fn();
+  return {
+    thread: { findUnique: vi.fn() },
+    agent: { update: agentUpdate },
+    agentConfig: { upsert: agentConfigUpsert },
+    $transaction: vi.fn().mockImplementation(async (fn: (tx: unknown) => Promise<unknown>) =>
+      fn({
+        agent: { update: agentUpdate },
+        agentConfig: { upsert: agentConfigUpsert },
+      }),
+    ),
+  };
+};
 
 describe('updateAgentSelf', () => {
   it('returns error message when thread has no agent', async () => {
@@ -118,6 +128,49 @@ describe('updateAgentSelf', () => {
       where: { id: 'agent-4' },
       data: {},
     });
+    expect(db.agentConfig.upsert).toHaveBeenCalled();
+  });
+
+  it('rejects empty name with error message', async () => {
+    const db = makeMockDb();
+    db.thread.findUnique.mockResolvedValue({ agentId: 'agent-1' });
+
+    const result = await updateAgentSelf(db as never, 'thread-1', { name: '' });
+
+    expect(result).toBe('(name cannot be empty)');
+    expect(db.agent.update).not.toHaveBeenCalled();
+  });
+
+  it('rejects whitespace-only soul with error message', async () => {
+    const db = makeMockDb();
+    db.thread.findUnique.mockResolvedValue({ agentId: 'agent-1' });
+
+    const result = await updateAgentSelf(db as never, 'thread-1', { soul: '   ' });
+
+    expect(result).toBe('(soul cannot be empty)');
+    expect(db.agent.update).not.toHaveBeenCalled();
+  });
+
+  it('rejects empty identity with error message', async () => {
+    const db = makeMockDb();
+    db.thread.findUnique.mockResolvedValue({ agentId: 'agent-1' });
+
+    const result = await updateAgentSelf(db as never, 'thread-1', { identity: '' });
+
+    expect(result).toBe('(identity cannot be empty)');
+    expect(db.agent.update).not.toHaveBeenCalled();
+  });
+
+  it('runs agent update and config upsert in a $transaction', async () => {
+    const db = makeMockDb();
+    db.thread.findUnique.mockResolvedValue({ agentId: 'agent-1' });
+    db.agent.update.mockResolvedValue({ name: 'Bot' });
+    db.agentConfig.upsert.mockResolvedValue({});
+
+    await updateAgentSelf(db as never, 'thread-1', { name: 'Bot' });
+
+    expect(db.$transaction).toHaveBeenCalledOnce();
+    expect(db.agent.update).toHaveBeenCalled();
     expect(db.agentConfig.upsert).toHaveBeenCalled();
   });
 });

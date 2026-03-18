@@ -30,14 +30,23 @@ export const updateAgentSelf: UpdateAgentSelf = async (db, threadId, input) => {
 
   // Build update data — only include fields that were provided
   const updateData: Record<string, unknown> = {};
-  if (input.name) {
+  if (input.name !== undefined) {
+    if (!input.name.trim()) {
+      return '(name cannot be empty)';
+    }
     updateData.name = input.name;
     updateData.slug = toSlug(input.name);
   }
-  if (input.soul) {
+  if (input.soul !== undefined) {
+    if (!input.soul.trim()) {
+      return '(soul cannot be empty)';
+    }
     updateData.soul = input.soul;
   }
-  if (input.identity) {
+  if (input.identity !== undefined) {
+    if (!input.identity.trim()) {
+      return '(identity cannot be empty)';
+    }
     updateData.identity = input.identity;
   }
   if (input.role !== undefined) {
@@ -50,21 +59,23 @@ export const updateAgentSelf: UpdateAgentSelf = async (db, threadId, input) => {
     updateData.backstory = input.backstory;
   }
 
-  const agent = await db.agent.update({
-    where: { id: agentId },
-    data: updateData,
-  });
-
-  // Mark as bootstrapped
-  await db.agentConfig.upsert({
-    where: { agentId },
-    update: { bootstrapped: true },
-    create: {
-      agentId,
-      memoryEnabled: true,
-      reflectionEnabled: false,
-      bootstrapped: true,
-    },
+  // Atomic: agent update + bootstrapped flag in a single transaction
+  const agent = await db.$transaction(async (tx) => {
+    const updated = await tx.agent.update({
+      where: { id: agentId },
+      data: updateData,
+    });
+    await tx.agentConfig.upsert({
+      where: { agentId },
+      update: { bootstrapped: true },
+      create: {
+        agentId,
+        memoryEnabled: true,
+        reflectionEnabled: false,
+        bootstrapped: true,
+      },
+    });
+    return updated;
   });
 
   return `Identity updated. I am now ${agent.name}.`;

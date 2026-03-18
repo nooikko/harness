@@ -16,13 +16,26 @@ type CheckReflectionTrigger = (
   agentId: string,
   projectId?: string | null,
   reflectionThreshold?: number,
+  threadId?: string | null,
 ) => Promise<ReflectionTriggerResult>;
 
-export const checkReflectionTrigger: CheckReflectionTrigger = async (db, agentId, projectId, reflectionThreshold) => {
+export const checkReflectionTrigger: CheckReflectionTrigger = async (db, agentId, projectId, reflectionThreshold, threadId) => {
   const threshold = reflectionThreshold ?? DEFAULT_REFLECTION_THRESHOLD;
-  // Scope filter: when projectId provided, only count project-scoped memories
-  // When absent, only count agent-scoped memories (cross-project reflections)
-  const scopeFilter: Prisma.AgentMemoryWhereInput = projectId ? { scope: 'PROJECT', projectId } : { scope: 'AGENT' };
+  // Scope filter: include THREAD-scoped memories alongside PROJECT/AGENT scopes
+  // so conversations generating mostly THREAD-scoped memories can still trigger reflections
+  const scopeFilter: Prisma.AgentMemoryWhereInput = (() => {
+    if (projectId) {
+      const conditions: Prisma.AgentMemoryWhereInput[] = [{ scope: 'PROJECT', projectId }];
+      if (threadId) {
+        conditions.push({ scope: 'THREAD', threadId });
+      }
+      return { OR: conditions };
+    }
+    if (threadId) {
+      return { OR: [{ scope: 'AGENT' }, { scope: 'THREAD', threadId }] };
+    }
+    return { scope: 'AGENT' };
+  })();
 
   const lastReflection = await db.agentMemory.findFirst({
     where: { agentId, type: 'REFLECTION', ...scopeFilter },

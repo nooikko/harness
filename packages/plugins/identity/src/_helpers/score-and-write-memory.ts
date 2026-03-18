@@ -152,7 +152,7 @@ export const scoreAndWriteMemory: ScoreAndWriteMemory = async (ctx, agentId, age
   // Check if reflection should be triggered — fire-and-forget
   if (reflectionEnabled) {
     void (async () => {
-      const trigger = await checkReflectionTrigger(ctx.db, agentId, projectId, reflectionThreshold);
+      const trigger = await checkReflectionTrigger(ctx.db, agentId, projectId, reflectionThreshold, threadId);
       if (trigger.shouldReflect) {
         await runReflection(ctx, agentId, agentName, trigger.memories, projectId);
       }

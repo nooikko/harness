@@ -94,27 +94,36 @@ describe('checkReflectionTrigger', () => {
 
   // ── Project-scoped reflection trigger tests ─────────────────────────
 
-  it('uses PROJECT scope filter when projectId is provided', async () => {
+  it('uses PROJECT scope filter when projectId is provided (no threadId)', async () => {
     const db = makeDb(null, []);
     await checkReflectionTrigger(db as never, 'agent-1', 'proj-1');
     expect(db.agentMemory.findFirst).toHaveBeenCalledWith(
       expect.objectContaining({
-        where: { agentId: 'agent-1', type: 'REFLECTION', scope: 'PROJECT', projectId: 'proj-1' },
-      }),
-    );
-    expect(db.agentMemory.findMany).toHaveBeenCalledWith(
-      expect.objectContaining({
         where: expect.objectContaining({
           agentId: 'agent-1',
-          type: 'EPISODIC',
-          scope: 'PROJECT',
-          projectId: 'proj-1',
+          type: 'REFLECTION',
+          OR: [{ scope: 'PROJECT', projectId: 'proj-1' }],
         }),
       }),
     );
   });
 
-  it('uses AGENT scope filter when projectId is not provided', async () => {
+  it('includes THREAD scope in OR filter when both projectId and threadId provided', async () => {
+    const db = makeDb(null, []);
+    await checkReflectionTrigger(db as never, 'agent-1', 'proj-1', undefined, 'thread-1');
+    expect(db.agentMemory.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: expect.objectContaining({
+          OR: [
+            { scope: 'PROJECT', projectId: 'proj-1' },
+            { scope: 'THREAD', threadId: 'thread-1' },
+          ],
+        }),
+      }),
+    );
+  });
+
+  it('uses AGENT scope filter when projectId is not provided and no threadId', async () => {
     const db = makeDb(null, []);
     await checkReflectionTrigger(db as never, 'agent-1');
     expect(db.agentMemory.findFirst).toHaveBeenCalledWith(
@@ -129,7 +138,19 @@ describe('checkReflectionTrigger', () => {
     );
   });
 
-  it('uses AGENT scope filter when projectId is null', async () => {
+  it('uses AGENT + THREAD OR filter when threadId provided without projectId', async () => {
+    const db = makeDb(null, []);
+    await checkReflectionTrigger(db as never, 'agent-1', null, undefined, 'thread-1');
+    expect(db.agentMemory.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: expect.objectContaining({
+          OR: [{ scope: 'AGENT' }, { scope: 'THREAD', threadId: 'thread-1' }],
+        }),
+      }),
+    );
+  });
+
+  it('uses AGENT scope filter when projectId is null and no threadId', async () => {
     const db = makeDb(null, []);
     await checkReflectionTrigger(db as never, 'agent-1', null);
     expect(db.agentMemory.findFirst).toHaveBeenCalledWith(

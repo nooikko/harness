@@ -50,11 +50,6 @@ export const plugin: PluginDefinition = {
 
     let settings = await ctx.getSettings(settingsSchema);
 
-    // Per-pipeline agent cache — onBeforeInvoke loads the agent, onAfterInvoke reuses it.
-    // Avoids 4 redundant DB queries per pipeline run (2 in each hook).
-    // Safe because hooks run sequentially within a pipeline for the same threadId.
-    const agentCache = new Map<string, Awaited<ReturnType<typeof loadAgent>>>();
-
     return {
       onSettingsChange: async (pluginName: string) => {
         if (pluginName !== 'identity') {
@@ -65,56 +60,59 @@ export const plugin: PluginDefinition = {
       },
 
       onBeforeInvoke: async (threadId, prompt) => {
-        const agent = await loadAgent(ctx.db, threadId);
-        if (!agent) {
-          agentCache.delete(threadId);
+        try {
+          const agent = await loadAgent(ctx.db, threadId);
+          if (!agent) {
+            return prompt;
+          }
+
+          const config = await loadAgentConfig(ctx.db, agent.id);
+
+          const memoryLimit = settings.memoryLimit ?? DEFAULT_MEMORY_LIMIT;
+          const retrievalConfig: RetrievalConfig = {
+            candidatePool: settings.candidatePool,
+            decayRate: settings.decayRate,
+            reflectionBoost: settings.reflectionBoost,
+            semanticBoost: settings.semanticBoost,
+          };
+
+          const memories = await retrieveMemories(
+            ctx.db,
+            agent.id,
+            prompt,
+            memoryLimit,
+            {
+              projectId: agent.threadProjectId,
+              threadId,
+            },
+            retrievalConfig,
+          );
+          const header = formatIdentityHeader(agent, memories, {
+            soulMaxChars: SOUL_MAX_CHARS,
+            identityMaxChars: IDENTITY_MAX_CHARS,
+          });
+          const anchor = formatIdentityAnchor(agent);
+
+          // Inject bootstrap prompt if agent hasn't been bootstrapped yet
+          const sections: string[] = [];
+          if (config?.bootstrapped === false) {
+            sections.push(formatBootstrapPrompt(agent.name));
+          }
+          sections.push(header);
+          sections.push(prompt);
+          sections.push(anchor);
+
+          return sections.join('\n\n---\n\n');
+        } catch (err) {
+          ctx.logger.error(
+            `identity: onBeforeInvoke failed, prompt passed through without identity [thread=${threadId}]: ${err instanceof Error ? err.message : String(err)}`,
+          );
           return prompt;
         }
-        agentCache.set(threadId, agent);
-
-        const config = await loadAgentConfig(ctx.db, agent.id);
-
-        const memoryLimit = settings.memoryLimit ?? DEFAULT_MEMORY_LIMIT;
-        const retrievalConfig: RetrievalConfig = {
-          candidatePool: settings.candidatePool,
-          decayRate: settings.decayRate,
-          reflectionBoost: settings.reflectionBoost,
-          semanticBoost: settings.semanticBoost,
-        };
-
-        const memories = await retrieveMemories(
-          ctx.db,
-          agent.id,
-          prompt,
-          memoryLimit,
-          {
-            projectId: agent.threadProjectId,
-            threadId,
-          },
-          retrievalConfig,
-        );
-        const header = formatIdentityHeader(agent, memories, {
-          soulMaxChars: SOUL_MAX_CHARS,
-          identityMaxChars: IDENTITY_MAX_CHARS,
-        });
-        const anchor = formatIdentityAnchor(agent);
-
-        // Inject bootstrap prompt if agent hasn't been bootstrapped yet
-        const sections: string[] = [];
-        if (config?.bootstrapped === false) {
-          sections.push(formatBootstrapPrompt(agent.name));
-        }
-        sections.push(header);
-        sections.push(prompt);
-        sections.push(anchor);
-
-        return sections.join('\n\n---\n\n');
       },
 
       onAfterInvoke: async (threadId, result) => {
-        // Reuse the agent loaded during onBeforeInvoke (same pipeline, same threadId)
-        const agent = agentCache.get(threadId) ?? (await loadAgent(ctx.db, threadId));
-        agentCache.delete(threadId);
+        const agent = await loadAgent(ctx.db, threadId);
         if (!agent) {
           return;
         }
