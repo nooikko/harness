@@ -49,7 +49,7 @@ const EmailFoldersBlock: EmailFoldersBlockComponent = ({ data }) => {
             </span>
             <div className='flex shrink-0 items-center gap-2 text-xs'>
               {folder.unreadItems > 0 && (
-                <span className='inline-flex h-5 min-w-[20px] items-center justify-center rounded-full bg-primary px-1.5 text-[10px] font-medium text-primary-foreground'>
+                <span className='inline-flex h-5 min-w-5 items-center justify-center rounded-full bg-primary px-1.5 text-[10px] font-medium text-primary-foreground'>
                   {folder.unreadItems}
                 </span>
               )}

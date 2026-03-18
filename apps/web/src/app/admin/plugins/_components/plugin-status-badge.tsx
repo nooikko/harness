@@ -69,7 +69,7 @@ export const PluginStatusBadge: PluginStatusBadgeComponent = ({ pluginName, enab
     <span className='inline-flex items-center gap-1.5 text-xs text-muted-foreground' title={status.message}>
       <span className={`h-2 w-2 rounded-full ${style.dot}`} aria-hidden='true' />
       <span>{style.label}</span>
-      {status.message && status.level !== 'healthy' && <span className='max-w-[200px] truncate text-muted-foreground/60'>{status.message}</span>}
+      {status.message && status.level !== 'healthy' && <span className='max-w-50 truncate text-muted-foreground/60'>{status.message}</span>}
     </span>
   );
 };

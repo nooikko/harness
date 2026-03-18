@@ -212,7 +212,7 @@ export const CreateAgentForm: CreateAgentFormComponent = () => {
               placeholder="Describe this agent's fundamental nature, values, and personality..."
               required
               rows={8}
-              className='min-h-[140px] resize-y'
+              className='min-h-35 resize-y'
             />
             <p className='text-xs text-muted-foreground'>The agent&apos;s core character — who they are at heart.</p>
           </div>
@@ -239,7 +239,7 @@ export const CreateAgentForm: CreateAgentFormComponent = () => {
               placeholder='Describe how this agent presents itself, its responsibilities, and capabilities...'
               required
               rows={6}
-              className='min-h-[100px] resize-y'
+              className='min-h-25 resize-y'
             />
             <p className='text-xs text-muted-foreground'>How the agent introduces and presents itself to others.</p>
           </div>
@@ -320,7 +320,7 @@ export const CreateAgentForm: CreateAgentFormComponent = () => {
               onChange={(e: React.ChangeEvent<HTMLTextAreaElement>) => setBackstory(e.target.value)}
               placeholder='Additional background context for this agent...'
               rows={4}
-              className='min-h-[80px] resize-y'
+              className='min-h-20 resize-y'
             />
           </div>
           <Separator />

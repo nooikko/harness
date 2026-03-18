@@ -133,7 +133,7 @@ export const AgentMemoryBrowser: AgentMemoryBrowserComponent = ({ agentId, memor
                     </Badge>
                     <span className='text-xs text-muted-foreground'>{formatRelativeDate(memory.createdAt)}</span>
                     {memory.threadId && (
-                      <span className='text-xs text-muted-foreground font-mono truncate max-w-[120px]'>{memory.threadId.slice(0, 8)}…</span>
+                      <span className='text-xs text-muted-foreground font-mono truncate max-w-30'>{memory.threadId.slice(0, 8)}…</span>
                     )}
                   </div>
                 </div>
