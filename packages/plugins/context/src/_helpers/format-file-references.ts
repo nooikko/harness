@@ -12,9 +12,9 @@ const formatSize: FormatSize = (bytes) => {
   return `${bytes}B`;
 };
 
-type FormatFileReferences = (files: FileReference[]) => string;
+type FormatFileReferences = (files: FileReference[], truncated?: boolean) => string;
 
-export const formatFileReferences: FormatFileReferences = (files) => {
+export const formatFileReferences: FormatFileReferences = (files, truncated) => {
   if (files.length === 0) {
     return '';
   }
@@ -23,6 +23,12 @@ export const formatFileReferences: FormatFileReferences = (files) => {
   const threadFiles = files.filter((f) => f.scope === 'THREAD');
 
   const sections: string[] = ['# Available Files'];
+
+  if (truncated) {
+    sections.push(
+      `\n> WARNING: This thread/project has more than ${files.length} files. Only the ${files.length} most recent are shown. Tell the user that some older files were omitted from context.`,
+    );
+  }
 
   if (projectFiles.length > 0) {
     sections.push('\n## Project Files');

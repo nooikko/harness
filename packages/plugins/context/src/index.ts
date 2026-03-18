@@ -36,6 +36,9 @@ const register = async (ctx: PluginContext): Promise<PluginHooks> => {
     },
 
     onBeforeInvoke: async (threadId, prompt) => {
+      // Snapshot settings at invocation start — prevents torn reads if onSettingsChange fires mid-hook
+      const snap = settings;
+
       let userProfileSection = '';
       let thread: {
         sessionId: string | null;
@@ -66,8 +69,8 @@ const register = async (ctx: PluginContext): Promise<PluginHooks> => {
       let fileReferencesSection = '';
       if (dbAvailable && thread) {
         try {
-          const fileRefs = await loadFileReferences(ctx.db, ctx.config.uploadDir, threadId, thread.projectId);
-          fileReferencesSection = formatFileReferences(fileRefs);
+          const { files: fileRefs, truncated } = await loadFileReferences(ctx.db, ctx.config.uploadDir, threadId, thread.projectId);
+          fileReferencesSection = formatFileReferences(fileRefs, truncated);
         } catch (err) {
           ctx.logger.warn(`Context plugin: failed to load file references [thread=${threadId}]: ${err instanceof Error ? err.message : String(err)}`);
         }
@@ -83,19 +86,20 @@ const register = async (ctx: PluginContext): Promise<PluginHooks> => {
       let summarySection = '';
       let historySection = '';
 
-      const summaryLookback = settings.summaryLookback ?? DEFAULT_SUMMARY_LOOKBACK;
-      const histLimitWithSummary = settings.historyLimitWithSummary ?? DEFAULT_HISTORY_LIMIT_WITH_SUMMARY;
-      const histLimitDefault = settings.historyLimit ?? DEFAULT_HISTORY_LIMIT;
+      const summaryLookback = snap.summaryLookback ?? DEFAULT_SUMMARY_LOOKBACK;
+      const histLimitWithSummary = snap.historyLimitWithSummary ?? DEFAULT_HISTORY_LIMIT_WITH_SUMMARY;
+      const histLimitDefault = snap.historyLimit ?? DEFAULT_HISTORY_LIMIT;
 
       if (thread?.sessionId) {
         ctx.logger.info(`Skipping history injection for resumed session [thread=${threadId}]`);
       } else if (dbAvailable) {
-        const summaries = await ctx.db.message.findMany({
+        const rawSummaries = await ctx.db.message.findMany({
           where: { threadId, kind: 'summary' },
           orderBy: { createdAt: 'desc' },
           take: summaryLookback,
           select: { content: true, createdAt: true },
         });
+        const summaries = rawSummaries.filter((s) => s.content != null && s.content.length > 0);
 
         const hasSummaries = summaries.length > 0;
         const rawLimit = hasSummaries ? histLimitWithSummary : histLimitDefault;

@@ -113,29 +113,6 @@ describe('context plugin', () => {
     expect(result).not.toContain('# Conversation History');
   });
 
-  it('does not include DECORATIVE files', async () => {
-    const fileFindMany = vi.fn().mockResolvedValue([
-      {
-        name: 'avatar.png',
-        mimeType: 'image/png',
-        size: 5000,
-        path: 'agents/a1/avatar.png',
-        scope: 'DECORATIVE',
-      },
-    ]);
-
-    const ctx = createMockContext({ fileFindMany });
-    const hooks = await plugin.register(ctx);
-
-    const result = await hooks.onBeforeInvoke?.('thread-1', 'prompt');
-
-    // loadFileReferences excludes DECORATIVE — the mock returns one, but the
-    // actual implementation filters at DB level. Since we mock file.findMany
-    // directly, this test verifies the formatter handles only PROJECT/THREAD.
-    // The real exclusion is tested in load-file-references.test.ts.
-    expect(result).toBeDefined();
-  });
-
   it('produces no file section when no files exist', async () => {
     const ctx = createMockContext();
     const hooks = await plugin.register(ctx);
@@ -298,6 +275,39 @@ describe('context plugin', () => {
 
     expect(result).toContain('# Prior Conversation Summary');
     expect(result).toContain('The user and assistant discussed deployment plans.');
+  });
+
+  it('filters out summaries with null or empty content', async () => {
+    const summaries = [
+      { content: null, createdAt: new Date('2026-02-23T11:00:00Z') },
+      { content: '', createdAt: new Date('2026-02-23T11:30:00Z') },
+      { content: 'Valid summary content.', createdAt: new Date('2026-02-23T12:00:00Z') },
+    ];
+    const summaryFindMany = vi.fn().mockResolvedValue(summaries);
+    const findMany = vi.fn().mockResolvedValue([]);
+
+    const ctx = createMockContext({ findMany, summaryFindMany });
+    const hooks = await plugin.register(ctx);
+
+    const result = await hooks.onBeforeInvoke?.('thread-1', 'prompt');
+
+    expect(result).toContain('# Prior Conversation Summary');
+    expect(result).toContain('Valid summary content.');
+    expect(result).not.toContain('null');
+  });
+
+  it('falls back to full history limit when all summaries have null content', async () => {
+    const summaries = [{ content: null, createdAt: new Date('2026-02-23T11:00:00Z') }];
+    const summaryFindMany = vi.fn().mockResolvedValue(summaries);
+    const findMany = vi.fn().mockResolvedValue([]);
+
+    const ctx = createMockContext({ findMany, summaryFindMany });
+    const hooks = await plugin.register(ctx);
+
+    await hooks.onBeforeInvoke?.('thread-1', 'prompt');
+
+    // All summaries filtered out → uses default 50-message limit
+    expect(findMany).toHaveBeenCalledWith(expect.objectContaining({ take: 50 }));
   });
 
   it('uses reduced history limit (25) when summaries exist', async () => {
@@ -490,6 +500,41 @@ describe('context plugin', () => {
     const text = result ?? '';
     const dividerCount = (text.match(/\n\n---\n\n/g) ?? []).length;
     expect(dividerCount).toBeGreaterThanOrEqual(2);
+  });
+
+  it('continues without file references when file query throws', async () => {
+    const fileFindMany = vi.fn().mockRejectedValue(new Error('File table locked'));
+    const findMany = vi.fn().mockResolvedValue([{ role: 'user', content: 'Hello', createdAt: new Date('2026-02-23T12:00:00Z') }]);
+
+    const ctx = createMockContext({ findMany, fileFindMany });
+    const hooks = await plugin.register(ctx);
+
+    const result = await hooks.onBeforeInvoke?.('thread-1', 'My prompt');
+
+    expect(result).toContain('My prompt');
+    expect(result).toContain('# Conversation History');
+    expect(result).not.toContain('# Available Files');
+    expect(ctx.logger.warn).toHaveBeenCalledWith(expect.stringContaining('File table locked'));
+  });
+
+  it('uses custom settings values for history and summary limits', async () => {
+    const findMany = vi.fn().mockResolvedValue([]);
+    const summaryFindMany = vi.fn().mockResolvedValue([{ content: 'Summary.', createdAt: new Date('2026-02-23T12:00:00Z') }]);
+
+    const ctx = createMockContext({ findMany, summaryFindMany });
+    (ctx.getSettings as ReturnType<typeof vi.fn>).mockResolvedValue({
+      historyLimit: 100,
+      historyLimitWithSummary: 10,
+      summaryLookback: 5,
+    });
+    const hooks = await plugin.register(ctx);
+
+    await hooks.onBeforeInvoke?.('thread-1', 'prompt');
+
+    // summaryLookback: 5
+    expect(ctx.db.message.findMany).toHaveBeenCalledWith(expect.objectContaining({ take: 5 }));
+    // historyLimitWithSummary: 10 (summaries exist)
+    expect(findMany).toHaveBeenCalledWith(expect.objectContaining({ take: 10 }));
   });
 
   it('reloads settings on onSettingsChange for context plugin', async () => {

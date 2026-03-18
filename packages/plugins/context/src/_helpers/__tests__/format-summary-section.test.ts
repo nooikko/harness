@@ -5,9 +5,9 @@ import { formatSummarySection } from '../format-summary-section';
 type SummaryMessage = Pick<Message, 'content' | 'createdAt'>;
 
 describe('formatSummarySection', () => {
-  it('returns a string with just the heading for empty summaries array', () => {
+  it('returns empty string for empty summaries array', () => {
     const result = formatSummarySection([]);
-    expect(result).toContain('# Prior Conversation Summary');
+    expect(result).toBe('');
   });
 
   it('formats a single summary with the correct heading', () => {

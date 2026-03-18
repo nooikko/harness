@@ -67,6 +67,20 @@ describe('loadHistory', () => {
     expect(result.threadId).toBe('thread-empty');
   });
 
+  it('filters out messages with null content or role', async () => {
+    const messages = [
+      { role: 'user', content: 'Valid', createdAt: new Date('2026-02-23T12:00:00Z') },
+      { role: null, content: 'No role', createdAt: new Date('2026-02-23T12:01:00Z') },
+      { role: 'assistant', content: null, createdAt: new Date('2026-02-23T12:02:00Z') },
+    ];
+    const db = createMockDb(messages as never);
+
+    const result = await loadHistory(db as never, 'thread-1');
+
+    expect(result.messages).toHaveLength(1);
+    expect(result.messages[0]?.content).toBe('Valid');
+  });
+
   it('reverses messages to chronological order', async () => {
     const messages = [
       {

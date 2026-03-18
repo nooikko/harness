@@ -117,4 +117,37 @@ describe('formatFileReferences', () => {
     expect(result).toContain('application/json');
     expect(result).toContain('/uploads/projects/p1/data.json');
   });
+
+  it('includes truncation warning when truncated is true', () => {
+    const files: FileReference[] = [
+      {
+        name: 'file.txt',
+        mimeType: 'text/plain',
+        size: 100,
+        fullPath: '/uploads/threads/t1/file.txt',
+        scope: 'THREAD',
+      },
+    ];
+
+    const result = formatFileReferences(files, true);
+
+    expect(result).toContain('WARNING');
+    expect(result).toContain('omitted from context');
+  });
+
+  it('does not include truncation warning when truncated is false', () => {
+    const files: FileReference[] = [
+      {
+        name: 'file.txt',
+        mimeType: 'text/plain',
+        size: 100,
+        fullPath: '/uploads/threads/t1/file.txt',
+        scope: 'THREAD',
+      },
+    ];
+
+    const result = formatFileReferences(files, false);
+
+    expect(result).not.toContain('WARNING');
+  });
 });
