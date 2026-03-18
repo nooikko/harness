@@ -152,11 +152,12 @@ describe('tasks plugin integration', () => {
 
     // Filter for TODO only
     const result = await tool.handler(ctx, { status: 'TODO' }, meta);
+    const text = typeof result === 'string' ? result : result.text;
 
-    expect(result).toContain('Task A');
-    expect(result).toContain('Task C');
-    expect(result).not.toContain('Task B');
-    expect(result).toContain('blocked-by:[Task A]');
+    expect(text).toContain('Task A');
+    expect(text).toContain('Task C');
+    expect(text).not.toContain('Task B');
+    expect(text).toContain('blocked-by:[Task A]');
   });
 
   it('list_tasks project scoping with includeGlobal', async () => {
@@ -179,13 +180,15 @@ describe('tasks plugin integration', () => {
 
     // With includeGlobal: true (default) - should see both
     const withGlobal = await tool.handler(ctx, { projectId: project.id, includeGlobal: true }, meta);
-    expect(withGlobal).toContain('Project task');
-    expect(withGlobal).toContain('Global task');
+    const withGlobalText = typeof withGlobal === 'string' ? withGlobal : withGlobal.text;
+    expect(withGlobalText).toContain('Project task');
+    expect(withGlobalText).toContain('Global task');
 
     // With includeGlobal: false - project tasks only
     const withoutGlobal = await tool.handler(ctx, { projectId: project.id, includeGlobal: false }, meta);
-    expect(withoutGlobal).toContain('Project task');
-    expect(withoutGlobal).not.toContain('Global task');
+    const withoutGlobalText = typeof withoutGlobal === 'string' ? withoutGlobal : withoutGlobal.text;
+    expect(withoutGlobalText).toContain('Project task');
+    expect(withoutGlobalText).not.toContain('Global task');
   });
 
   it('update_task partial field update works', async () => {

@@ -141,9 +141,10 @@ describe('outlook plugin integration', () => {
 
     const tool = getTool('list_folders');
     const result = await tool.handler(ctx, {}, makeMeta(harness.threadId));
+    const text = typeof result === 'string' ? result : result.text;
 
-    expect(result).toContain('Inbox');
-    expect(result).toContain('Sent');
+    expect(text).toContain('Inbox');
+    expect(text).toContain('Sent');
   });
 
   it('find_unsubscribe_links extracts unsubscribe URLs from emails', async () => {

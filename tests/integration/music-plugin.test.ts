@@ -109,8 +109,9 @@ describe('music plugin integration', () => {
     const tool = getTool('search');
     const result = await tool.handler(ctx, { query: 'never gonna give you up' }, makeMeta(harness.threadId));
 
-    expect(result).toContain('Never Gonna Give You Up');
-    expect(result).toContain('Rick Astley');
+    const text = typeof result === 'string' ? result : result.text;
+    expect(text).toContain('Never Gonna Give You Up');
+    expect(text).toContain('Rick Astley');
   });
 
   it('play tool requires either query or videoId', async () => {

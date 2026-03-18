@@ -116,8 +116,9 @@ describe('outlook-calendar plugin integration', () => {
       makeMeta(harness.threadId),
     );
 
-    expect(result).toContain('Lunch Meeting');
-    expect(result).toContain('new-evt-1');
+    const text = typeof result === 'string' ? result : result.text;
+    expect(text).toContain('Lunch Meeting');
+    expect(text).toContain('new-evt-1');
 
     const fetchCall = vi.mocked(globalThis.fetch).mock.calls[0]!;
     expect(fetchCall[1]?.method).toBe('POST');
