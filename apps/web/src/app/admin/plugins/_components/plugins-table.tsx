@@ -7,7 +7,7 @@ import Link from 'next/link';
 import { Suspense } from 'react';
 import { pluginSettingsRegistry } from '@/generated/plugin-settings-registry';
 import { RowMenu } from '../../_components/row-menu';
-import { StatusDot } from '../../_components/status-dot';
+import { PluginStatusBadge } from './plugin-status-badge';
 import { PluginToggle } from './plugin-toggle';
 
 type SettingsEntry = (typeof pluginSettingsRegistry)[number] | undefined;
@@ -62,7 +62,7 @@ export const PluginsTableInternal = async () => {
                 )}
               </TableCell>
               <TableCell>
-                <StatusDot status={plugin.enabled ? 'enabled' : 'disabled'} />
+                <PluginStatusBadge pluginName={plugin.pluginName} enabled={plugin.enabled} />
               </TableCell>
               <TableCell className='text-right tabular-nums'>{fieldCount > 0 ? fieldCount : '\u2014'}</TableCell>
               <TableCell>

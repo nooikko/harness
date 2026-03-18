@@ -52,6 +52,15 @@ describe('COMMANDS registry', () => {
     expect(names).toContain('update-self');
   });
 
+  it('disambiguates tools with the same name across plugins', () => {
+    // tasks and cron both expose list-tasks and update-task
+    const names = COMMANDS.map((c) => c.name);
+    expect(names).toContain('tasks-list-tasks');
+    expect(names).toContain('cron-list-tasks');
+    expect(names).toContain('tasks-update-task');
+    expect(names).toContain('cron-update-task');
+  });
+
   it('no duplicate command names', () => {
     const names = COMMANDS.map((c) => c.name);
     const unique = new Set(names);

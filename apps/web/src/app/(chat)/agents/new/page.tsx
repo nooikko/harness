@@ -8,10 +8,12 @@ export const metadata: Metadata = {
 
 const NewAgentPage = () => {
   return (
-    <div className='flex w-full flex-col gap-6 p-6 max-w-3xl'>
-      <div className='flex flex-col gap-1'>
-        <h1 className='text-2xl font-semibold tracking-tight'>New Agent</h1>
-        <p className='text-sm text-muted-foreground'>Define a new AI agent persona with soul and identity.</p>
+    <div className='mx-auto flex w-full max-w-2xl flex-col gap-6 px-6 py-8 animate-[fade-in_150ms_ease-out]'>
+      <div className='flex flex-col gap-2'>
+        <div>
+          <h1 className='text-lg font-semibold tracking-tight'>New Agent</h1>
+          <p className='text-sm text-muted-foreground'>Define a new AI agent persona.</p>
+        </div>
       </div>
       <CreateAgentForm />
     </div>

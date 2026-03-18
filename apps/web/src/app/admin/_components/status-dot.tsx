@@ -9,10 +9,10 @@ type StatusDotProps = {
 
 type StatusDotComponent = (props: StatusDotProps) => React.ReactNode;
 
-const SUCCESS_STATUSES = new Set(['enabled', 'active', 'completed', 'success']);
+const SUCCESS_STATUSES = new Set(['enabled', 'active', 'completed', 'success', 'healthy']);
 const INACTIVE_STATUSES = new Set(['disabled', 'inactive', 'archived']);
 const RUNNING_STATUSES = new Set(['running', 'in-progress']);
-const WARNING_STATUSES = new Set(['warning']);
+const WARNING_STATUSES = new Set(['warning', 'degraded']);
 const ERROR_STATUSES = new Set(['failed', 'error']);
 
 type DotStyle = {

@@ -10,10 +10,11 @@ type WsMessage = {
 
 type WsContextValue = {
   subscribe: (event: string, callback: (data: unknown) => void) => () => void;
+  onReconnect: (callback: () => void) => () => void;
   isConnected: boolean;
 };
 
-const WsContext = createContext<WsContextValue | null>(null);
+export const WsContext = createContext<WsContextValue | null>(null);
 
 type WsProviderProps = {
   children: React.ReactNode;
@@ -24,8 +25,10 @@ type WsProviderComponent = (props: WsProviderProps) => React.ReactNode;
 export const WsProvider: WsProviderComponent = ({ children }) => {
   const [isConnected, setIsConnected] = useState(false);
   const subscribersRef = useRef<Map<string, Set<(data: unknown) => void>>>(new Map());
+  const reconnectListenersRef = useRef<Set<() => void>>(new Set());
   const wsRef = useRef<WebSocket | null>(null);
   const reconnectTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const hadConnectionRef = useRef(false);
 
   const subscribe = useCallback((event: string, callback: (data: unknown) => void) => {
     const subs = subscribersRef.current;
@@ -39,6 +42,13 @@ export const WsProvider: WsProviderComponent = ({ children }) => {
     };
   }, []);
 
+  const onReconnect = useCallback((callback: () => void) => {
+    reconnectListenersRef.current.add(callback);
+    return () => {
+      reconnectListenersRef.current.delete(callback);
+    };
+  }, []);
+
   useEffect(() => {
     const wsUrl = process.env.NEXT_PUBLIC_ORCHESTRATOR_WS_URL ?? `ws://${window.location.hostname}:4001/ws`;
     let attempt = 0;
@@ -48,8 +58,20 @@ export const WsProvider: WsProviderComponent = ({ children }) => {
       wsRef.current = ws;
 
       ws.addEventListener('open', () => {
+        const wasReconnect = hadConnectionRef.current;
         setIsConnected(true);
+        hadConnectionRef.current = true;
         attempt = 0;
+
+        if (wasReconnect) {
+          for (const cb of reconnectListenersRef.current) {
+            try {
+              cb();
+            } catch {
+              // Ignore listener errors
+            }
+          }
+        }
       });
 
       ws.addEventListener('close', () => {
@@ -84,7 +106,7 @@ export const WsProvider: WsProviderComponent = ({ children }) => {
     };
   }, []);
 
-  return <WsContext.Provider value={{ subscribe, isConnected }}>{children}</WsContext.Provider>;
+  return <WsContext.Provider value={{ subscribe, onReconnect, isConnected }}>{children}</WsContext.Provider>;
 };
 
 type UseWsResult = {
@@ -107,4 +129,20 @@ export const useWs: UseWs = (eventName) => {
   }, [ctx, eventName]);
 
   return { lastEvent, isConnected: ctx.isConnected };
+};
+
+type UseWsReconnect = (callback: () => void) => void;
+
+export const useWsReconnect: UseWsReconnect = (callback) => {
+  const ctx = useContext(WsContext);
+  if (!ctx) {
+    throw new Error('useWsReconnect must be used within a WsProvider');
+  }
+
+  const callbackRef = useRef(callback);
+  callbackRef.current = callback;
+
+  useEffect(() => {
+    return ctx.onReconnect(() => callbackRef.current());
+  }, [ctx]);
 };

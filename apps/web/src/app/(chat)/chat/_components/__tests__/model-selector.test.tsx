@@ -70,6 +70,6 @@ describe('ModelSelector', () => {
 
     await user.click(screen.getByLabelText('Select model'));
 
-    expect(screen.getAllByRole('menuitem')).toHaveLength(3);
+    expect(screen.getAllByRole('menuitem')).toHaveLength(4);
   });
 });

@@ -2,7 +2,7 @@ import { prisma } from '@harness/database';
 import { Button } from '@harness/ui';
 import { FolderOpen, Plus } from 'lucide-react';
 import type { Metadata } from 'next';
-import { NewProjectForm } from '../_components/new-project-form';
+import Link from 'next/link';
 import { ProjectCard } from './_components/project-card';
 
 export const metadata: Metadata = {
@@ -27,14 +27,12 @@ const ProjectsPage = async () => {
           <h1 className='text-lg font-semibold tracking-tight'>Projects</h1>
           <p className='text-sm text-muted-foreground'>Organize related chats and configure agent instructions per project.</p>
         </div>
-        <NewProjectForm
-          trigger={
-            <Button className='gap-2'>
-              <Plus className='h-4 w-4' />
-              New Project
-            </Button>
-          }
-        />
+        <Button asChild className='gap-2'>
+          <Link href='/chat/projects/new'>
+            <Plus className='h-4 w-4' />
+            New Project
+          </Link>
+        </Button>
       </div>
 
       {projects.length === 0 ? (

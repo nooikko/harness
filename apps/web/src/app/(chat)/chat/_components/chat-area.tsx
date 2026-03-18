@@ -5,8 +5,10 @@ import { useRouter } from 'next/navigation';
 import { useCallback, useEffect, useRef, useState, useTransition } from 'react';
 import { useWs } from '@/app/_components/ws-provider';
 import { checkForResponse } from '../_actions/check-for-response';
+import { getActivePipeline } from '../_actions/get-active-pipeline';
 import { sendMessage } from '../_actions/send-message';
 import { ChatInput } from './chat-input';
+import { DelegationStack } from './delegation-stack';
 import { PipelineActivity } from './pipeline-activity';
 
 const POLL_INTERVAL_MS = 3000;
@@ -33,7 +35,18 @@ export const ChatArea: ChatAreaComponent = ({ threadId, currentModel, currentAge
   const router = useRouter();
   const { lastEvent, isConnected } = useWs('pipeline:complete');
   const { lastEvent: lastStepEvent } = useWs('pipeline:step');
+  const { lastEvent: lastErrorEvent } = useWs('pipeline:error');
   const { lastEvent: lastDeletedEvent } = useWs('thread:deleted');
+
+  // On mount: detect if a pipeline is already running (e.g. navigated from NewChatArea after sending)
+  useEffect(() => {
+    void getActivePipeline(threadId).then((result) => {
+      if (result.active) {
+        setIsThinking(true);
+      }
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [threadId]);
 
   // Scroll to bottom on initial mount (instant) and after router.refresh() completes (smooth).
   // Fires when isRefreshing transitions false→true→false, ensuring new RSC content is rendered first.
@@ -93,6 +106,16 @@ export const ChatArea: ChatAreaComponent = ({ threadId, currentModel, currentAge
     }
   }, [lastEvent, threadId, onResponseReceived]);
 
+  // Pipeline error — stop thinking and refresh to show the persisted error message
+  useEffect(() => {
+    if (lastErrorEvent && typeof lastErrorEvent === 'object' && 'threadId' in lastErrorEvent) {
+      const event = lastErrorEvent as { threadId: string };
+      if (event.threadId === threadId) {
+        onResponseReceived();
+      }
+    }
+  }, [lastErrorEvent, threadId, onResponseReceived]);
+
   // Polling fallback when WebSocket is unavailable
   useEffect(() => {
     if (!isThinking || isConnected) {
@@ -140,6 +163,7 @@ export const ChatArea: ChatAreaComponent = ({ threadId, currentModel, currentAge
           <div className='flex flex-col gap-4'>
             {children}
             <PipelineActivity threadId={threadId} isActive={isThinking} />
+            <DelegationStack parentThreadId={threadId} />
             <div ref={anchorRef} data-scroll-anchor aria-hidden='true' />
           </div>
         </div>

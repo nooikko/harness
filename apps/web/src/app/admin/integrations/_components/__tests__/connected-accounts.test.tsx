@@ -34,6 +34,7 @@ describe('ConnectedAccounts', () => {
         provider: 'microsoft',
         accountId: 'user@outlook.com',
         expiresAt: new Date(Date.now() + 3600_000),
+        refreshToken: 'encrypted-refresh',
         scopes: ['Mail.Read', 'Calendars.Read'],
         metadata: { displayName: 'Quinn Penney', email: 'user@outlook.com' },
         createdAt: new Date(),
@@ -53,6 +54,7 @@ describe('ConnectedAccounts', () => {
         provider: 'microsoft',
         accountId: 'user@outlook.com',
         expiresAt: new Date(Date.now() + 3600_000),
+        refreshToken: 'encrypted-refresh',
         scopes: ['a', 'b', 'c', 'd', 'e', 'f'],
         metadata: null,
         createdAt: new Date(),
@@ -70,6 +72,7 @@ describe('ConnectedAccounts', () => {
         provider: 'microsoft',
         accountId: 'raw-account-id',
         expiresAt: new Date(Date.now() + 3600_000),
+        refreshToken: 'encrypted-refresh',
         scopes: [],
         metadata: null,
         createdAt: new Date(),
@@ -78,5 +81,64 @@ describe('ConnectedAccounts', () => {
 
     const html = renderToStaticMarkup(await ConnectedAccounts());
     expect(html).toContain('raw-account-id');
+  });
+
+  it('shows "Connected" with green dot when token is valid', async () => {
+    mockFindMany.mockResolvedValue([
+      {
+        id: 'tok-4',
+        provider: 'microsoft',
+        accountId: 'user@outlook.com',
+        expiresAt: new Date(Date.now() + 3600_000),
+        refreshToken: 'encrypted-refresh',
+        scopes: [],
+        metadata: null,
+        createdAt: new Date(),
+      },
+    ]);
+
+    const html = renderToStaticMarkup(await ConnectedAccounts());
+    expect(html).toContain('Connected');
+    expect(html).toContain('bg-green-500');
+  });
+
+  it('shows "Connected" when token expired but refresh token exists', async () => {
+    mockFindMany.mockResolvedValue([
+      {
+        id: 'tok-5',
+        provider: 'microsoft',
+        accountId: 'user@outlook.com',
+        expiresAt: new Date(Date.now() - 3600_000), // expired 1 hour ago
+        refreshToken: 'encrypted-refresh',
+        scopes: [],
+        metadata: null,
+        createdAt: new Date(),
+      },
+    ]);
+
+    const html = renderToStaticMarkup(await ConnectedAccounts());
+    expect(html).toContain('Connected');
+    expect(html).toContain('bg-green-500');
+    expect(html).not.toContain('Re-authentication required');
+  });
+
+  it('shows "Re-authentication required" when expired with no refresh token', async () => {
+    mockFindMany.mockResolvedValue([
+      {
+        id: 'tok-6',
+        provider: 'microsoft',
+        accountId: 'user@outlook.com',
+        expiresAt: new Date(Date.now() - 3600_000), // expired 1 hour ago
+        refreshToken: null,
+        scopes: [],
+        metadata: null,
+        createdAt: new Date(),
+      },
+    ]);
+
+    const html = renderToStaticMarkup(await ConnectedAccounts());
+    expect(html).toContain('Re-authentication required');
+    expect(html).toContain('bg-red-500');
+    expect(html).not.toContain('>Connected<');
   });
 });

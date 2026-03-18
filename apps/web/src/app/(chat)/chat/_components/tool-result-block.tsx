@@ -1,4 +1,13 @@
+'use client';
+
+import { Suspense } from 'react';
 import { CollapsibleBlock } from './collapsible-block';
+import { getBlockRenderer } from './content-blocks/registry';
+
+type ContentBlock = {
+  type: string;
+  data: Record<string, unknown>;
+};
 
 type ToolResultBlockProps = {
   content: string;
@@ -33,6 +42,7 @@ export const ToolResultBlock: ToolResultBlockComponent = ({ content, metadata })
   const toolName = metadata?.toolName as string | undefined;
   const displayName = toolName ? getDisplayName(toolName) : null;
   const hasError = isError(content);
+  const blocks = (metadata?.blocks ?? []) as ContentBlock[];
 
   const parts: string[] = [];
   if (displayName) {
@@ -44,11 +54,36 @@ export const ToolResultBlock: ToolResultBlockComponent = ({ content, metadata })
 
   const label = parts.length > 0 ? `Result — ${parts.join(' · ')}` : 'Result';
 
+  // If structured blocks exist, render them instead of raw text
+  if (blocks.length > 0) {
+    const renderedBlocks = blocks.map((block, i) => {
+      const Renderer = getBlockRenderer(block.type);
+      if (!Renderer) {
+        return (
+          <pre key={i} className='max-h-64 overflow-y-auto whitespace-pre-wrap text-xs leading-relaxed text-muted-foreground/70'>
+            {JSON.stringify(block.data, null, 2)}
+          </pre>
+        );
+      }
+      return (
+        <Suspense key={i} fallback={<div className='h-16 animate-pulse rounded bg-muted/30' />}>
+          <Renderer data={block.data} />
+        </Suspense>
+      );
+    });
+
+    return (
+      <CollapsibleBlock header={<span className='text-muted-foreground/70'>{label}</span>} defaultExpanded>
+        <div className='space-y-2'>{renderedBlocks}</div>
+      </CollapsibleBlock>
+    );
+  }
+
   return (
     <CollapsibleBlock
       header={
         <span className={hasError ? 'text-destructive/70' : 'text-muted-foreground/70'}>
-          {hasError && '⚠ '}
+          {hasError && '\u26A0 '}
           {label}
         </span>
       }

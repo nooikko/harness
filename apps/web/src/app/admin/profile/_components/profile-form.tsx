@@ -136,7 +136,7 @@ export const ProfileForm: ProfileFormComponent = ({ profile }) => {
                 id='bio'
                 name='bio'
                 defaultValue={profile.bio ?? ''}
-                className='min-h-[120px] resize-y'
+                className='min-h-30 resize-y'
                 placeholder='Tell your assistant about yourself...'
               />
             </div>

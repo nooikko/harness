@@ -12,6 +12,11 @@ vi.mock('../../_actions/check-for-response', () => ({
   checkForResponse: (...args: unknown[]) => mockCheckForResponse(...args),
 }));
 
+const mockGetActivePipeline = vi.fn().mockResolvedValue({ active: false });
+vi.mock('../../_actions/get-active-pipeline', () => ({
+  getActivePipeline: (...args: unknown[]) => mockGetActivePipeline(...args),
+}));
+
 const mockUseWs = vi.fn().mockReturnValue({ lastEvent: null, isConnected: true });
 vi.mock('@/app/_components/ws-provider', () => ({
   useWs: (...args: unknown[]) => mockUseWs(...args),
@@ -26,8 +31,20 @@ vi.mock('../pipeline-activity', () => ({
     ) : null,
 }));
 
+vi.mock('../delegation-stack', () => ({
+  DelegationStack: () => null,
+}));
+
 vi.mock('../chat-input', () => ({
-  ChatInput: ({ onSubmitAction, disabled, error }: { onSubmitAction: (text: string) => void; disabled?: boolean; error?: string | null }) => (
+  ChatInput: ({
+    onSubmitAction,
+    disabled,
+    error,
+  }: {
+    onSubmitAction: (text: string, fileIds?: string[]) => void;
+    disabled?: boolean;
+    error?: string | null;
+  }) => (
     <div>
       {error && <p data-testid='error-message'>{error}</p>}
       <button type='button' disabled={disabled} onClick={() => onSubmitAction('test message')} aria-label='Send message'>

@@ -10,10 +10,6 @@ vi.mock('@harness/database', () => ({
   },
 }));
 
-vi.mock('../../_components/new-project-form', () => ({
-  NewProjectForm: ({ trigger }: { trigger: React.ReactNode }) => <div data-testid='new-project-form'>{trigger}</div>,
-}));
-
 vi.mock('../_components/project-card', () => ({
   ProjectCard: () => <div data-testid='project-card' />,
 }));
@@ -28,10 +24,10 @@ describe('ProjectsPage', () => {
     expect(html).toContain('Projects');
   });
 
-  it('renders New Project button trigger', async () => {
+  it('renders New Project link', async () => {
     const element = await ProjectsPage();
     const html = renderToStaticMarkup(element as React.ReactElement);
-    expect(html).toContain('new-project-form');
+    expect(html).toContain('/chat/projects/new');
     expect(html).toContain('New Project');
   });
 

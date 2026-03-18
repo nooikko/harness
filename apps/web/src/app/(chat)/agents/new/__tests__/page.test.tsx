@@ -20,6 +20,6 @@ describe('NewAgentPage', () => {
 
   it('renders the page description', () => {
     render(<NewAgentPage />);
-    expect(screen.getByText(/soul and identity/i)).toBeInTheDocument();
+    expect(screen.getByText(/new ai agent persona/i)).toBeInTheDocument();
   });
 });

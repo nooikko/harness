@@ -23,8 +23,12 @@ vi.mock('../plugin-toggle', () => ({
   ),
 }));
 
-vi.mock('../../../_components/status-dot', () => ({
-  StatusDot: ({ status }: { status: string }) => <span data-testid='status-dot'>{status}</span>,
+vi.mock('../plugin-status-badge', () => ({
+  PluginStatusBadge: ({ pluginName, enabled }: { pluginName: string; enabled: boolean }) => (
+    <span data-testid='plugin-status-badge' data-plugin={pluginName}>
+      {enabled ? 'enabled' : 'disabled'}
+    </span>
+  ),
 }));
 
 vi.mock('../../../_components/row-menu', () => ({
@@ -139,7 +143,7 @@ describe('PluginsTableInternal', () => {
     expect(html).toContain('Settings');
   });
 
-  it('uses StatusDot for status display', async () => {
+  it('uses PluginStatusBadge for status display', async () => {
     mockFindMany.mockResolvedValue([
       {
         id: 'pc_status',
@@ -153,6 +157,6 @@ describe('PluginsTableInternal', () => {
     ]);
     const element = await PluginsTableInternal();
     const html = renderToStaticMarkup(element as React.ReactElement);
-    expect(html).toContain('data-testid="status-dot"');
+    expect(html).toContain('data-testid="plugin-status-badge"');
   });
 });

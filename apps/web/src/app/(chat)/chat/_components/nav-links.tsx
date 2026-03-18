@@ -1,7 +1,7 @@
 'use client';
 
 import { SidebarGroup, SidebarMenu, SidebarMenuButton, SidebarMenuItem } from '@harness/ui';
-import { Bot, CheckSquare, FolderOpen } from 'lucide-react';
+import { Bot, CalendarDays, CheckSquare, FolderOpen } from 'lucide-react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 
@@ -11,6 +11,7 @@ export const NavLinks: NavLinksComponent = () => {
   const pathname = usePathname();
   const isProjectsActive = pathname === '/chat/projects' || pathname.startsWith('/chat/projects/');
   const isTasksActive = pathname === '/tasks' || pathname.startsWith('/tasks/');
+  const isCalendarActive = pathname === '/calendar' || pathname.startsWith('/calendar/');
   const isAgentsActive = pathname === '/agents' || pathname.startsWith('/agents/');
 
   return (
@@ -21,6 +22,14 @@ export const NavLinks: NavLinksComponent = () => {
             <Link href='/chat/projects'>
               <FolderOpen className='h-4 w-4' />
               <span>Projects</span>
+            </Link>
+          </SidebarMenuButton>
+        </SidebarMenuItem>
+        <SidebarMenuItem>
+          <SidebarMenuButton asChild isActive={isCalendarActive} className='gap-2'>
+            <Link href='/calendar'>
+              <CalendarDays className='h-4 w-4' />
+              <span>Calendar</span>
             </Link>
           </SidebarMenuButton>
         </SidebarMenuItem>

@@ -43,13 +43,21 @@ const AGENT_COMMANDS: CommandDefinition[] = [
 ];
 
 // Auto-discovered plugin tools (from build-time generation)
-const TOOL_COMMANDS: CommandDefinition[] = pluginToolRegistry.map((tool) => ({
-  name: tool.toolName,
-  description: tool.description,
-  args: tool.args,
-  category: 'tool' as const,
-  pluginName: tool.pluginName,
-}));
+// Disambiguate tools that share the same toolName across plugins by prefixing with pluginName
+const TOOL_COMMANDS: CommandDefinition[] = (() => {
+  const nameCount = new Map<string, number>();
+  for (const tool of pluginToolRegistry) {
+    nameCount.set(tool.toolName, (nameCount.get(tool.toolName) ?? 0) + 1);
+  }
+
+  return pluginToolRegistry.map((tool) => ({
+    name: (nameCount.get(tool.toolName) ?? 0) > 1 ? `${tool.pluginName}-${tool.toolName}` : tool.toolName,
+    description: tool.description,
+    args: tool.args,
+    category: 'tool' as const,
+    pluginName: tool.pluginName,
+  }));
+})();
 
 const COMMANDS: CommandDefinition[] = [...SYSTEM_COMMANDS, ...AGENT_COMMANDS, ...TOOL_COMMANDS];
 

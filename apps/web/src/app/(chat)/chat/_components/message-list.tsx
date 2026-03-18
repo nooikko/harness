@@ -50,6 +50,14 @@ export const MessageListInternal = async ({ threadId }: MessageListProps) => {
           return (
             <PipelineRunBlock
               key={run.startMessage.id}
+              startMessage={{
+                id: run.startMessage.id,
+                content: run.startMessage.content,
+                kind: run.startMessage.kind,
+                role: run.startMessage.role,
+                metadata: run.startMessage.metadata as Record<string, unknown> | null,
+                createdAt: run.startMessage.createdAt.toISOString(),
+              }}
               completeMessage={
                 run.completeMessage
                   ? {

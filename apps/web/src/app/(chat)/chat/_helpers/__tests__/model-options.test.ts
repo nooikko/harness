@@ -6,8 +6,8 @@ describe('MODEL_OPTIONS', () => {
     expect(Array.isArray(MODEL_OPTIONS)).toBe(true);
   });
 
-  it('has three entries', () => {
-    expect(MODEL_OPTIONS).toHaveLength(3);
+  it('has four entries', () => {
+    expect(MODEL_OPTIONS).toHaveLength(4);
   });
 
   it('first entry is the default Haiku option with empty value', () => {
