@@ -18,7 +18,10 @@ const projectPlugin: PluginDefinition = {
           where: { id: meta.threadId },
           select: { project: { select: { memory: true } } },
         });
-        if (!thread?.project) {
+        if (!thread) {
+          return '(thread not found)';
+        }
+        if (!thread.project) {
           return '(thread has no associated project)';
         }
         return thread.project.memory ?? '(no project memory)';
@@ -39,21 +42,42 @@ const projectPlugin: PluginDefinition = {
         required: ['memory'],
       },
       handler: async (ctx, input, meta) => {
-        if (typeof (input as Record<string, unknown>).memory !== 'string') {
+        const rawInput = input as Record<string, unknown> | null | undefined;
+        if (!rawInput || typeof rawInput.memory !== 'string') {
           return '(invalid input: memory must be a string)';
         }
-        const { memory } = input as { memory: string };
+        const { memory } = rawInput as { memory: string };
         const thread = await ctx.db.thread.findUnique({
           where: { id: meta.threadId },
-          select: { projectId: true },
+          select: { projectId: true, project: { select: { updatedAt: true } } },
         });
-        if (!thread?.projectId) {
+        if (!thread) {
+          return '(thread not found)';
+        }
+        if (!thread.projectId || !thread.project) {
           return '(thread has no associated project)';
         }
-        await ctx.db.project.update({
-          where: { id: thread.projectId },
-          data: { memory },
-        });
+        let result: { count: number };
+        try {
+          result = await ctx.db.project.updateMany({
+            where: { id: thread.projectId, updatedAt: thread.project.updatedAt },
+            data: { memory },
+          });
+        } catch {
+          return '(failed to save project memory — database error)';
+        }
+        if (result.count === 0) {
+          let still: { id: string } | null;
+          try {
+            still = await ctx.db.project.findUnique({ where: { id: thread.projectId }, select: { id: true } });
+          } catch {
+            return '(failed to save project memory — database error)';
+          }
+          if (still) {
+            return '(project memory was modified concurrently — call get_project_memory again and retry)';
+          }
+          return '(project was deleted before memory could be saved)';
+        }
         return 'Project memory updated.';
       },
     },
