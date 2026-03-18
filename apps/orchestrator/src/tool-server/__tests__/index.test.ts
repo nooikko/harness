@@ -33,6 +33,7 @@ const makePlugin = (name: string, tools?: PluginTool[]): PluginDefinition => ({
 const makeContextRef = (overrides?: Partial<ToolContextRef>): ToolContextRef => ({
   ctx: { db: {}, invoker: {}, config: {}, logger: {}, sendToThread: vi.fn(), broadcast: vi.fn() } as unknown as PluginContext,
   threadId: 'thread-1',
+  pendingBlocks: [],
   ...overrides,
 });
 
@@ -227,5 +228,110 @@ describe('createToolServer', () => {
     // NEGATIVE: inputSchema must NOT be the raw JSON Schema (which would cause safeParseAsync TypeError)
     expect(passedTool.inputSchema).not.toHaveProperty('type', 'object');
     expect(passedTool.inputSchema).not.toHaveProperty('properties');
+  });
+
+  it('handler does not push to pendingBlocks when tool returns a plain string', async () => {
+    const handler = vi.fn().mockResolvedValue('plain string result');
+    const tool: PluginTool = {
+      name: 'test-tool',
+      description: 'A test tool',
+      schema: { type: 'object' },
+      handler,
+    };
+    const collected = [{ ...tool, pluginName: 'test', qualifiedName: 'test__test-tool' }];
+    const contextRef = makeContextRef();
+
+    createToolServer(collected, contextRef);
+
+    type McpHandler = (input: Record<string, unknown>) => Promise<{ content: Array<{ type: string; text: string }> }>;
+    const mockCallParams = mockCreateSdkMcpServer.mock.calls[0] as unknown as Parameters<typeof createSdkMcpServer>;
+    const mcpTools = mockCallParams[0].tools as unknown as Array<{ handler: McpHandler }>;
+    const mcpTool = mcpTools[0]!;
+
+    const result = await mcpTool.handler({});
+
+    expect(result).toEqual({ content: [{ type: 'text', text: 'plain string result' }] });
+    expect(contextRef.pendingBlocks).toHaveLength(0);
+  });
+
+  it('handler pushes blocks to pendingBlocks and returns text when tool returns a ToolResult object', async () => {
+    const blocks = [{ type: 'email-list', data: { emails: [] } }];
+    const handler = vi.fn().mockResolvedValue({ text: 'found 0 emails', blocks });
+    const tool: PluginTool = {
+      name: 'test-tool',
+      description: 'A test tool',
+      schema: { type: 'object' },
+      handler,
+    };
+    const collected = [{ ...tool, pluginName: 'test', qualifiedName: 'test__test-tool' }];
+    const contextRef = makeContextRef();
+
+    createToolServer(collected, contextRef);
+
+    type McpHandler = (input: Record<string, unknown>) => Promise<{ content: Array<{ type: string; text: string }> }>;
+    const mockCallParams = mockCreateSdkMcpServer.mock.calls[0] as unknown as Parameters<typeof createSdkMcpServer>;
+    const mcpTools = mockCallParams[0].tools as unknown as Array<{ handler: McpHandler }>;
+    const mcpTool = mcpTools[0]!;
+
+    const result = await mcpTool.handler({});
+
+    // SDK receives only the text portion
+    expect(result).toEqual({ content: [{ type: 'text', text: 'found 0 emails' }] });
+    // Blocks are queued on contextRef for the pipeline to consume
+    expect(contextRef.pendingBlocks).toHaveLength(1);
+    expect(contextRef.pendingBlocks[0]).toEqual(blocks);
+  });
+
+  it('handler does not push to pendingBlocks when ToolResult object has an empty blocks array', async () => {
+    const handler = vi.fn().mockResolvedValue({ text: 'no blocks', blocks: [] });
+    const tool: PluginTool = {
+      name: 'test-tool',
+      description: 'A test tool',
+      schema: { type: 'object' },
+      handler,
+    };
+    const collected = [{ ...tool, pluginName: 'test', qualifiedName: 'test__test-tool' }];
+    const contextRef = makeContextRef();
+
+    createToolServer(collected, contextRef);
+
+    type McpHandler = (input: Record<string, unknown>) => Promise<{ content: Array<{ type: string; text: string }> }>;
+    const mockCallParams = mockCreateSdkMcpServer.mock.calls[0] as unknown as Parameters<typeof createSdkMcpServer>;
+    const mcpTools = mockCallParams[0].tools as unknown as Array<{ handler: McpHandler }>;
+    const mcpTool = mcpTools[0]!;
+
+    await mcpTool.handler({});
+
+    expect(contextRef.pendingBlocks).toHaveLength(0);
+  });
+
+  it('accumulates multiple block arrays across sequential tool calls', async () => {
+    const blocks1 = [{ type: 'email-list', data: { emails: ['a@b.com'] } }];
+    const blocks2 = [{ type: 'calendar-event', data: { title: 'Meeting' } }];
+
+    const handler1 = vi.fn().mockResolvedValue({ text: 'result 1', blocks: blocks1 });
+    const handler2 = vi.fn().mockResolvedValue({ text: 'result 2', blocks: blocks2 });
+
+    const tool1: PluginTool = { name: 'tool-a', description: 'Tool A', schema: { type: 'object' }, handler: handler1 };
+    const tool2: PluginTool = { name: 'tool-b', description: 'Tool B', schema: { type: 'object' }, handler: handler2 };
+
+    const collected = [
+      { ...tool1, pluginName: 'test', qualifiedName: 'test__tool-a' },
+      { ...tool2, pluginName: 'test', qualifiedName: 'test__tool-b' },
+    ];
+    const contextRef = makeContextRef();
+
+    createToolServer(collected, contextRef);
+
+    type McpHandler = (input: Record<string, unknown>) => Promise<{ content: Array<{ type: string; text: string }> }>;
+    const mockCallParams = mockCreateSdkMcpServer.mock.calls[0] as unknown as Parameters<typeof createSdkMcpServer>;
+    const mcpTools = mockCallParams[0].tools as unknown as Array<{ handler: McpHandler }>;
+
+    await mcpTools[0]!.handler({});
+    await mcpTools[1]!.handler({});
+
+    expect(contextRef.pendingBlocks).toHaveLength(2);
+    expect(contextRef.pendingBlocks[0]).toEqual(blocks1);
+    expect(contextRef.pendingBlocks[1]).toEqual(blocks2);
   });
 });

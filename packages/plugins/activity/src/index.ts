@@ -11,9 +11,9 @@ const createRegister: CreateRegister = () => {
     ctx.logger.info('Activity plugin registered');
 
     return {
-      onPipelineStart: async (threadId) => {
+      onPipelineStart: async (threadId, meta) => {
         try {
-          await persistPipelineStart(ctx.db, threadId);
+          await persistPipelineStart(ctx.db, threadId, meta.traceId);
         } catch (err) {
           ctx.logger.error(`Activity: failed to persist pipeline_start: ${err instanceof Error ? err.message : String(err)}`);
         }

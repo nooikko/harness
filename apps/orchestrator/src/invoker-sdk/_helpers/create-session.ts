@@ -4,13 +4,16 @@
 import os from 'node:os';
 import type { SDKMessage, SDKResultMessage, SDKUserMessage } from '@anthropic-ai/claude-agent-sdk';
 import { query } from '@anthropic-ai/claude-agent-sdk';
-import type { SendOptions, Session, SessionConfig } from './session-pool';
+import type { ContentBlock, PluginContext } from '@harness/plugin-contract';
+import type { ToolContextRef } from '../../tool-server';
+import type { InvocationMeta, SendOptions, Session, SessionConfig } from './session-pool';
 
 type PendingRequest = {
   prompt: string;
   resolve: (result: SDKResultMessage) => void;
   reject: (error: Error) => void;
   onMessage?: (message: SDKMessage) => void;
+  meta?: InvocationMeta;
 };
 
 type CreateSession = (model: string, config?: SessionConfig) => Session;
@@ -18,6 +21,11 @@ type CreateSession = (model: string, config?: SessionConfig) => Session;
 export const createSession: CreateSession = (model, config) => {
   let alive = true;
   let lastActivity = Date.now();
+
+  // Per-session context ref — each session gets its own, captured by the MCP tool server.
+  // Updated by drainQueue when a request becomes active, so tool handlers always read
+  // the correct threadId/traceId/taskId for the currently-executing invocation.
+  const contextRef: ToolContextRef = { ctx: null, threadId: '', pendingBlocks: [] };
 
   const pending: PendingRequest[] = [];
   const MAX_PENDING = 100;
@@ -30,6 +38,16 @@ export const createSession: CreateSession = (model, config) => {
       activeRequest = request;
       const resolver = yieldResolver;
       yieldResolver = null;
+
+      // Copy per-invocation meta to the session's contextRef so tool handlers
+      // read the correct values for THIS request (not a stale or overwritten one)
+      if (request.meta) {
+        contextRef.threadId = request.meta.threadId;
+        contextRef.traceId = request.meta.traceId;
+        contextRef.taskId = request.meta.taskId;
+        contextRef.pendingBlocks = request.meta.pendingBlocks as ContentBlock[][];
+        contextRef.ctx = request.meta.ctx as PluginContext | null;
+      }
 
       resolver({
         type: 'user',
@@ -69,7 +87,7 @@ export const createSession: CreateSession = (model, config) => {
       permissionMode: 'bypassPermissions',
       allowDangerouslySkipPermissions: true,
       env,
-      ...(config?.mcpServerFactory ? { mcpServers: config.mcpServerFactory() } : {}),
+      ...(config?.mcpServerFactory ? { mcpServers: config.mcpServerFactory(contextRef) } : {}),
     },
   });
 
@@ -98,6 +116,8 @@ export const createSession: CreateSession = (model, config) => {
         req.reject(err instanceof Error ? err : new Error(String(err)));
       }
       pending.length = 0;
+      // Close the SDK subprocess to prevent zombie processes lingering after errors
+      q.close();
     }
     alive = false;
   };
@@ -112,7 +132,7 @@ export const createSession: CreateSession = (model, config) => {
       return Promise.reject(new Error(`Session queue full (max ${MAX_PENDING} pending requests)`));
     }
     return new Promise<SDKResultMessage>((resolve, reject) => {
-      pending.push({ prompt, resolve, reject, onMessage: options?.onMessage });
+      pending.push({ prompt, resolve, reject, onMessage: options?.onMessage, meta: options?.meta });
       drainQueue();
     });
   };

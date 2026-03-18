@@ -13,6 +13,7 @@ export type ModelPricing = {
 const MODEL_PRICING: Record<string, ModelPricing> = {
   'claude-sonnet-4-20250514': { inputPerMillion: 3, outputPerMillion: 15 },
   'claude-opus-4-20250514': { inputPerMillion: 15, outputPerMillion: 75 },
+  'claude-opus-4-5-20251101': { inputPerMillion: 15, outputPerMillion: 75 },
   'claude-haiku-3.5-20241022': {
     inputPerMillion: 0.8,
     outputPerMillion: 4,

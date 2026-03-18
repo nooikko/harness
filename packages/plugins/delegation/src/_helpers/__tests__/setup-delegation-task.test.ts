@@ -46,6 +46,7 @@ const createMockContext: CreateMockContext = () => ({
   broadcast: vi.fn(),
   getSettings: vi.fn().mockResolvedValue({}),
   notifySettingsChange: vi.fn().mockResolvedValue(undefined),
+  reportStatus: vi.fn(),
 });
 
 type MakeOptions = (overrides?: Partial<DelegationOptions>) => DelegationOptions;
@@ -180,6 +181,8 @@ describe('setupDelegationTask', () => {
       taskId: 'task-xyz',
       threadId: 'thread-abc',
       parentThreadId: 'parent-thread-1',
+      prompt: 'Fix the failing tests',
+      maxIterations: 5,
     });
   });
 

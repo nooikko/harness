@@ -92,6 +92,7 @@ const createMockContext: CreateMockContext = (overrides = {}) =>
     broadcast: vi.fn().mockResolvedValue(undefined),
     getSettings: vi.fn().mockResolvedValue({}),
     notifySettingsChange: vi.fn().mockResolvedValue(undefined),
+    reportStatus: vi.fn(),
     ...overrides,
   }) as never;
 

@@ -35,6 +35,7 @@ export type InvokeStreamEvent = {
   toolName?: string;
   toolUseId?: string;
   toolInput?: unknown;
+  blocks?: ContentBlock[];
   timestamp: number;
   raw?: unknown;
 };
@@ -55,6 +56,8 @@ export type InvokeOptions = {
   threadId?: string; // Harness thread ID — used as session pool key (stable across messages)
   onMessage?: (event: InvokeStreamEvent) => void;
   traceId?: string; // Trace ID for correlating main-thread invocations with sub-agent invocations
+  taskId?: string; // Delegation task ID — flows to tool handlers via per-invocation context
+  pendingBlocks?: ContentBlock[][]; // Per-invocation content block queue — tool handlers push, onMessage shifts
 };
 
 export type InvokeResult = {
@@ -134,6 +137,17 @@ export const createSettingsSchema: CreateSettingsSchema = (fields) => ({
   toFieldArray: () => Object.entries(fields).map(([name, def]) => ({ name, ...def }) as PluginSettingsField),
 });
 
+// --- Plugin Status ---
+
+export type PluginStatusLevel = 'healthy' | 'degraded' | 'error';
+
+export type PluginStatus = {
+  level: PluginStatusLevel;
+  message?: string;
+  since: number;
+  details?: Record<string, unknown>;
+};
+
 export type PluginRouteEntry = {
   pluginName: string;
   routes: PluginRoute[];
@@ -149,7 +163,7 @@ export type PluginContext = {
   broadcast: (event: string, data: unknown) => Promise<void>;
   getSettings: <T extends SettingsFieldDefs>(schema: PluginSettingsSchemaInstance<T>) => Promise<InferSettings<T>>;
   notifySettingsChange: (pluginName: string) => Promise<void>;
-  setActiveTaskId?: (taskId: string | undefined) => void;
+  reportStatus: (level: PluginStatusLevel, message?: string, details?: Record<string, unknown>) => void;
   pluginRoutes?: PluginRouteEntry[];
 };
 
@@ -161,7 +175,11 @@ export type PluginHooks = {
   onTaskComplete?: (threadId: string, taskId: string, result: string) => Promise<void>;
   onTaskFailed?: (threadId: string, taskId: string, error: Error) => Promise<void>;
   onBroadcast?: (event: string, data: unknown) => Promise<void>;
-  onPipelineStart?: (threadId: string) => Promise<void>;
+  onPipelineStart?: (threadId: string, meta: { traceId: string }) => Promise<void>;
+  /** Fires BEFORE the assistant text message is persisted to the database.
+   *  This is intentional (for createdAt ordering in the UI), but it means
+   *  plugins that query for the assistant message in this hook will not find it.
+   *  Use `result.invokeResult.output` directly instead of querying the DB. */
   onPipelineComplete?: (
     threadId: string,
     result: {
@@ -179,7 +197,16 @@ export type PluginToolMeta = {
   traceId?: string; // Trace ID for correlating this tool call with its originating pipeline run
 };
 
-export type PluginToolHandler = (ctx: PluginContext, input: Record<string, unknown>, meta: PluginToolMeta) => Promise<string>;
+// --- Content Blocks ---
+
+export type ContentBlock = {
+  type: string;
+  data: Record<string, unknown>;
+};
+
+export type ToolResult = string | { text: string; blocks: ContentBlock[] };
+
+export type PluginToolHandler = (ctx: PluginContext, input: Record<string, unknown>, meta: PluginToolMeta) => Promise<ToolResult>;
 
 export type PluginTool = {
   name: string;

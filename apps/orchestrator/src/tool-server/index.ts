@@ -1,6 +1,6 @@
 import type { SdkMcpToolDefinition } from '@anthropic-ai/claude-agent-sdk';
 import { createSdkMcpServer } from '@anthropic-ai/claude-agent-sdk';
-import type { PluginContext, PluginDefinition, PluginTool, PluginToolMeta } from '@harness/plugin-contract';
+import type { ContentBlock, PluginContext, PluginDefinition, PluginTool, PluginToolMeta } from '@harness/plugin-contract';
 import type { ZodTypeAny } from 'zod';
 import { jsonSchemaToZodShape } from './_helpers/json-schema-to-zod-shape';
 
@@ -14,6 +14,7 @@ export type ToolContextRef = {
   threadId: string;
   traceId?: string;
   taskId?: string;
+  pendingBlocks: ContentBlock[][];
 };
 
 type CollectTools = (plugins: PluginDefinition[]) => CollectedTool[];
@@ -55,8 +56,12 @@ export const createToolServer: CreateToolServer = (tools, contextRef) => {
         traceId: contextRef.traceId,
         ...(contextRef.taskId ? { taskId: contextRef.taskId } : {}),
       };
-      const result = await t.handler(contextRef.ctx, input, meta);
-      return { content: [{ type: 'text' as const, text: result }] };
+      const raw = await t.handler(contextRef.ctx, input, meta);
+      const text = typeof raw === 'string' ? raw : raw.text;
+      if (typeof raw !== 'string' && raw.blocks.length > 0) {
+        contextRef.pendingBlocks.push(raw.blocks);
+      }
+      return { content: [{ type: 'text' as const, text }] };
     },
   }));
 

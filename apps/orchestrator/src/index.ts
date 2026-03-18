@@ -13,7 +13,6 @@ import type { PluginHealth } from './orchestrator';
 import { createOrchestrator } from './orchestrator';
 import { createPluginLoader } from './plugin-loader';
 import { getAllPluginNames, getPlugins } from './plugin-registry';
-import type { ToolContextRef } from './tool-server';
 import { collectTools, createToolServer } from './tool-server';
 
 type ShutdownState = {
@@ -55,11 +54,11 @@ export const boot: Boot = async () => {
 
   logger.info('Collecting plugin tools');
   const allTools = collectTools(loaded);
-  const contextRef: ToolContextRef = { ctx: null, threadId: '' };
-  const toolServer = createToolServer(allTools, contextRef);
 
-  if (toolServer) {
-    logger.info('Tool server created', { toolCount: allTools.length });
+  // Check if any tools exist (determines whether to configure MCP servers)
+  const hasTools = allTools.length > 0;
+  if (hasTools) {
+    logger.info('Tool server configured', { toolCount: allTools.length });
   }
 
   logger.info('Creating SDK invoker', {
@@ -69,7 +68,10 @@ export const boot: Boot = async () => {
   const invoker = createSdkInvoker({
     defaultModel: config.claudeModel,
     defaultTimeout: config.claudeTimeout,
-    ...(toolServer ? { sessionConfig: { mcpServerFactory: () => ({ harness: createToolServer(allTools, contextRef)! }) } } : {}),
+    // Per-session tool server: each session gets its own contextRef, passed to createToolServer
+    // so tool handlers capture a session-local ref instead of a global one. drainQueue in
+    // create-session.ts updates this ref when a request becomes active.
+    ...(hasTools ? { sessionConfig: { mcpServerFactory: (ref) => ({ harness: createToolServer(allTools, ref)! }) } } : {}),
   });
 
   logger.info('Creating orchestrator');
@@ -78,18 +80,10 @@ export const boot: Boot = async () => {
     invoker,
     config,
     logger,
-    setActiveThread: (threadId: string) => {
-      contextRef.threadId = threadId;
-    },
-    setActiveTraceId: (traceId: string) => {
-      contextRef.traceId = traceId;
-    },
-    setActiveTaskId: (taskId: string | undefined) => {
-      contextRef.taskId = taskId;
-    },
   });
 
-  contextRef.ctx = orchestrator.getContext();
+  // Late-bind PluginContext to the invoker so per-invocation meta includes ctx
+  invoker.setPluginContext(orchestrator.getContext());
 
   logger.info('Registering plugins');
   for (const plugin of loaded) {

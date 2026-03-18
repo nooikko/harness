@@ -6,9 +6,9 @@ const makeDb = () => ({
 });
 
 describe('persistPipelineStart', () => {
-  it('creates a pipeline_start status message', async () => {
+  it('creates a pipeline_start status message with traceId and startedAt', async () => {
     const db = makeDb();
-    await persistPipelineStart(db as never, 'thread-1');
+    await persistPipelineStart(db as never, 'thread-1', 'trace-abc');
 
     expect(db.message.create).toHaveBeenCalledWith({
       data: {
@@ -17,8 +17,21 @@ describe('persistPipelineStart', () => {
         kind: 'status',
         source: 'pipeline',
         content: 'Pipeline started',
-        metadata: { event: 'pipeline_start' },
+        metadata: {
+          event: 'pipeline_start',
+          traceId: 'trace-abc',
+          startedAt: expect.any(String),
+        },
       },
     });
+  });
+
+  it('includes a valid ISO timestamp in startedAt', async () => {
+    const db = makeDb();
+    await persistPipelineStart(db as never, 'thread-1', 'trace-xyz');
+
+    const metadata = (db.message.create.mock.calls[0]![0] as { data: { metadata: { startedAt: string } } }).data.metadata;
+    const parsed = new Date(metadata.startedAt);
+    expect(parsed.getTime()).not.toBeNaN();
   });
 });

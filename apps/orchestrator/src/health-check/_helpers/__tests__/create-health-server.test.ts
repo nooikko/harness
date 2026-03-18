@@ -11,9 +11,12 @@ const makeLogger = (): Logger => ({
 
 type PluginHealthEntry = {
   name: string;
-  status: 'healthy' | 'failed' | 'disabled';
+  status: 'healthy' | 'degraded' | 'error' | 'failed' | 'disabled';
+  message?: string;
   error?: string;
   startedAt?: number;
+  since?: number;
+  details?: Record<string, unknown>;
 };
 
 type HealthStatus = {

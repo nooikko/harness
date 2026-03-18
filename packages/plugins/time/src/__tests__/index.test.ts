@@ -37,6 +37,7 @@ const createMockContext: CreateMockContext = () => ({
   broadcast: vi.fn().mockResolvedValue(undefined),
   getSettings: vi.fn().mockResolvedValue({}),
   notifySettingsChange: vi.fn().mockResolvedValue(undefined),
+  reportStatus: vi.fn(),
 });
 
 describe('time plugin', () => {

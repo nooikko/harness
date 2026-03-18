@@ -38,6 +38,7 @@ const createMockContext: CreateMockContext = (portOverride) => ({
   broadcast: vi.fn(),
   getSettings: vi.fn().mockResolvedValue({}),
   notifySettingsChange: vi.fn().mockResolvedValue(undefined),
+  reportStatus: vi.fn(),
 });
 
 describe('web plugin', () => {

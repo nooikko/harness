@@ -25,6 +25,7 @@ const makeMockCtx = () => ({
   sendToThread: vi.fn(),
   getSettings: vi.fn().mockResolvedValue({}),
   notifySettingsChange: vi.fn(),
+  reportStatus: vi.fn(),
 });
 
 describe('audit plugin', () => {

@@ -94,7 +94,7 @@ describe('createSdkInvoker', () => {
   it('creates a session pool with correct config', () => {
     createSdkInvoker({ defaultModel: 'haiku', defaultTimeout: 300000 });
 
-    expect(mockCreateSessionPool).toHaveBeenCalledWith({ maxSessions: 5, ttlMs: 480000 }, expect.any(Function), undefined);
+    expect(mockCreateSessionPool).toHaveBeenCalledWith({ maxSessions: 8, ttlMs: 480000 }, expect.any(Function), undefined);
   });
 
   it('passes sessionConfig to session pool when provided', () => {
@@ -115,7 +115,7 @@ describe('createSdkInvoker', () => {
     await invoker.invoke('hello');
 
     expect(mockPool.get).toHaveBeenCalledWith('default', 'haiku');
-    expect(mockSession.send).toHaveBeenCalledWith('hello', undefined);
+    expect(mockSession.send).toHaveBeenCalledWith('hello', expect.objectContaining({ meta: expect.any(Object) }));
   });
 
   it('uses model from options when provided', async () => {
@@ -225,12 +225,16 @@ describe('createSdkInvoker', () => {
     expect(typeof sendCall?.[1]?.onMessage).toBe('function');
   });
 
-  it('does not pass onMessage when not provided', async () => {
+  it('always passes meta even when onMessage is not provided', async () => {
     const invoker = createSdkInvoker({ defaultModel: 'haiku', defaultTimeout: 300000 });
 
     await invoker.invoke('hello');
 
-    expect(mockSession.send).toHaveBeenCalledWith('hello', undefined);
+    const sendCall = vi.mocked(mockSession.send).mock.calls[0];
+    expect(sendCall?.[0]).toBe('hello');
+    expect(sendCall?.[1]).toBeDefined();
+    expect(sendCall?.[1]?.meta).toBeDefined();
+    expect(sendCall?.[1]?.onMessage).toBeUndefined();
   });
 
   it('prewarm creates a session in the pool', () => {
@@ -259,6 +263,119 @@ describe('createSdkInvoker', () => {
     const calls = vi.mocked(mockPool.get).mock.calls;
     expect(calls[0]![0]).toBe('thread-abc'); // prewarm call
     expect(calls[1]![0]).toBe('thread-abc'); // invoke call — same key
+  });
+
+  it('passes threadId, traceId, and taskId in send meta', async () => {
+    const invoker = createSdkInvoker({ defaultModel: 'haiku', defaultTimeout: 300000 });
+
+    await invoker.invoke('hello', { threadId: 'thread-1', traceId: 'trace-abc', taskId: 'task-99' });
+
+    const sendCall = vi.mocked(mockSession.send).mock.calls[0];
+    const meta = sendCall?.[1]?.meta;
+    expect(meta).toBeDefined();
+    expect(meta?.threadId).toBe('thread-1');
+    expect(meta?.traceId).toBe('trace-abc');
+    expect(meta?.taskId).toBe('task-99');
+  });
+
+  it('passes pendingBlocks from InvokeOptions into send meta', async () => {
+    const invoker = createSdkInvoker({ defaultModel: 'haiku', defaultTimeout: 300000 });
+    const pendingBlocks: unknown[][] = [];
+
+    await invoker.invoke('hello', { pendingBlocks: pendingBlocks as never });
+
+    const sendCall = vi.mocked(mockSession.send).mock.calls[0];
+    expect(sendCall?.[1]?.meta?.pendingBlocks).toBe(pendingBlocks); // same reference
+  });
+
+  it('creates empty pendingBlocks when not provided in options', async () => {
+    const invoker = createSdkInvoker({ defaultModel: 'haiku', defaultTimeout: 300000 });
+
+    await invoker.invoke('hello');
+
+    const sendCall = vi.mocked(mockSession.send).mock.calls[0];
+    expect(sendCall?.[1]?.meta?.pendingBlocks).toEqual([]);
+  });
+
+  it('setPluginContext makes ctx available in send meta', async () => {
+    const invoker = createSdkInvoker({ defaultModel: 'haiku', defaultTimeout: 300000 });
+    const fakeCtx = { db: {}, invoker: {} } as never;
+
+    invoker.setPluginContext(fakeCtx);
+    await invoker.invoke('hello');
+
+    const sendCall = vi.mocked(mockSession.send).mock.calls[0];
+    expect(sendCall?.[1]?.meta?.ctx).toBe(fakeCtx);
+  });
+
+  it('meta.ctx is null before setPluginContext is called', async () => {
+    const invoker = createSdkInvoker({ defaultModel: 'haiku', defaultTimeout: 300000 });
+
+    await invoker.invoke('hello');
+
+    const sendCall = vi.mocked(mockSession.send).mock.calls[0];
+    expect(sendCall?.[1]?.meta?.ctx).toBeNull();
+  });
+
+  it('retries once on "Session is closed" and succeeds with fresh session', async () => {
+    const freshSession: Session = {
+      send: vi.fn().mockResolvedValue(successResult),
+      close: vi.fn(),
+      isAlive: true,
+      lastActivity: Date.now(),
+    };
+    vi.mocked(mockSession.send).mockRejectedValueOnce(new Error('Session is closed'));
+    vi.mocked(mockPool.get)
+      .mockReturnValueOnce(mockSession) // initial get
+      .mockReturnValueOnce(freshSession); // retry get
+
+    const invoker = createSdkInvoker({ defaultModel: 'haiku', defaultTimeout: 300000 });
+    const result = await invoker.invoke('hello');
+
+    expect(mockPool.evict).toHaveBeenCalledTimes(1); // evict stale
+    expect(mockPool.get).toHaveBeenCalledTimes(2); // initial + retry
+    expect(result.exitCode).toBe(0);
+    expect(result.output).toBe('Hello!');
+  });
+
+  it('retries once on "Session is closed" and returns error if retry also fails', async () => {
+    const freshSession: Session = {
+      send: vi.fn().mockRejectedValue(new Error('Connection lost')),
+      close: vi.fn(),
+      isAlive: true,
+      lastActivity: Date.now(),
+    };
+    vi.mocked(mockSession.send).mockRejectedValueOnce(new Error('Session is closed'));
+    vi.mocked(mockPool.get).mockReturnValueOnce(mockSession).mockReturnValueOnce(freshSession);
+
+    const invoker = createSdkInvoker({ defaultModel: 'haiku', defaultTimeout: 300000 });
+    const result = await invoker.invoke('hello');
+
+    expect(mockPool.evict).toHaveBeenCalledTimes(2); // stale + retry failure
+    expect(result.exitCode).toBe(1);
+    expect(result.error).toBe('Connection lost');
+  });
+
+  it('does not retry on non-stale errors', async () => {
+    vi.mocked(mockSession.send).mockRejectedValue(new Error('Connection lost'));
+
+    const invoker = createSdkInvoker({ defaultModel: 'haiku', defaultTimeout: 300000 });
+    const result = await invoker.invoke('hello');
+
+    expect(mockPool.evict).toHaveBeenCalledTimes(1);
+    expect(mockPool.get).toHaveBeenCalledTimes(1); // no retry
+    expect(result.error).toBe('Connection lost');
+  });
+
+  it('does not retry on "Session closed" (intentional close, different message)', async () => {
+    vi.mocked(mockSession.send).mockRejectedValue(new Error('Session closed'));
+
+    const invoker = createSdkInvoker({ defaultModel: 'haiku', defaultTimeout: 300000 });
+    const result = await invoker.invoke('hello');
+
+    expect(mockPool.get).toHaveBeenCalledTimes(1); // no retry
+    expect(result.exitCode).toBe(1);
+    expect(result.error).toBe('Session closed');
   });
 
   it('stop() calls closeAll on the pool', () => {

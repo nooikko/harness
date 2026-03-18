@@ -24,6 +24,7 @@ const makePlugin: MakePlugin = (name, tools) => ({
 const makeContextRef = (): ToolContextRef => ({
   ctx: { db: {}, invoker: {}, config: {}, logger: {}, sendToThread: vi.fn(), broadcast: vi.fn() } as unknown as PluginContext,
   threadId: 'thread-1',
+  pendingBlocks: [],
 });
 
 describe('tool-server integration', () => {

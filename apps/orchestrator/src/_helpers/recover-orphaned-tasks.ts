@@ -18,7 +18,7 @@ export const recoverOrphanedTasks: RecoverOrphanedTasks = async (db, logger) => 
 
   const orphaned = await db.orchestratorTask.findMany({
     where: {
-      status: 'running',
+      status: { in: ['running', 'evaluating', 'pending'] },
       updatedAt: { lt: cutoff },
     },
     select: {

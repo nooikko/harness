@@ -2,9 +2,13 @@ import type { InvokeStreamEvent } from '@harness/plugin-contract';
 import { describe, expect, it, vi } from 'vitest';
 import { persistStreamEvents } from '../persist-stream-events';
 
-const makeDb = () => ({
-  message: { create: vi.fn().mockResolvedValue({}) },
-});
+const makeDb = () => {
+  const create = vi.fn().mockResolvedValue({});
+  return {
+    message: { create },
+    $transaction: vi.fn().mockImplementation((promises: Promise<unknown>[]) => Promise.all(promises)),
+  };
+};
 
 describe('persistStreamEvents', () => {
   it('persists thinking events as kind:thinking', async () => {
@@ -70,7 +74,8 @@ describe('persistStreamEvents', () => {
         kind: 'tool_result',
         source: 'builtin',
         content: 'Listed 5 files',
-        metadata: { toolUseId: 'tu-2', success: true },
+        // toolName is always written (null when the event has no toolName)
+        metadata: { toolUseId: 'tu-2', toolName: null, success: true },
       },
     });
   });
@@ -91,5 +96,57 @@ describe('persistStreamEvents', () => {
     await persistStreamEvents(db as never, 'thread-1', [event]);
 
     expect(db.message.create).not.toHaveBeenCalled();
+  });
+
+  it('includes blocks in tool_result metadata when tool_use_summary event carries blocks', async () => {
+    const db = makeDb();
+    const blocks = [{ type: 'email-list', data: { emails: ['alice@example.com'] } }];
+    const event: InvokeStreamEvent = {
+      type: 'tool_use_summary',
+      content: 'Retrieved 1 email',
+      toolUseId: 'tu-3',
+      toolName: 'outlook__list_emails',
+      blocks,
+      timestamp: Date.now(),
+    };
+
+    await persistStreamEvents(db as never, 'thread-1', [event]);
+
+    expect(db.message.create).toHaveBeenCalledWith({
+      data: {
+        threadId: 'thread-1',
+        role: 'assistant',
+        kind: 'tool_result',
+        source: 'outlook',
+        content: 'Retrieved 1 email',
+        metadata: {
+          toolUseId: 'tu-3',
+          toolName: 'outlook__list_emails',
+          success: true,
+          blocks,
+        },
+      },
+    });
+  });
+
+  it('omits blocks from tool_result metadata when tool_use_summary event has no blocks', async () => {
+    const db = makeDb();
+    const event: InvokeStreamEvent = {
+      type: 'tool_use_summary',
+      content: 'Task completed',
+      toolUseId: 'tu-4',
+      toolName: 'cron__schedule_task',
+      timestamp: Date.now(),
+    };
+
+    await persistStreamEvents(db as never, 'thread-1', [event]);
+
+    const calledData = db.message.create.mock.calls[0]![0].data as { metadata: Record<string, unknown> };
+    expect(calledData.metadata).not.toHaveProperty('blocks');
+    expect(calledData.metadata).toEqual({
+      toolUseId: 'tu-4',
+      toolName: 'cron__schedule_task',
+      success: true,
+    });
   });
 });

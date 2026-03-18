@@ -760,6 +760,7 @@ describe('plugin route mounting', () => {
       config: { claudeModel: 'claude-haiku-4-5-20251001' },
       logger: mockPluginLogger,
       notifySettingsChange: vi.fn(),
+      reportStatus: vi.fn(),
       broadcast: vi.fn(),
     } as unknown as PluginContext;
 
@@ -769,6 +770,7 @@ describe('plugin route mounting', () => {
       config: { claudeModel: 'claude-haiku-4-5-20251001' },
       logger: mockPluginLogger,
       notifySettingsChange: vi.fn(),
+      reportStatus: vi.fn(),
       broadcast: vi.fn(),
       pluginRoutes: [
         {
@@ -901,6 +903,7 @@ describe('plugin route mounting — no routes', () => {
       config: { claudeModel: 'claude-haiku-4-5-20251001' },
       logger,
       notifySettingsChange: vi.fn(),
+      reportStatus: vi.fn(),
       broadcast: vi.fn(),
       // pluginRoutes is undefined
     } as unknown as PluginContext;

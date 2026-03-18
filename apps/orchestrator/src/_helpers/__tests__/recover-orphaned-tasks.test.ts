@@ -53,7 +53,7 @@ describe('recoverOrphanedTasks', () => {
     expect(db.thread.update).not.toHaveBeenCalled();
   });
 
-  it('queries for tasks with status running and old updatedAt', async () => {
+  it('queries for tasks with status running, evaluating, or pending and old updatedAt', async () => {
     db.orchestratorTask.findMany.mockResolvedValue([]);
 
     await recoverOrphanedTasks(db as never, logger);
@@ -61,7 +61,7 @@ describe('recoverOrphanedTasks', () => {
     expect(db.orchestratorTask.findMany).toHaveBeenCalledWith(
       expect.objectContaining({
         where: expect.objectContaining({
-          status: 'running',
+          status: { in: ['running', 'evaluating', 'pending'] },
           updatedAt: expect.objectContaining({ lt: expect.any(Date) }),
         }),
       }),

@@ -4,7 +4,10 @@ import { describe, expect, it, vi } from 'vitest';
 import { plugin } from '../index';
 
 const makeCtx = (): PluginContext => ({
-  db: { message: { create: vi.fn().mockResolvedValue({}) } } as never,
+  db: {
+    message: { create: vi.fn().mockResolvedValue({}) },
+    $transaction: vi.fn().mockImplementation((p: Promise<unknown>[]) => Promise.all(p)),
+  } as never,
   invoker: {} as never,
   config: {} as never,
   logger: { info: vi.fn(), warn: vi.fn(), error: vi.fn(), debug: vi.fn() },
@@ -12,6 +15,7 @@ const makeCtx = (): PluginContext => ({
   broadcast: vi.fn(),
   getSettings: vi.fn().mockResolvedValue({}),
   notifySettingsChange: vi.fn().mockResolvedValue(undefined),
+  reportStatus: vi.fn(),
 });
 
 const makeInvokeResult = (overrides: Partial<InvokeResult> = {}): InvokeResult => ({
@@ -37,13 +41,13 @@ describe('activity plugin', () => {
   it('onPipelineStart persists pipeline_start status', async () => {
     const ctx = makeCtx();
     const hooks = await plugin.register(ctx);
-    await hooks.onPipelineStart?.('thread-1');
+    await hooks.onPipelineStart?.('thread-1', { traceId: 'trace-1' });
 
     expect(ctx.db.message.create).toHaveBeenCalledWith(
       expect.objectContaining({
         data: expect.objectContaining({
           kind: 'status',
-          metadata: expect.objectContaining({ event: 'pipeline_start' }),
+          metadata: expect.objectContaining({ event: 'pipeline_start', traceId: 'trace-1' }),
         }),
       }),
     );
@@ -74,7 +78,7 @@ describe('activity plugin', () => {
     (ctx.db.message.create as ReturnType<typeof vi.fn>).mockRejectedValueOnce(new Error('DB down'));
     const hooks = await plugin.register(ctx);
 
-    await expect(hooks.onPipelineStart?.('thread-1')).resolves.toBeUndefined();
+    await expect(hooks.onPipelineStart?.('thread-1', { traceId: 'trace-1' })).resolves.toBeUndefined();
     expect(ctx.logger.error).toHaveBeenCalled();
   });
 
@@ -98,7 +102,7 @@ describe('activity plugin', () => {
     (ctx.db.message.create as ReturnType<typeof vi.fn>).mockRejectedValueOnce('string error');
     const hooks = await plugin.register(ctx);
 
-    await expect(hooks.onPipelineStart?.('thread-1')).resolves.toBeUndefined();
+    await expect(hooks.onPipelineStart?.('thread-1', { traceId: 'trace-1' })).resolves.toBeUndefined();
     expect(ctx.logger.error).toHaveBeenCalledWith(expect.stringContaining('string error'));
   });
 

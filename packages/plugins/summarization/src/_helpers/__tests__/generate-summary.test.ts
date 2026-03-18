@@ -28,6 +28,7 @@ const createMockContext: CreateMockContext = () =>
     broadcast: vi.fn(),
     getSettings: vi.fn().mockResolvedValue({}),
     notifySettingsChange: vi.fn(),
+    reportStatus: vi.fn(),
   }) as never;
 
 describe('generateSummary', () => {

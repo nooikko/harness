@@ -1,6 +1,8 @@
-import type { PluginContext } from '@harness/plugin-contract';
+import type { PluginContext, ToolResult } from '@harness/plugin-contract';
 import { describe, expect, it, vi } from 'vitest';
 import { musicPlugin } from '../index';
+
+const textOf = (r: ToolResult): string => (typeof r === 'string' ? r : r.text);
 
 // Mock all helpers
 vi.mock('../_helpers/youtube-music-client', () => ({
@@ -94,6 +96,7 @@ const createMockContext = (): PluginContext =>
     broadcast: vi.fn(),
     getSettings: vi.fn(),
     notifySettingsChange: vi.fn(),
+    reportStatus: vi.fn(),
   }) as unknown as PluginContext;
 
 describe('music plugin', () => {
@@ -174,9 +177,10 @@ describe('music plugin', () => {
       const ctx = createMockContext();
       const tool = musicPlugin.tools!.find((t) => t.name === 'queue_view')!;
       const result = await tool.handler(ctx, {}, { threadId: 't1', traceId: 'tr1' });
-      expect(result).toContain('Living Room');
-      expect(result).toContain('PLAYING');
-      expect(result).toContain('Test Song');
+      const text = textOf(result);
+      expect(text).toContain('Living Room');
+      expect(text).toContain('PLAYING');
+      expect(text).toContain('Test Song');
     });
   });
 
@@ -359,8 +363,9 @@ describe('music plugin', () => {
       });
 
       const result = await getTool().handler(createMockContext(), {}, meta);
-      expect(result).toContain('**Now Playing:** (nothing)');
-      expect(result).toContain('**Radio:** off');
+      const text = textOf(result);
+      expect(text).toContain('**Now Playing:** (nothing)');
+      expect(text).toContain('**Radio:** off');
     });
 
     it('lists queued tracks when queue is non-empty', async () => {
@@ -374,9 +379,10 @@ describe('music plugin', () => {
       });
 
       const result = await getTool().handler(createMockContext(), {}, meta);
-      expect(result).toContain('**Up Next (2):**');
-      expect(result).toContain('1. Next One by Artist B');
-      expect(result).toContain('2. After That by Artist C');
+      const text = textOf(result);
+      expect(text).toContain('**Up Next (2):**');
+      expect(text).toContain('1. Next One by Artist B');
+      expect(text).toContain('2. After That by Artist C');
     });
 
     it('shows (empty) when queue has no tracks', async () => {
@@ -390,7 +396,7 @@ describe('music plugin', () => {
       });
 
       const result = await getTool().handler(createMockContext(), {}, meta);
-      expect(result).toContain('**Up Next:** (empty)');
+      expect(textOf(result)).toContain('**Up Next:** (empty)');
     });
   });
 
@@ -535,10 +541,11 @@ describe('music plugin', () => {
       } as never);
 
       const result = await getTool().handler(createMockContext(), {}, meta);
-      expect(result).toContain('Your playlists:');
-      expect(result).toContain('My Playlist');
-      expect(result).toContain('Workout Mix');
-      expect(result).toContain('pl1');
+      const text = textOf(result);
+      expect(text).toContain('Your playlists:');
+      expect(text).toContain('My Playlist');
+      expect(text).toContain('Workout Mix');
+      expect(text).toContain('pl1');
     });
 
     it('returns message when no playlists found', async () => {
@@ -597,7 +604,7 @@ describe('music plugin', () => {
       } as never);
 
       const result = await getTool().handler(createMockContext(), {}, meta);
-      expect(result).toContain('Untitled');
+      expect(textOf(result)).toContain('Untitled');
     });
   });
 
@@ -640,10 +647,11 @@ describe('music plugin', () => {
       } as never);
 
       const result = await getTool().handler(createMockContext(), {}, meta);
-      expect(result).toContain('Liked songs (2)');
-      expect(result).toContain('Song A');
-      expect(result).toContain('Artist A');
-      expect(result).toContain('va');
+      const text = textOf(result);
+      expect(text).toContain('Liked songs (2)');
+      expect(text).toContain('Song A');
+      expect(text).toContain('Artist A');
+      expect(text).toContain('va');
     });
 
     it('respects custom limit', async () => {
@@ -662,7 +670,7 @@ describe('music plugin', () => {
       } as never);
 
       const result = await getTool().handler(createMockContext(), { limit: 3 }, meta);
-      expect(result).toContain('Liked songs (3)');
+      expect(textOf(result)).toContain('Liked songs (3)');
     });
 
     it('returns message when no liked songs', async () => {
@@ -721,7 +729,7 @@ describe('music plugin', () => {
       } as never);
 
       const result = await getTool().handler(createMockContext(), {}, meta);
-      expect(result).toContain('Fallback Author');
+      expect(textOf(result)).toContain('Fallback Author');
     });
   });
 

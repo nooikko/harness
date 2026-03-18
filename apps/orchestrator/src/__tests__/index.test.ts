@@ -114,6 +114,7 @@ type MockOrchestrator = {
   stop: ReturnType<typeof vi.fn>;
   getPlugins: ReturnType<typeof vi.fn>;
   getPluginHealth: ReturnType<typeof vi.fn>;
+  getPluginStatuses: ReturnType<typeof vi.fn>;
   getContext: ReturnType<typeof vi.fn>;
   getHooks: ReturnType<typeof vi.fn>;
   handleMessage: ReturnType<typeof vi.fn>;
@@ -125,6 +126,7 @@ const makeOrchestrator = (): MockOrchestrator => ({
   stop: vi.fn().mockResolvedValue(undefined),
   getPlugins: vi.fn().mockReturnValue([]),
   getPluginHealth: vi.fn().mockReturnValue([]),
+  getPluginStatuses: vi.fn().mockReturnValue([]),
   getContext: vi.fn(),
   getHooks: vi.fn().mockReturnValue([]),
   handleMessage: vi.fn(),
@@ -134,12 +136,14 @@ type MockInvoker = {
   invoke: ReturnType<typeof vi.fn>;
   prewarm: ReturnType<typeof vi.fn>;
   stop: ReturnType<typeof vi.fn>;
+  setPluginContext: ReturnType<typeof vi.fn>;
 };
 
 const makeInvoker = (): MockInvoker => ({
   invoke: vi.fn(),
   prewarm: vi.fn(),
   stop: vi.fn(),
+  setPluginContext: vi.fn(),
 });
 
 const setupDefaults = (options?: {
@@ -284,21 +288,9 @@ describe('boot', () => {
       expect(mockCollectTools).toHaveBeenCalledWith(plugins);
     });
 
-    it('creates tool server with collected tools and context ref', async () => {
-      const mockTools = [{ name: 'test', qualifiedName: 'test__tool', pluginName: 'test' }];
-      setupDefaults();
-      mockCollectTools.mockReturnValue(mockTools as never);
-
-      await boot();
-
-      expect(mockCreateToolServer).toHaveBeenCalledWith(mockTools, expect.objectContaining({ threadId: '' }));
-    });
-
-    it('passes tool server to invoker when tools exist', async () => {
-      const mockServer = { name: 'harness' };
+    it('passes per-session mcpServerFactory to invoker when tools exist', async () => {
       setupDefaults();
       mockCollectTools.mockReturnValue([{ name: 'test' }] as never);
-      mockCreateToolServer.mockReturnValue(mockServer as never);
 
       await boot();
 
@@ -319,7 +311,7 @@ describe('boot', () => {
       expect(mockCreateSdkInvoker).toHaveBeenCalledWith(expect.not.objectContaining({ sessionConfig: expect.anything() }));
     });
 
-    it('creates the orchestrator with correct deps including setActiveThread, setActiveTraceId, and setActiveTaskId', async () => {
+    it('creates the orchestrator with correct deps (no global setters)', async () => {
       const config = makeConfig();
       const { logger, invoker } = setupDefaults({ config });
 
@@ -330,82 +322,23 @@ describe('boot', () => {
         invoker,
         config,
         logger,
-        setActiveThread: expect.any(Function),
-        setActiveTraceId: expect.any(Function),
-        setActiveTaskId: expect.any(Function),
       });
-    });
-
-    it('setActiveThread callback updates contextRef.threadId', async () => {
-      const config = makeConfig();
-      const { logger, invoker } = setupDefaults({ config });
-
-      await boot();
-
-      // Capture the setActiveThread arg passed to createOrchestrator
-      const createOrchestratorArgs = mockCreateOrchestrator.mock.calls[0]![0] as {
-        setActiveThread: (threadId: string) => void;
-      };
-      expect(typeof createOrchestratorArgs.setActiveThread).toBe('function');
-
-      // Call it and verify it does not throw (it mutates the internal contextRef)
-      expect(() => createOrchestratorArgs.setActiveThread('thread-xyz')).not.toThrow();
-      // Suppress unused variable warnings for these — they are captured to satisfy vi.mocked
-      void logger;
+      // Suppress unused variable warnings
       void invoker;
     });
 
-    it('setActiveTraceId callback updates contextRef.traceId', async () => {
-      const config = makeConfig();
-      const { logger, invoker } = setupDefaults({ config });
-
-      await boot();
-
-      const createOrchestratorArgs = mockCreateOrchestrator.mock.calls[0]![0] as {
-        setActiveTraceId: (traceId: string) => void;
-      };
-      expect(typeof createOrchestratorArgs.setActiveTraceId).toBe('function');
-
-      // Call it and verify it does not throw (it mutates the internal contextRef)
-      expect(() => createOrchestratorArgs.setActiveTraceId('trace-abc-123')).not.toThrow();
-      // Suppress unused variable warnings for these — they are captured to satisfy vi.mocked
-      void logger;
-      void invoker;
-    });
-
-    it('setActiveTaskId callback updates contextRef.taskId', async () => {
-      const config = makeConfig();
-      const { logger, invoker } = setupDefaults({ config });
-
-      await boot();
-
-      const createOrchestratorArgs = mockCreateOrchestrator.mock.calls[0]![0] as {
-        setActiveTaskId: (taskId: string | undefined) => void;
-      };
-      expect(typeof createOrchestratorArgs.setActiveTaskId).toBe('function');
-
-      // Call it and verify it does not throw (it mutates the internal contextRef)
-      expect(() => createOrchestratorArgs.setActiveTaskId('task-xyz')).not.toThrow();
-      // Also verify clearing works
-      expect(() => createOrchestratorArgs.setActiveTaskId(undefined)).not.toThrow();
-      // Suppress unused variable warnings for these — they are captured to satisfy vi.mocked
-      void logger;
-      void invoker;
-    });
-
-    it('late-binds orchestrator context to the tool context ref', async () => {
+    it('late-binds orchestrator context to the invoker via setPluginContext', async () => {
       const mockContext = { db: {}, invoker: {} };
       const orchestrator = makeOrchestrator();
       orchestrator.getContext.mockReturnValue(mockContext);
-      setupDefaults({ orchestrator });
+      const { invoker } = setupDefaults({ orchestrator });
 
       await boot();
 
-      // getContext is called once to populate the context ref after orchestrator creation
+      // getContext is called once after orchestrator creation
       expect(orchestrator.getContext).toHaveBeenCalledTimes(1);
-      // The mutable ref passed to createToolServer now has the context from getContext()
-      const passedRef = mockCreateToolServer.mock.calls[0]![1];
-      expect(passedRef).toEqual({ ctx: mockContext, threadId: '' });
+      // setPluginContext is called on the invoker with the orchestrator's context
+      expect(invoker.setPluginContext).toHaveBeenCalledWith(mockContext);
     });
 
     it('logs a warning when orphaned tasks are recovered', async () => {

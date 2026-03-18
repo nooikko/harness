@@ -315,10 +315,14 @@ describe('createSession', () => {
     expect(session.isAlive).toBe(false);
   });
 
-  it('calls mcpServerFactory and passes result to query() options when provided', async () => {
+  it('calls mcpServerFactory with a session-local contextRef and passes result to query()', async () => {
+    let capturedRef: unknown = null;
     const mockMcpServer = { name: 'harness', tools: [] };
     const session = createSession('sonnet', {
-      mcpServerFactory: () => ({ harness: mockMcpServer as never }),
+      mcpServerFactory: (ref) => {
+        capturedRef = ref;
+        return { harness: mockMcpServer as never };
+      },
     });
     await tick();
 
@@ -327,7 +331,77 @@ describe('createSession', () => {
         mcpServers: { harness: mockMcpServer },
       }),
     );
+    // Factory receives a ToolContextRef with empty defaults
+    expect(capturedRef).toEqual(expect.objectContaining({ threadId: '', ctx: null }));
 
+    session.close();
+  });
+
+  it('drainQueue copies request meta to session contextRef when activating', async () => {
+    let capturedRef: Record<string, unknown> | null = null;
+    const session = createSession('sonnet', {
+      mcpServerFactory: (ref) => {
+        capturedRef = ref as unknown as Record<string, unknown>;
+        return {};
+      },
+    });
+    await tick();
+
+    const pendingBlocks: unknown[][] = [];
+    const sendPromise = session.send('Hello', {
+      meta: { threadId: 'thread-42', traceId: 'trace-abc', taskId: 'task-99', pendingBlocks, ctx: { fake: true } },
+    });
+    await tick();
+
+    // After drainQueue activates the request, the session's contextRef should have the meta values
+    expect(capturedRef).toBeDefined();
+    expect(capturedRef!.threadId).toBe('thread-42');
+    expect(capturedRef!.traceId).toBe('trace-abc');
+    expect(capturedRef!.taskId).toBe('task-99');
+    expect(capturedRef!.pendingBlocks).toBe(pendingBlocks); // same reference
+    expect(capturedRef!.ctx).toEqual({ fake: true });
+
+    activeController!.yield(makeResult());
+    await sendPromise;
+    session.close();
+  });
+
+  it('sequential requests get their own meta activated by drainQueue', async () => {
+    let capturedRef: Record<string, unknown> | null = null;
+    const session = createSession('sonnet', {
+      mcpServerFactory: (ref) => {
+        capturedRef = ref as unknown as Record<string, unknown>;
+        return {};
+      },
+    });
+    await tick();
+
+    // Send two requests — second queues behind first
+    const promise1 = session.send('First', {
+      meta: { threadId: 'thread-A', traceId: 'trace-A', taskId: undefined, pendingBlocks: [], ctx: null },
+    });
+    await tick();
+
+    const promise2 = session.send('Second', {
+      meta: { threadId: 'thread-B', traceId: 'trace-B', taskId: 'task-B', pendingBlocks: [], ctx: null },
+    });
+
+    // While first request is active, contextRef should have thread-A
+    expect(capturedRef!.threadId).toBe('thread-A');
+    expect(capturedRef!.traceId).toBe('trace-A');
+
+    // Complete first request
+    activeController!.yield(makeResult({ result: 'First result' }));
+    await promise1;
+    await tick();
+
+    // After drainQueue activates second request, contextRef should have thread-B
+    expect(capturedRef!.threadId).toBe('thread-B');
+    expect(capturedRef!.traceId).toBe('trace-B');
+    expect(capturedRef!.taskId).toBe('task-B');
+
+    activeController!.yield(makeResult({ result: 'Second result' }));
+    await promise2;
     session.close();
   });
 

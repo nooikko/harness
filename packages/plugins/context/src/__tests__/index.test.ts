@@ -50,6 +50,7 @@ const createMockContext = (options?: CreateMockContextOptions): PluginContext =>
     broadcast: vi.fn(),
     getSettings: vi.fn().mockResolvedValue({}),
     notifySettingsChange: vi.fn().mockResolvedValue(undefined),
+    reportStatus: vi.fn(),
   };
 };
 

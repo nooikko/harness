@@ -2,9 +2,19 @@
 // Sessions are proactively evicted after a TTL to avoid stale-session errors
 
 import type { McpServerConfig, SDKMessage, SDKResultMessage } from '@anthropic-ai/claude-agent-sdk';
+import type { ToolContextRef } from '../../tool-server';
+
+export type InvocationMeta = {
+  threadId: string;
+  traceId?: string;
+  taskId?: string;
+  pendingBlocks: unknown[][];
+  ctx: unknown;
+};
 
 export type SendOptions = {
   onMessage?: (message: SDKMessage) => void;
+  meta?: InvocationMeta;
 };
 
 export type Session = {
@@ -15,7 +25,7 @@ export type Session = {
 };
 
 export type SessionConfig = {
-  mcpServerFactory?: () => Record<string, McpServerConfig>;
+  mcpServerFactory?: (contextRef: ToolContextRef) => Record<string, McpServerConfig>;
 };
 
 export type SessionFactory = (model: string, config?: SessionConfig) => Session;

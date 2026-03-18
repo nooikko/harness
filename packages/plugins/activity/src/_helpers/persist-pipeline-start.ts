@@ -1,8 +1,8 @@
 import type { PrismaClient } from '@harness/database';
 
-type PersistPipelineStart = (db: PrismaClient, threadId: string) => Promise<void>;
+type PersistPipelineStart = (db: PrismaClient, threadId: string, traceId: string) => Promise<void>;
 
-const persistPipelineStart: PersistPipelineStart = async (db, threadId) => {
+const persistPipelineStart: PersistPipelineStart = async (db, threadId, traceId) => {
   await db.message.create({
     data: {
       threadId,
@@ -10,7 +10,7 @@ const persistPipelineStart: PersistPipelineStart = async (db, threadId) => {
       kind: 'status',
       source: 'pipeline',
       content: 'Pipeline started',
-      metadata: { event: 'pipeline_start' },
+      metadata: { event: 'pipeline_start', traceId, startedAt: new Date().toISOString() },
     },
   });
 };
