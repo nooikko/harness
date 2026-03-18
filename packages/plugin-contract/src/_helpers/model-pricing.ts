@@ -3,7 +3,7 @@
 
 /**
  * Model pricing in USD per million tokens.
- * Rates as of 2025 Claude model pricing.
+ * Rates as of 2026 Claude model pricing.
  */
 export type ModelPricing = {
   inputPerMillion: number;
@@ -11,17 +11,13 @@ export type ModelPricing = {
 };
 
 const MODEL_PRICING: Record<string, ModelPricing> = {
-  'claude-sonnet-4-20250514': { inputPerMillion: 3, outputPerMillion: 15 },
-  'claude-opus-4-20250514': { inputPerMillion: 15, outputPerMillion: 75 },
-  'claude-opus-4-5-20251101': { inputPerMillion: 15, outputPerMillion: 75 },
-  'claude-haiku-3.5-20241022': {
-    inputPerMillion: 0.8,
-    outputPerMillion: 4,
-  },
+  'claude-sonnet-4-6': { inputPerMillion: 3, outputPerMillion: 15 },
+  'claude-opus-4-6': { inputPerMillion: 15, outputPerMillion: 75 },
+  'claude-haiku-4-5-20251001': { inputPerMillion: 1, outputPerMillion: 5 },
   // Short aliases used by the orchestrator config
   sonnet: { inputPerMillion: 3, outputPerMillion: 15 },
   opus: { inputPerMillion: 15, outputPerMillion: 75 },
-  haiku: { inputPerMillion: 0.8, outputPerMillion: 4 },
+  haiku: { inputPerMillion: 1, outputPerMillion: 5 },
 };
 
 /**
@@ -57,6 +53,25 @@ export const getModelPricing: GetModelPricing = (model) => {
   }
 
   return DEFAULT_PRICING;
+};
+
+type IsKnownModel = (model: string) => boolean;
+
+/**
+ * Returns true if the model string resolves to a known pricing entry
+ * (exact or partial match). Returns false if it would fall back to default pricing.
+ */
+export const isKnownModel: IsKnownModel = (model) => {
+  const normalized = model.toLowerCase();
+  if (MODEL_PRICING[normalized]) {
+    return true;
+  }
+  for (const key of Object.keys(MODEL_PRICING)) {
+    if (normalized.includes(key)) {
+      return true;
+    }
+  }
+  return false;
 };
 
 type GetModelCost = (model: string, inputTokens: number, outputTokens: number) => number;

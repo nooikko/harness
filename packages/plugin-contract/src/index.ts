@@ -10,7 +10,7 @@ export { runChainHook, runHook };
 export { decryptValue } from './_helpers/decrypt-value';
 export { encryptValue } from './_helpers/encrypt-value';
 export type { ModelPricing } from './_helpers/model-pricing';
-export { getModelCost, getModelPricing } from './_helpers/model-pricing';
+export { getModelCost, getModelPricing, isKnownModel } from './_helpers/model-pricing';
 
 // Inlined from orchestrator config
 export type LogLevel = 'debug' | 'info' | 'warn' | 'error';
