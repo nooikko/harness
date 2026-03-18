@@ -69,12 +69,53 @@ describe('generateSummary', () => {
     expect(callArg).toContain('[user]: I need help with TypeScript.');
   });
 
-  it('handles empty message list gracefully', async () => {
+  it('throws when invoker returns empty output', async () => {
+    const ctx = createMockContext();
+    (ctx.invoker.invoke as ReturnType<typeof vi.fn>).mockResolvedValueOnce({
+      output: '',
+      durationMs: 100,
+      exitCode: 0,
+    });
+
+    await expect(generateSummary(ctx, 'thread-1', 3)).rejects.toThrow('Haiku returned empty summary output');
+  });
+
+  it('throws when invoker returns whitespace-only output', async () => {
+    const ctx = createMockContext();
+    (ctx.invoker.invoke as ReturnType<typeof vi.fn>).mockResolvedValueOnce({
+      output: '   \n  ',
+      durationMs: 100,
+      exitCode: 0,
+    });
+
+    await expect(generateSummary(ctx, 'thread-1', 3)).rejects.toThrow('Haiku returned empty summary output');
+  });
+
+  it('sends only the default prompt when message list is empty', async () => {
     const ctx = createMockContext();
     (ctx.db.message.findMany as ReturnType<typeof vi.fn>).mockResolvedValueOnce([]);
 
-    const result = await generateSummary(ctx, 'thread-empty', 0);
+    await generateSummary(ctx, 'thread-empty', 0);
 
-    expect(result).toBe('The conversation covers a request for TypeScript help.');
+    const [prompt] = (ctx.invoker.invoke as ReturnType<typeof vi.fn>).mock.calls[0] as [string];
+    expect(prompt).toContain('concise summary');
+    expect(prompt).not.toContain('[user]');
+    expect(prompt).not.toContain('[assistant]');
+  });
+
+  it('uses custom prompt when provided', async () => {
+    const ctx = createMockContext();
+    await generateSummary(ctx, 'thread-1', 3, 'CUSTOM PROMPT:');
+
+    const [prompt] = (ctx.invoker.invoke as ReturnType<typeof vi.fn>).mock.calls[0] as [string];
+    expect(prompt).toContain('CUSTOM PROMPT:');
+    expect(prompt).not.toContain('concise summary');
+  });
+
+  it('uses configured model when provided', async () => {
+    const ctx = createMockContext();
+    await generateSummary(ctx, 'thread-1', 3, undefined, 'claude-sonnet-4-5');
+
+    expect(ctx.invoker.invoke).toHaveBeenCalledWith(expect.any(String), { model: 'claude-sonnet-4-5' });
   });
 });

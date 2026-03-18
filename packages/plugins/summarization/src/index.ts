@@ -14,20 +14,24 @@ type SummarizeInBackground = (
   messageCount: number,
   duplicateGuardMs: number,
   customPrompt?: string,
+  model?: string,
 ) => Promise<void>;
 
-const summarizeInBackground: SummarizeInBackground = async (ctx, threadId, messageCount, duplicateGuardMs, customPrompt) => {
+const summarizeInBackground: SummarizeInBackground = async (ctx, threadId, messageCount, duplicateGuardMs, customPrompt, model) => {
   try {
     // Duplicate guard: skip if a summary was created within the guard window
     const recentSummary = await ctx.db.message.findFirst({
-      where: { threadId, kind: 'summary' },
-      orderBy: { createdAt: 'desc' },
+      where: {
+        threadId,
+        kind: 'summary',
+        createdAt: { gte: new Date(Date.now() - duplicateGuardMs) },
+      },
     });
-    if (recentSummary && Date.now() - recentSummary.createdAt.getTime() < duplicateGuardMs) {
+    if (recentSummary) {
       return;
     }
 
-    const summaryContent = await generateSummary(ctx, threadId, messageCount, customPrompt);
+    const summaryContent = await generateSummary(ctx, threadId, messageCount, customPrompt, model);
 
     await ctx.db.message.create({
       data: {
@@ -72,9 +76,9 @@ export const plugin: PluginDefinition = {
         const duplicateGuardMs = (settings.duplicateGuardSeconds ?? DEFAULT_DUPLICATE_GUARD_SECONDS) * 1000;
 
         const count = await countThreadMessages(ctx.db, threadId);
-        if (count > 0 && count % triggerCount === 0) {
+        if (count > 0 && (count + 1) % triggerCount === 0) {
           // Fire-and-forget — do NOT await
-          void summarizeInBackground(ctx, threadId, count, duplicateGuardMs, settings.customPrompt);
+          void summarizeInBackground(ctx, threadId, count, duplicateGuardMs, settings.customPrompt, settings.model);
         }
       },
     };

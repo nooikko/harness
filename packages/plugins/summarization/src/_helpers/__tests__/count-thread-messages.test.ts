@@ -34,8 +34,9 @@ describe('countThreadMessages', () => {
   it('passes the correct threadId to the query', async () => {
     const db = createMockDb(5);
 
-    await countThreadMessages(db as unknown as PrismaClient, 'my-thread-id');
+    const result = await countThreadMessages(db as unknown as PrismaClient, 'my-thread-id');
 
+    expect(result).toBe(5);
     expect(db.message.count).toHaveBeenCalledWith({
       where: { threadId: 'my-thread-id', kind: 'text' },
     });

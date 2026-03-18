@@ -64,7 +64,7 @@ describe('onAfterInvoke hook', () => {
   });
 
   it('does not trigger summarization when count is below trigger threshold', async () => {
-    (ctx.db.message.count as ReturnType<typeof vi.fn>).mockResolvedValue(49);
+    (ctx.db.message.count as ReturnType<typeof vi.fn>).mockResolvedValue(48);
     const hooks = await plugin.register(ctx);
 
     await hooks.onAfterInvoke!('thread-1', { output: '', durationMs: 0, exitCode: 0 });
@@ -84,8 +84,8 @@ describe('onAfterInvoke hook', () => {
     expect(ctx.invoker.invoke).not.toHaveBeenCalled();
   });
 
-  it('triggers summarization when count is exactly 50', async () => {
-    (ctx.db.message.count as ReturnType<typeof vi.fn>).mockResolvedValue(50);
+  it('triggers summarization when count is exactly 49 (pending assistant write will be the 50th message)', async () => {
+    (ctx.db.message.count as ReturnType<typeof vi.fn>).mockResolvedValue(49);
     const hooks = await plugin.register(ctx);
 
     await hooks.onAfterInvoke!('thread-1', { output: '', durationMs: 0, exitCode: 0 });
@@ -96,8 +96,8 @@ describe('onAfterInvoke hook', () => {
     });
   });
 
-  it('triggers summarization when count is exactly 100', async () => {
-    (ctx.db.message.count as ReturnType<typeof vi.fn>).mockResolvedValue(100);
+  it('triggers summarization when count is exactly 99 (pending assistant write will be the 100th message)', async () => {
+    (ctx.db.message.count as ReturnType<typeof vi.fn>).mockResolvedValue(99);
     const hooks = await plugin.register(ctx);
 
     await hooks.onAfterInvoke!('thread-1', { output: '', durationMs: 0, exitCode: 0 });
@@ -119,11 +119,9 @@ describe('onAfterInvoke hook', () => {
   });
 
   it('skips summarization when a recent summary exists within duplicate guard window', async () => {
-    (ctx.db.message.count as ReturnType<typeof vi.fn>).mockResolvedValue(50);
-    const recentDate = new Date(Date.now() - 10_000); // 10 seconds ago
-    (ctx.db.message.findFirst as ReturnType<typeof vi.fn>).mockResolvedValue({
-      createdAt: recentDate,
-    });
+    (ctx.db.message.count as ReturnType<typeof vi.fn>).mockResolvedValue(49);
+    // DB returns a record — the time filter is applied by Prisma, so a match means it's within the guard window
+    (ctx.db.message.findFirst as ReturnType<typeof vi.fn>).mockResolvedValue({ id: 'summary-1' });
 
     const hooks = await plugin.register(ctx);
     await hooks.onAfterInvoke!('thread-1', { output: '', durationMs: 0, exitCode: 0 });
@@ -137,11 +135,9 @@ describe('onAfterInvoke hook', () => {
   });
 
   it('proceeds with summarization when last summary is older than duplicate guard window', async () => {
-    (ctx.db.message.count as ReturnType<typeof vi.fn>).mockResolvedValue(50);
-    const oldDate = new Date(Date.now() - 120_000); // 2 minutes ago
-    (ctx.db.message.findFirst as ReturnType<typeof vi.fn>).mockResolvedValue({
-      createdAt: oldDate,
-    });
+    (ctx.db.message.count as ReturnType<typeof vi.fn>).mockResolvedValue(49);
+    // DB returns null — the time filter excluded the old summary, so no recent record found
+    (ctx.db.message.findFirst as ReturnType<typeof vi.fn>).mockResolvedValue(null);
 
     const hooks = await plugin.register(ctx);
     await hooks.onAfterInvoke!('thread-1', { output: '', durationMs: 0, exitCode: 0 });
@@ -153,7 +149,7 @@ describe('onAfterInvoke hook', () => {
   });
 
   it('persists the summary message to the database', async () => {
-    (ctx.db.message.count as ReturnType<typeof vi.fn>).mockResolvedValue(50);
+    (ctx.db.message.count as ReturnType<typeof vi.fn>).mockResolvedValue(49);
 
     const hooks = await plugin.register(ctx);
     await hooks.onAfterInvoke!('thread-1', { output: '', durationMs: 0, exitCode: 0 });
@@ -174,7 +170,7 @@ describe('onAfterInvoke hook', () => {
   });
 
   it('logs a warning when summarization fails', async () => {
-    (ctx.db.message.count as ReturnType<typeof vi.fn>).mockResolvedValue(50);
+    (ctx.db.message.count as ReturnType<typeof vi.fn>).mockResolvedValue(49);
     (ctx.invoker.invoke as ReturnType<typeof vi.fn>).mockRejectedValue(new Error('invoke failed'));
 
     const hooks = await plugin.register(ctx);
@@ -184,5 +180,112 @@ describe('onAfterInvoke hook', () => {
     await vi.waitFor(() => {
       expect(ctx.logger.warn).toHaveBeenCalledWith('summarization failed', expect.objectContaining({ threadId: 'thread-1' }));
     });
+  });
+
+  it('uses configured triggerCount setting to determine when to summarize', async () => {
+    (ctx.getSettings as ReturnType<typeof vi.fn>).mockResolvedValue({ triggerCount: 10 });
+    (ctx.db.message.count as ReturnType<typeof vi.fn>).mockResolvedValue(9);
+    const hooks = await plugin.register(ctx);
+
+    await hooks.onAfterInvoke!('thread-1', { output: '', durationMs: 0, exitCode: 0 });
+    await vi.runAllTimersAsync();
+
+    await vi.waitFor(() => {
+      expect(ctx.invoker.invoke).toHaveBeenCalled();
+    });
+  });
+
+  it('uses configured duplicateGuardSeconds for the DB time filter', async () => {
+    vi.setSystemTime(new Date('2026-01-01T00:00:00.000Z'));
+    (ctx.getSettings as ReturnType<typeof vi.fn>).mockResolvedValue({ duplicateGuardSeconds: 120 });
+    (ctx.db.message.count as ReturnType<typeof vi.fn>).mockResolvedValue(49);
+    const hooks = await plugin.register(ctx);
+
+    await hooks.onAfterInvoke!('thread-1', { output: '', durationMs: 0, exitCode: 0 });
+    await vi.runAllTimersAsync();
+
+    await vi.waitFor(() => {
+      expect(ctx.db.message.findFirst).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: expect.objectContaining({
+            createdAt: { gte: new Date('2025-12-31T23:58:00.000Z') },
+          }),
+        }),
+      );
+    });
+  });
+
+  it('forwards customPrompt setting to the summarization invoker', async () => {
+    (ctx.getSettings as ReturnType<typeof vi.fn>).mockResolvedValue({ customPrompt: 'CUSTOM_PROMPT:' });
+    (ctx.db.message.count as ReturnType<typeof vi.fn>).mockResolvedValue(49);
+    const hooks = await plugin.register(ctx);
+
+    await hooks.onAfterInvoke!('thread-1', { output: '', durationMs: 0, exitCode: 0 });
+    await vi.runAllTimersAsync();
+
+    await vi.waitFor(() => {
+      const [prompt] = (ctx.invoker.invoke as ReturnType<typeof vi.fn>).mock.calls[0] as [string];
+      expect(prompt).toContain('CUSTOM_PROMPT:');
+    });
+  });
+
+  it('forwards model setting to the summarization invoker', async () => {
+    (ctx.getSettings as ReturnType<typeof vi.fn>).mockResolvedValue({ model: 'claude-sonnet-4-5' });
+    (ctx.db.message.count as ReturnType<typeof vi.fn>).mockResolvedValue(49);
+    const hooks = await plugin.register(ctx);
+
+    await hooks.onAfterInvoke!('thread-1', { output: '', durationMs: 0, exitCode: 0 });
+    await vi.runAllTimersAsync();
+
+    await vi.waitFor(() => {
+      expect(ctx.invoker.invoke).toHaveBeenCalledWith(expect.any(String), expect.objectContaining({ model: 'claude-sonnet-4-5' }));
+    });
+  });
+
+  it('uses updated settings on next onAfterInvoke call after settings reload', async () => {
+    (ctx.getSettings as ReturnType<typeof vi.fn>)
+      .mockResolvedValueOnce({}) // initial registration
+      .mockResolvedValueOnce({ triggerCount: 10 }); // onSettingsChange reload
+    (ctx.db.message.count as ReturnType<typeof vi.fn>).mockResolvedValue(9);
+    const hooks = await plugin.register(ctx);
+
+    // Default triggerCount is 50: count=9 does not qualify ((9+1)%50 !== 0)
+    await hooks.onAfterInvoke!('thread-1', { output: '', durationMs: 0, exitCode: 0 });
+    await vi.runAllTimersAsync();
+    expect(ctx.invoker.invoke).not.toHaveBeenCalled();
+
+    // Reload settings: triggerCount becomes 10
+    await hooks.onSettingsChange!('summarization');
+
+    // Now count=9 qualifies ((9+1)%10 === 0)
+    await hooks.onAfterInvoke!('thread-1', { output: '', durationMs: 0, exitCode: 0 });
+    await vi.runAllTimersAsync();
+
+    await vi.waitFor(() => {
+      expect(ctx.invoker.invoke).toHaveBeenCalled();
+    });
+  });
+});
+
+describe('onSettingsChange hook', () => {
+  it('ignores settings changes for other plugins', async () => {
+    const ctx = createMockContext();
+    const hooks = await plugin.register(ctx);
+    (ctx.getSettings as ReturnType<typeof vi.fn>).mockClear();
+
+    await hooks.onSettingsChange!('discord');
+
+    expect(ctx.getSettings).not.toHaveBeenCalled();
+  });
+
+  it('reloads settings and logs when called with summarization', async () => {
+    const ctx = createMockContext();
+    const hooks = await plugin.register(ctx);
+    (ctx.getSettings as ReturnType<typeof vi.fn>).mockClear();
+
+    await hooks.onSettingsChange!('summarization');
+
+    expect(ctx.getSettings).toHaveBeenCalledOnce();
+    expect(ctx.logger.info).toHaveBeenCalledWith('Summarization plugin: settings reloaded');
   });
 });

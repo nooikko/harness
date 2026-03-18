@@ -18,4 +18,10 @@ export const settingsSchema = createSettingsSchema({
     label: 'Custom Summarization Prompt',
     description: 'Override the default summarization prompt. The conversation history will be appended after this text.',
   },
+  model: {
+    type: 'string' as const,
+    label: 'Summarization Model',
+    description: 'Model used for generating summaries. Defaults to claude-haiku-4-5-20251001.',
+    default: 'claude-haiku-4-5-20251001',
+  },
 });

@@ -5,9 +5,11 @@ import type { PluginContext } from '@harness/plugin-contract';
 const DEFAULT_PROMPT =
   'Please provide a concise summary of this conversation that captures the key points, decisions, and context needed to continue the conversation effectively:';
 
-type GenerateSummary = (ctx: PluginContext, threadId: string, messageCount: number, customPrompt?: string) => Promise<string>;
+const DEFAULT_MODEL = 'claude-haiku-4-5-20251001';
 
-export const generateSummary: GenerateSummary = async (ctx, threadId, messageCount, customPrompt) => {
+type GenerateSummary = (ctx: PluginContext, threadId: string, messageCount: number, customPrompt?: string, model?: string) => Promise<string>;
+
+export const generateSummary: GenerateSummary = async (ctx, threadId, messageCount, customPrompt, model) => {
   const recentMessages = await ctx.db.message.findMany({
     where: { threadId, kind: 'text' },
     orderBy: { createdAt: 'asc' },
@@ -20,8 +22,12 @@ export const generateSummary: GenerateSummary = async (ctx, threadId, messageCou
   const prompt = `${customPrompt || DEFAULT_PROMPT}\n\n${historyText}`;
 
   const result = await ctx.invoker.invoke(prompt, {
-    model: 'claude-haiku-4-5-20251001',
+    model: model ?? DEFAULT_MODEL,
   });
+
+  if (!result.output.trim()) {
+    throw new Error('Haiku returned empty summary output');
+  }
 
   return result.output;
 };
