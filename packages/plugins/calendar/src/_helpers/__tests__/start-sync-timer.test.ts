@@ -26,19 +26,28 @@ describe('startSyncTimer', () => {
     expect(ctx.logger.info).toHaveBeenCalledWith(expect.stringContaining('sync timer started'));
   });
 
-  it('stopSyncTimer clears intervals without error', () => {
+  it('stopSyncTimer clears active intervals', () => {
+    const clearSpy = vi.spyOn(globalThis, 'clearInterval');
     startSyncTimer(ctx);
-    expect(() => stopSyncTimer()).not.toThrow();
+    stopSyncTimer();
+    expect(clearSpy).toHaveBeenCalledTimes(2); // sync + projection
+    clearSpy.mockRestore();
   });
 
-  it('stopSyncTimer is safe to call when no timer is running', () => {
-    expect(() => stopSyncTimer()).not.toThrow();
+  it('stopSyncTimer is a no-op when no timer is running', () => {
+    const clearSpy = vi.spyOn(globalThis, 'clearInterval');
+    stopSyncTimer();
+    expect(clearSpy).not.toHaveBeenCalled();
+    clearSpy.mockRestore();
   });
 
-  it('calling startSyncTimer twice stops the first timer', () => {
+  it('calling startSyncTimer twice clears the first set of intervals', () => {
+    const clearSpy = vi.spyOn(globalThis, 'clearInterval');
     startSyncTimer(ctx);
-    startSyncTimer(ctx);
-    expect(ctx.logger.info).toHaveBeenCalledTimes(2);
+    startSyncTimer(ctx); // should clear previous intervals before setting new ones
+    // stopSyncTimer is called inside startSyncTimer, which clears 2 intervals
+    expect(clearSpy).toHaveBeenCalledTimes(2);
+    clearSpy.mockRestore();
   });
 
   it('sync timer fires successfully', async () => {

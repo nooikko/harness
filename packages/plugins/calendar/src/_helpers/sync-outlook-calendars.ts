@@ -30,9 +30,24 @@ type DeltaResponse = {
 const SYNC_WINDOW_PAST_DAYS = 30;
 const SYNC_WINDOW_FUTURE_DAYS = 60;
 
+let syncing = false;
+
 type SyncOutlookCalendars = (ctx: PluginContext) => Promise<void>;
 
 const syncOutlookCalendars: SyncOutlookCalendars = async (ctx) => {
+  if (syncing) {
+    ctx.logger.debug('calendar-sync: already in progress, skipping');
+    return;
+  }
+  syncing = true;
+  try {
+    await syncOutlookCalendarsInner(ctx);
+  } finally {
+    syncing = false;
+  }
+};
+
+const syncOutlookCalendarsInner = async (ctx: PluginContext): Promise<void> => {
   let token: string;
   try {
     token = await getValidToken('microsoft', ctx.db);
@@ -63,14 +78,22 @@ const syncOutlookCalendars: SyncOutlookCalendars = async (ctx) => {
 
     while (nextLink) {
       const response = await fetch(nextLink, {
-        headers: { Authorization: `Bearer ${token}` },
+        headers: {
+          Authorization: `Bearer ${token}`,
+          Prefer: 'outlook.timezone="UTC"',
+        },
+        signal: AbortSignal.timeout(15_000),
       });
 
       if (!response.ok) {
         if (response.status === 401) {
           ctx.logger.warn('calendar-sync: OAuth token rejected, marking error');
           await ctx.broadcast('calendar:auth-required', {});
-          break;
+          await ctx.db.calendarSyncState.update({
+            where: { calendarId: 'outlook:primary' },
+            data: { syncStatus: 'error', errorMessage: 'OAuth token rejected (401)' },
+          });
+          return;
         }
         throw new Error(`Graph delta API error (${response.status}): ${await response.text()}`);
       }

@@ -16,7 +16,9 @@ const projectVirtualEvents: ProjectVirtualEvents = async (ctx) => {
     select: { id: true, content: true, createdAt: true },
   });
 
+  const memoryIds: string[] = [];
   for (const memory of memories) {
+    memoryIds.push(memory.id);
     const title = memory.content.length > 80 ? `${memory.content.slice(0, 77)}...` : memory.content;
 
     await ctx.db.calendarEvent.upsert({
@@ -41,6 +43,10 @@ const projectVirtualEvents: ProjectVirtualEvents = async (ctx) => {
     });
   }
 
+  await ctx.db.calendarEvent.deleteMany({
+    where: { source: 'MEMORY', ...(memoryIds.length ? { externalId: { notIn: memoryIds } } : {}) },
+  });
+
   const tasks = await ctx.db.userTask.findMany({
     where: {
       dueDate: { not: null },
@@ -49,10 +55,12 @@ const projectVirtualEvents: ProjectVirtualEvents = async (ctx) => {
     select: { id: true, title: true, dueDate: true, priority: true },
   });
 
+  const taskIds: string[] = [];
   for (const task of tasks) {
     if (!task.dueDate) {
       continue;
     }
+    taskIds.push(task.id);
 
     await ctx.db.calendarEvent.upsert({
       where: {
@@ -76,6 +84,10 @@ const projectVirtualEvents: ProjectVirtualEvents = async (ctx) => {
     });
   }
 
+  await ctx.db.calendarEvent.deleteMany({
+    where: { source: 'TASK', ...(taskIds.length ? { externalId: { notIn: taskIds } } : {}) },
+  });
+
   const cronJobs = await ctx.db.cronJob.findMany({
     where: {
       enabled: true,
@@ -84,10 +96,12 @@ const projectVirtualEvents: ProjectVirtualEvents = async (ctx) => {
     select: { id: true, name: true, nextRunAt: true },
   });
 
+  const cronIds: string[] = [];
   for (const job of cronJobs) {
     if (!job.nextRunAt) {
       continue;
     }
+    cronIds.push(job.id);
 
     await ctx.db.calendarEvent.upsert({
       where: {
@@ -110,6 +124,10 @@ const projectVirtualEvents: ProjectVirtualEvents = async (ctx) => {
       },
     });
   }
+
+  await ctx.db.calendarEvent.deleteMany({
+    where: { source: 'CRON', ...(cronIds.length ? { externalId: { notIn: cronIds } } : {}) },
+  });
 
   ctx.logger.info(`calendar: projected ${memories.length} memories, ${tasks.length} tasks, ${cronJobs.length} cron jobs`);
 };

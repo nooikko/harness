@@ -5,13 +5,14 @@ const mockMemoryFindMany = vi.fn();
 const mockTaskFindMany = vi.fn();
 const mockCronFindMany = vi.fn();
 const mockUpsert = vi.fn();
+const mockDeleteMany = vi.fn().mockResolvedValue({ count: 0 });
 
 const ctx = {
   db: {
     agentMemory: { findMany: mockMemoryFindMany },
     userTask: { findMany: mockTaskFindMany },
     cronJob: { findMany: mockCronFindMany },
-    calendarEvent: { upsert: mockUpsert },
+    calendarEvent: { upsert: mockUpsert, deleteMany: mockDeleteMany },
   },
   logger: { info: vi.fn() },
 } as unknown as Parameters<typeof projectVirtualEvents>[0];
@@ -99,5 +100,50 @@ describe('projectVirtualEvents', () => {
     const createArg = mockUpsert.mock.calls[0]![0] as { create: { title: string } };
     expect(createArg.create.title).toHaveLength(80);
     expect(createArg.create.title).toMatch(/\.\.\.$/);
+  });
+
+  it('deletes stale MEMORY events not in current set', async () => {
+    mockMemoryFindMany.mockResolvedValue([{ id: 'mem-1', content: 'Keep this', createdAt: new Date() }]);
+    mockTaskFindMany.mockResolvedValue([]);
+    mockCronFindMany.mockResolvedValue([]);
+
+    await projectVirtualEvents(ctx);
+
+    expect(mockDeleteMany).toHaveBeenCalledWith({
+      where: { source: 'MEMORY', externalId: { notIn: ['mem-1'] } },
+    });
+  });
+
+  it('deletes all MEMORY events when no memories qualify', async () => {
+    mockMemoryFindMany.mockResolvedValue([]);
+    mockTaskFindMany.mockResolvedValue([]);
+    mockCronFindMany.mockResolvedValue([]);
+
+    await projectVirtualEvents(ctx);
+
+    expect(mockDeleteMany).toHaveBeenCalledWith({ where: { source: 'MEMORY' } });
+  });
+
+  it('deletes stale TASK events for completed tasks', async () => {
+    const dueDate = new Date('2026-03-20T17:00:00Z');
+    mockMemoryFindMany.mockResolvedValue([]);
+    mockTaskFindMany.mockResolvedValue([{ id: 'task-1', title: 'Active', dueDate, priority: 'HIGH' }]);
+    mockCronFindMany.mockResolvedValue([]);
+
+    await projectVirtualEvents(ctx);
+
+    expect(mockDeleteMany).toHaveBeenCalledWith({
+      where: { source: 'TASK', externalId: { notIn: ['task-1'] } },
+    });
+  });
+
+  it('deletes all CRON events when no enabled cron jobs exist', async () => {
+    mockMemoryFindMany.mockResolvedValue([]);
+    mockTaskFindMany.mockResolvedValue([]);
+    mockCronFindMany.mockResolvedValue([]);
+
+    await projectVirtualEvents(ctx);
+
+    expect(mockDeleteMany).toHaveBeenCalledWith({ where: { source: 'CRON' } });
   });
 });

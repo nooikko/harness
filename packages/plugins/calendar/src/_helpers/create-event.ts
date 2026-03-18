@@ -1,4 +1,5 @@
 import type { PluginContext, ToolResult } from '@harness/plugin-contract';
+import { parseDateInput } from './parse-date-input';
 
 type CreateEventInput = {
   title: string;
@@ -14,12 +15,21 @@ type CreateEventInput = {
 type CreateEvent = (ctx: PluginContext, input: CreateEventInput) => Promise<ToolResult>;
 
 const createEvent: CreateEvent = async (ctx, input) => {
+  let startAt: Date;
+  let endAt: Date;
+  try {
+    startAt = parseDateInput(input.startAt, 'startAt');
+    endAt = parseDateInput(input.endAt, 'endAt');
+  } catch (err) {
+    return err instanceof Error ? err.message : String(err);
+  }
+
   const event = await ctx.db.calendarEvent.create({
     data: {
       source: 'LOCAL',
       title: input.title,
-      startAt: new Date(input.startAt),
-      endAt: new Date(input.endAt),
+      startAt,
+      endAt,
       isAllDay: input.isAllDay ?? false,
       location: input.location,
       description: input.description,

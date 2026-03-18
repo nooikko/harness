@@ -1,4 +1,4 @@
-import { describe, expect, it, vi } from 'vitest';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { listEvents } from '../list-events';
 
 const mockFindMany = vi.fn();
@@ -8,6 +8,10 @@ const ctx = {
 } as unknown as Parameters<typeof listEvents>[0];
 
 describe('listEvents', () => {
+  beforeEach(() => {
+    mockFindMany.mockReset();
+  });
+
   it('returns structured result with events', async () => {
     mockFindMany.mockResolvedValue([
       {
@@ -42,26 +46,82 @@ describe('listEvents', () => {
     expect(result).toBe('No events found in the specified date range.');
   });
 
-  it('filters by sources when provided', async () => {
-    mockFindMany.mockResolvedValue([]);
+  it('returns error for invalid startDate', async () => {
+    const result = await listEvents(ctx, { startDate: 'not-a-date' });
+    expect(typeof result).toBe('string');
+    expect(result as string).toContain('Invalid date for startDate');
+    expect(mockFindMany).not.toHaveBeenCalled();
+  });
 
-    await listEvents(ctx, { sources: ['OUTLOOK'] });
+  it('returns error for invalid endDate', async () => {
+    const result = await listEvents(ctx, { endDate: 'garbage' });
+    expect(typeof result).toBe('string');
+    expect(result as string).toContain('Invalid date for endDate');
+    expect(mockFindMany).not.toHaveBeenCalled();
+  });
+
+  it('filters by sources and maps results correctly', async () => {
+    mockFindMany.mockResolvedValue([
+      {
+        id: 'evt-outlook',
+        title: 'Synced Meeting',
+        startAt: new Date('2026-03-17T10:00:00Z'),
+        endAt: new Date('2026-03-17T10:30:00Z'),
+        isAllDay: false,
+        location: null,
+        organizer: null,
+        attendees: null,
+        isCancelled: false,
+        joinUrl: null,
+        source: 'OUTLOOK',
+        category: null,
+        color: null,
+        description: null,
+      },
+    ]);
+
+    const result = await listEvents(ctx, { sources: ['OUTLOOK'] });
     expect(mockFindMany).toHaveBeenCalledWith(
       expect.objectContaining({
         where: expect.objectContaining({ source: { in: ['OUTLOOK'] } }),
       }),
     );
+    const structured = result as { text: string; blocks: unknown[] };
+    const parsed = JSON.parse(structured.text);
+    expect(parsed[0].source).toBe('OUTLOOK');
+    expect(parsed[0].subject).toBe('Synced Meeting');
   });
 
-  it('filters by categories when provided', async () => {
-    mockFindMany.mockResolvedValue([]);
+  it('filters by categories and maps results correctly', async () => {
+    mockFindMany.mockResolvedValue([
+      {
+        id: 'evt-task',
+        title: 'Scheduled Task',
+        startAt: new Date('2026-03-17T14:00:00Z'),
+        endAt: new Date('2026-03-17T14:30:00Z'),
+        isAllDay: false,
+        location: null,
+        organizer: null,
+        attendees: null,
+        isCancelled: false,
+        joinUrl: null,
+        source: 'VIRTUAL',
+        category: 'task',
+        color: null,
+        description: null,
+      },
+    ]);
 
-    await listEvents(ctx, { categories: ['task', 'cron'] });
+    const result = await listEvents(ctx, { categories: ['task', 'cron'] });
     expect(mockFindMany).toHaveBeenCalledWith(
       expect.objectContaining({
         where: expect.objectContaining({ category: { in: ['task', 'cron'] } }),
       }),
     );
+    const structured = result as { text: string; blocks: unknown[] };
+    const parsed = JSON.parse(structured.text);
+    expect(parsed[0].category).toBe('task');
+    expect(parsed[0].subject).toBe('Scheduled Task');
   });
 
   it('uses custom start/end dates when provided', async () => {

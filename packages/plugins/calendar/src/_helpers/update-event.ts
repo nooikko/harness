@@ -1,4 +1,5 @@
 import type { PluginContext, ToolResult } from '@harness/plugin-contract';
+import { parseDateInput } from './parse-date-input';
 
 type UpdateEventInput = {
   eventId: string;
@@ -24,15 +25,24 @@ const updateEvent: UpdateEvent = async (ctx, input) => {
   }
 
   if (existing.source !== 'LOCAL') {
-    return `Cannot edit ${existing.source} events directly. Use the outlook-calendar plugin for Outlook events.`;
+    return `Cannot edit ${existing.source} events here. Use the outlook-calendar plugin to modify Outlook events directly.`;
+  }
+
+  let parsedStartAt: Date | undefined;
+  let parsedEndAt: Date | undefined;
+  try {
+    parsedStartAt = input.startAt !== undefined ? parseDateInput(input.startAt, 'startAt') : undefined;
+    parsedEndAt = input.endAt !== undefined ? parseDateInput(input.endAt, 'endAt') : undefined;
+  } catch (err) {
+    return err instanceof Error ? err.message : String(err);
   }
 
   const event = await ctx.db.calendarEvent.update({
     where: { id: input.eventId },
     data: {
       ...(input.title !== undefined && { title: input.title }),
-      ...(input.startAt !== undefined && { startAt: new Date(input.startAt) }),
-      ...(input.endAt !== undefined && { endAt: new Date(input.endAt) }),
+      ...(parsedStartAt !== undefined && { startAt: parsedStartAt }),
+      ...(parsedEndAt !== undefined && { endAt: parsedEndAt }),
       ...(input.isAllDay !== undefined && { isAllDay: input.isAllDay }),
       ...(input.location !== undefined && { location: input.location }),
       ...(input.description !== undefined && {

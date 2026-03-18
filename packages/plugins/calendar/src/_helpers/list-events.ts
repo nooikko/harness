@@ -1,5 +1,6 @@
 import type { CalendarEventSource } from '@harness/database';
 import type { PluginContext, ToolResult } from '@harness/plugin-contract';
+import { parseDateInput } from './parse-date-input';
 
 type ListEventsInput = {
   startDate?: string;
@@ -13,8 +14,14 @@ type ListEvents = (ctx: PluginContext, input: ListEventsInput) => Promise<ToolRe
 
 const listEvents: ListEvents = async (ctx, input) => {
   const now = new Date();
-  const startDate = input.startDate ? new Date(input.startDate) : now;
-  const endDate = input.endDate ? new Date(input.endDate) : new Date(now.getTime() + 7 * 24 * 60 * 60 * 1000);
+  let startDate: Date;
+  let endDate: Date;
+  try {
+    startDate = input.startDate ? parseDateInput(input.startDate, 'startDate') : now;
+    endDate = input.endDate ? parseDateInput(input.endDate, 'endDate') : new Date(now.getTime() + 7 * 24 * 60 * 60 * 1000);
+  } catch (err) {
+    return err instanceof Error ? err.message : String(err);
+  }
 
   const where: Record<string, unknown> = {
     startAt: { lte: endDate },

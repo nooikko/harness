@@ -16,7 +16,7 @@ const plugin: PluginDefinition = {
     {
       name: 'create_event',
       description:
-        'Create a local calendar event (birthday, reminder, appointment, etc.). For Outlook events, use the outlook-calendar plugin instead.',
+        'Create a local calendar event (birthday, reminder, appointment, etc.). Outlook events are synced automatically and managed via the outlook-calendar plugin.',
       schema: {
         type: 'object',
         properties: {
@@ -171,9 +171,15 @@ const plugin: PluginDefinition = {
         required: [],
       },
       handler: async (ctx) => {
-        await syncOutlookCalendars(ctx);
-        await projectVirtualEvents(ctx);
-        return 'Calendar sync completed.';
+        void (async () => {
+          try {
+            await syncOutlookCalendars(ctx);
+            await projectVirtualEvents(ctx);
+          } catch (err) {
+            ctx.logger.warn(`calendar: sync_now failed — ${err instanceof Error ? err.message : String(err)}`);
+          }
+        })();
+        return 'Calendar sync triggered. Results will appear shortly.';
       },
     },
   ],
@@ -181,9 +187,14 @@ const plugin: PluginDefinition = {
     onSettingsChange: async (pluginName) => {
       if (pluginName === 'calendar') {
         stopSyncTimer();
-        await syncOutlookCalendars(ctx);
-        await projectVirtualEvents(ctx);
-        startSyncTimer(ctx);
+        try {
+          await syncOutlookCalendars(ctx);
+          await projectVirtualEvents(ctx);
+        } catch (err) {
+          ctx.logger.warn(`calendar: settings change sync failed — ${err instanceof Error ? err.message : String(err)}`);
+        } finally {
+          startSyncTimer(ctx);
+        }
       }
     },
   }),

@@ -1,4 +1,4 @@
-import { describe, expect, it, vi } from 'vitest';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { updateEvent } from '../update-event';
 
 const mockFindUnique = vi.fn();
@@ -9,6 +9,10 @@ const ctx = {
 } as unknown as Parameters<typeof updateEvent>[0];
 
 describe('updateEvent', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
   it('updates a local event', async () => {
     mockFindUnique.mockResolvedValue({ id: 'evt-1', source: 'LOCAL', title: 'Old' });
     mockUpdate.mockResolvedValue({ id: 'evt-1', title: 'New Title' });
@@ -59,5 +63,23 @@ describe('updateEvent', () => {
 
     const result = await updateEvent(ctx, { eventId: 'evt-2', title: 'Try Edit' });
     expect(result).toContain('Cannot edit');
+  });
+
+  it('returns error for invalid startAt date', async () => {
+    mockFindUnique.mockResolvedValue({ id: 'evt-1', source: 'LOCAL', title: 'Old' });
+
+    const result = await updateEvent(ctx, { eventId: 'evt-1', startAt: 'garbage' });
+    expect(typeof result).toBe('string');
+    expect(result as string).toContain('Invalid date for startAt');
+    expect(mockUpdate).not.toHaveBeenCalled();
+  });
+
+  it('returns error for invalid endAt date', async () => {
+    mockFindUnique.mockResolvedValue({ id: 'evt-1', source: 'LOCAL', title: 'Old' });
+
+    const result = await updateEvent(ctx, { eventId: 'evt-1', endAt: 'not-a-date' });
+    expect(typeof result).toBe('string');
+    expect(result as string).toContain('Invalid date for endAt');
+    expect(mockUpdate).not.toHaveBeenCalled();
   });
 });
