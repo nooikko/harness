@@ -14,7 +14,7 @@ type ParsedSearchQuery = {
   filters: ParsedSearchFilters;
 };
 
-const FILTER_PATTERNS: Record<string, RegExp> = {
+const FILTER_PATTERNS = {
   agent: /\bagent:(\S+)/i,
   project: /\bproject:(\S+)/i,
   thread: /\bin:(\S+)/i,
@@ -23,7 +23,7 @@ const FILTER_PATTERNS: Record<string, RegExp> = {
   fileName: /\bfile:(\S+)/i,
   before: /\bbefore:(\S+)/i,
   after: /\bafter:(\S+)/i,
-};
+} as const;
 
 type ParseSearchFilters = (raw: string) => ParsedSearchQuery;
 
@@ -31,37 +31,37 @@ export const parseSearchFilters: ParseSearchFilters = (raw) => {
   const filters: ParsedSearchFilters = {};
   let remaining = raw;
 
-  const agentMatch = FILTER_PATTERNS.agent!.exec(raw);
+  const agentMatch = FILTER_PATTERNS.agent.exec(raw);
   if (agentMatch) {
     filters.agent = agentMatch[1];
     remaining = remaining.replace(agentMatch[0], '');
   }
-  const projectMatch = FILTER_PATTERNS.project!.exec(raw);
+  const projectMatch = FILTER_PATTERNS.project.exec(raw);
   if (projectMatch) {
     filters.project = projectMatch[1];
     remaining = remaining.replace(projectMatch[0], '');
   }
-  const threadMatch = FILTER_PATTERNS.thread!.exec(raw);
+  const threadMatch = FILTER_PATTERNS.thread.exec(raw);
   if (threadMatch) {
     filters.thread = threadMatch[1];
     remaining = remaining.replace(threadMatch[0], '');
   }
-  const roleMatch = FILTER_PATTERNS.role!.exec(raw);
+  const roleMatch = FILTER_PATTERNS.role.exec(raw);
   if (roleMatch) {
     filters.role = roleMatch[1] as 'user' | 'assistant';
     remaining = remaining.replace(roleMatch[0], '');
   }
-  const hasFileMatch = FILTER_PATTERNS.hasFile!.exec(raw);
+  const hasFileMatch = FILTER_PATTERNS.hasFile.exec(raw);
   if (hasFileMatch) {
     filters.hasFile = true;
     remaining = remaining.replace(hasFileMatch[0], '');
   }
-  const fileNameMatch = FILTER_PATTERNS.fileName!.exec(raw);
+  const fileNameMatch = FILTER_PATTERNS.fileName.exec(raw);
   if (fileNameMatch) {
     filters.fileName = fileNameMatch[1];
     remaining = remaining.replace(fileNameMatch[0], '');
   }
-  const beforeMatch = FILTER_PATTERNS.before!.exec(raw);
+  const beforeMatch = FILTER_PATTERNS.before.exec(raw);
   if (beforeMatch) {
     const date = new Date(beforeMatch[1]!);
     if (!Number.isNaN(date.getTime())) {
@@ -69,7 +69,7 @@ export const parseSearchFilters: ParseSearchFilters = (raw) => {
     }
     remaining = remaining.replace(beforeMatch[0], '');
   }
-  const afterMatch = FILTER_PATTERNS.after!.exec(raw);
+  const afterMatch = FILTER_PATTERNS.after.exec(raw);
   if (afterMatch) {
     const date = new Date(afterMatch[1]!);
     if (!Number.isNaN(date.getTime())) {

@@ -176,7 +176,7 @@ export const SearchPalette: SearchPaletteComponent = ({ open, onOpenChange }) =>
 
   const handleRemoveFilter = useCallback(
     (filterKey: string) => {
-      const pattern = FILTER_PATTERNS[filterKey];
+      const pattern = FILTER_PATTERNS[filterKey as keyof typeof FILTER_PATTERNS];
       if (!pattern) {
         return;
       }
