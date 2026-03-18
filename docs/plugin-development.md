@@ -27,16 +27,22 @@ The Harness orchestrator follows a **plugin-first** architecture. The core is a 
 The core message pipeline runs in this order:
 
 ```
-receive message
-  -> persist to database
-  -> fire onBeforeInvoke hooks (prompt assembly)
-  -> invoke Claude CLI (claude -p)
-  -> fire onAfterInvoke hooks (post-processing)
-  -> parse response for [COMMAND] blocks
-  -> fire onCommand hooks (command dispatch)
-  -> respond to source
-  -> fire onBroadcast hooks (event notification)
+sendToThread(threadId, content)
+  -> fire onPipelineStart hooks
+  -> handleMessage:
+       -> fire onMessage hooks (notification)
+       -> assemblePrompt (thread header + kind instruction)
+       -> fire onBeforeInvoke hooks (prompt enrichment chain)
+       -> invoke Claude via Agent SDK session
+       -> fire onAfterInvoke hooks (post-processing)
+  -> fire onPipelineComplete hooks
+  -> if output: persist assistant text response
+  -> if no output: persist error status message + broadcast pipeline:error
+  -> if pipeline throws: persist error status message + broadcast pipeline:error
+  -> broadcast pipeline:complete
 ```
+
+The `pipeline:error` broadcast carries `{ threadId, error, traceId? }`. It fires before `pipeline:complete` so that `onBroadcast` listeners (e.g., the web plugin) can push the error to clients immediately. Error status messages are persisted as `kind: 'status'` with `metadata.event: 'pipeline_error'`. Pipeline errors are also written to the `ErrorLog` table for admin visibility at `/admin/errors`.
 
 Plugins attach to any of these hook points during registration. A plugin can be a message source (Discord, web), a prompt enricher (context), a command handler (delegation), an event listener (web/WebSocket broadcasting), or any combination.
 
@@ -68,6 +74,10 @@ type PluginDefinition = {
   register: RegisterFn;
   start?: StartFn;
   stop?: StopFn;
+  tools?: PluginTool[];
+  routes?: PluginRoute[];
+  system?: boolean;
+  settingsSchema?: PluginSettingsSchemaInstance<SettingsFieldDefs>;
 };
 ```
 
@@ -80,6 +90,10 @@ type PluginDefinition = {
 | `register` | `RegisterFn` | Yes | Called at boot to set up hooks. Returns a `PluginHooks` object. |
 | `start` | `StartFn` | No | Called after all plugins register. Used to start servers, connect clients, load data. |
 | `stop` | `StopFn` | No | Called on SIGTERM/SIGINT for graceful shutdown. |
+| `tools` | `PluginTool[]` | No | MCP tools exposed to Claude during invocation. Qualified as `pluginName__toolName`. |
+| `routes` | `PluginRoute[]` | No | HTTP routes mounted by the web plugin. |
+| `system` | `boolean` | No | If true, receives unsandboxed PluginContext (full db access). |
+| `settingsSchema` | `PluginSettingsSchemaInstance` | No | Typed settings definition for admin UI configuration. |
 
 ### Function Signatures
 
@@ -113,6 +127,9 @@ type PluginContext = {
   logger: Logger;
   sendToThread: (threadId: string, content: string) => Promise<void>;
   broadcast: (event: string, data: unknown) => Promise<void>;
+  getSettings: <T>(schema: PluginSettingsSchemaInstance<T>) => Promise<InferSettings<T>>;
+  notifySettingsChange: (pluginName: string) => Promise<void>;
+  reportStatus: (level: PluginStatusLevel, message?: string, details?: Record<string, unknown>) => void;
 };
 ```
 
@@ -138,6 +155,7 @@ Access to the Claude CLI subprocess wrapper. Primarily used by the delegation pl
 ```typescript
 type Invoker = {
   invoke: (prompt: string, options?: InvokeOptions) => Promise<InvokeResult>;
+  prewarm?: (options: { threadId: string; model?: string }) => void;
 };
 
 type InvokeOptions = {
@@ -145,6 +163,12 @@ type InvokeOptions = {
   timeout?: number;
   allowedTools?: string[];
   maxTokens?: number;
+  sessionId?: string;
+  threadId?: string;
+  traceId?: string;
+  taskId?: string;
+  onMessage?: (event: InvokeStreamEvent) => void;
+  pendingBlocks?: ContentBlock[][];
 };
 
 type InvokeResult = {
@@ -152,6 +176,11 @@ type InvokeResult = {
   error?: string;
   durationMs: number;
   exitCode: number | null;
+  sessionId?: string;
+  model?: string;
+  inputTokens?: number;
+  outputTokens?: number;
+  traceId?: string;
 };
 ```
 
@@ -183,6 +212,7 @@ type OrchestratorConfig = {
   discordChannelId: string | undefined;
   port: number;
   logLevel: LogLevel;
+  uploadDir: string;
 };
 ```
 
@@ -217,6 +247,27 @@ await ctx.broadcast("task:created", {
 });
 ```
 
+### `reportStatus(level, message?, details?)`
+
+Reports the plugin's runtime health status. The status is stored in-memory by the orchestrator and broadcast to the admin dashboard via WebSocket (`plugin:status-changed` event). Each plugin's `reportStatus` is scoped — plugins can only set their own status.
+
+Status levels: `"healthy"`, `"degraded"`, `"error"`.
+
+The orchestrator automatically sets initial status during `start()` — plugins that start successfully are marked `"healthy"`, and plugins whose `start()` throws are marked `"error"`. Plugins should call `reportStatus` when their runtime state changes (e.g., a connection drops, an OAuth token expires, or recovery succeeds).
+
+```typescript
+// In start() — report healthy after connecting
+ctx.reportStatus("healthy", "Connected as bot#1234");
+
+// In an error handler — report degraded or error
+ctx.reportStatus("error", "Gateway disconnected");
+
+// With optional details
+ctx.reportStatus("degraded", "High API latency", { avgLatencyMs: 5000 });
+```
+
+The call is synchronous (fire-and-forget) — it never blocks the caller. Duplicate status reports (same level + message) are deduplicated and do not trigger a broadcast.
+
 ---
 
 ## PluginHooks API
@@ -228,11 +279,13 @@ type PluginHooks = {
   onMessage?: (threadId: string, role: string, content: string) => Promise<void>;
   onBeforeInvoke?: (threadId: string, prompt: string) => Promise<string>;
   onAfterInvoke?: (threadId: string, result: InvokeResult) => Promise<void>;
-  onCommand?: (threadId: string, command: string, args: string) => Promise<boolean>;
   onTaskCreate?: (threadId: string, taskId: string) => Promise<void>;
   onTaskComplete?: (threadId: string, taskId: string, result: string) => Promise<void>;
   onTaskFailed?: (threadId: string, taskId: string, error: Error) => Promise<void>;
   onBroadcast?: (event: string, data: unknown) => Promise<void>;
+  onPipelineStart?: (threadId: string, meta: { traceId: string }) => Promise<void>;
+  onPipelineComplete?: (threadId: string, result: { invokeResult: InvokeResult; pipelineSteps: PipelineStep[]; streamEvents: InvokeStreamEvent[] }) => Promise<void>;
+  onSettingsChange?: (pluginName: string) => Promise<void>;
 };
 ```
 
@@ -276,17 +329,35 @@ onAfterInvoke: async (threadId, result) => {
 };
 ```
 
-#### `onCommand`
+#### `onPipelineStart`
 
-**Result hook with early termination.** Called when a `[COMMAND]` block is parsed from the agent's response. Returns `true` if the command was handled, `false` to pass to the next plugin. Only the first plugin that returns `true` handles the command.
+**Notification hook.** Fires in `sendToThread` before `handleMessage` runs. Receives a `meta` object containing the pipeline's `traceId` for correlating activity records. Used by the activity plugin to write a `pipeline_start` status record.
 
 ```typescript
-onCommand: async (threadId, command, args) => {
-  if (command === "delegate") {
-    await handleDelegation(ctx, threadId, args);
-    return true;
+onPipelineStart: async (threadId, meta) => {
+  ctx.logger.info(`Pipeline starting for thread ${threadId} [traceId=${meta.traceId}]`);
+};
+```
+
+#### `onPipelineComplete`
+
+**Notification hook.** Fires in `sendToThread` after `handleMessage` returns but before the assistant text is persisted. Receives the full result including `invokeResult`, `pipelineSteps`, and `streamEvents`. Used by the activity plugin to persist rich activity records.
+
+```typescript
+onPipelineComplete: async (threadId, { invokeResult, pipelineSteps, streamEvents }) => {
+  ctx.logger.info(`Pipeline completed for thread ${threadId} in ${invokeResult.durationMs}ms`);
+};
+```
+
+#### `onSettingsChange`
+
+**Notification hook.** Fires when `ctx.notifySettingsChange(pluginName)` is called. Used by plugins that need to reload configuration at runtime (e.g., the cron plugin rebuilds its job schedule).
+
+```typescript
+onSettingsChange: async (pluginName) => {
+  if (pluginName === "my-plugin") {
+    await reloadConfig(ctx);
   }
-  return false;
 };
 ```
 
@@ -334,11 +405,11 @@ onBroadcast: async (event, data) => {
 
 ## Hook Runner Utilities
 
-The `@harness/plugin-contract` package exports three hook runner utilities that the orchestrator uses to iterate over plugin hooks. Understanding these helps explain how hooks are executed.
+The `@harness/plugin-contract` package exports two hook runner utilities that the orchestrator uses to iterate over plugin hooks. Understanding these helps explain how hooks are executed.
 
 ### `runHook` -- Notification-style (fire-and-await)
 
-Calls the hook on every plugin sequentially. Errors are caught and logged but do not stop execution. Used for `onMessage`, `onAfterInvoke`, `onTaskCreate`, `onTaskComplete`, `onTaskFailed`, and `onBroadcast`.
+Calls the hook on every plugin sequentially. Errors are caught and logged but do not stop execution. Used for `onMessage`, `onAfterInvoke`, `onPipelineStart`, `onPipelineComplete`, `onTaskCreate`, `onTaskComplete`, `onTaskFailed`, `onBroadcast`, and `onSettingsChange`.
 
 ```typescript
 import { runHook } from "@harness/plugin-contract";
@@ -367,7 +438,7 @@ const enrichedPrompt = await runChainHook(
 );
 ```
 
-All three runners isolate errors per plugin -- if one plugin's hook throws, the others still run.
+Both runners isolate errors per plugin -- if one plugin's hook throws, the others still run.
 
 ---
 
@@ -675,8 +746,11 @@ const createMockContext: CreateMockContext = () => ({
     error: vi.fn(),
     debug: vi.fn(),
   },
-  sendToThread: vi.fn(),
-  broadcast: vi.fn(),
+  sendToThread: vi.fn().mockResolvedValue(undefined),
+  broadcast: vi.fn().mockResolvedValue(undefined),
+  getSettings: vi.fn().mockResolvedValue({}),
+  notifySettingsChange: vi.fn().mockResolvedValue(undefined),
+  reportStatus: vi.fn(),
 });
 ```
 
@@ -823,19 +897,19 @@ Key patterns demonstrated:
 
 **Package:** `@harness/plugin-delegation`
 **Complexity:** High
-**Hooks used:** `onCommand`
+**Tools:** `delegate`, `checkin`
 
-The delegation plugin handles `delegate` and `re-delegate` commands, spawning sub-agents with iteration control and validation. It is the most complex plugin and demonstrates advanced patterns.
+The delegation plugin handles sub-agent delegation via MCP tools (no slash commands). Claude calls `delegation__delegate` during invocation to spawn a sub-agent, and `delegation__checkin` to send progress updates to the parent thread. The delegation loop runs in the background (fire-and-forget).
 
 Key patterns demonstrated:
-- `onCommand` hook with boolean return for command dispatch
-- Sub-agent invocation via `ctx.invoker.invoke()`
+- MCP tool registration via `tools` array on `PluginDefinition`
+- Sub-agent invocation via `ctx.invoker.invoke()` with `taskId` in `InvokeOptions`
 - Task lifecycle management (create thread, create task, iterate, validate, finalize)
 - Cross-thread notifications via `ctx.sendToThread()`
 - Event broadcasting via `ctx.broadcast()` for real-time dashboard updates
 - Fires hooks on other plugins via `runHook()` (onTaskCreate, onTaskFailed)
 - Fires validation hooks via a custom `fireTaskCompleteHooks` helper
-- Extensive helper decomposition: `delegation-loop.ts`, `build-iteration-prompt.ts`, `create-task-record.ts`, `create-task-thread.ts`, `fire-task-complete-hooks.ts`, `invoke-sub-agent.ts`, `record-agent-run.ts`, `send-thread-notification.ts`
+- Extensive helper decomposition: `delegation-loop.ts`, `build-iteration-prompt.ts`, `create-task-record.ts`, `invoke-sub-agent.ts`, `record-agent-run.ts`, `send-thread-notification.ts`
 - Late-binding hook references (`setHooks` pattern) for cross-plugin hook invocation
 
 **Source:** `packages/plugins/delegation/src/index.ts`
