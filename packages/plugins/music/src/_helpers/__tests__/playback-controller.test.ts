@@ -39,6 +39,12 @@ const mockClientClose = vi.fn();
 const mockClientOn = vi.fn();
 const mockClientRemoveAll = vi.fn();
 
+// Configurable connect/launch behavior for per-test overrides
+type LaunchBehavior = (app: unknown, cb: (err: Error | null, player: unknown) => void) => void;
+let mockConnectBehavior: (host: string, cb: () => void) => void = (_host, cb) => cb();
+let mockLaunchBehavior: LaunchBehavior;
+let defaultLaunchBehavior: LaunchBehavior;
+
 vi.mock('castv2-client', () => {
   const mockPlayer = {
     load: (...args: unknown[]) => mockLoad(...args),
@@ -49,16 +55,20 @@ vi.mock('castv2-client', () => {
     removeAllListeners: (...args: unknown[]) => mockPlayerRemoveAll(...args),
   };
 
+  // Default launch behavior — must reference mockPlayer inside factory
+  defaultLaunchBehavior = (_app, cb) => cb(null, mockPlayer);
+  mockLaunchBehavior = defaultLaunchBehavior;
+
   // Must use class for `new Client()` to work
   class MockClient {
     receiver = {
       setVolume: (...args: unknown[]) => mockSetVolume(...args),
     };
-    connect(_host: string, cb: () => void) {
-      cb();
+    connect(host: string, cb: () => void) {
+      mockConnectBehavior(host, cb);
     }
-    launch(_app: unknown, cb: (err: Error | null, player: unknown) => void) {
-      cb(null, mockPlayer);
+    launch(app: unknown, cb: (err: Error | null, player: unknown) => void) {
+      mockLaunchBehavior(app, cb);
     }
     close() {
       mockClientClose();
@@ -120,6 +130,10 @@ const mockLogger = {
 
 describe('playback-controller', () => {
   beforeEach(() => {
+    // Reset connect/launch behavior to defaults
+    mockConnectBehavior = (_host, cb) => cb();
+    mockLaunchBehavior = defaultLaunchBehavior;
+
     initPlaybackController(mockLogger);
     // Make load succeed by default
     mockLoad.mockImplementation((_media: unknown, _opts: unknown, cb: (err: Error | null, status: unknown) => void) => {
@@ -214,16 +228,14 @@ describe('playback-controller', () => {
 
   describe('queue management', () => {
     it('adds tracks to queue', async () => {
-      await playTrack(mockDevice, mockTrack);
-      // Allow fire-and-forget prefetch to complete
-      await new Promise((r) => setTimeout(r, 10));
+      await playTrack(mockDevice, mockTrack, false);
       const result = addToQueue(mockDevice, {
         ...mockTrack,
         videoId: 'queued1',
         title: 'Queued Song',
       });
       expect(result).toContain('Added');
-      expect(result).toContain('Queue length: 2');
+      expect(result).toContain('Queue length: 1');
     });
 
     it('returns error when no active session', () => {
@@ -255,7 +267,7 @@ describe('playback-controller', () => {
       }
       const result = await skipTrack(mockDevice);
       // Will either skip to radio track or say queue is empty
-      expect(typeof result).toBe('string');
+      expect(result).toMatch(/Queue is empty|Now playing/);
     });
 
     it('returns message when no session', async () => {
@@ -323,7 +335,11 @@ describe('playback-controller', () => {
       addToQueue(mockDevice, { ...mockTrack, videoId: 'q2', title: 'Q2' });
 
       // Play another track with queue already >= 2
-      const device2: CastDevice = { ...mockDevice, id: 'dev2', name: 'Speaker 2' };
+      const device2: CastDevice = {
+        ...mockDevice,
+        id: 'dev2',
+        name: 'Speaker 2',
+      };
       await playTrack(device2, mockTrack);
 
       // Prefetch fires for device2 since its queue starts empty
@@ -333,7 +349,11 @@ describe('playback-controller', () => {
     it('reuses existing session on second connect', async () => {
       await playTrack(mockDevice, mockTrack);
       // Second play on same device should reuse session
-      await playTrack(mockDevice, { ...mockTrack, videoId: 'second', title: 'Second Song' });
+      await playTrack(mockDevice, {
+        ...mockTrack,
+        videoId: 'second',
+        title: 'Second Song',
+      });
 
       const state = getQueueState(mockDevice);
       expect(state?.currentTrack?.title).toBe('Second Song');
@@ -415,7 +435,12 @@ describe('playback-controller', () => {
       vi.mocked(getUpNextTracks).mockResolvedValue([]);
 
       await playTrack(mockDevice, mockTrack, false);
-      addToQueue(mockDevice, { ...mockTrack, videoId: 'next1', title: 'Next Song', artist: 'Next Artist' });
+      addToQueue(mockDevice, {
+        ...mockTrack,
+        videoId: 'next1',
+        title: 'Next Song',
+        artist: 'Next Artist',
+      });
 
       const result = await skipTrack(mockDevice);
       expect(result).toContain('Now playing: Next Song by Next Artist');
@@ -450,7 +475,7 @@ describe('playback-controller', () => {
 
       // skipTrack triggers playNextInQueue
       // This will empty queue then try radio
-      expect(typeof (await skipTrack(mockDevice))).toBe('string');
+      expect(await skipTrack(mockDevice)).toMatch(/Now playing|Queue is empty|Queue finished/);
     });
 
     it('returns "Queue finished" when queue empty, radio disabled', async () => {
@@ -482,7 +507,7 @@ describe('playback-controller', () => {
       // Now skip — no session exists after stop clears currentTrack
       const result = await skipTrack(mockDevice);
       // Queue is empty, will get empty queue message
-      expect(typeof result).toBe('string');
+      expect(result).toContain('Queue is empty');
     });
 
     it('returns "Queue finished" when radio fetches zero tracks', async () => {
@@ -513,8 +538,16 @@ describe('playback-controller', () => {
       await playTrack(mockDevice, mockTrack, false);
 
       // Add two tracks to queue
-      addToQueue(mockDevice, { ...mockTrack, videoId: 'fail', title: 'Fail Track' });
-      addToQueue(mockDevice, { ...mockTrack, videoId: 'success', title: 'Success Track' });
+      addToQueue(mockDevice, {
+        ...mockTrack,
+        videoId: 'fail',
+        title: 'Fail Track',
+      });
+      addToQueue(mockDevice, {
+        ...mockTrack,
+        videoId: 'success',
+        title: 'Success Track',
+      });
 
       // Make first load fail, second succeed
       let callCount = 0;
@@ -530,7 +563,7 @@ describe('playback-controller', () => {
 
       const result = await skipTrack(mockDevice);
       // Should report skipping the failed track or playing the success track
-      expect(typeof result).toBe('string');
+      expect(result).toMatch(/Skipped|Now playing|Queue finished/);
     });
 
     it('tries next track when stream URL extraction fails', async () => {
@@ -540,16 +573,27 @@ describe('playback-controller', () => {
       await playTrack(mockDevice, mockTrack, false);
 
       // Add two tracks
-      addToQueue(mockDevice, { ...mockTrack, videoId: 'stream-fail', title: 'Stream Fail' });
-      addToQueue(mockDevice, { ...mockTrack, videoId: 'stream-ok', title: 'Stream OK' });
+      addToQueue(mockDevice, {
+        ...mockTrack,
+        videoId: 'stream-fail',
+        title: 'Stream Fail',
+      });
+      addToQueue(mockDevice, {
+        ...mockTrack,
+        videoId: 'stream-ok',
+        title: 'Stream OK',
+      });
 
       // Make getAudioStreamUrl fail for first call (stream-fail), succeed for second (stream-ok)
-      vi.mocked(getAudioStreamUrl)
-        .mockRejectedValueOnce(new Error('stream extraction failed'))
-        .mockResolvedValueOnce({ url: 'https://stream.url/audio', mimeType: 'audio/webm; codecs="opus"', bitrate: 128000, durationMs: 210000 });
+      vi.mocked(getAudioStreamUrl).mockRejectedValueOnce(new Error('stream extraction failed')).mockResolvedValueOnce({
+        url: 'https://stream.url/audio',
+        mimeType: 'audio/webm; codecs="opus"',
+        bitrate: 128000,
+        durationMs: 210000,
+      });
 
       const result = await skipTrack(mockDevice);
-      expect(typeof result).toBe('string');
+      expect(result).toMatch(/Now playing|Skipped|Queue finished/);
       expect(mockLogger.warn).toHaveBeenCalledWith(expect.stringContaining('Stream extraction failed'));
     });
   });
@@ -565,7 +609,11 @@ describe('playback-controller', () => {
       vi.mocked(getUpNextTracks).mockRejectedValue(new Error('network error'));
 
       // Add a track and skip to it — when that finishes, radio prefetch will trigger
-      addToQueue(mockDevice, { ...mockTrack, videoId: 'trigger', title: 'Trigger' });
+      addToQueue(mockDevice, {
+        ...mockTrack,
+        videoId: 'trigger',
+        title: 'Trigger',
+      });
 
       // Manually enable radio on the session by playing with radio enabled on same device
       // Enable radio by playing with radio=true (reuses session)
@@ -725,10 +773,68 @@ describe('playback-controller', () => {
     });
   });
 
+  describe('connectToDevice - timeout and launch errors', () => {
+    beforeEach(() => {
+      // Reset mockClientClose implementation (vi.clearAllMocks only clears calls, not implementations)
+      mockClientClose.mockReset();
+    });
+
+    afterEach(() => {
+      vi.useRealTimers();
+    });
+
+    it('rejects when connection times out', async () => {
+      vi.useFakeTimers();
+
+      // Override connect to never call back — simulates a hanging connection
+      mockConnectBehavior = () => {
+        // intentionally never calls cb
+      };
+
+      const playPromise = playTrack(mockDevice, mockTrack);
+
+      // Attach rejection handler BEFORE advancing timers to avoid unhandled rejection warning
+      const rejection = expect(playPromise).rejects.toThrow('Connection to "Test Speaker" timed out after 10s');
+
+      // Advance past the 10s timeout
+      await vi.advanceTimersByTimeAsync(10_001);
+
+      await rejection;
+      expect(mockClientClose).toHaveBeenCalled();
+    });
+
+    it('rejects when error fires before connect completes', async () => {
+      // Override connect to capture the error handler and fire it instead of connecting
+      mockConnectBehavior = () => {
+        // Never call cb — instead, find the error handler and fire it
+        const errorCall = mockClientOn.mock.calls.find((c) => c[0] === 'error');
+        const errorHandler = errorCall?.[1] as (err: Error) => void;
+        errorHandler(new Error('ECONNREFUSED'));
+      };
+
+      // Source uses ${err} which stringifies to "Error: ECONNREFUSED"
+      await expect(playTrack(mockDevice, mockTrack)).rejects.toThrow('Cast client error for "Test Speaker": Error: ECONNREFUSED');
+    });
+
+    it('rejects when launch receiver fails', async () => {
+      // Override launch to call back with an error
+      mockLaunchBehavior = (_app, cb) => {
+        cb(new Error('receiver unavailable'), null);
+      };
+
+      await expect(playTrack(mockDevice, mockTrack)).rejects.toThrow('Failed to launch receiver on "Test Speaker": receiver unavailable');
+      expect(mockClientClose).toHaveBeenCalled();
+    });
+  });
+
   describe('initPlaybackController with settings', () => {
     it('accepts PlaybackSettings and stores them', async () => {
       destroyPlaybackController();
-      initPlaybackController(mockLogger, { defaultVolume: 75, radioEnabled: false, audioQuality: 'high' });
+      initPlaybackController(mockLogger, {
+        defaultVolume: 75,
+        radioEnabled: false,
+        audioQuality: 'high',
+      });
 
       // Play a track — radioEnabled from settings should be used when radio arg is undefined
       await playTrack(mockDevice, mockTrack);
@@ -816,7 +922,11 @@ describe('playback-controller', () => {
 
     it('returns multiple ids for multiple sessions', async () => {
       await playTrack(mockDevice, mockTrack);
-      const device2: CastDevice = { ...mockDevice, id: 'speaker-2', name: 'Speaker 2' };
+      const device2: CastDevice = {
+        ...mockDevice,
+        id: 'speaker-2',
+        name: 'Speaker 2',
+      };
       await playTrack(device2, mockTrack);
 
       const ids = getActiveSessionIds();

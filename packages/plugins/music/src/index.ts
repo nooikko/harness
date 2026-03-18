@@ -31,7 +31,7 @@ import {
 } from './_helpers/playback-controller';
 import { settingsSchema } from './_helpers/settings-schema';
 import type { MusicTrack } from './_helpers/youtube-music-client';
-import { destroyYouTubeMusicClient, getRawClient, initYouTubeMusicClient, searchSongs } from './_helpers/youtube-music-client';
+import { destroyYouTubeMusicClient, getRawClient, replaceYouTubeMusicClient, searchSongs } from './_helpers/youtube-music-client';
 
 // --- Helpers ---
 
@@ -65,10 +65,7 @@ const loadAndApplySettings = async (ctx: PluginContext): Promise<MusicSettings> 
 };
 
 const initClientWithSettings = async (ctx: PluginContext, settings: MusicSettings): Promise<void> => {
-  // Destroy existing client before reinitializing
-  destroyYouTubeMusicClient();
-
-  await initYouTubeMusicClient({
+  await replaceYouTubeMusicClient({
     credentials: settings.youtubeAuth,
     cookie: settings.cookie,
     poToken: settings.poToken,
@@ -471,12 +468,6 @@ const musicPlugin: PluginDefinition = {
           audioQuality?: string;
         };
 
-        // Load existing settings
-        const existing = await ctx.db.pluginConfig.findUnique({
-          where: { pluginName: 'music' },
-        });
-        const currentSettings = (existing?.settings ?? {}) as Record<string, unknown>;
-
         // Merge updates
         const updates: Record<string, unknown> = {};
         if (defaultVolume !== undefined) {
@@ -492,10 +483,17 @@ const musicPlugin: PluginDefinition = {
           updates.audioQuality = audioQuality;
         }
 
-        await ctx.db.pluginConfig.upsert({
-          where: { pluginName: 'music' },
-          create: { pluginName: 'music', enabled: true, settings: { ...currentSettings, ...updates } as Record<string, unknown> as never },
-          update: { settings: { ...currentSettings, ...updates } as Record<string, unknown> as never },
+        await ctx.db.$transaction(async (tx) => {
+          const existing = await tx.pluginConfig.findUnique({
+            where: { pluginName: 'music' },
+          });
+          const currentSettings = (existing?.settings ?? {}) as Record<string, unknown>;
+
+          await tx.pluginConfig.upsert({
+            where: { pluginName: 'music' },
+            create: { pluginName: 'music', enabled: true, settings: { ...currentSettings, ...updates } as Record<string, unknown> as never },
+            update: { settings: { ...currentSettings, ...updates } as Record<string, unknown> as never },
+          });
         });
 
         await ctx.notifySettingsChange('music');

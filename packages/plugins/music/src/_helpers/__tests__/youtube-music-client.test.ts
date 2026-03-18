@@ -12,7 +12,20 @@ vi.mock('youtubei.js', () => ({
   UniversalCache: vi.fn(),
 }));
 
-import { destroyYouTubeMusicClient, getAudioStreamUrl, getUpNextTracks, initYouTubeMusicClient, searchSongs } from '../youtube-music-client';
+vi.mock('../youtube-music-auth', () => ({
+  initWithCredentials: vi.fn().mockResolvedValue(undefined),
+}));
+
+import { initWithCredentials } from '../youtube-music-auth';
+import {
+  destroyYouTubeMusicClient,
+  getAudioStreamUrl,
+  getRawClient,
+  getUpNextTracks,
+  initYouTubeMusicClient,
+  replaceYouTubeMusicClient,
+  searchSongs,
+} from '../youtube-music-client';
 
 describe('youtube-music-client', () => {
   afterEach(() => {
@@ -439,6 +452,74 @@ describe('youtube-music-client', () => {
 
       const results = await searchSongs('test');
       expect(results[0]?.thumbnailUrl).toBeUndefined();
+    });
+  });
+
+  describe('getRawClient', () => {
+    it('returns null before initialization', () => {
+      expect(getRawClient()).toBeNull();
+    });
+
+    it('returns the client after initialization', async () => {
+      setupMockClient();
+      await initYouTubeMusicClient();
+      expect(getRawClient()).not.toBeNull();
+    });
+  });
+
+  describe('replaceYouTubeMusicClient', () => {
+    it('sets a non-null client after replace', async () => {
+      setupMockClient();
+      await replaceYouTubeMusicClient();
+      expect(getRawClient()).not.toBeNull();
+    });
+
+    it('calls Innertube.create with cookie and poToken options', async () => {
+      setupMockClient();
+      await replaceYouTubeMusicClient({ cookie: 'my-cookie', poToken: 'my-token' });
+      expect(mockCreate).toHaveBeenCalledWith(
+        expect.objectContaining({
+          cookie: 'my-cookie',
+          po_token: 'my-token',
+        }),
+      );
+    });
+
+    it('calls initWithCredentials when OAuth credentials with authMethod oauth are provided', async () => {
+      setupMockClient();
+      await replaceYouTubeMusicClient({
+        credentials: {
+          authMethod: 'oauth',
+          accessToken: 'access-123',
+          refreshToken: 'refresh-456',
+          expiresAt: new Date().toISOString(),
+        },
+      });
+      expect(initWithCredentials).toHaveBeenCalledOnce();
+    });
+
+    it('does not call initWithCredentials when no credentials provided', async () => {
+      setupMockClient();
+      await replaceYouTubeMusicClient();
+      expect(initWithCredentials).not.toHaveBeenCalled();
+    });
+
+    it('replaces the existing client with a new one', async () => {
+      const firstClient = {
+        music: { search: mockMusicSearch, getInfo: mockMusicGetInfo },
+        __marker: 'first',
+      };
+      const secondClient = {
+        music: { search: mockMusicSearch, getInfo: mockMusicGetInfo },
+        __marker: 'second',
+      };
+      mockCreate.mockResolvedValueOnce(firstClient);
+      await initYouTubeMusicClient();
+      expect(getRawClient()).toBe(firstClient);
+
+      mockCreate.mockResolvedValueOnce(secondClient);
+      await replaceYouTubeMusicClient();
+      expect(getRawClient()).toBe(secondClient);
     });
   });
 

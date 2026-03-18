@@ -14,22 +14,24 @@ export const getDeviceAliases = (settings: MusicSettings): Record<string, string
 };
 
 export const setDeviceAlias = async (ctx: PluginContext, deviceId: string, alias: string): Promise<void> => {
-  const existing = await ctx.db.pluginConfig.findUnique({
-    where: { pluginName: 'music' },
-  });
+  await ctx.db.$transaction(async (tx) => {
+    const existing = await tx.pluginConfig.findUnique({
+      where: { pluginName: 'music' },
+    });
 
-  const currentSettings = (existing?.settings ?? {}) as MusicSettings;
-  const aliases = { ...getDeviceAliases(currentSettings), [deviceId]: alias };
+    const currentSettings = (existing?.settings ?? {}) as MusicSettings;
+    const aliases = { ...getDeviceAliases(currentSettings), [deviceId]: alias };
 
-  await ctx.db.pluginConfig.upsert({
-    where: { pluginName: 'music' },
-    create: {
-      pluginName: 'music',
-      enabled: true,
-      settings: { ...currentSettings, deviceAliases: aliases },
-    },
-    update: {
-      settings: { ...currentSettings, deviceAliases: aliases },
-    },
+    await tx.pluginConfig.upsert({
+      where: { pluginName: 'music' },
+      create: {
+        pluginName: 'music',
+        enabled: true,
+        settings: { ...currentSettings, deviceAliases: aliases },
+      },
+      update: {
+        settings: { ...currentSettings, deviceAliases: aliases },
+      },
+    });
   });
 };

@@ -67,21 +67,23 @@ export const createOAuthRoutes: CreateOAuthRoutes = (clientRef) => [
           }
         }
 
-        // Persist to DB
-        const existing = await ctx.db.pluginConfig.findUnique({
-          where: { pluginName: 'music' },
-        });
-        const currentSettings = (existing?.settings ?? {}) as Record<string, unknown>;
-        await ctx.db.pluginConfig.upsert({
-          where: { pluginName: 'music' },
-          create: {
-            pluginName: 'music',
-            enabled: true,
-            settings: { ...currentSettings, youtubeAuth: oauthStored } as Record<string, unknown> as never,
-          },
-          update: {
-            settings: { ...currentSettings, youtubeAuth: oauthStored } as Record<string, unknown> as never,
-          },
+        // Persist to DB (atomic read-then-write)
+        await ctx.db.$transaction(async (tx) => {
+          const existing = await tx.pluginConfig.findUnique({
+            where: { pluginName: 'music' },
+          });
+          const currentSettings = (existing?.settings ?? {}) as Record<string, unknown>;
+          await tx.pluginConfig.upsert({
+            where: { pluginName: 'music' },
+            create: {
+              pluginName: 'music',
+              enabled: true,
+              settings: { ...currentSettings, youtubeAuth: oauthStored } as Record<string, unknown> as never,
+            },
+            update: {
+              settings: { ...currentSettings, youtubeAuth: oauthStored } as Record<string, unknown> as never,
+            },
+          });
         });
 
         // Notify settings change so plugin reinitializes
@@ -115,16 +117,27 @@ export const createOAuthRoutes: CreateOAuthRoutes = (clientRef) => [
     method: 'POST',
     path: '/oauth/disconnect',
     handler: async (ctx: PluginContext, _req) => {
-      // Clear OAuth credentials from settings
+      // Clear OAuth credentials from settings (atomic read-then-write)
       const existing = await ctx.db.pluginConfig.findUnique({
         where: { pluginName: 'music' },
       });
-      const currentSettings = (existing?.settings ?? {}) as Record<string, unknown>;
-      const { youtubeAuth: _removed, ...rest } = currentSettings;
 
-      await ctx.db.pluginConfig.update({
-        where: { pluginName: 'music' },
-        data: { settings: rest as never },
+      // Nothing to disconnect if no config exists
+      if (!existing) {
+        return { status: 200, body: { success: true } };
+      }
+
+      await ctx.db.$transaction(async (tx) => {
+        const current = await tx.pluginConfig.findUnique({
+          where: { pluginName: 'music' },
+        });
+        const currentSettings = (current?.settings ?? {}) as Record<string, unknown>;
+        const { youtubeAuth: _removed, ...rest } = currentSettings;
+
+        await tx.pluginConfig.update({
+          where: { pluginName: 'music' },
+          data: { settings: rest as never },
+        });
       });
 
       // Reset any pending flow state

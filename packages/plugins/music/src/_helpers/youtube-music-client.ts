@@ -49,6 +49,25 @@ export const destroyYouTubeMusicClient = (): void => {
   innertube = null;
 };
 
+export const replaceYouTubeMusicClient = async (options?: MusicClientOptions): Promise<void> => {
+  const newClient = await Innertube.create({
+    cache: new UniversalCache(true),
+    generate_session_locally: false,
+    retrieve_player: true,
+    lang: 'en',
+    location: 'US',
+    ...(options?.cookie ? { cookie: options.cookie } : {}),
+    ...(options?.poToken ? { po_token: options.poToken } : {}),
+  });
+
+  if (options?.credentials && options.credentials.authMethod === 'oauth') {
+    await initWithCredentials(newClient as unknown as Parameters<typeof initWithCredentials>[0], options.credentials);
+  }
+
+  // Atomic swap — old client is GC'd, no window where innertube is null
+  innertube = newClient;
+};
+
 // --- Helpers ---
 
 const getClient = (): InnertubeClient => {

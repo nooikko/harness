@@ -22,6 +22,7 @@ type ActiveSession = {
   queue: MusicTrack[];
   radioEnabled: boolean;
   playerState: 'IDLE' | 'PLAYING' | 'PAUSED' | 'BUFFERING';
+  consecutiveFailures: number;
 };
 
 type Logger = {
@@ -95,7 +96,10 @@ const connectToDevice = async (device: CastDevice): Promise<ActiveSession> => {
   const client = new Client() as CastClient;
 
   return new Promise((resolve, reject) => {
+    let settled = false;
+
     const timeout = setTimeout(() => {
+      settled = true;
       client.close();
       reject(new Error(`Connection to "${device.name}" timed out after 10s`));
     }, 10_000);
@@ -103,11 +107,17 @@ const connectToDevice = async (device: CastDevice): Promise<ActiveSession> => {
     client.on('error', (err) => {
       clearTimeout(timeout);
       sessions.delete(device.id);
-      logger?.error(`music: Cast client error for "${device.name}": ${err}`);
+      if (!settled) {
+        settled = true;
+        reject(new Error(`Cast client error for "${device.name}": ${err}`));
+      } else {
+        logger?.error(`music: Cast client error for "${device.name}": ${err}`);
+      }
     });
 
     client.connect(device.host, () => {
       clearTimeout(timeout);
+      settled = true;
       client.launch(DefaultMediaReceiver, (err, player) => {
         if (err) {
           client.close();
@@ -123,6 +133,7 @@ const connectToDevice = async (device: CastDevice): Promise<ActiveSession> => {
           queue: [],
           radioEnabled: true,
           playerState: 'IDLE',
+          consecutiveFailures: 0,
         };
 
         // Listen for status changes (track end, state changes)
@@ -130,7 +141,11 @@ const connectToDevice = async (device: CastDevice): Promise<ActiveSession> => {
           session.playerState = status.playerState;
 
           if (status.playerState === 'IDLE' && status.idleReason === 'FINISHED') {
-            void playNextInQueue(session);
+            void playNextInQueue(session).catch((err) => {
+              logger?.error(`music: playNextInQueue failed: ${err instanceof Error ? err.message : String(err)}`);
+              session.playerState = 'IDLE';
+              session.currentTrack = null;
+            });
           }
         });
 
@@ -378,6 +393,13 @@ export const getQueueState = (device: CastDevice): DevicePlaybackState | null =>
 // --- Internal ---
 
 const playNextInQueue = async (session: ActiveSession): Promise<string> => {
+  if (session.consecutiveFailures >= 3) {
+    logger?.warn('music: Playback stopped after 3 consecutive failures.');
+    session.currentTrack = null;
+    session.playerState = 'IDLE';
+    return 'Playback stopped after 3 consecutive failures.';
+  }
+
   const next = session.queue.shift();
   if (!next) {
     if (session.radioEnabled && session.currentTrack) {
@@ -421,11 +443,13 @@ const playTrackOnSession = async (session: ActiveSession, track: MusicTrack): Pr
       session.player.load(media, { autoplay: true }, (err) => {
         if (err) {
           logger?.warn(`music: Failed to play next track "${track.title}": ${err.message}`);
+          session.consecutiveFailures++;
           // Try next track in queue
           void playNextInQueue(session);
           resolve(`Skipped "${track.title}" (error), trying next...`);
           return;
         }
+        session.consecutiveFailures = 0;
         session.currentTrack = track;
         session.playerState = 'PLAYING';
 
@@ -439,6 +463,7 @@ const playTrackOnSession = async (session: ActiveSession, track: MusicTrack): Pr
     });
   } catch (err) {
     logger?.warn(`music: Stream extraction failed for "${track.title}": ${err instanceof Error ? err.message : err}`);
+    session.consecutiveFailures++;
     // Try next track
     return playNextInQueue(session);
   }

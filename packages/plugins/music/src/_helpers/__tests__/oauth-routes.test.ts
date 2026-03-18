@@ -22,19 +22,22 @@ describe('oauth-routes', () => {
     vi.clearAllMocks();
   });
 
-  const createMockCtx = () =>
-    ({
+  const createMockCtx = () => {
+    const pluginConfig = {
+      findUnique: vi.fn().mockResolvedValue(null),
+      upsert: vi.fn().mockResolvedValue({}),
+      update: vi.fn().mockResolvedValue({}),
+    };
+    return {
       db: {
-        pluginConfig: {
-          findUnique: vi.fn().mockResolvedValue(null),
-          upsert: vi.fn().mockResolvedValue({}),
-          update: vi.fn().mockResolvedValue({}),
-        },
+        pluginConfig,
+        $transaction: vi.fn((cb: (tx: { pluginConfig: typeof pluginConfig }) => Promise<unknown>) => cb({ pluginConfig })),
       },
       notifySettingsChange: vi.fn().mockResolvedValue(undefined),
       reportStatus: vi.fn(),
       logger: { info: vi.fn(), warn: vi.fn(), error: vi.fn(), debug: vi.fn() },
-    }) as unknown as PluginContext;
+    } as unknown as PluginContext;
+  };
 
   const emptyReq: PluginRouteRequest = { params: {}, query: {} };
 
@@ -295,12 +298,9 @@ describe('oauth-routes', () => {
 
       expect(res.status).toBe(200);
       expect((res.body as Record<string, unknown>).success).toBe(true);
-      // Should update with empty settings (no youtubeAuth to remove)
-      expect(ctx.db.pluginConfig.update).toHaveBeenCalledWith({
-        where: { pluginName: 'music' },
-        data: { settings: {} },
-      });
-      expect(mockResetFlowState).toHaveBeenCalled();
+      // Early return — no $transaction or update called
+      expect(ctx.db.pluginConfig.update).not.toHaveBeenCalled();
+      expect(mockResetFlowState).not.toHaveBeenCalled();
     });
   });
 });

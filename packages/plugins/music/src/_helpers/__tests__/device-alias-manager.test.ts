@@ -26,11 +26,13 @@ describe('device-alias-manager', () => {
 
   describe('setDeviceAlias', () => {
     it('creates PluginConfig when none exists', async () => {
+      const pluginConfig = {
+        findUnique: vi.fn().mockResolvedValue(null),
+        upsert: vi.fn().mockResolvedValue({}),
+      };
       const mockDb = {
-        pluginConfig: {
-          findUnique: vi.fn().mockResolvedValue(null),
-          upsert: vi.fn().mockResolvedValue({}),
-        },
+        pluginConfig,
+        $transaction: vi.fn((cb: (tx: { pluginConfig: typeof pluginConfig }) => Promise<unknown>) => cb({ pluginConfig })),
       };
       const ctx = { db: mockDb } as unknown as Parameters<typeof setDeviceAlias>[0];
 
@@ -50,13 +52,15 @@ describe('device-alias-manager', () => {
     });
 
     it('merges with existing aliases', async () => {
+      const pluginConfig = {
+        findUnique: vi.fn().mockResolvedValue({
+          settings: { deviceAliases: { 'dev-1': 'Old Name' }, defaultVolume: 75 },
+        }),
+        upsert: vi.fn().mockResolvedValue({}),
+      };
       const mockDb = {
-        pluginConfig: {
-          findUnique: vi.fn().mockResolvedValue({
-            settings: { deviceAliases: { 'dev-1': 'Old Name' }, defaultVolume: 75 },
-          }),
-          upsert: vi.fn().mockResolvedValue({}),
-        },
+        pluginConfig,
+        $transaction: vi.fn((cb: (tx: { pluginConfig: typeof pluginConfig }) => Promise<unknown>) => cb({ pluginConfig })),
       };
       const ctx = { db: mockDb } as unknown as Parameters<typeof setDeviceAlias>[0];
 
@@ -75,13 +79,15 @@ describe('device-alias-manager', () => {
     });
 
     it('overwrites existing alias for same device', async () => {
+      const pluginConfig = {
+        findUnique: vi.fn().mockResolvedValue({
+          settings: { deviceAliases: { 'dev-1': 'Old Name' } },
+        }),
+        upsert: vi.fn().mockResolvedValue({}),
+      };
       const mockDb = {
-        pluginConfig: {
-          findUnique: vi.fn().mockResolvedValue({
-            settings: { deviceAliases: { 'dev-1': 'Old Name' } },
-          }),
-          upsert: vi.fn().mockResolvedValue({}),
-        },
+        pluginConfig,
+        $transaction: vi.fn((cb: (tx: { pluginConfig: typeof pluginConfig }) => Promise<unknown>) => cb({ pluginConfig })),
       };
       const ctx = { db: mockDb } as unknown as Parameters<typeof setDeviceAlias>[0];
 
