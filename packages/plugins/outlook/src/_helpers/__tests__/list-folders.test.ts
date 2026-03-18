@@ -25,4 +25,24 @@ describe('listFolders', () => {
     expect(parsed[0].unreadItems).toBe(5);
     expect(blocks[0]).toMatchObject({ type: 'email-folders' });
   });
+
+  it('returns empty message when no folders', async () => {
+    const { graphFetch } = await import('../graph-fetch');
+    const { listFolders } = await import('../list-folders');
+
+    (graphFetch as ReturnType<typeof vi.fn>).mockResolvedValue({ value: [] });
+
+    const result = await listFolders({} as Parameters<typeof listFolders>[0]);
+    expect(result).toBe('No mail folders found.');
+  });
+
+  it('returns empty message when data is null', async () => {
+    const { graphFetch } = await import('../graph-fetch');
+    const { listFolders } = await import('../list-folders');
+
+    (graphFetch as ReturnType<typeof vi.fn>).mockResolvedValue(null);
+
+    const result = await listFolders({} as Parameters<typeof listFolders>[0]);
+    expect(result).toBe('No mail folders found.');
+  });
 });

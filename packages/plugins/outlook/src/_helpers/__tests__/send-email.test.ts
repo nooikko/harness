@@ -33,13 +33,14 @@ describe('sendEmail', () => {
   });
 
   it('sends HTML email when isHtml is true', async () => {
-    await sendEmail(mockCtx, {
+    const result = await sendEmail(mockCtx, {
       to: ['bob@example.com'],
       subject: 'HTML',
       body: '<p>Hello</p>',
       isHtml: true,
     });
 
+    expect(result).toContain('Email sent');
     expect(graphFetch).toHaveBeenCalledWith(
       expect.anything(),
       '/me/sendMail',
@@ -54,7 +55,7 @@ describe('sendEmail', () => {
   });
 
   it('includes cc and bcc recipients', async () => {
-    await sendEmail(mockCtx, {
+    const result = await sendEmail(mockCtx, {
       to: ['a@example.com'],
       cc: ['b@example.com'],
       bcc: ['c@example.com'],
@@ -62,6 +63,7 @@ describe('sendEmail', () => {
       body: 'Body',
     });
 
+    expect(result).toContain('a@example.com');
     expect(graphFetch).toHaveBeenCalledWith(
       expect.anything(),
       '/me/sendMail',
@@ -74,5 +76,16 @@ describe('sendEmail', () => {
         }),
       }),
     );
+  });
+
+  it('sends to multiple recipients', async () => {
+    const result = await sendEmail(mockCtx, {
+      to: ['a@test.com', 'b@test.com'],
+      subject: 'Multi',
+      body: 'Hello all',
+    });
+
+    expect(result).toContain('a@test.com');
+    expect(result).toContain('b@test.com');
   });
 });

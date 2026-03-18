@@ -15,12 +15,22 @@ type MoveEmail = (ctx: PluginContext, messageId: string, destinationFolder: stri
 
 const moveEmail: MoveEmail = async (ctx, messageId, destinationFolder) => {
   validateGraphId(messageId, 'messageId');
-  const folderName = WELL_KNOWN_FOLDERS[destinationFolder.toLowerCase()];
-  if (!folderName) {
-    throw new Error(`Unknown folder: ${destinationFolder}. Allowed: ${Object.keys(WELL_KNOWN_FOLDERS).join(', ')}`);
-  }
+  const wellKnown = WELL_KNOWN_FOLDERS[destinationFolder.toLowerCase()];
 
-  const folder = (await graphFetch(ctx, `/me/mailFolders/${folderName}`)) as { id: string; displayName: string };
+  let folder: { id: string; displayName: string };
+
+  if (wellKnown) {
+    folder = (await graphFetch(ctx, `/me/mailFolders/${wellKnown}`)) as { id: string; displayName: string };
+  } else {
+    const data = (await graphFetch(ctx, '/me/mailFolders', {
+      params: { $filter: `displayName eq '${destinationFolder.replace(/'/g, "''")}'`, $select: 'id,displayName' },
+    })) as { value: Array<{ id: string; displayName: string }> };
+
+    if (!data?.value?.length) {
+      throw new Error(`Folder not found: "${destinationFolder}". Use list_folders to see available folders.`);
+    }
+    folder = data.value[0]!;
+  }
 
   await graphFetch(ctx, `/me/messages/${messageId}/move`, {
     method: 'POST',

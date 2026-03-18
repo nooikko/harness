@@ -21,7 +21,7 @@ const findUnsubscribeLinks: FindUnsubscribeLinks = async (ctx, top = 50) => {
     value: Array<{
       id: string;
       subject: string;
-      from: { emailAddress: { name: string; address: string } };
+      from: { emailAddress: { name: string; address: string } } | null;
       body: { content: string };
     }>;
   };
@@ -45,7 +45,7 @@ const findUnsubscribeLinks: FindUnsubscribeLinks = async (ctx, top = 50) => {
 
     if (links.length > 0) {
       results.push({
-        sender: `${msg.from.emailAddress.name} <${msg.from.emailAddress.address}>`,
+        sender: msg.from?.emailAddress ? `${msg.from.emailAddress.name} <${msg.from.emailAddress.address}>` : 'Unknown sender',
         subject: msg.subject,
         unsubscribeLinks: [...new Set(links)],
         messageId: msg.id,

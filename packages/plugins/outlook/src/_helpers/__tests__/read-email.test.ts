@@ -35,4 +35,35 @@ describe('readEmail', () => {
     expect(emails[0]?.from).toEqual({ name: 'Alice', email: 'alice@example.com' });
     expect(emails[0]?.hasAttachments).toBe(false);
   });
+
+  it('handles from: null as Unknown sender', async () => {
+    const { graphFetch } = await import('../graph-fetch');
+    const { readEmail } = await import('../read-email');
+
+    (graphFetch as ReturnType<typeof vi.fn>).mockResolvedValue({
+      id: 'msg-2',
+      subject: 'No Sender',
+      from: null,
+      toRecipients: [{ emailAddress: { name: 'Bob', address: 'bob@example.com' } }],
+      ccRecipients: [],
+      receivedDateTime: '2026-03-17T10:00:00Z',
+      body: { contentType: 'Text', content: 'Mystery email' },
+      hasAttachments: false,
+    });
+
+    const result = await readEmail({} as Parameters<typeof readEmail>[0], 'msg-2');
+    const structured = result as { text: string; blocks: Array<{ type: string; data: Record<string, unknown> }> };
+    const parsed = JSON.parse(structured.text);
+
+    expect(parsed.from).toBe('Unknown sender');
+
+    const emails = (structured.blocks[0]?.data as { emails: Array<{ from: { name: string; email: string } }> }).emails;
+    expect(emails[0]?.from).toEqual({ name: 'Unknown sender', email: 'Unknown sender' });
+  });
+
+  it('throws on invalid messageId with path traversal', async () => {
+    const { readEmail } = await import('../read-email');
+
+    await expect(readEmail({} as Parameters<typeof readEmail>[0], 'abc..def')).rejects.toThrow('Invalid messageId');
+  });
 });

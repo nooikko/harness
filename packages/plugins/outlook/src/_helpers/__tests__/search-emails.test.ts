@@ -68,4 +68,38 @@ describe('searchEmails', () => {
 
     expect(parsed[0].bodyPreview).toHaveLength(200);
   });
+
+  it('escapes double quotes in search query', async () => {
+    vi.mocked(graphFetch).mockResolvedValue({ value: [] });
+
+    await searchEmails(mockCtx, 'from:"alice"');
+    expect(graphFetch).toHaveBeenCalledWith(
+      expect.anything(),
+      '/me/messages',
+      expect.objectContaining({
+        params: expect.objectContaining({
+          $search: '"from:\\"alice\\""',
+        }),
+      }),
+    );
+  });
+
+  it('handles from: null as Unknown sender', async () => {
+    vi.mocked(graphFetch).mockResolvedValue({
+      value: [
+        {
+          id: 'msg-2',
+          subject: 'No Sender',
+          from: null,
+          receivedDateTime: '2026-03-17T10:00:00Z',
+          bodyPreview: 'Some preview',
+        },
+      ],
+    });
+
+    const result = await searchEmails(mockCtx, 'test');
+    const structured = result as { text: string };
+    const parsed = JSON.parse(structured.text);
+    expect(parsed[0].from).toBe('Unknown sender');
+  });
 });

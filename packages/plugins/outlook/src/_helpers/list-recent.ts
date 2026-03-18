@@ -27,7 +27,7 @@ const listRecent: ListRecent = async (ctx, folder = 'inbox', top = 20) => {
     value: Array<{
       id: string;
       subject: string;
-      from: { emailAddress: { name: string; address: string } };
+      from: { emailAddress: { name: string; address: string } } | null;
       receivedDateTime: string;
       isRead: boolean;
       bodyPreview: string;
@@ -41,10 +41,10 @@ const listRecent: ListRecent = async (ctx, folder = 'inbox', top = 20) => {
   const results = data.value.map((msg) => ({
     id: msg.id,
     subject: msg.subject,
-    from: `${msg.from.emailAddress.name} <${msg.from.emailAddress.address}>`,
+    from: msg.from?.emailAddress ? `${msg.from.emailAddress.name} <${msg.from.emailAddress.address}>` : 'Unknown sender',
     receivedDateTime: msg.receivedDateTime,
     isRead: msg.isRead,
-    preview: msg.bodyPreview.slice(0, 150),
+    preview: msg.bodyPreview?.slice(0, 150) ?? '',
   }));
 
   const text = JSON.stringify(results, null, 2);

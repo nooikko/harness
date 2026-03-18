@@ -14,7 +14,7 @@ const readEmail: ReadEmail = async (ctx, messageId) => {
   })) as {
     id: string;
     subject: string;
-    from: { emailAddress: { name: string; address: string } };
+    from: { emailAddress: { name: string; address: string } } | null;
     toRecipients: Array<{ emailAddress: { name: string; address: string } }>;
     ccRecipients: Array<{ emailAddress: { name: string; address: string } }>;
     receivedDateTime: string;
@@ -25,7 +25,7 @@ const readEmail: ReadEmail = async (ctx, messageId) => {
   const result = {
     id: msg.id,
     subject: msg.subject,
-    from: `${msg.from.emailAddress.name} <${msg.from.emailAddress.address}>`,
+    from: msg.from?.emailAddress ? `${msg.from.emailAddress.name} <${msg.from.emailAddress.address}>` : 'Unknown sender',
     to: msg.toRecipients.map((r) => `${r.emailAddress.name} <${r.emailAddress.address}>`),
     cc: msg.ccRecipients.map((r) => `${r.emailAddress.name} <${r.emailAddress.address}>`),
     receivedDateTime: msg.receivedDateTime,

@@ -18,6 +18,10 @@ const listFolders: ListFolders = async (ctx) => {
     }>;
   };
 
+  if (!data?.value?.length) {
+    return 'No mail folders found.';
+  }
+
   const folders = data.value.map((f) => ({
     id: f.id,
     name: f.displayName,

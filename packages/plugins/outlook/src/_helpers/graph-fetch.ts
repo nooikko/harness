@@ -28,6 +28,7 @@ const graphFetch: GraphFetch = async (ctx, path, options = {}) => {
     method: options.method ?? 'GET',
     headers,
     body: options.body ? JSON.stringify(options.body) : undefined,
+    signal: AbortSignal.timeout(15_000),
   });
 
   if (!response.ok) {

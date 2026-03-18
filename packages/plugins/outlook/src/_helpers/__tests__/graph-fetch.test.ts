@@ -108,4 +108,13 @@ describe('graphFetch', () => {
 
     expect(result).toBeNull();
   });
+
+  it('rejects when getValidToken throws', async () => {
+    vi.doMock('@harness/oauth', () => ({
+      getValidToken: vi.fn().mockRejectedValue(new Error('Token expired')),
+    }));
+
+    const { graphFetch } = await import('../graph-fetch');
+    await expect(graphFetch(mockCtx, '/me/messages')).rejects.toThrow('Token expired');
+  });
 });

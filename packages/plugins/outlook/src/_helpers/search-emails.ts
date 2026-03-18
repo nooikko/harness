@@ -23,7 +23,7 @@ const searchEmails: SearchEmails = async (ctx, query, top = 20) => {
     value: Array<{
       id: string;
       subject: string;
-      from: { emailAddress: { name: string; address: string } };
+      from: { emailAddress: { name: string; address: string } } | null;
       receivedDateTime: string;
       bodyPreview: string;
     }>;
@@ -36,7 +36,7 @@ const searchEmails: SearchEmails = async (ctx, query, top = 20) => {
   const results: EmailSearchResult[] = data.value.map((msg) => ({
     id: msg.id,
     subject: msg.subject,
-    from: `${msg.from.emailAddress.name} <${msg.from.emailAddress.address}>`,
+    from: msg.from?.emailAddress ? `${msg.from.emailAddress.name} <${msg.from.emailAddress.address}>` : 'Unknown sender',
     receivedDateTime: msg.receivedDateTime,
     bodyPreview: msg.bodyPreview.slice(0, 200),
   }));
