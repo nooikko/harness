@@ -16,6 +16,7 @@
     "@anthropic-ai/claude-agent-sdk": "^0.2.52",
     "@harness/database": "workspace:*",
     "@harness/logger": "workspace:*",
+    "@harness/oauth": "workspace:*",
     "@harness/plugin-activity": "workspace:*",
     "@harness/plugin-audit": "workspace:*",
     "@harness/plugin-auto-namer": "workspace:*",

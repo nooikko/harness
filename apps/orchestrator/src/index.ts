@@ -2,6 +2,7 @@
 
 import { prisma } from '@harness/database';
 import { createLogger } from '@harness/logger';
+import { validateEncryptionKeyIfSet } from '@harness/oauth';
 import type { PluginDefinition } from '@harness/plugin-contract';
 import { state as delegationState } from '@harness/plugin-delegation';
 import { checkUploadDir } from './_helpers/check-upload-dir';
@@ -30,6 +31,9 @@ export const boot: Boot = async () => {
 
   logger.info('Loading configuration');
   const config = loadConfig();
+
+  // Catch malformed OAUTH_ENCRYPTION_KEY early (only if set — OAuth is optional)
+  validateEncryptionKeyIfSet();
 
   await checkUploadDir(config.uploadDir, logger);
 
