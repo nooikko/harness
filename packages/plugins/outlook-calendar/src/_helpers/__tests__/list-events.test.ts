@@ -1,78 +1,86 @@
 import { describe, expect, it, vi } from 'vitest';
-import { listEvents } from '../list-events';
 
-const mockFindMany = vi.fn();
-
-const ctx = {
-  db: { calendarEvent: { findMany: mockFindMany } },
-} as unknown as Parameters<typeof listEvents>[0];
+vi.mock('../graph-fetch', () => ({
+  graphFetch: vi.fn(),
+}));
 
 describe('listEvents', () => {
-  it('returns structured result with events', async () => {
-    mockFindMany.mockResolvedValue([
-      {
-        id: 'evt-1',
-        title: 'Standup',
-        startAt: new Date('2026-03-17T10:00:00Z'),
-        endAt: new Date('2026-03-17T10:30:00Z'),
-        isAllDay: false,
-        location: null,
-        organizer: null,
-        attendees: null,
-        isCancelled: false,
-        joinUrl: null,
-        source: 'OUTLOOK',
-        category: null,
-        color: null,
-        description: null,
-      },
-    ]);
+  it('returns structured result with events from Graph API', async () => {
+    const { graphFetch } = await import('../graph-fetch');
+    const { listEvents } = await import('../list-events');
 
+    (graphFetch as ReturnType<typeof vi.fn>).mockResolvedValue({
+      value: [
+        {
+          id: 'outlook-evt-1',
+          subject: 'Standup',
+          start: { dateTime: '2026-03-17T10:00:00', timeZone: 'UTC' },
+          end: { dateTime: '2026-03-17T10:30:00', timeZone: 'UTC' },
+          isAllDay: false,
+          isCancelled: false,
+          location: { displayName: 'Zoom' },
+          organizer: { emailAddress: { name: 'Quinn', address: 'quinn@example.com' } },
+          attendees: [{ emailAddress: { name: 'Alice', address: 'alice@example.com' }, status: { response: 'accepted' } }],
+          onlineMeeting: { joinUrl: 'https://zoom.us/123' },
+        },
+      ],
+    });
+
+    const ctx = {} as Parameters<typeof listEvents>[0];
     const result = await listEvents(ctx, {});
+
     expect(typeof result).toBe('object');
     const structured = result as { text: string; blocks: unknown[] };
-    expect(JSON.parse(structured.text)[0].subject).toBe('Standup');
-    expect(structured.blocks[0]).toMatchObject({ type: 'calendar-day-summary' });
+    const parsed = JSON.parse(structured.text);
+    expect(parsed[0].subject).toBe('Standup');
+    expect(parsed[0].organizer).toContain('Quinn');
+    expect(parsed[0].attendees[0].email).toBe('alice@example.com');
+    expect(structured.blocks[0]).toMatchObject({ type: 'calendar-events' });
   });
 
   it('returns string when no events found', async () => {
-    mockFindMany.mockResolvedValue([]);
+    const { graphFetch } = await import('../graph-fetch');
+    const { listEvents } = await import('../list-events');
 
+    (graphFetch as ReturnType<typeof vi.fn>).mockResolvedValue({ value: [] });
+
+    const ctx = {} as Parameters<typeof listEvents>[0];
     const result = await listEvents(ctx, {});
-    expect(result).toBe('No events found in the specified date range.');
+    expect(result).toBe('No Outlook events found in the specified date range.');
   });
 
-  it('filters by sources when provided', async () => {
-    mockFindMany.mockResolvedValue([]);
+  it('handles null response gracefully', async () => {
+    const { graphFetch } = await import('../graph-fetch');
+    const { listEvents } = await import('../list-events');
 
-    await listEvents(ctx, { sources: ['OUTLOOK'] });
-    expect(mockFindMany).toHaveBeenCalledWith(
-      expect.objectContaining({
-        where: expect.objectContaining({ source: { in: ['OUTLOOK'] } }),
-      }),
-    );
+    (graphFetch as ReturnType<typeof vi.fn>).mockResolvedValue(null);
+
+    const ctx = {} as Parameters<typeof listEvents>[0];
+    const result = await listEvents(ctx, {});
+    expect(result).toBe('No Outlook events found in the specified date range.');
   });
 
-  it('filters by categories when provided', async () => {
-    mockFindMany.mockResolvedValue([]);
+  it('passes date range and top to graphFetch params', async () => {
+    const { graphFetch } = await import('../graph-fetch');
+    const { listEvents } = await import('../list-events');
 
-    await listEvents(ctx, { categories: ['task', 'cron'] });
-    expect(mockFindMany).toHaveBeenCalledWith(
+    (graphFetch as ReturnType<typeof vi.fn>).mockResolvedValue({ value: [] });
+
+    const ctx = {} as Parameters<typeof listEvents>[0];
+    await listEvents(ctx, {
+      startDateTime: '2026-03-01T00:00:00Z',
+      endDateTime: '2026-03-31T23:59:59Z',
+      top: 10,
+    });
+
+    expect(graphFetch).toHaveBeenCalledWith(
+      ctx,
+      '/me/calendarView',
       expect.objectContaining({
-        where: expect.objectContaining({ category: { in: ['task', 'cron'] } }),
-      }),
-    );
-  });
-
-  it('uses custom start/end dates when provided', async () => {
-    mockFindMany.mockResolvedValue([]);
-
-    await listEvents(ctx, { startDate: '2026-03-01', endDate: '2026-03-31' });
-    expect(mockFindMany).toHaveBeenCalledWith(
-      expect.objectContaining({
-        where: expect.objectContaining({
-          startAt: { lte: new Date('2026-03-31') },
-          endAt: { gte: new Date('2026-03-01') },
+        params: expect.objectContaining({
+          startDateTime: '2026-03-01T00:00:00Z',
+          endDateTime: '2026-03-31T23:59:59Z',
+          $top: '10',
         }),
       }),
     );

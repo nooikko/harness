@@ -1,68 +1,128 @@
 import { describe, expect, it, vi } from 'vitest';
-import { createEvent } from '../create-event';
 
-const mockCreate = vi.fn();
-
-const ctx = {
-  db: {
-    calendarEvent: {
-      create: mockCreate,
-    },
-  },
-} as unknown as Parameters<typeof createEvent>[0];
+vi.mock('../graph-fetch', () => ({
+  graphFetch: vi.fn(),
+}));
 
 describe('createEvent', () => {
-  it('creates a local calendar event', async () => {
-    mockCreate.mockResolvedValue({
+  it('creates an Outlook event via Graph API', async () => {
+    const { graphFetch } = await import('../graph-fetch');
+    const { createEvent } = await import('../create-event');
+
+    (graphFetch as ReturnType<typeof vi.fn>).mockResolvedValue({
       id: 'new-evt-1',
-      title: 'Lunch',
-      startAt: new Date('2026-03-17T12:00:00Z'),
-      endAt: new Date('2026-03-17T13:00:00Z'),
+      subject: 'Lunch',
+      start: { dateTime: '2026-03-17T12:00:00', timeZone: 'America/Phoenix' },
+      end: { dateTime: '2026-03-17T13:00:00', timeZone: 'America/Phoenix' },
       isAllDay: false,
-      location: 'Cafe',
+      location: { displayName: 'Cafe' },
     });
 
+    const ctx = { config: { timezone: 'America/Phoenix' } } as Parameters<typeof createEvent>[0];
     const result = await createEvent(ctx, {
-      title: 'Lunch',
-      startAt: '2026-03-17T12:00:00',
-      endAt: '2026-03-17T13:00:00',
+      subject: 'Lunch',
+      start: '2026-03-17T12:00:00',
+      end: '2026-03-17T13:00:00',
       location: 'Cafe',
     });
 
     expect(typeof result).toBe('object');
-    expect(result).toHaveProperty('text');
-    expect((result as { text: string }).text).toContain('Lunch');
-    expect((result as { text: string }).text).toContain('new-evt-1');
+    const structured = result as { text: string };
+    expect(structured.text).toContain('Lunch');
+    expect(structured.text).toContain('new-evt-1');
 
-    expect(mockCreate).toHaveBeenCalledWith({
-      data: expect.objectContaining({
-        source: 'LOCAL',
-        title: 'Lunch',
-        location: 'Cafe',
+    expect(graphFetch).toHaveBeenCalledWith(
+      ctx,
+      '/me/events',
+      expect.objectContaining({
+        method: 'POST',
+        body: expect.objectContaining({
+          subject: 'Lunch',
+          start: { dateTime: '2026-03-17T12:00:00', timeZone: 'America/Phoenix' },
+          location: { displayName: 'Cafe' },
+        }),
       }),
-    });
+    );
   });
 
-  it('defaults isAllDay to false', async () => {
-    mockCreate.mockResolvedValue({
+  it('passes attendees to Graph API', async () => {
+    const { graphFetch } = await import('../graph-fetch');
+    const { createEvent } = await import('../create-event');
+
+    (graphFetch as ReturnType<typeof vi.fn>).mockResolvedValue({
       id: 'new-evt-2',
-      title: 'Meeting',
-      startAt: new Date('2026-03-17T14:00:00Z'),
-      endAt: new Date('2026-03-17T15:00:00Z'),
+      subject: 'Team Meeting',
+      start: { dateTime: '2026-03-17T14:00:00', timeZone: 'America/Phoenix' },
+      end: { dateTime: '2026-03-17T15:00:00', timeZone: 'America/Phoenix' },
       isAllDay: false,
-      location: null,
     });
 
+    const ctx = { config: { timezone: 'America/Phoenix' } } as Parameters<typeof createEvent>[0];
     await createEvent(ctx, {
-      title: 'Meeting',
-      startAt: '2026-03-17T14:00:00',
-      endAt: '2026-03-17T15:00:00',
+      subject: 'Team Meeting',
+      start: '2026-03-17T14:00:00',
+      end: '2026-03-17T15:00:00',
+      attendees: ['alice@example.com', 'bob@example.com'],
     });
 
-    expect(mockCreate).toHaveBeenCalledWith({
-      data: expect.objectContaining({
-        isAllDay: false,
+    expect(graphFetch).toHaveBeenCalledWith(
+      ctx,
+      '/me/events',
+      expect.objectContaining({
+        body: expect.objectContaining({
+          attendees: [
+            { emailAddress: { address: 'alice@example.com' }, type: 'required' },
+            { emailAddress: { address: 'bob@example.com' }, type: 'required' },
+          ],
+        }),
       }),
+    );
+  });
+
+  it('uses custom timeZone when provided', async () => {
+    const { graphFetch } = await import('../graph-fetch');
+    const { createEvent } = await import('../create-event');
+
+    (graphFetch as ReturnType<typeof vi.fn>).mockResolvedValue({
+      id: 'new-evt-3',
+      subject: 'Call',
+      start: { dateTime: '2026-03-17T10:00:00', timeZone: 'Europe/London' },
+      end: { dateTime: '2026-03-17T11:00:00', timeZone: 'Europe/London' },
+      isAllDay: false,
     });
+
+    const ctx = { config: { timezone: 'America/Phoenix' } } as Parameters<typeof createEvent>[0];
+    await createEvent(ctx, {
+      subject: 'Call',
+      start: '2026-03-17T10:00:00',
+      end: '2026-03-17T11:00:00',
+      timeZone: 'Europe/London',
+    });
+
+    expect(graphFetch).toHaveBeenCalledWith(
+      ctx,
+      '/me/events',
+      expect.objectContaining({
+        body: expect.objectContaining({
+          start: { dateTime: '2026-03-17T10:00:00', timeZone: 'Europe/London' },
+        }),
+      }),
+    );
+  });
+
+  it('returns error message on null response', async () => {
+    const { graphFetch } = await import('../graph-fetch');
+    const { createEvent } = await import('../create-event');
+
+    (graphFetch as ReturnType<typeof vi.fn>).mockResolvedValue(null);
+
+    const ctx = { config: { timezone: 'America/Phoenix' } } as Parameters<typeof createEvent>[0];
+    const result = await createEvent(ctx, {
+      subject: 'Test',
+      start: '2026-03-17T10:00:00',
+      end: '2026-03-17T11:00:00',
+    });
+
+    expect(result).toContain('Failed to create');
   });
 });

@@ -9,7 +9,7 @@ const listCalendars: ListCalendars = async (ctx) => {
       $select: 'id,name,color,isDefaultCalendar,canEdit,owner',
     },
   })) as {
-    value: Array<{
+    value?: Array<{
       id: string;
       name: string;
       color: string;
@@ -17,7 +17,11 @@ const listCalendars: ListCalendars = async (ctx) => {
       canEdit: boolean;
       owner: { name: string; address: string };
     }>;
-  };
+  } | null;
+
+  if (!data?.value?.length) {
+    return 'No calendars found.';
+  }
 
   const calendars = data.value.map((cal) => ({
     id: cal.id,

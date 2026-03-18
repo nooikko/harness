@@ -1,99 +1,96 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { updateEvent } from '../update-event';
 
-const mockFindUnique = vi.fn();
-const mockUpdate = vi.fn();
-
-const ctx = {
-  db: {
-    calendarEvent: {
-      findUnique: mockFindUnique,
-      update: mockUpdate,
-    },
-  },
-} as unknown as Parameters<typeof updateEvent>[0];
+vi.mock('../graph-fetch', () => ({
+  graphFetch: vi.fn(),
+}));
 
 describe('updateEvent', () => {
   beforeEach(() => {
     vi.clearAllMocks();
   });
-  it('updates a local calendar event', async () => {
-    mockFindUnique.mockResolvedValue({
+
+  it('updates an Outlook event via Graph API', async () => {
+    const { graphFetch } = await import('../graph-fetch');
+    const { updateEvent } = await import('../update-event');
+
+    (graphFetch as ReturnType<typeof vi.fn>).mockResolvedValue({
       id: 'evt-1',
-      source: 'LOCAL',
-      title: 'Old Title',
-    });
-    mockUpdate.mockResolvedValue({
-      id: 'evt-1',
-      title: 'Updated Title',
+      subject: 'Updated Title',
+      start: { dateTime: '2026-03-17T10:00:00', timeZone: 'America/Phoenix' },
+      end: { dateTime: '2026-03-17T11:00:00', timeZone: 'America/Phoenix' },
+      isAllDay: false,
     });
 
+    const ctx = { config: { timezone: 'America/Phoenix' } } as Parameters<typeof updateEvent>[0];
     const result = await updateEvent(ctx, {
       eventId: 'evt-1',
-      title: 'Updated Title',
+      subject: 'Updated Title',
     });
 
     expect(result).toContain('Updated Title');
-    expect(mockUpdate).toHaveBeenCalledWith({
-      where: { id: 'evt-1' },
-      data: expect.objectContaining({ title: 'Updated Title' }),
-    });
+    expect(graphFetch).toHaveBeenCalledWith(
+      ctx,
+      '/me/events/evt-1',
+      expect.objectContaining({
+        method: 'PATCH',
+        body: expect.objectContaining({ subject: 'Updated Title' }),
+      }),
+    );
   });
 
-  it('includes all optional fields in update', async () => {
-    mockFindUnique.mockResolvedValue({
+  it('sends only provided fields in PATCH body', async () => {
+    const { graphFetch } = await import('../graph-fetch');
+    const { updateEvent } = await import('../update-event');
+
+    (graphFetch as ReturnType<typeof vi.fn>).mockResolvedValue({
       id: 'evt-2',
-      source: 'LOCAL',
-      title: 'Old',
-    });
-    mockUpdate.mockResolvedValue({
-      id: 'evt-2',
-      title: 'Full Update',
+      subject: 'Original',
+      start: { dateTime: '2026-03-17T10:00:00', timeZone: 'America/Phoenix' },
+      end: { dateTime: '2026-03-17T11:00:00', timeZone: 'America/Phoenix' },
+      isAllDay: false,
     });
 
+    const ctx = { config: { timezone: 'America/Phoenix' } } as Parameters<typeof updateEvent>[0];
     await updateEvent(ctx, {
       eventId: 'evt-2',
-      title: 'Full Update',
-      startAt: '2026-03-17T10:00:00',
-      endAt: '2026-03-17T11:00:00',
       location: 'Room 202',
-      description: 'Meeting notes',
     });
 
-    expect(mockUpdate).toHaveBeenCalledWith({
-      where: { id: 'evt-2' },
-      data: expect.objectContaining({
-        title: 'Full Update',
-        location: 'Room 202',
-        description: 'Meeting notes',
-      }),
-    });
+    const callBody = (graphFetch as ReturnType<typeof vi.fn>).mock.calls[0]?.[2]?.body as Record<string, unknown>;
+    expect(callBody.location).toEqual({ displayName: 'Room 202' });
+    expect(callBody.subject).toBeUndefined();
   });
 
-  it('returns not found when event does not exist', async () => {
-    mockFindUnique.mockResolvedValue(null);
+  it('passes attendees to Graph API', async () => {
+    const { graphFetch } = await import('../graph-fetch');
+    const { updateEvent } = await import('../update-event');
 
-    const result = await updateEvent(ctx, {
-      eventId: 'evt-missing',
-      title: 'Nope',
+    (graphFetch as ReturnType<typeof vi.fn>).mockResolvedValue({
+      id: 'evt-3',
+      subject: 'Meeting',
+      start: { dateTime: '2026-03-17T14:00:00', timeZone: 'America/Phoenix' },
+      end: { dateTime: '2026-03-17T15:00:00', timeZone: 'America/Phoenix' },
+      isAllDay: false,
     });
 
-    expect(result).toContain('not found');
-    expect(mockUpdate).not.toHaveBeenCalled();
+    const ctx = { config: { timezone: 'America/Phoenix' } } as Parameters<typeof updateEvent>[0];
+    await updateEvent(ctx, {
+      eventId: 'evt-3',
+      attendees: ['alice@example.com'],
+    });
+
+    const callBody = (graphFetch as ReturnType<typeof vi.fn>).mock.calls[0]?.[2]?.body as Record<string, unknown>;
+    expect(callBody.attendees).toEqual([{ emailAddress: { address: 'alice@example.com' }, type: 'required' }]);
   });
 
-  it('rejects non-LOCAL events', async () => {
-    mockFindUnique.mockResolvedValue({
-      id: 'evt-outlook',
-      source: 'OUTLOOK',
-      title: 'External',
-    });
+  it('returns error message on null response', async () => {
+    const { graphFetch } = await import('../graph-fetch');
+    const { updateEvent } = await import('../update-event');
 
-    const result = await updateEvent(ctx, {
-      eventId: 'evt-outlook',
-      title: 'Try Edit',
-    });
+    (graphFetch as ReturnType<typeof vi.fn>).mockResolvedValue(null);
 
-    expect(result).toContain('Cannot edit');
+    const ctx = { config: { timezone: 'America/Phoenix' } } as Parameters<typeof updateEvent>[0];
+    const result = await updateEvent(ctx, { eventId: 'evt-4', subject: 'Nope' });
+    expect(result).toContain('Failed to update');
   });
 });

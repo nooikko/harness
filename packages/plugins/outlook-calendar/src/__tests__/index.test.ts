@@ -16,6 +16,13 @@ describe('plugin', () => {
     expect(toolNames).toEqual(['list_events', 'get_event', 'create_event', 'update_event', 'delete_event', 'find_free_time', 'list_calendars']);
   });
 
+  it('all tools describe Outlook/Graph API operations', () => {
+    for (const tool of plugin.tools!) {
+      const desc = tool.description.toLowerCase();
+      expect(desc.includes('outlook') || desc.includes('graph') || desc.includes('microsoft')).toBe(true);
+    }
+  });
+
   it('register returns empty hooks', async () => {
     const hooks = await plugin.register({} as Parameters<typeof plugin.register>[0]);
     expect(hooks).toEqual({});

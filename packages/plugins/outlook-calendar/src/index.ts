@@ -13,7 +13,8 @@ const plugin: PluginDefinition = {
   tools: [
     {
       name: 'list_events',
-      description: 'List upcoming calendar events. Defaults to the next 7 days. Provide ISO date strings to customize the range.',
+      description:
+        'List upcoming Outlook calendar events via Microsoft Graph API. Defaults to the next 7 days. Provide ISO date strings to customize the range.',
       schema: {
         type: 'object',
         properties: {
@@ -38,18 +39,18 @@ const plugin: PluginDefinition = {
           endDateTime?: string;
           top?: number;
         };
-        return listEvents(ctx, { startDate: startDateTime, endDate: endDateTime, limit: top });
+        return listEvents(ctx, { startDateTime, endDateTime, top });
       },
     },
     {
       name: 'get_event',
-      description: 'Get full details of a calendar event by its ID, including body, attendees, recurrence, and meeting link.',
+      description: 'Get full details of an Outlook calendar event by its Graph ID, including body, attendees, recurrence, and meeting link.',
       schema: {
         type: 'object',
         properties: {
           eventId: {
             type: 'string',
-            description: 'The calendar event ID',
+            description: 'The Outlook event ID (Graph API ID)',
           },
         },
         required: ['eventId'],
@@ -61,7 +62,7 @@ const plugin: PluginDefinition = {
     },
     {
       name: 'create_event',
-      description: 'Create a new calendar event. Times should be in ISO 8601 format. Default timezone is America/Phoenix.',
+      description: 'Create a new event on the Outlook calendar via Microsoft Graph API. Supports attendees, timezone, and rich body text.',
       schema: {
         type: 'object',
         properties: {
@@ -77,16 +78,16 @@ const plugin: PluginDefinition = {
           },
           location: {
             type: 'string',
-            description: 'Event location (optional)',
+            description: 'Event location',
           },
           body: {
             type: 'string',
-            description: 'Event description (optional)',
+            description: 'Event description / body text',
           },
           attendees: {
             type: 'array',
             items: { type: 'string' },
-            description: 'Attendee email addresses (optional)',
+            description: 'Attendee email addresses',
           },
           isAllDay: {
             type: 'boolean',
@@ -96,33 +97,37 @@ const plugin: PluginDefinition = {
         required: ['subject', 'start', 'end'],
       },
       handler: async (ctx, input) => {
-        const { subject, start, end, location, body, isAllDay } = input as {
+        const { subject, start, end, timeZone, location, body, attendees, isAllDay } = input as {
           subject: string;
           start: string;
           end: string;
+          timeZone?: string;
           location?: string;
           body?: string;
+          attendees?: string[];
           isAllDay?: boolean;
         };
         return createEvent(ctx, {
-          title: subject,
-          startAt: start,
-          endAt: end,
+          subject,
+          start,
+          end,
+          timeZone,
           location,
-          description: body,
+          body,
+          attendees,
           isAllDay,
         });
       },
     },
     {
       name: 'update_event',
-      description: 'Update an existing calendar event. Only provide the fields you want to change.',
+      description: 'Update an existing Outlook calendar event via Microsoft Graph API. Only provide the fields you want to change.',
       schema: {
         type: 'object',
         properties: {
           eventId: {
             type: 'string',
-            description: 'The calendar event ID to update',
+            description: 'The Outlook event ID to update',
           },
           subject: { type: 'string', description: 'New event title' },
           start: {
@@ -136,37 +141,52 @@ const plugin: PluginDefinition = {
           timeZone: { type: 'string', description: 'IANA timezone' },
           location: { type: 'string', description: 'New location' },
           body: { type: 'string', description: 'New description' },
+          attendees: {
+            type: 'array',
+            items: { type: 'string' },
+            description: 'Updated attendee email addresses',
+          },
+          isAllDay: {
+            type: 'boolean',
+            description: 'All-day event toggle',
+          },
         },
         required: ['eventId'],
       },
       handler: async (ctx, input) => {
-        const { eventId, subject, start, end, location, body } = input as {
+        const { eventId, subject, start, end, timeZone, location, body, attendees, isAllDay } = input as {
           eventId: string;
           subject?: string;
           start?: string;
           end?: string;
+          timeZone?: string;
           location?: string;
           body?: string;
+          attendees?: string[];
+          isAllDay?: boolean;
         };
         return updateEvent(ctx, {
           eventId,
-          title: subject,
-          startAt: start,
-          endAt: end,
+          subject,
+          start,
+          end,
+          timeZone,
           location,
-          description: body,
+          body,
+          attendees,
+          isAllDay,
         });
       },
     },
     {
       name: 'delete_event',
-      description: 'Delete/cancel a calendar event by its ID.',
+      description: 'Delete/cancel an Outlook calendar event by its Graph ID.',
       schema: {
         type: 'object',
         properties: {
           eventId: {
             type: 'string',
-            description: 'The calendar event ID to delete',
+            description: 'The Outlook event ID to delete',
           },
         },
         required: ['eventId'],
@@ -212,7 +232,7 @@ const plugin: PluginDefinition = {
     },
     {
       name: 'list_calendars',
-      description: 'List all available calendars (personal, shared, etc.) with their properties.',
+      description: 'List all available Outlook calendars (personal, shared, etc.) with their properties.',
       schema: {
         type: 'object',
         properties: {},

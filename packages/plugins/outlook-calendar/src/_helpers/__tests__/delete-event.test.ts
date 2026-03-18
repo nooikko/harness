@@ -1,40 +1,31 @@
-import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { deleteEvent } from '../delete-event';
+import { describe, expect, it, vi } from 'vitest';
 
-const mockFindUnique = vi.fn();
-const mockDelete = vi.fn();
-
-const ctx = {
-  db: { calendarEvent: { findUnique: mockFindUnique, delete: mockDelete } },
-} as unknown as Parameters<typeof deleteEvent>[0];
+vi.mock('../graph-fetch', () => ({
+  graphFetch: vi.fn(),
+}));
 
 describe('deleteEvent', () => {
-  beforeEach(() => {
-    vi.clearAllMocks();
-  });
+  it('deletes an Outlook event via Graph API', async () => {
+    const { graphFetch } = await import('../graph-fetch');
+    const { deleteEvent } = await import('../delete-event');
 
-  it('deletes a local event', async () => {
-    mockFindUnique.mockResolvedValue({ id: 'evt-1', title: 'Old Event', source: 'LOCAL' });
-    mockDelete.mockResolvedValue({});
+    (graphFetch as ReturnType<typeof vi.fn>).mockResolvedValue(null);
 
+    const ctx = {} as Parameters<typeof deleteEvent>[0];
     const result = await deleteEvent(ctx, 'evt-1');
-    expect(result).toContain('Deleted');
-    expect(mockDelete).toHaveBeenCalledWith({ where: { id: 'evt-1' } });
+
+    expect(result).toContain('deleted');
+    expect(result).toContain('evt-1');
+    expect(graphFetch).toHaveBeenCalledWith(ctx, '/me/events/evt-1', expect.objectContaining({ method: 'DELETE' }));
   });
 
-  it('returns not found for missing event', async () => {
-    mockFindUnique.mockResolvedValue(null);
+  it('propagates Graph API errors', async () => {
+    const { graphFetch } = await import('../graph-fetch');
+    const { deleteEvent } = await import('../delete-event');
 
-    const result = await deleteEvent(ctx, 'missing');
-    expect(result).toContain('not found');
-    expect(mockDelete).not.toHaveBeenCalled();
-  });
+    (graphFetch as ReturnType<typeof vi.fn>).mockRejectedValue(new Error('Graph API error (404): Not Found'));
 
-  it('rejects non-LOCAL events', async () => {
-    mockFindUnique.mockResolvedValue({ id: 'evt-2', title: 'Outlook Event', source: 'OUTLOOK' });
-
-    const result = await deleteEvent(ctx, 'evt-2');
-    expect(result).toContain('Cannot delete');
-    expect(result).toContain('OUTLOOK');
+    const ctx = {} as Parameters<typeof deleteEvent>[0];
+    await expect(deleteEvent(ctx, 'missing')).rejects.toThrow('Graph API error (404)');
   });
 });

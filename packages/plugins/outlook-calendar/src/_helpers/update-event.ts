@@ -1,47 +1,74 @@
 import type { PluginContext, ToolResult } from '@harness/plugin-contract';
+import { graphFetch } from './graph-fetch';
 
 type UpdateEventInput = {
   eventId: string;
-  title?: string;
-  startAt?: string;
-  endAt?: string;
-  isAllDay?: boolean;
+  subject?: string;
+  start?: string;
+  end?: string;
+  timeZone?: string;
   location?: string;
-  description?: string;
-  category?: string;
-  color?: string;
+  body?: string;
+  attendees?: string[];
+  isAllDay?: boolean;
+};
+
+type GraphUpdatedEvent = {
+  id: string;
+  subject: string;
+  start: { dateTime: string; timeZone: string };
+  end: { dateTime: string; timeZone: string };
+  isAllDay: boolean;
+  location?: { displayName?: string };
 };
 
 type UpdateEvent = (ctx: PluginContext, input: UpdateEventInput) => Promise<ToolResult>;
 
 const updateEvent: UpdateEvent = async (ctx, input) => {
-  const existing = await ctx.db.calendarEvent.findUnique({
-    where: { id: input.eventId },
-  });
+  const timeZone = input.timeZone ?? ctx.config.timezone ?? 'America/Phoenix';
+  const graphBody: Record<string, unknown> = {};
 
-  if (!existing) {
-    return `Event not found: ${input.eventId}`;
+  if (input.subject !== undefined) {
+    graphBody.subject = input.subject;
   }
 
-  if (existing.source !== 'LOCAL') {
-    return `Cannot edit ${existing.source} events directly. Use the outlook-calendar plugin for Outlook events.`;
+  if (input.start !== undefined) {
+    graphBody.start = { dateTime: input.start, timeZone };
   }
 
-  const event = await ctx.db.calendarEvent.update({
-    where: { id: input.eventId },
-    data: {
-      ...(input.title !== undefined && { title: input.title }),
-      ...(input.startAt !== undefined && { startAt: new Date(input.startAt) }),
-      ...(input.endAt !== undefined && { endAt: new Date(input.endAt) }),
-      ...(input.isAllDay !== undefined && { isAllDay: input.isAllDay }),
-      ...(input.location !== undefined && { location: input.location }),
-      ...(input.description !== undefined && { description: input.description }),
-      ...(input.category !== undefined && { category: input.category }),
-      ...(input.color !== undefined && { color: input.color }),
-    },
-  });
+  if (input.end !== undefined) {
+    graphBody.end = { dateTime: input.end, timeZone };
+  }
 
-  return `Updated calendar event "${event.title}" (${event.id})`;
+  if (input.isAllDay !== undefined) {
+    graphBody.isAllDay = input.isAllDay;
+  }
+
+  if (input.location !== undefined) {
+    graphBody.location = { displayName: input.location };
+  }
+
+  if (input.body !== undefined) {
+    graphBody.body = { contentType: 'text', content: input.body };
+  }
+
+  if (input.attendees !== undefined) {
+    graphBody.attendees = input.attendees.map((email) => ({
+      emailAddress: { address: email },
+      type: 'required',
+    }));
+  }
+
+  const data = (await graphFetch(ctx, `/me/events/${input.eventId}`, {
+    method: 'PATCH',
+    body: graphBody,
+  })) as GraphUpdatedEvent | null;
+
+  if (!data) {
+    return `Failed to update Outlook event ${input.eventId} — no response from Graph API.`;
+  }
+
+  return `Updated Outlook event "${data.subject}" (${data.id})`;
 };
 
 export { updateEvent };

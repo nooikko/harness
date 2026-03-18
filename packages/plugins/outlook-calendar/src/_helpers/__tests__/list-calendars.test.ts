@@ -30,4 +30,24 @@ describe('listCalendars', () => {
     expect(parsed[0].isDefault).toBe(true);
     expect(parsed[0].owner).toContain('Quinn');
   });
+
+  it('returns empty message when Graph returns null', async () => {
+    const { graphFetch } = await import('../graph-fetch');
+    const { listCalendars } = await import('../list-calendars');
+
+    (graphFetch as ReturnType<typeof vi.fn>).mockResolvedValue(null);
+
+    const result = await listCalendars({} as Parameters<typeof listCalendars>[0]);
+    expect(result).toBe('No calendars found.');
+  });
+
+  it('returns empty message when value array is empty', async () => {
+    const { graphFetch } = await import('../graph-fetch');
+    const { listCalendars } = await import('../list-calendars');
+
+    (graphFetch as ReturnType<typeof vi.fn>).mockResolvedValue({ value: [] });
+
+    const result = await listCalendars({} as Parameters<typeof listCalendars>[0]);
+    expect(result).toBe('No calendars found.');
+  });
 });

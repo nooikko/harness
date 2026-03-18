@@ -1,65 +1,88 @@
-import type { CalendarEventSource } from '@harness/database';
 import type { PluginContext, ToolResult } from '@harness/plugin-contract';
+import { graphFetch } from './graph-fetch';
 
 type ListEventsInput = {
-  startDate?: string;
-  endDate?: string;
-  sources?: string[];
-  categories?: string[];
-  limit?: number;
+  startDateTime?: string;
+  endDateTime?: string;
+  top?: number;
 };
 
 type ListEvents = (ctx: PluginContext, input: ListEventsInput) => Promise<ToolResult>;
 
+type GraphEvent = {
+  id: string;
+  subject: string;
+  start: { dateTime: string; timeZone: string };
+  end: { dateTime: string; timeZone: string };
+  isAllDay: boolean;
+  isCancelled: boolean;
+  location?: { displayName?: string };
+  organizer?: { emailAddress: { name: string; address: string } };
+  attendees?: Array<{
+    emailAddress: { name: string; address: string };
+    status: { response: string };
+  }>;
+  onlineMeeting?: { joinUrl?: string };
+};
+
 const listEvents: ListEvents = async (ctx, input) => {
   const now = new Date();
-  const startDate = input.startDate ? new Date(input.startDate) : now;
-  const endDate = input.endDate ? new Date(input.endDate) : new Date(now.getTime() + 7 * 24 * 60 * 60 * 1000);
+  const startDateTime = input.startDateTime ?? now.toISOString();
+  const endDateTime = input.endDateTime ?? new Date(now.getTime() + 7 * 24 * 60 * 60 * 1000).toISOString();
+  const top = input.top ?? 25;
 
-  const where: Record<string, unknown> = {
-    startAt: { lte: endDate },
-    endAt: { gte: startDate },
-    isCancelled: false,
-  };
+  const data = (await graphFetch(ctx, '/me/calendarView', {
+    params: {
+      startDateTime,
+      endDateTime,
+      $top: String(top),
+      $select: 'id,subject,start,end,isAllDay,isCancelled,location,organizer,attendees,onlineMeeting',
+      $orderby: 'start/dateTime',
+    },
+  })) as { value?: GraphEvent[] } | null;
 
-  if (input.sources?.length) {
-    where.source = { in: input.sources as CalendarEventSource[] };
+  if (!data?.value?.length) {
+    return 'No Outlook events found in the specified date range.';
   }
 
-  if (input.categories?.length) {
-    where.category = { in: input.categories };
-  }
-
-  const events = await ctx.db.calendarEvent.findMany({
-    where,
-    orderBy: { startAt: 'asc' },
-    take: input.limit ?? 50,
-  });
-
-  if (!events.length) {
-    return 'No events found in the specified date range.';
-  }
-
-  const mapped = events.map((evt) => ({
+  const mapped = data.value.map((evt) => ({
     id: evt.id,
-    subject: evt.title,
-    start: evt.startAt.toISOString(),
-    end: evt.endAt.toISOString(),
+    subject: evt.subject,
+    start: evt.start.dateTime,
+    startTimeZone: evt.start.timeZone,
+    end: evt.end.dateTime,
+    endTimeZone: evt.end.timeZone,
     isAllDay: evt.isAllDay,
-    location: evt.location,
-    organizer: evt.organizer,
-    attendees: evt.attendees as Array<{ name: string; email: string; response: string }> | null,
     isCancelled: evt.isCancelled,
-    joinUrl: evt.joinUrl,
-    source: evt.source,
-    category: evt.category,
-    color: evt.color,
-    description: evt.description,
+    location: evt.location?.displayName ?? null,
+    organizer: evt.organizer ? `${evt.organizer.emailAddress.name} <${evt.organizer.emailAddress.address}>` : null,
+    attendees:
+      evt.attendees?.map((a) => ({
+        name: a.emailAddress.name,
+        email: a.emailAddress.address,
+        response: a.status.response,
+      })) ?? [],
+    joinUrl: evt.onlineMeeting?.joinUrl ?? null,
   }));
 
   return {
     text: JSON.stringify(mapped, null, 2),
-    blocks: [{ type: 'calendar-day-summary', data: { date: startDate.toISOString().slice(0, 10), events: mapped } }],
+    blocks: [
+      {
+        type: 'calendar-events',
+        data: {
+          events: mapped.map((e) => ({
+            id: e.id,
+            subject: e.subject,
+            start: e.start,
+            end: e.end,
+            isAllDay: e.isAllDay,
+            location: e.location,
+            joinUrl: e.joinUrl,
+          })),
+        },
+      },
+    ],
   };
 };
 
