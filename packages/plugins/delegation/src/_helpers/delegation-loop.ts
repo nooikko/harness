@@ -12,8 +12,8 @@ import { queryDelegationCost } from './query-delegation-cost';
 import { sendThreadNotification } from './send-thread-notification';
 import { type DelegationOptions, setupDelegationTask } from './setup-delegation-task';
 
-// Default cost cap — can be overridden via plugin settings or costCapUsd env var.
-const DEFAULT_COST_CAP_USD = Number(process.env.costCapUsd ?? '5');
+// Default cost cap — overridden via plugin settings (costCapUsd in admin UI)
+const DEFAULT_COST_CAP_USD = 5;
 
 export type DelegationResult = {
   taskId: string;
@@ -111,7 +111,7 @@ export const runDelegationLoop: RunDelegationLoop = async (ctx, allHooks, option
           spent: spentAfterFailure,
           cap: costCapUsd,
         });
-        await ctx.broadcast('task:cost-cap', { taskId, threadId, spent: spentAfterFailure, cap: costCapUsd });
+        await ctx.broadcast('task:cost-cap', { taskId, threadId, parentThreadId: options.parentThreadId, spent: spentAfterFailure, cap: costCapUsd });
         feedback = `Task stopped: exceeded cost budget of $${costCapUsd.toFixed(2)} (spent $${spentAfterFailure.toFixed(2)})`;
         break;
       }
@@ -170,6 +170,7 @@ export const runDelegationLoop: RunDelegationLoop = async (ctx, allHooks, option
         status: 'completed',
         summary: invokeResult.output.slice(0, 200),
         iterations,
+        result: invokeResult.output,
       });
 
       return {
@@ -205,7 +206,7 @@ export const runDelegationLoop: RunDelegationLoop = async (ctx, allHooks, option
         spent: spentAfterRejection,
         cap: costCapUsd,
       });
-      await ctx.broadcast('task:cost-cap', { taskId, threadId, spent: spentAfterRejection, cap: costCapUsd });
+      await ctx.broadcast('task:cost-cap', { taskId, threadId, parentThreadId: options.parentThreadId, spent: spentAfterRejection, cap: costCapUsd });
       feedback = `Task stopped: exceeded cost budget of $${costCapUsd.toFixed(2)} (spent $${spentAfterRejection.toFixed(2)})`;
       break;
     }
@@ -222,7 +223,7 @@ export const runDelegationLoop: RunDelegationLoop = async (ctx, allHooks, option
     data: { status: 'failed', lastActivity: new Date() },
   });
 
-  const failError = new Error(`Task ${taskId} failed after ${maxIterations} iterations. Last feedback: ${feedback ?? 'none'}`);
+  const failError = new Error(`Task ${taskId} failed after ${iterations} iteration(s). Last feedback: ${feedback ?? 'none'}`);
 
   // Fire onTaskFailed hooks
   await runHook(
@@ -237,14 +238,14 @@ export const runDelegationLoop: RunDelegationLoop = async (ctx, allHooks, option
     ctx.logger,
   );
 
-  ctx.logger.error(`Delegation: task ${taskId} failed after ${maxIterations} iterations`);
+  ctx.logger.error(`Delegation: task ${taskId} failed after ${iterations} iteration(s)`);
 
   // Broadcast failure
   await ctx.broadcast('task:failed', {
     taskId,
     threadId,
     parentThreadId: options.parentThreadId,
-    iterations: maxIterations,
+    iterations,
     error: failError.message,
   });
 
@@ -255,7 +256,7 @@ export const runDelegationLoop: RunDelegationLoop = async (ctx, allHooks, option
     taskId,
     status: 'failed',
     summary: feedback ?? 'Max iterations exhausted',
-    iterations: maxIterations,
+    iterations,
   });
 
   return {

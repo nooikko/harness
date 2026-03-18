@@ -93,6 +93,7 @@ const createMockContext: CreateMockContext = (overrides) => {
     broadcast: vi.fn(),
     getSettings: vi.fn().mockResolvedValue({}),
     notifySettingsChange: vi.fn().mockResolvedValue(undefined),
+    reportStatus: vi.fn(),
   };
 
   return { ctx, db };
@@ -243,6 +244,7 @@ describe('runDelegationLoop', () => {
       timeout: 30000,
       onMessage: expect.any(Function),
       traceId: undefined,
+      taskId: 'task-1',
     });
   });
 
@@ -261,6 +263,7 @@ describe('runDelegationLoop', () => {
       timeout: 30000,
       onMessage: expect.any(Function),
       traceId: undefined,
+      taskId: 'task-1',
     });
   });
 
@@ -279,6 +282,7 @@ describe('runDelegationLoop', () => {
       timeout: 30000,
       onMessage: expect.any(Function),
       traceId: 'trace-xyz-456',
+      taskId: 'task-1',
     });
   });
 
@@ -451,7 +455,7 @@ describe('runDelegationLoop', () => {
       'thread-task-1',
       'task-1',
       expect.objectContaining({
-        message: expect.stringContaining('failed after 1 iterations'),
+        message: expect.stringContaining('failed after 1 iteration(s)'),
       }),
     );
   });
@@ -488,7 +492,7 @@ describe('runDelegationLoop', () => {
     expect(events).toContain('task:failed');
   });
 
-  it('notifies parent thread on successful completion via cross-thread notification', async () => {
+  it('notifies parent thread on successful completion via sendToThread', async () => {
     const hooks: PluginHooks[] = [];
 
     await runDelegationLoop(mockCtx, hooks, {
@@ -496,20 +500,13 @@ describe('runDelegationLoop', () => {
       parentThreadId: 'parent-1',
     });
 
-    // sendThreadNotification creates a system message in the parent thread
-    const messageCalls = mockDb.message.create.mock.calls;
-    const notificationCall = messageCalls.find(
-      (call) => (call[0] as { data: { metadata?: { type?: string } } }).data.metadata?.type === 'cross-thread-notification',
-    );
-    expect(notificationCall).toBeDefined();
-
-    const notificationData = (notificationCall?.[0] as { data: { threadId: string; role: string; metadata: { status: string } } }).data;
-    expect(notificationData.threadId).toBe('parent-1');
-    expect(notificationData.role).toBe('system');
-    expect(notificationData.metadata.status).toBe('completed');
+    // sendThreadNotification calls ctx.sendToThread on the parent thread
+    expect(mockCtx.sendToThread).toHaveBeenCalledWith('parent-1', expect.stringContaining('Delegation task completed in 1 iteration(s).'));
+    // Result should be included for parent agent evaluation
+    expect(mockCtx.sendToThread).toHaveBeenCalledWith('parent-1', expect.stringContaining('Task completed successfully'));
   });
 
-  it('notifies parent thread on failure via cross-thread notification', async () => {
+  it('notifies parent thread on failure via sendToThread', async () => {
     const onTaskComplete = vi.fn().mockRejectedValue(new Error('Nope'));
     const hooks: PluginHooks[] = [{ onTaskComplete }];
 
@@ -519,16 +516,8 @@ describe('runDelegationLoop', () => {
       maxIterations: 1,
     });
 
-    // sendThreadNotification creates a system message in the parent thread
-    const messageCalls = mockDb.message.create.mock.calls;
-    const notificationCall = messageCalls.find(
-      (call) => (call[0] as { data: { metadata?: { type?: string } } }).data.metadata?.type === 'cross-thread-notification',
-    );
-    expect(notificationCall).toBeDefined();
-
-    const notificationData = (notificationCall?.[0] as { data: { threadId: string; metadata: { status: string } } }).data;
-    expect(notificationData.threadId).toBe('parent-1');
-    expect(notificationData.metadata.status).toBe('failed');
+    // sendThreadNotification calls ctx.sendToThread on the parent thread
+    expect(mockCtx.sendToThread).toHaveBeenCalledWith('parent-1', expect.stringContaining('Delegation task failed after 1 iteration(s).'));
   });
 
   it('updates task status through the lifecycle', async () => {
@@ -837,14 +826,8 @@ describe('runDelegationLoop', () => {
     expect(result.iterations).toBe(0);
     expect(mockCtx.invoker.invoke).not.toHaveBeenCalled();
 
-    // sendThreadNotification creates a cross-thread notification in the parent thread
-    const messageCalls = mockDb.message.create.mock.calls;
-    const notificationCall = messageCalls.find(
-      (call) => (call[0] as { data: { metadata?: { type?: string } } }).data.metadata?.type === 'cross-thread-notification',
-    );
-    expect(notificationCall).toBeDefined();
-    const notificationData = (notificationCall?.[0] as { data: { metadata: { status: string } } }).data;
-    expect(notificationData.metadata.status).toBe('failed');
+    // sendThreadNotification calls ctx.sendToThread on the parent thread
+    expect(mockCtx.sendToThread).toHaveBeenCalledWith('parent-1', expect.stringContaining('Delegation task failed after 0 iteration(s).'));
   });
 
   it('includes feedback in failure notification when sub-agent had non-zero exit', async () => {
@@ -854,7 +837,7 @@ describe('runDelegationLoop', () => {
       exitCode: 1,
     });
 
-    const { ctx, db } = createMockContext();
+    const { ctx } = createMockContext();
     (ctx as unknown as { invoker: { invoke: ReturnType<typeof vi.fn> } }).invoker.invoke = invokeFail;
 
     const hooks: PluginHooks[] = [];
@@ -867,15 +850,8 @@ describe('runDelegationLoop', () => {
 
     expect(result.status).toBe('failed');
 
-    // sendThreadNotification creates a cross-thread notification in the parent thread
-    const messageCalls = db.message.create.mock.calls;
-    const notificationCall = messageCalls.find(
-      (call) => (call[0] as { data: { metadata?: { type?: string } } }).data.metadata?.type === 'cross-thread-notification',
-    );
-    expect(notificationCall).toBeDefined();
-    const notificationData = (notificationCall?.[0] as { data: { content: string; metadata: { status: string } } }).data;
-    expect(notificationData.metadata.status).toBe('failed');
-    expect(notificationData.content).toContain('failed');
+    // sendThreadNotification calls ctx.sendToThread on the parent thread
+    expect(ctx.sendToThread).toHaveBeenCalledWith('parent-1', expect.stringContaining('Delegation task failed after 1 iteration(s).'));
   });
 
   it('cost cap stops the loop when budget is exceeded after a failed invoke', async () => {

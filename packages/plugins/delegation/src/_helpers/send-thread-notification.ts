@@ -11,28 +11,20 @@ export type ThreadNotificationInput = {
   status: 'completed' | 'failed';
   summary: string;
   iterations: number;
+  result?: string;
 };
 
 type SendThreadNotification = (ctx: PluginContext, input: ThreadNotificationInput) => Promise<void>;
 
 export const sendThreadNotification: SendThreadNotification = async (ctx, input) => {
   const statusLabel = input.status === 'completed' ? 'completed' : 'failed';
-  const content = `Task ${statusLabel} after ${input.iterations} iteration(s): ${input.summary}`;
 
-  await ctx.db.message.create({
-    data: {
-      threadId: input.parentThreadId,
-      role: 'system',
-      content,
-      metadata: {
-        type: 'cross-thread-notification',
-        sourceThreadId: input.taskThreadId,
-        taskId: input.taskId,
-        status: input.status,
-        iterations: input.iterations,
-      },
-    },
-  });
+  const content =
+    input.status === 'completed'
+      ? `Delegation task completed in ${input.iterations} iteration(s).\n\n## Result\n\n${(input.result ?? input.summary).slice(0, 2000)}\n\nReview the result above. If it meets the original requirements, proceed. If not, re-delegate with specific feedback about what's missing.`
+      : `Delegation task failed after ${input.iterations} iteration(s).\n\nError: ${input.summary}\n\nConsider re-delegating with adjusted requirements or a different approach.`;
+
+  await ctx.sendToThread(input.parentThreadId, content);
 
   ctx.logger.info(`Delegation: sent ${statusLabel} notification to thread ${input.parentThreadId} for task ${input.taskId}`);
 

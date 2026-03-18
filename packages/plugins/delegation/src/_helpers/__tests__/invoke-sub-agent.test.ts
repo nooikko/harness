@@ -31,7 +31,6 @@ const createMockContext: CreateMockContext = () =>
       claudeTimeout: 30000,
     },
     logger: { info: vi.fn(), warn: vi.fn(), error: vi.fn(), debug: vi.fn() },
-    setActiveTaskId: vi.fn(),
   }) as unknown as PluginContext;
 
 describe('invokeSubAgent', () => {
@@ -46,6 +45,7 @@ describe('invokeSubAgent', () => {
       timeout: expect.any(Number),
       onMessage: undefined,
       traceId: undefined,
+      taskId: 'task-1',
     });
   });
 
@@ -60,6 +60,7 @@ describe('invokeSubAgent', () => {
       timeout: expect.any(Number),
       onMessage: undefined,
       traceId: undefined,
+      taskId: 'task-1',
     });
   });
 
@@ -188,6 +189,7 @@ describe('invokeSubAgent', () => {
       timeout: 30000,
       onMessage,
       traceId: undefined,
+      taskId: 'task-1',
     });
   });
 
@@ -202,29 +204,16 @@ describe('invokeSubAgent', () => {
       timeout: 30000,
       onMessage: undefined,
       traceId: 'trace-abc-123',
+      taskId: 'task-1',
     });
   });
 
-  it('sets taskId before invoke and clears it after', async () => {
+  it('passes taskId through InvokeOptions', async () => {
     const ctx = createMockContext();
-    const setActiveTaskId = ctx.setActiveTaskId as ReturnType<typeof vi.fn>;
 
     await invokeSubAgent(ctx, 'Do work', 'task-1', 'thread-1', undefined);
 
-    expect(setActiveTaskId).toHaveBeenCalledTimes(2);
-    expect(setActiveTaskId).toHaveBeenNthCalledWith(1, 'task-1');
-    expect(setActiveTaskId).toHaveBeenNthCalledWith(2, undefined);
-  });
-
-  it('clears taskId even when invoke throws', async () => {
-    const ctx = createMockContext();
-    (ctx.invoker.invoke as ReturnType<typeof vi.fn>).mockRejectedValue(new Error('invoke failed'));
-    const setActiveTaskId = ctx.setActiveTaskId as ReturnType<typeof vi.fn>;
-
-    await expect(invokeSubAgent(ctx, 'Do work', 'task-1', 'thread-1', undefined)).rejects.toThrow('invoke failed');
-
-    expect(setActiveTaskId).toHaveBeenNthCalledWith(1, 'task-1');
-    expect(setActiveTaskId).toHaveBeenNthCalledWith(2, undefined);
+    expect(ctx.invoker.invoke).toHaveBeenCalledWith('Do work', expect.objectContaining({ taskId: 'task-1' }));
   });
 
   it('handles undefined error by setting null', async () => {

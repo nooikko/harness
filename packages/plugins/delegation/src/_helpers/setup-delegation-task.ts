@@ -81,6 +81,8 @@ export const setupDelegationTask: SetupDelegationTask = async (ctx, allHooks, op
     taskId,
     threadId,
     parentThreadId: options.parentThreadId,
+    prompt: options.prompt.slice(0, 2000),
+    maxIterations,
   });
 
   return { threadId, taskId };

@@ -1,6 +1,6 @@
 import type { PluginContext } from '@harness/plugin-contract';
-import { describe, expect, it, vi } from 'vitest';
-import { createDelegationPlugin, plugin } from '../index';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { createDelegationPlugin, plugin, state } from '../index';
 
 type CreateMockContext = () => PluginContext;
 
@@ -57,6 +57,7 @@ const createMockContext: CreateMockContext = () => ({
   broadcast: vi.fn().mockResolvedValue(undefined),
   getSettings: vi.fn().mockResolvedValue({}),
   notifySettingsChange: vi.fn().mockResolvedValue(undefined),
+  reportStatus: vi.fn(),
 });
 
 describe('delegation plugin', () => {
@@ -104,6 +105,68 @@ describe('delegation plugin', () => {
     expect(created.name).toBe('delegation');
     expect(created.version).toBe('1.0.0');
     expect(typeof created.register).toBe('function');
+  });
+});
+
+describe('delegation concurrency guard', () => {
+  beforeEach(() => {
+    // Drain any slots held from prior tests
+    while (state.semaphore.active() > 0) {
+      state.semaphore.release();
+    }
+  });
+
+  it('returns error when delegation limit is reached', async () => {
+    const ctx = createMockContext();
+    // Set limit to 1
+    (ctx.config as { maxConcurrentAgents: number }).maxConcurrentAgents = 1;
+
+    const delegateTool = plugin.tools?.find((t) => t.name === 'delegate');
+
+    // First delegation succeeds
+    const result1 = await delegateTool!.handler(ctx, { prompt: 'Task A' }, { threadId: 'thread-1' });
+    expect(result1).toContain('delegated');
+
+    // Second delegation is rejected
+    const result2 = await delegateTool!.handler(ctx, { prompt: 'Task B' }, { threadId: 'thread-1' });
+    expect(result2).toContain('Error');
+    expect(result2).toContain('delegation limit reached');
+  });
+
+  it('releases slot after delegation loop completes', async () => {
+    const ctx = createMockContext();
+    (ctx.config as { maxConcurrentAgents: number }).maxConcurrentAgents = 1;
+
+    const delegateTool = plugin.tools?.find((t) => t.name === 'delegate');
+
+    await delegateTool!.handler(ctx, { prompt: 'Task A' }, { threadId: 'thread-1' });
+    expect(state.semaphore.active()).toBe(1);
+
+    // Wait for the background loop promise to settle (it completes because mocks resolve)
+    await vi.waitFor(() => {
+      expect(state.semaphore.active()).toBe(0);
+    });
+
+    // Now a new delegation should succeed
+    const result = await delegateTool!.handler(ctx, { prompt: 'Task C' }, { threadId: 'thread-1' });
+    expect(result).toContain('delegated');
+  });
+
+  it('releases slot after delegation loop fails', async () => {
+    const ctx = createMockContext();
+    (ctx.config as { maxConcurrentAgents: number }).maxConcurrentAgents = 1;
+
+    // Make thread creation fail so the loop rejects
+    (ctx.db as unknown as { thread: { create: ReturnType<typeof vi.fn> } }).thread.create = vi.fn().mockRejectedValue(new Error('DB down'));
+
+    const delegateTool = plugin.tools?.find((t) => t.name === 'delegate');
+
+    await delegateTool!.handler(ctx, { prompt: 'Doomed task' }, { threadId: 'thread-1' });
+
+    // Wait for the background promise to settle and release the slot
+    await vi.waitFor(() => {
+      expect(state.semaphore.active()).toBe(0);
+    });
   });
 });
 

@@ -4,6 +4,7 @@
 
 import type { PluginContext, PluginDefinition, PluginHooks, PluginTool } from '@harness/plugin-contract';
 import { type DelegationResult, runDelegationLoop } from './_helpers/delegation-loop';
+import { createDelegationSemaphore } from './_helpers/delegation-semaphore';
 import { handleCheckin } from './_helpers/handle-checkin';
 import { settingsSchema } from './_helpers/settings-schema';
 import type { DelegationOptions } from './_helpers/setup-delegation-task';
@@ -41,16 +42,20 @@ const createRegister: CreateRegister = () => {
   return register;
 };
 
+const semaphore = createDelegationSemaphore();
+
 export type DelegationPluginState = {
   setHooks: ((hooks: PluginHooks[]) => void) | null;
   currentHooks: PluginHooks[] | null;
   getSettings: (() => { maxIterations?: number; costCapUsd?: number }) | null;
+  semaphore: ReturnType<typeof createDelegationSemaphore>;
 };
 
 const state: DelegationPluginState = {
   setHooks: null,
   currentHooks: null,
   getSettings: null,
+  semaphore,
 };
 
 export { state };
@@ -84,6 +89,11 @@ const delegateTools: PluginTool[] = [
         return 'Error: prompt is required for delegation.';
       }
 
+      const limit = ctx.config.maxConcurrentAgents;
+      if (!semaphore.tryAcquire(limit)) {
+        return `Error: delegation limit reached (${limit} concurrent task(s) already running). Wait for an existing task to complete before delegating another.`;
+      }
+
       const pluginSettings = state.getSettings?.() ?? {};
 
       runDelegationLoop(ctx, state.currentHooks ?? [], {
@@ -93,9 +103,13 @@ const delegateTools: PluginTool[] = [
         maxIterations: (input.maxIterations as number | undefined) ?? pluginSettings.maxIterations,
         costCapUsd: pluginSettings.costCapUsd,
         traceId: meta.traceId,
-      }).catch((err) => {
-        ctx.logger.error(`Delegation tool failed: ${err instanceof Error ? err.message : String(err)}`);
-      });
+      })
+        .catch((err) => {
+          ctx.logger.error(`Delegation tool failed: ${err instanceof Error ? err.message : String(err)}`);
+        })
+        .finally(() => {
+          semaphore.release();
+        });
 
       return 'Task delegated successfully. You will receive a notification when the sub-agent completes.';
     },

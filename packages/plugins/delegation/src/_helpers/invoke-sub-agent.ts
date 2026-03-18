@@ -16,13 +16,7 @@ type InvokeSubAgent = (
 ) => Promise<InvokeResult>;
 
 export const invokeSubAgent: InvokeSubAgent = async (ctx, prompt, taskId, threadId, model, onMessage, traceId) => {
-  ctx.setActiveTaskId?.(taskId);
-  let result: InvokeResult;
-  try {
-    result = await ctx.invoker.invoke(prompt, { model, threadId, timeout: ctx.config.claudeTimeout, onMessage, traceId });
-  } finally {
-    ctx.setActiveTaskId?.(undefined);
-  }
+  const result = await ctx.invoker.invoke(prompt, { model, threadId, timeout: ctx.config.claudeTimeout, onMessage, traceId, taskId });
 
   // Persist the sub-agent output as a message in the task thread
   await ctx.db.message.create({
