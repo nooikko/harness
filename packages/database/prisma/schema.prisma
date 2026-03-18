@@ -33,6 +33,8 @@ model Thread {
   agent          Agent?     @relation(fields: [agentId], references: [id])
   projectId      String?
   project        Project?   @relation(fields: [projectId], references: [id])
+  storyId        String?
+  story          Story?     @relation(fields: [storyId], references: [id], onDelete: SetNull)
   memories       AgentMemory[]
   files          File[]
   lastActivity   DateTime   @default(now())
@@ -42,6 +44,7 @@ model Thread {
   @@unique([source, sourceId])
   @@index([status, lastActivity])
   @@index([projectId])
+  @@index([storyId])
 }
 
 model Project {
@@ -70,9 +73,10 @@ model Message {
   kind      String   @default("text")
   source    String   @default("builtin")
   content   String   @db.Text
-  metadata  Json?
-  files     File[]
-  createdAt DateTime @default(now())
+  metadata      Json?
+  files         File[]
+  storyMoments  StoryMoment[]
+  createdAt     DateTime @default(now())
 
   @@index([threadId, createdAt])
   @@index([threadId, kind])
@@ -232,6 +236,7 @@ model Agent {
   config      AgentConfig?
   cronJobs    CronJob[]
   files       File[]
+  stories     Story[]
 
   @@index([slug])
   @@index([enabled])
@@ -492,4 +497,115 @@ model SshCommandLog {
 
   @@index([hostId, createdAt])
   @@index([threadId])
+}
+
+// ── Storytelling Models ──────────────────────────────────────────────────
+
+model Story {
+  id           String           @id @default(cuid())
+  name         String
+  premise      String?          @db.Text
+  storyTime    String?
+  currentScene Json?
+  agentId      String?
+  agent        Agent?           @relation(fields: [agentId], references: [id])
+  threads      Thread[]
+  characters   StoryCharacter[]
+  moments      StoryMoment[]
+  locations    StoryLocation[]
+  createdAt    DateTime         @default(now())
+  updatedAt    DateTime         @updatedAt
+
+  @@index([agentId])
+}
+
+model StoryCharacter {
+  id           String             @id @default(cuid())
+  storyId      String
+  story        Story              @relation(fields: [storyId], references: [id], onDelete: Cascade)
+  name         String
+  aliases      String[]
+  appearance   String?            @db.Text
+  personality  String?            @db.Text
+  mannerisms   String?            @db.Text
+  motives      String?            @db.Text
+  backstory    String?            @db.Text
+  relationships String?           @db.Text
+  color        String?
+  status       String             @default("active")
+  firstSeenAt  DateTime           @default(now())
+  updatedAt    DateTime           @updatedAt
+  moments      CharacterInMoment[]
+
+  @@unique([storyId, name])
+  @@index([storyId, status])
+}
+
+model StoryLocation {
+  id            String                 @id @default(cuid())
+  storyId       String
+  story         Story                  @relation(fields: [storyId], references: [id], onDelete: Cascade)
+  name          String
+  description   String?                @db.Text
+  parentId      String?
+  parent        StoryLocation?         @relation("LocationContainment", fields: [parentId], references: [id])
+  children      StoryLocation[]        @relation("LocationContainment")
+  moments       StoryMoment[]
+  relationsFrom LocationRelationship[] @relation("RelationshipFrom")
+  relationsTo   LocationRelationship[] @relation("RelationshipTo")
+
+  @@unique([storyId, name])
+  @@index([storyId])
+  @@index([parentId])
+}
+
+model LocationRelationship {
+  id        String        @id @default(cuid())
+  fromId    String
+  from      StoryLocation @relation("RelationshipFrom", fields: [fromId], references: [id], onDelete: Cascade)
+  toId      String
+  to        StoryLocation @relation("RelationshipTo", fields: [toId], references: [id], onDelete: Cascade)
+  distance  String?
+  direction String?
+  notes     String?
+
+  @@unique([fromId, toId])
+}
+
+model StoryMoment {
+  id          String             @id @default(cuid())
+  storyId     String
+  story       Story              @relation(fields: [storyId], references: [id], onDelete: Cascade)
+  summary     String             @db.Text
+  description String?            @db.Text
+  storyTime   String?
+  locationId  String?
+  location    StoryLocation?     @relation(fields: [locationId], references: [id], onDelete: SetNull)
+  kind        String
+  importance  Int                @default(5)
+  messageId   String?
+  message     Message?           @relation(fields: [messageId], references: [id], onDelete: SetNull)
+  characters  CharacterInMoment[]
+  createdAt   DateTime           @default(now())
+
+  @@index([storyId, createdAt])
+  @@index([storyId, importance])
+  @@index([locationId])
+}
+
+model CharacterInMoment {
+  id              String          @id @default(cuid())
+  characterId     String?
+  character       StoryCharacter? @relation(fields: [characterId], references: [id], onDelete: SetNull)
+  characterName   String
+  momentId        String
+  moment          StoryMoment     @relation(fields: [momentId], references: [id], onDelete: Cascade)
+  role            String
+  perspective     String?         @db.Text
+  emotionalImpact String?         @db.Text
+  knowledgeGained String?         @db.Text
+
+  @@unique([characterId, momentId])
+  @@index([characterId])
+  @@index([momentId])
 }

@@ -22,7 +22,8 @@
   },
   "dependencies": {
     "@harness/database": "workspace:*",
-    "@harness/plugin-contract": "workspace:*"
+    "@harness/plugin-contract": "workspace:*",
+    "zod": "^4.3.6"
   },
   "devDependencies": {
     "@types/node": "^22.19.11",
