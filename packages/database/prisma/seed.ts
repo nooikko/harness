@@ -1,88 +1,94 @@
 import { PrismaClient } from '@prisma/client';
+import { getAgentDefinitions } from './_helpers/agent-definitions';
 import { getCronJobDefinitions } from './_helpers/cron-job-definitions';
-import { getDefaultProjectDefinition } from './_helpers/default-project-definition';
+import { getProjectDefinitions } from './_helpers/project-definitions';
 
 const prisma = new PrismaClient();
 
 const PRIMARY_THREAD_SOURCE = 'system';
 const PRIMARY_THREAD_SOURCE_ID = 'primary';
-const SYSTEM_AGENT_SLUG = 'system';
-const DEFAULT_AGENT_SLUG = 'default';
 
-const DEFAULT_AGENT_SOUL = `You are a thoughtful, capable personal AI assistant.
+// Seed scripts use process.stdout — not a long-running service, no need for structured logging
+type Log = (message: string) => void;
+const log: Log = (message) => process.stdout.write(`${message}\n`);
 
-You value clarity, honesty, and helpfulness above all else. You communicate naturally — not robotic, not overly formal. You match the energy of the person you're talking to.
+// ── Agents ──────────────────────────────────────────────────────────────────
 
-When you don't know something, you say so. When you're uncertain, you express your confidence level. You never fabricate information or pretend to know things you don't.
+type SeedAgents = () => Promise<Map<string, string>>;
 
-You care about doing good work. You'd rather ask a clarifying question than make a wrong assumption. You take pride in being genuinely useful — not just generating text, but actually helping.
+const seedAgents: SeedAgents = async () => {
+  const definitions = getAgentDefinitions();
+  const slugToId = new Map<string, string>();
 
-You have a dry sense of humor when it fits the moment, but you know when to be serious. You respect the person's time and get to the point.`;
+  for (const def of definitions) {
+    const agent = await prisma.agent.upsert({
+      where: { slug: def.slug },
+      update: {
+        name: def.name,
+        soul: def.soul,
+        identity: def.identity,
+        role: def.role ?? null,
+        goal: def.goal ?? null,
+        backstory: def.backstory ?? null,
+        userContext: def.userContext ?? null,
+      },
+      create: {
+        slug: def.slug,
+        name: def.name,
+        soul: def.soul,
+        identity: def.identity,
+        role: def.role,
+        goal: def.goal,
+        backstory: def.backstory,
+        userContext: def.userContext,
+      },
+    });
 
-const DEFAULT_AGENT_IDENTITY = `You are a personal AI assistant. Your personality and name have not been customized yet — you're running on defaults. If the user wants to give you a name or shape your personality, you have tools to update your own identity.`;
+    await prisma.agentConfig.upsert({
+      where: { agentId: agent.id },
+      update: {},
+      create: {
+        agentId: agent.id,
+        bootstrapped: def.config.bootstrapped,
+        memoryEnabled: def.config.memoryEnabled,
+        reflectionEnabled: def.config.reflectionEnabled,
+      },
+    });
 
-type SeedSystemAgent = () => Promise<string>;
+    slugToId.set(def.slug, agent.id);
+    log(`  Agent seeded: ${def.name} (${def.slug})`);
+  }
 
-const seedSystemAgent: SeedSystemAgent = async () => {
-  const agent = await prisma.agent.upsert({
-    where: { slug: SYSTEM_AGENT_SLUG },
-    update: {},
-    create: {
-      slug: SYSTEM_AGENT_SLUG,
-      name: 'System',
-      soul: 'You are a system agent that handles automated tasks like cron jobs, digests, and maintenance routines.',
-      identity: 'System automation agent for the Harness orchestrator.',
-    },
-  });
-
-  return agent.id;
+  return slugToId;
 };
 
-type SeedDefaultAgent = () => Promise<string>;
+// ── Projects ────────────────────────────────────────────────────────────────
 
-const seedDefaultAgent: SeedDefaultAgent = async () => {
-  const agent = await prisma.agent.upsert({
-    where: { slug: DEFAULT_AGENT_SLUG },
-    update: {},
-    create: {
-      slug: DEFAULT_AGENT_SLUG,
-      name: 'Assistant',
-      soul: DEFAULT_AGENT_SOUL,
-      identity: DEFAULT_AGENT_IDENTITY,
-    },
-  });
+type SeedProjects = () => Promise<Map<string, string>>;
 
-  await prisma.agentConfig.upsert({
-    where: { agentId: agent.id },
-    update: {},
-    create: {
-      agentId: agent.id,
-      bootstrapped: false,
-      memoryEnabled: true,
-      reflectionEnabled: false,
-    },
-  });
+const seedProjects: SeedProjects = async () => {
+  const definitions = getProjectDefinitions();
+  const idMap = new Map<string, string>();
 
-  return agent.id;
+  for (const def of definitions) {
+    const project = await prisma.project.upsert({
+      where: { id: def.id },
+      update: {},
+      create: {
+        id: def.id,
+        name: def.name,
+        description: def.description,
+      },
+    });
+
+    idMap.set(def.id, project.id);
+    log(`  Project seeded: ${def.name}`);
+  }
+
+  return idMap;
 };
 
-type SeedDefaultProject = () => Promise<string>;
-
-const seedDefaultProject: SeedDefaultProject = async () => {
-  const definition = getDefaultProjectDefinition();
-
-  const project = await prisma.project.upsert({
-    where: { id: definition.id },
-    update: {},
-    create: {
-      id: definition.id,
-      name: definition.name,
-      description: definition.description,
-    },
-  });
-
-  return project.id;
-};
+// ── Primary Thread ──────────────────────────────────────────────────────────
 
 type SeedPrimaryThread = (agentId: string, projectId: string) => Promise<string>;
 
@@ -109,30 +115,46 @@ const seedPrimaryThread: SeedPrimaryThread = async (agentId, projectId) => {
   return thread.id;
 };
 
-type SeedCronJobs = (threadId: string, agentId: string) => Promise<void>;
+// ── Cron Jobs ───────────────────────────────────────────────────────────────
 
-const seedCronJobs: SeedCronJobs = async (threadId, agentId) => {
+type SeedCronJobs = (primaryThreadId: string, agentsBySlug: Map<string, string>) => Promise<void>;
+
+const seedCronJobs: SeedCronJobs = async (primaryThreadId, agentsBySlug) => {
   const definitions = getCronJobDefinitions();
 
-  for (const definition of definitions) {
+  for (const def of definitions) {
+    const agentId = agentsBySlug.get(def.agentSlug);
+    if (!agentId) {
+      log(`  WARN: Skipping cron job "${def.name}": agent "${def.agentSlug}" not found`);
+      continue;
+    }
+
+    // System agent cron jobs use the primary thread; others use lazy thread creation
+    const threadId = def.agentSlug === 'system' ? primaryThreadId : null;
+
     await prisma.cronJob.upsert({
-      where: { name: definition.name },
+      where: { name: def.name },
       update: {
-        schedule: definition.schedule,
-        prompt: definition.prompt,
-        enabled: definition.enabled,
+        schedule: def.schedule,
+        prompt: def.prompt,
+        enabled: def.enabled,
       },
       create: {
-        name: definition.name,
-        schedule: definition.schedule,
-        prompt: definition.prompt,
-        enabled: definition.enabled,
+        name: def.name,
+        schedule: def.schedule,
+        prompt: def.prompt,
+        enabled: def.enabled,
         threadId,
-        agent: { connect: { id: agentId } },
+        projectId: def.projectId ?? null,
+        agentId,
       },
     });
+
+    log(`  Cron job seeded: ${def.name} (${def.agentSlug})`);
   }
 };
+
+// ── User Profile ────────────────────────────────────────────────────────────
 
 type SeedUserProfile = () => Promise<void>;
 
@@ -144,32 +166,41 @@ const seedUserProfile: SeedUserProfile = async () => {
   });
 };
 
+// ── Main ────────────────────────────────────────────────────────────────────
+
 type Seed = () => Promise<void>;
 
 const seed: Seed = async () => {
-  console.log('Seeding database...');
+  log('Seeding database...\n');
 
-  const agentId = await seedSystemAgent();
-  console.log(`System agent seeded: ${agentId}`);
+  log('Agents:');
+  const agentsBySlug = await seedAgents();
 
-  const defaultAgentId = await seedDefaultAgent();
-  console.log(`Default agent seeded: ${defaultAgentId}`);
+  log('\nProjects:');
+  const projectsById = await seedProjects();
 
-  const projectId = await seedDefaultProject();
+  const defaultAgentId = agentsBySlug.get('default');
+  const generalProjectId = projectsById.get('seed_default_project_001');
 
-  const threadId = await seedPrimaryThread(agentId, projectId);
-  console.log(`Primary thread seeded: ${threadId}`);
+  if (!defaultAgentId || !generalProjectId) {
+    throw new Error('Default agent or General project not found after seeding');
+  }
 
-  await seedCronJobs(threadId, agentId);
+  log('\nPrimary thread:');
+  const primaryThreadId = await seedPrimaryThread(defaultAgentId, generalProjectId);
+  log(`  Primary thread seeded: ${primaryThreadId}`);
+
+  log('\nCron jobs:');
+  await seedCronJobs(primaryThreadId, agentsBySlug);
+
   await seedUserProfile();
-  console.log(`Cron jobs seeded: ${getCronJobDefinitions().length} jobs`);
 
-  console.log('Seed complete.');
+  log('\nSeed complete.');
 };
 
 seed()
   .catch((error: unknown) => {
-    console.error('Seed failed:', error);
+    process.stderr.write(`Seed failed: ${String(error)}\n`);
     process.exit(1);
   })
   .finally(async () => {

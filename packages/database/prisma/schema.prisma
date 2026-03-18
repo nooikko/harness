@@ -372,6 +372,62 @@ model OAuthToken {
   @@index([provider])
 }
 
+// ── Calendar Models ──────────────────────────────────────────────────────
+
+enum CalendarEventSource {
+  OUTLOOK
+  LOCAL
+  MEMORY
+  TASK
+  CRON
+}
+
+model CalendarEvent {
+  id            String              @id @default(cuid())
+  externalId    String?
+  source        CalendarEventSource
+  title         String
+  description   String?             @db.Text
+  startAt       DateTime
+  endAt         DateTime
+  isAllDay      Boolean             @default(false)
+  location      String?
+  joinUrl       String?
+  recurrence    String?
+  color         String?
+  category      String?
+  attendees     Json?
+  organizer     String?
+  isCancelled   Boolean             @default(false)
+
+  sourceMemoryId String?
+  sourceTaskId   String?
+  sourceCronId   String?
+
+  calendarId    String?
+  lastSyncedAt  DateTime?
+  changeKey     String?
+
+  createdAt     DateTime            @default(now())
+  updatedAt     DateTime            @updatedAt
+
+  @@unique([source, externalId])
+  @@index([startAt, endAt])
+  @@index([source])
+  @@index([category])
+}
+
+model CalendarSyncState {
+  id            String   @id @default(cuid())
+  calendarId    String   @unique
+  deltaLink     String?  @db.Text
+  lastSyncAt    DateTime?
+  syncStatus    String   @default("idle")
+  errorMessage  String?
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+}
+
 // ── Error Logging ─────────────────────────────────────────────────────────
 
 model ErrorLog {

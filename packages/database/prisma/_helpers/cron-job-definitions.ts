@@ -3,6 +3,8 @@ type CronJobDefinition = {
   schedule: string;
   prompt: string;
   enabled: boolean;
+  agentSlug: string;
+  projectId?: string;
 };
 
 type GetCronJobDefinitions = () => CronJobDefinition[];
@@ -23,6 +25,7 @@ export const getCronJobDefinitions: GetCronJobDefinitions = () => [
       'Keep the briefing under 500 words. Be direct and actionable.',
     ].join('\n'),
     enabled: true,
+    agentSlug: 'system',
   },
   {
     name: 'Memory Consolidation',
@@ -41,6 +44,7 @@ export const getCronJobDefinitions: GetCronJobDefinitions = () => [
       'that will be useful for future interactions.',
     ].join('\n'),
     enabled: true,
+    agentSlug: 'system',
   },
   {
     name: 'Calendar Email Refresh',
@@ -55,6 +59,7 @@ export const getCronJobDefinitions: GetCronJobDefinitions = () => [
       'Only post alerts when there is something actionable. Do not post if nothing has changed.',
     ].join('\n'),
     enabled: true,
+    agentSlug: 'system',
   },
   {
     name: 'Weekly Review',
@@ -73,5 +78,22 @@ export const getCronJobDefinitions: GetCronJobDefinitions = () => [
       'Keep the summary concise but comprehensive. Focus on outcomes and learnings.',
     ].join('\n'),
     enabled: true,
+    agentSlug: 'system',
+  },
+  {
+    name: 'Health Check-In',
+    schedule: '0 15 * * 0',
+    prompt: [
+      'Run the weekly health check-in:',
+      '1. Ask about the past week: energy levels, sleep quality, any symptoms or changes.',
+      '2. Check if any blood work or lab results have been shared recently.',
+      '3. If new results exist, compare key biomarkers against previous values and flag meaningful changes.',
+      '4. Review current supplement and routine stack — note anything due for reassessment.',
+      "5. Summarize the week's health status and any items to discuss with a healthcare provider.",
+      'Keep the check-in conversational but structured. Focus on trends, not single data points.',
+    ].join('\n'),
+    enabled: true,
+    agentSlug: 'health-advisor',
+    projectId: 'seed_health_project_001',
   },
 ];

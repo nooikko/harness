@@ -31,8 +31,8 @@ const isValidCronExpression: IsValidCronExpression = (expression) => {
 describe('getCronJobDefinitions', () => {
   const definitions = getCronJobDefinitions();
 
-  it('returns exactly four cron job definitions', () => {
-    expect(definitions).toHaveLength(4);
+  it('returns exactly five cron job definitions', () => {
+    expect(definitions).toHaveLength(5);
   });
 
   it('includes all expected cron jobs by name', () => {
@@ -41,6 +41,7 @@ describe('getCronJobDefinitions', () => {
     expect(names).toContain('Memory Consolidation');
     expect(names).toContain('Calendar Email Refresh');
     expect(names).toContain('Weekly Review');
+    expect(names).toContain('Health Check-In');
   });
 
   it('has unique names for all definitions', () => {
@@ -117,6 +118,24 @@ describe('getCronJobDefinitions', () => {
       expect(weeklyReview?.prompt).toContain('weekly');
       expect(weeklyReview?.prompt).toContain('summary');
     });
+  });
+
+  describe('Health Check-In', () => {
+    const healthCheckIn = definitions.find((d) => d.name === 'Health Check-In');
+
+    it('runs Sunday 8:00 AM MST (15:00 UTC)', () => {
+      expect(healthCheckIn?.schedule).toBe('0 15 * * 0');
+    });
+
+    it('is assigned to the health-advisor agent', () => {
+      expect(healthCheckIn?.agentSlug).toBe('health-advisor');
+    });
+  });
+
+  it('has a valid agentSlug for all definitions', () => {
+    for (const definition of definitions) {
+      expect(definition.agentSlug).toBeTruthy();
+    }
   });
 
   it('returns a new array on each call (not mutable shared state)', () => {
