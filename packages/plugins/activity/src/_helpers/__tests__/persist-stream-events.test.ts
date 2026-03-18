@@ -2,13 +2,9 @@ import type { InvokeStreamEvent } from '@harness/plugin-contract';
 import { describe, expect, it, vi } from 'vitest';
 import { persistStreamEvents } from '../persist-stream-events';
 
-const makeDb = () => {
-  const create = vi.fn().mockResolvedValue({});
-  return {
-    message: { create },
-    $transaction: vi.fn().mockImplementation((promises: Promise<unknown>[]) => Promise.all(promises)),
-  };
-};
+const makeDb = () => ({
+  message: { create: vi.fn().mockResolvedValue({}) },
+});
 
 describe('persistStreamEvents', () => {
   it('persists thinking events as kind:thinking', async () => {
@@ -32,7 +28,7 @@ describe('persistStreamEvents', () => {
     const db = makeDb();
     const event: InvokeStreamEvent = {
       type: 'tool_call',
-      toolName: 'delegation__delegate', // real tool server format: ${p.name}__${t.name}
+      toolName: 'delegation__delegate',
       toolUseId: 'tu-1',
       toolInput: { task: 'do something' },
       timestamp: Date.now(),
@@ -56,7 +52,7 @@ describe('persistStreamEvents', () => {
     });
   });
 
-  it('persists tool_use_summary events as kind:tool_result', async () => {
+  it('persists tool_use_summary events as kind:tool_result without success field', async () => {
     const db = makeDb();
     const event: InvokeStreamEvent = {
       type: 'tool_use_summary',
@@ -74,8 +70,7 @@ describe('persistStreamEvents', () => {
         kind: 'tool_result',
         source: 'builtin',
         content: 'Listed 5 files',
-        // toolName is always written (null when the event has no toolName)
-        metadata: { toolUseId: 'tu-2', toolName: null, success: true },
+        metadata: { toolUseId: 'tu-2', toolName: null },
       },
     });
   });
@@ -122,7 +117,6 @@ describe('persistStreamEvents', () => {
         metadata: {
           toolUseId: 'tu-3',
           toolName: 'outlook__list_emails',
-          success: true,
           blocks,
         },
       },
@@ -146,7 +140,133 @@ describe('persistStreamEvents', () => {
     expect(calledData.metadata).toEqual({
       toolUseId: 'tu-4',
       toolName: 'cron__schedule_task',
-      success: true,
     });
+  });
+
+  it('skips tool_call events with no toolName', async () => {
+    const db = makeDb();
+    const event: InvokeStreamEvent = { type: 'tool_call', timestamp: Date.now() };
+
+    await persistStreamEvents(db as never, 'thread-1', [event]);
+
+    expect(db.message.create).not.toHaveBeenCalled();
+  });
+
+  it('skips tool_use_summary events with no content', async () => {
+    const db = makeDb();
+    const event: InvokeStreamEvent = { type: 'tool_use_summary', toolUseId: 'tu-5', timestamp: Date.now() };
+
+    await persistStreamEvents(db as never, 'thread-1', [event]);
+
+    expect(db.message.create).not.toHaveBeenCalled();
+  });
+
+  it('omits blocks from metadata when blocks is an empty array', async () => {
+    const db = makeDb();
+    const event: InvokeStreamEvent = {
+      type: 'tool_use_summary',
+      content: 'Done',
+      toolUseId: 'tu-6',
+      toolName: 'time__current_time',
+      blocks: [],
+      timestamp: Date.now(),
+    };
+
+    await persistStreamEvents(db as never, 'thread-1', [event]);
+
+    const calledData = db.message.create.mock.calls[0]![0].data as { metadata: Record<string, unknown> };
+    expect(calledData.metadata).not.toHaveProperty('blocks');
+  });
+
+  it('falls back to null for missing toolUseId and toolInput on tool_call', async () => {
+    const db = makeDb();
+    const event: InvokeStreamEvent = {
+      type: 'tool_call',
+      toolName: 'Read',
+      timestamp: Date.now(),
+    };
+
+    await persistStreamEvents(db as never, 'thread-1', [event]);
+
+    const calledData = db.message.create.mock.calls[0]![0].data as { metadata: Record<string, unknown> };
+    expect(calledData.metadata).toEqual({
+      toolName: 'Read',
+      toolUseId: null,
+      input: null,
+    });
+  });
+
+  it('falls back to null for missing toolUseId on tool_use_summary without blocks', async () => {
+    const db = makeDb();
+    const event: InvokeStreamEvent = {
+      type: 'tool_use_summary',
+      content: 'Completed',
+      timestamp: Date.now(),
+    };
+
+    await persistStreamEvents(db as never, 'thread-1', [event]);
+
+    const calledData = db.message.create.mock.calls[0]![0].data as { metadata: Record<string, unknown> };
+    expect(calledData.metadata).toEqual({
+      toolUseId: null,
+      toolName: null,
+    });
+  });
+
+  it('falls back to null for missing toolUseId and toolName on tool_use_summary with blocks', async () => {
+    const db = makeDb();
+    const blocks = [{ type: 'chart', data: { value: 42 } }];
+    const event: InvokeStreamEvent = {
+      type: 'tool_use_summary',
+      content: 'Charted data',
+      blocks,
+      timestamp: Date.now(),
+    };
+
+    await persistStreamEvents(db as never, 'thread-1', [event]);
+
+    const calledData = db.message.create.mock.calls[0]![0].data as { metadata: Record<string, unknown> };
+    expect(calledData.metadata).toEqual({
+      toolUseId: null,
+      toolName: null,
+      blocks,
+    });
+  });
+
+  it('propagates create errors to caller', async () => {
+    const db = makeDb();
+    db.message.create.mockRejectedValueOnce(new Error('write failed'));
+    const events: InvokeStreamEvent[] = [{ type: 'thinking', content: 'hmm', timestamp: Date.now() }];
+
+    await expect(persistStreamEvents(db as never, 'thread-1', events)).rejects.toThrow('write failed');
+  });
+
+  it('includes traceId in tool_call metadata when provided', async () => {
+    const db = makeDb();
+    const event: InvokeStreamEvent = {
+      type: 'tool_call',
+      toolName: 'Read',
+      timestamp: Date.now(),
+    };
+
+    await persistStreamEvents(db as never, 'thread-1', [event], 'trace-123');
+
+    const calledData = db.message.create.mock.calls[0]![0].data as { metadata: Record<string, unknown> };
+    expect(calledData.metadata).toHaveProperty('traceId', 'trace-123');
+  });
+
+  it('includes traceId in tool_result metadata when provided', async () => {
+    const db = makeDb();
+    const event: InvokeStreamEvent = {
+      type: 'tool_use_summary',
+      content: 'Done',
+      toolUseId: 'tu-1',
+      timestamp: Date.now(),
+    };
+
+    await persistStreamEvents(db as never, 'thread-1', [event], 'trace-456');
+
+    const calledData = db.message.create.mock.calls[0]![0].data as { metadata: Record<string, unknown> };
+    expect(calledData.metadata).toHaveProperty('traceId', 'trace-456');
   });
 });

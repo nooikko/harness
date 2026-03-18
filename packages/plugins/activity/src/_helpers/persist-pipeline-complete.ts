@@ -1,9 +1,9 @@
 import type { PrismaClient } from '@harness/database';
 import type { InvokeResult } from '@harness/plugin-contract';
 
-type PersistPipelineComplete = (db: PrismaClient, threadId: string, invokeResult: InvokeResult) => Promise<void>;
+type PersistPipelineComplete = (db: PrismaClient, threadId: string, invokeResult: InvokeResult, traceId?: string) => Promise<void>;
 
-const persistPipelineComplete: PersistPipelineComplete = async (db, threadId, invokeResult) => {
+const persistPipelineComplete: PersistPipelineComplete = async (db, threadId, invokeResult, traceId) => {
   await db.message.create({
     data: {
       threadId,
@@ -16,6 +16,7 @@ const persistPipelineComplete: PersistPipelineComplete = async (db, threadId, in
         durationMs: invokeResult.durationMs,
         inputTokens: invokeResult.inputTokens ?? null,
         outputTokens: invokeResult.outputTokens ?? null,
+        ...(traceId ? { traceId } : {}),
       },
     },
   });

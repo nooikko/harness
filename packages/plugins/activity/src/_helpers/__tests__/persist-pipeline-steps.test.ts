@@ -68,4 +68,42 @@ describe('persistPipelineSteps', () => {
     await persistPipelineSteps(db as never, 'thread-1', []);
     expect(db.message.create).not.toHaveBeenCalled();
   });
+
+  it('propagates error when create fails mid-loop and commits prior writes', async () => {
+    const db = makeDb();
+    db.message.create.mockResolvedValueOnce({}).mockRejectedValueOnce(new Error('write failed'));
+
+    const steps: PipelineStep[] = [
+      { step: 'onMessage', timestamp: 1000 },
+      { step: 'invoking', timestamp: 2000 },
+      { step: 'onAfterInvoke', timestamp: 3000 },
+    ];
+
+    await expect(persistPipelineSteps(db as never, 'thread-1', steps)).rejects.toThrow('write failed');
+    // First write succeeded, second threw — third never attempted
+    expect(db.message.create).toHaveBeenCalledTimes(2);
+  });
+
+  it('includes traceId in metadata when provided', async () => {
+    const db = makeDb();
+    const steps: PipelineStep[] = [{ step: 'onMessage', timestamp: 1000 }];
+
+    await persistPipelineSteps(db as never, 'thread-1', steps, 'trace-abc');
+
+    expect(db.message.create).toHaveBeenCalledWith({
+      data: expect.objectContaining({
+        metadata: expect.objectContaining({ traceId: 'trace-abc' }),
+      }),
+    });
+  });
+
+  it('omits traceId from metadata when not provided', async () => {
+    const db = makeDb();
+    const steps: PipelineStep[] = [{ step: 'onMessage', timestamp: 1000 }];
+
+    await persistPipelineSteps(db as never, 'thread-1', steps);
+
+    const calledData = db.message.create.mock.calls[0]![0].data as { metadata: Record<string, unknown> };
+    expect(calledData.metadata).not.toHaveProperty('traceId');
+  });
 });

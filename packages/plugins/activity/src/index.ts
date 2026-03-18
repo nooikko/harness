@@ -1,3 +1,4 @@
+import type { PrismaClient } from '@harness/database';
 import type { PluginContext, PluginDefinition, PluginHooks } from '@harness/plugin-contract';
 import { persistPipelineComplete } from './_helpers/persist-pipeline-complete';
 import { persistPipelineStart } from './_helpers/persist-pipeline-start';
@@ -21,9 +22,13 @@ const createRegister: CreateRegister = () => {
 
       onPipelineComplete: async (threadId, { invokeResult, pipelineSteps, streamEvents }) => {
         try {
-          await persistPipelineSteps(ctx.db, threadId, pipelineSteps);
-          await persistStreamEvents(ctx.db, threadId, streamEvents);
-          await persistPipelineComplete(ctx.db, threadId, invokeResult);
+          const traceId = invokeResult.traceId;
+          await ctx.db.$transaction(async (tx) => {
+            const db = tx as unknown as PrismaClient;
+            await persistPipelineSteps(db, threadId, pipelineSteps, traceId);
+            await persistStreamEvents(db, threadId, streamEvents, traceId);
+            await persistPipelineComplete(db, threadId, invokeResult, traceId);
+          });
         } catch (err) {
           ctx.logger.error(`Activity: failed to persist pipeline complete: ${err instanceof Error ? err.message : String(err)}`);
         }
