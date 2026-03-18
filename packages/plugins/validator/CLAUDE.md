@@ -52,10 +52,10 @@ The validator invoke is blocking (not fire-and-forget). This is correct — the 
 ## The `threadId` in invoke options
 
 ```typescript
-ctx.invoker.invoke(rubricPrompt, { model: 'claude-opus-4-6', threadId });
+ctx.invoker.invoke(rubricPrompt, { model: 'claude-opus-4-6', threadId: `validator-${threadId}` });
 ```
 
-Passing `threadId` routes the validator invocation through the parent thread's session context. This is intentional — the validator can see the same context the main thread has. Do not remove this unless you have a specific reason to isolate the validator.
+The validator uses a `validator-` prefixed pool key to avoid session churn with the sub-agent's session. Without the prefix, the validator (Opus) and sub-agent (Sonnet/default) would share the same session pool slot, causing the pool to close and recreate the session on every iteration due to model mismatch — adding ~2-5s latency per iteration.
 
 ---
 

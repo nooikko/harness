@@ -132,6 +132,7 @@ const start: StartDiscordPlugin = async (ctx) => {
   if (!token) {
     ctx.logger.warn('Discord plugin: DISCORD_TOKEN not set, skipping Discord connection');
     state.connected = false;
+    ctx.reportStatus('degraded', 'No bot token configured');
     return;
   }
 
@@ -141,22 +142,26 @@ const start: StartDiscordPlugin = async (ctx) => {
   client.once(Events.ClientReady, (readyClient) => {
     state.connected = true;
     ctx.logger.info(`Discord plugin: connected as ${readyClient.user.tag}`);
+    ctx.reportStatus('healthy', `Connected as ${readyClient.user.tag}`);
     void ctx.broadcast('discord:connection', { connected: true, username: readyClient.user.tag });
   });
 
   client.on(Events.ShardDisconnect, () => {
     state.connected = false;
     ctx.logger.warn('Discord plugin: disconnected from gateway');
+    ctx.reportStatus('error', 'Disconnected from gateway');
     void ctx.broadcast('discord:connection', { connected: false });
   });
 
   client.on(Events.ShardReconnecting, () => {
     ctx.logger.info('Discord plugin: reconnecting to gateway...');
+    ctx.reportStatus('degraded', 'Reconnecting to gateway...');
   });
 
   client.on(Events.ShardResume, () => {
     state.connected = true;
     ctx.logger.info('Discord plugin: reconnected to gateway');
+    ctx.reportStatus('healthy', 'Reconnected to gateway');
     void ctx.broadcast('discord:connection', { connected: true });
   });
 
@@ -212,7 +217,9 @@ const start: StartDiscordPlugin = async (ctx) => {
       });
 
       // Run the Claude pipeline — fire-and-forget, same pattern as web plugin
-      void ctx.sendToThread(thread.id, pipelineMsg.content);
+      void ctx.sendToThread(thread.id, pipelineMsg.content).catch((err) => {
+        ctx.logger.error(`discord: pipeline failed [thread=${thread.id}]: ${err instanceof Error ? err.message : String(err)}`);
+      });
 
       // Feed into pipeline via broadcast
       await ctx.broadcast('discord:message', {
@@ -236,7 +243,9 @@ const start: StartDiscordPlugin = async (ctx) => {
             });
 
             // Run the Claude pipeline — fire-and-forget, same pattern as web plugin
-            void ctx.sendToThread(existing.id, pipelineMsg.content);
+            void ctx.sendToThread(existing.id, pipelineMsg.content).catch((err) => {
+              ctx.logger.error(`discord: pipeline failed [thread=${existing.id}]: ${err instanceof Error ? err.message : String(err)}`);
+            });
 
             await ctx.broadcast('discord:message', {
               threadId: existing.id,
@@ -257,8 +266,10 @@ const start: StartDiscordPlugin = async (ctx) => {
   try {
     await client.login(token);
   } catch (err) {
-    ctx.logger.error(`Discord plugin: failed to connect: ${err instanceof Error ? err.message : String(err)}`);
+    const msg = err instanceof Error ? err.message : String(err);
+    ctx.logger.error(`Discord plugin: failed to connect: ${msg}`);
     state.connected = false;
+    ctx.reportStatus('error', `Login failed: ${msg}`);
   }
 };
 

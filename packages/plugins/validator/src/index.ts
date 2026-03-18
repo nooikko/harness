@@ -43,7 +43,7 @@ const createRegister: CreateRegister = () => {
 
         const invokeResult = await ctx.invoker.invoke(rubricPrompt, {
           model: 'claude-opus-4-6',
-          threadId,
+          threadId: `validator-${threadId}`,
         });
 
         const { verdict, feedback } = parseVerdict(invokeResult.output);

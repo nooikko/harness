@@ -35,6 +35,7 @@ const createMockContext: CreateMockContext = () =>
     broadcast: vi.fn().mockResolvedValue(undefined),
     getSettings: vi.fn().mockResolvedValue({}),
     notifySettingsChange: vi.fn().mockResolvedValue(undefined),
+    reportStatus: vi.fn(),
   }) as unknown as PluginContext;
 
 describe('validator plugin', () => {
@@ -110,7 +111,7 @@ describe('validator plugin', () => {
 
       expect(ctx.invoker.invoke).toHaveBeenCalledWith(
         expect.any(String),
-        expect.objectContaining({ model: 'claude-opus-4-6', threadId: 'thread-1' }),
+        expect.objectContaining({ model: 'claude-opus-4-6', threadId: 'validator-thread-1' }),
       );
       expect(ctx.logger.info).toHaveBeenCalledWith('Validator: task accepted', expect.objectContaining({ taskId: 'task-1', threadId: 'thread-1' }));
     });
@@ -129,7 +130,7 @@ describe('validator plugin', () => {
 
       expect(ctx.invoker.invoke).toHaveBeenCalledWith(
         expect.any(String),
-        expect.objectContaining({ model: 'claude-opus-4-6', threadId: 'thread-2' }),
+        expect.objectContaining({ model: 'claude-opus-4-6', threadId: 'validator-thread-2' }),
       );
     });
 

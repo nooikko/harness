@@ -50,11 +50,12 @@ describe('parseVerdict', () => {
     expect(verdict).toBe('pass');
   });
 
-  it('prefers PASS when both markers somehow appear (PASS check runs first)', () => {
-    // Edge case: malformed response containing both
+  it('uses last verdict when both markers appear (avoids false positives from explanation text)', () => {
+    // Edge case: malformed response containing both — last match wins
     const response = 'VERDICT: PASS\nVERDICT: FAIL\nSome feedback.';
-    const { verdict } = parseVerdict(response);
-    expect(verdict).toBe('pass');
+    const { verdict, feedback } = parseVerdict(response);
+    expect(verdict).toBe('fail');
+    expect(feedback).toBe('Some feedback.');
   });
 
   it('strips only the verdict line and preserves multiline feedback', () => {
