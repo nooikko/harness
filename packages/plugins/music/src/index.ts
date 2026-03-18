@@ -9,6 +9,9 @@ import {
 } from './_helpers/cast-device-manager';
 import { getDeviceAliases } from './_helpers/device-alias-manager';
 import { createDeviceRoutes } from './_helpers/device-routes';
+import { formatLikedSongs } from './_helpers/format-liked-songs';
+import { formatPlaylists } from './_helpers/format-playlists';
+import { formatQueueState } from './_helpers/format-queue-state';
 import { formatSearchResults } from './_helpers/format-search-results';
 import { createOAuthRoutes } from './_helpers/oauth-routes';
 import {
@@ -110,7 +113,7 @@ const musicPlugin: PluginDefinition = {
       handler: async (_ctx, input) => {
         const { query, limit } = input as { query: string; limit?: number };
         const results = await searchSongs(query, limit ?? 5);
-        return formatSearchResults(results);
+        return formatSearchResults(results, query);
       },
     },
 
@@ -312,27 +315,7 @@ const musicPlugin: PluginDefinition = {
           return `No active session on "${device.name}".`;
         }
 
-        const lines: string[] = [];
-        lines.push(`**Device:** ${state.device.name}`);
-        lines.push(`**State:** ${state.playerState}`);
-        lines.push(`**Radio:** ${state.radioEnabled ? 'on' : 'off'}`);
-
-        if (state.currentTrack) {
-          lines.push(`\n**Now Playing:** ${state.currentTrack.title} by ${state.currentTrack.artist}`);
-        } else {
-          lines.push('\n**Now Playing:** (nothing)');
-        }
-
-        if (state.queue.length > 0) {
-          lines.push(`\n**Up Next (${state.queue.length}):**`);
-          for (const [i, t] of state.queue.entries()) {
-            lines.push(`  ${i + 1}. ${t.title} by ${t.artist}`);
-          }
-        } else {
-          lines.push('\n**Up Next:** (empty)');
-        }
-
-        return lines.join('\n');
+        return formatQueueState(state);
       },
     },
 
@@ -397,12 +380,11 @@ const musicPlugin: PluginDefinition = {
             return 'No playlists found in your library.';
           }
 
-          const lines = (playlists as unknown as Record<string, unknown>[]).map((p, i) => {
-            const title = String((p.title as { toString?: () => string })?.toString?.() ?? 'Untitled');
-            const id = p.playlist_id ?? p.id ?? '';
-            return `${i + 1}. **${title}** (ID: ${id})`;
-          });
-          return `Your playlists:\n\n${lines.join('\n')}`;
+          const items = (playlists as unknown as Record<string, unknown>[]).map((p) => ({
+            title: String((p.title as { toString?: () => string })?.toString?.() ?? 'Untitled'),
+            id: String(p.playlist_id ?? p.id ?? ''),
+          }));
+          return formatPlaylists(items);
         } catch (err) {
           return `Failed to fetch playlists: ${err instanceof Error ? err.message : String(err)}`;
         }
@@ -439,13 +421,12 @@ const musicPlugin: PluginDefinition = {
             return 'No liked songs found.';
           }
 
-          const lines = (tracks as unknown as Record<string, unknown>[]).map((item, i) => {
-            const title = String((item.title as { toString?: () => string })?.toString?.() ?? 'Unknown');
-            const artist = String(((item.artists as Array<{ name: string }>) ?? [])[0]?.name ?? item.author ?? 'Unknown');
-            const vid = (item.video_id as string) ?? (item.id as string) ?? '';
-            return `${i + 1}. **${title}** by ${artist} (videoId: ${vid})`;
-          });
-          return `Liked songs (${tracks.length}):\n\n${lines.join('\n')}`;
+          const songs = (tracks as unknown as Record<string, unknown>[]).map((item) => ({
+            title: String((item.title as { toString?: () => string })?.toString?.() ?? 'Unknown'),
+            artist: String(((item.artists as Array<{ name: string }>) ?? [])[0]?.name ?? item.author ?? 'Unknown'),
+            videoId: String((item.video_id as string) ?? (item.id as string) ?? ''),
+          }));
+          return formatLikedSongs(songs);
         } catch (err) {
           return `Failed to fetch liked songs: ${err instanceof Error ? err.message : String(err)}`;
         }

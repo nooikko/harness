@@ -1,8 +1,9 @@
-import type { PluginContext } from '@harness/plugin-contract';
+import type { PluginContext, ToolResult } from '@harness/plugin-contract';
 import { graphFetch } from './graph-fetch';
+import { parseFromField } from './parse-from-field';
 import { validateGraphId } from './validate-graph-id';
 
-type ReadEmail = (ctx: PluginContext, messageId: string) => Promise<string>;
+type ReadEmail = (ctx: PluginContext, messageId: string) => Promise<ToolResult>;
 
 const readEmail: ReadEmail = async (ctx, messageId) => {
   validateGraphId(messageId, 'messageId');
@@ -33,7 +34,32 @@ const readEmail: ReadEmail = async (ctx, messageId) => {
     hasAttachments: msg.hasAttachments,
   };
 
-  return JSON.stringify(result, null, 2);
+  const text = JSON.stringify(result, null, 2);
+  const parsed = parseFromField(result.from);
+
+  return {
+    text,
+    blocks: [
+      {
+        type: 'email-list',
+        data: {
+          emails: [
+            {
+              id: result.id,
+              from: parsed,
+              subject: result.subject,
+              preview: result.body.substring(0, 200),
+              body: result.body,
+              bodyType: result.bodyType,
+              receivedAt: result.receivedDateTime,
+              isRead: true,
+              hasAttachments: result.hasAttachments,
+            },
+          ],
+        },
+      },
+    ],
+  };
 };
 
 export { readEmail };

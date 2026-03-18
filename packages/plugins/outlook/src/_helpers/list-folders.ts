@@ -1,7 +1,7 @@
-import type { PluginContext } from '@harness/plugin-contract';
+import type { PluginContext, ToolResult } from '@harness/plugin-contract';
 import { graphFetch } from './graph-fetch';
 
-type ListFolders = (ctx: PluginContext) => Promise<string>;
+type ListFolders = (ctx: PluginContext) => Promise<ToolResult>;
 
 const listFolders: ListFolders = async (ctx) => {
   const data = (await graphFetch(ctx, '/me/mailFolders', {
@@ -25,7 +25,11 @@ const listFolders: ListFolders = async (ctx) => {
     unreadItems: f.unreadItemCount,
   }));
 
-  return JSON.stringify(folders, null, 2);
+  const text = JSON.stringify(folders, null, 2);
+  return {
+    text,
+    blocks: [{ type: 'email-folders', data: { folders } }],
+  };
 };
 
 export { listFolders };

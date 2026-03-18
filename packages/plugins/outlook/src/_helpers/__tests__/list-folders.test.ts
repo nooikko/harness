@@ -17,10 +17,12 @@ describe('listFolders', () => {
     });
 
     const result = await listFolders({} as Parameters<typeof listFolders>[0]);
-    const parsed = JSON.parse(result);
+    const { text, blocks } = result as { text: string; blocks: unknown[] };
+    const parsed = JSON.parse(text);
 
     expect(parsed).toHaveLength(2);
     expect(parsed[0].name).toBe('Inbox');
     expect(parsed[0].unreadItems).toBe(5);
+    expect(blocks[0]).toMatchObject({ type: 'email-folders' });
   });
 });

@@ -38,6 +38,7 @@ const createMockContext: CreateMockContext = (overrides = {}) =>
     broadcast: vi.fn().mockResolvedValue(undefined),
     getSettings: vi.fn().mockResolvedValue({}),
     notifySettingsChange: vi.fn().mockResolvedValue(undefined),
+    reportStatus: vi.fn(),
     ...overrides,
   }) as never;
 
@@ -48,11 +49,13 @@ describe('listCronJobs', () => {
     const ctx = createMockContext();
 
     const result = await listCronJobs(ctx, {}, defaultMeta);
-    const parsed = JSON.parse(result);
+    const { text, blocks } = result as { text: string; blocks: unknown[] };
+    const parsed = JSON.parse(text);
 
     expect(parsed).toHaveLength(2);
     expect(parsed[0].name).toBe('Morning Digest');
     expect(parsed[1].name).toBe('Weekly Review');
+    expect(blocks[0]).toMatchObject({ type: 'cron-jobs' });
   });
 
   it('scopes query to calling agent', async () => {

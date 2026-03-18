@@ -23,9 +23,13 @@ describe('listRecent', () => {
     });
 
     const result = await listRecent({} as Parameters<typeof listRecent>[0]);
-    const parsed = JSON.parse(result);
+    const structured = result as { text: string; blocks: Array<{ type: string; data: Record<string, unknown> }> };
+    const parsed = JSON.parse(structured.text);
     expect(parsed[0].subject).toBe('Hello');
     expect(parsed[0].from).toContain('Alice');
+
+    expect(structured.blocks).toHaveLength(1);
+    expect(structured.blocks[0]?.type).toBe('email-list');
   });
 
   it('returns empty message when no emails found', async () => {

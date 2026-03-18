@@ -1,6 +1,9 @@
+import type { ToolResult } from '@harness/plugin-contract';
 import { describe, expect, it } from 'vitest';
 import { formatSearchResults } from '../format-search-results';
 import type { MusicTrack } from '../youtube-music-client';
+
+const textOf = (r: ToolResult): string => (typeof r === 'string' ? r : r.text);
 
 describe('formatSearchResults', () => {
   it('returns no results message for empty array', () => {
@@ -20,12 +23,16 @@ describe('formatSearchResults', () => {
       },
     ];
     const result = formatSearchResults(tracks);
-    expect(result).toContain('Found 1 result(s)');
-    expect(result).toContain('**Bohemian Rhapsody**');
-    expect(result).toContain('by Queen');
-    expect(result).toContain('[5:54]');
-    expect(result).toContain('Album: A Night at the Opera');
-    expect(result).toContain('videoId: abc123');
+    const text = textOf(result);
+    expect(text).toContain('Found 1 result(s)');
+    expect(text).toContain('**Bohemian Rhapsody**');
+    expect(text).toContain('by Queen');
+    expect(text).toContain('[5:54]');
+    expect(text).toContain('Album: A Night at the Opera');
+    expect(text).toContain('videoId: abc123');
+    expect(result).not.toBeTypeOf('string');
+    expect((result as { blocks: unknown[] }).blocks).toHaveLength(1);
+    expect((result as { blocks: Array<{ type: string }> }).blocks[0]?.type).toBe('music-search');
   });
 
   it('formats multiple tracks', () => {
@@ -50,9 +57,10 @@ describe('formatSearchResults', () => {
       },
     ];
     const result = formatSearchResults(tracks);
-    expect(result).toContain('Found 2 result(s)');
-    expect(result).toContain('1. **Track One**');
-    expect(result).toContain('2. **Track Two**');
+    const text = textOf(result);
+    expect(text).toContain('Found 2 result(s)');
+    expect(text).toContain('1. **Track One**');
+    expect(text).toContain('2. **Track Two**');
   });
 
   it('handles missing duration', () => {
@@ -68,7 +76,7 @@ describe('formatSearchResults', () => {
       },
     ];
     const result = formatSearchResults(tracks);
-    expect(result).toContain('[??:??]');
+    expect(textOf(result)).toContain('[??:??]');
   });
 
   it('omits album when undefined', () => {
@@ -84,6 +92,6 @@ describe('formatSearchResults', () => {
       },
     ];
     const result = formatSearchResults(tracks);
-    expect(result).not.toContain('Album:');
+    expect(textOf(result)).not.toContain('Album:');
   });
 });

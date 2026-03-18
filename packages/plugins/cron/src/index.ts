@@ -23,6 +23,7 @@ const start: StartCronPlugin = async (ctx: PluginContext): Promise<void> => {
   const server = createCronServer({ timezone });
   stopServer = server.stop;
   await server.start(ctx);
+  ctx.reportStatus('healthy', `Scheduler running (tz: ${timezone})`);
 };
 
 type StopCronPlugin = NonNullable<PluginDefinition['stop']>;

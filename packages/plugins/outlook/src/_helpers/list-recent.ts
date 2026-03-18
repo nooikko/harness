@@ -1,7 +1,8 @@
-import type { PluginContext } from '@harness/plugin-contract';
+import type { PluginContext, ToolResult } from '@harness/plugin-contract';
 import { graphFetch } from './graph-fetch';
+import { parseFromField } from './parse-from-field';
 
-type ListRecent = (ctx: PluginContext, folder?: string, top?: number) => Promise<string>;
+type ListRecent = (ctx: PluginContext, folder?: string, top?: number) => Promise<ToolResult>;
 
 const WELL_KNOWN_FOLDERS: Record<string, string> = {
   inbox: 'inbox',
@@ -46,7 +47,27 @@ const listRecent: ListRecent = async (ctx, folder = 'inbox', top = 20) => {
     preview: msg.bodyPreview.slice(0, 150),
   }));
 
-  return JSON.stringify(results, null, 2);
+  const text = JSON.stringify(results, null, 2);
+
+  return {
+    text,
+    blocks: [
+      {
+        type: 'email-list',
+        data: {
+          emails: results.map((r) => ({
+            id: r.id,
+            from: parseFromField(r.from),
+            subject: r.subject,
+            preview: r.preview,
+            receivedAt: r.receivedDateTime,
+            isRead: r.isRead,
+            hasAttachments: false,
+          })),
+        },
+      },
+    ],
+  };
 };
 
 export { listRecent };

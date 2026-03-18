@@ -1,5 +1,6 @@
-import type { PluginContext } from '@harness/plugin-contract';
+import type { PluginContext, ToolResult } from '@harness/plugin-contract';
 import { graphFetch } from './graph-fetch';
+import { parseFromField } from './parse-from-field';
 
 type EmailSearchResult = {
   id: string;
@@ -9,7 +10,7 @@ type EmailSearchResult = {
   bodyPreview: string;
 };
 
-type SearchEmails = (ctx: PluginContext, query: string, top?: number) => Promise<string>;
+type SearchEmails = (ctx: PluginContext, query: string, top?: number) => Promise<ToolResult>;
 
 const searchEmails: SearchEmails = async (ctx, query, top = 20) => {
   const data = (await graphFetch(ctx, '/me/messages', {
@@ -40,7 +41,27 @@ const searchEmails: SearchEmails = async (ctx, query, top = 20) => {
     bodyPreview: msg.bodyPreview.slice(0, 200),
   }));
 
-  return JSON.stringify(results, null, 2);
+  const text = JSON.stringify(results, null, 2);
+
+  return {
+    text,
+    blocks: [
+      {
+        type: 'email-list',
+        data: {
+          emails: results.map((r) => ({
+            id: r.id,
+            from: parseFromField(r.from),
+            subject: r.subject,
+            preview: r.bodyPreview,
+            receivedAt: r.receivedDateTime,
+            isRead: true,
+            hasAttachments: false,
+          })),
+        },
+      },
+    ],
+  };
 };
 
 export { searchEmails };

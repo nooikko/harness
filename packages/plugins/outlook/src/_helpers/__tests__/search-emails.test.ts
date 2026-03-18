@@ -26,11 +26,18 @@ describe('searchEmails', () => {
     });
 
     const result = await searchEmails(mockCtx, 'meeting');
-    const parsed = JSON.parse(result);
+    expect(typeof result).toBe('object');
+    const structured = result as { text: string; blocks: Array<{ type: string; data: Record<string, unknown> }> };
+    const parsed = JSON.parse(structured.text);
 
     expect(parsed).toHaveLength(1);
     expect(parsed[0].subject).toBe('Meeting tomorrow');
     expect(parsed[0].from).toContain('Alice');
+
+    expect(structured.blocks).toHaveLength(1);
+    expect(structured.blocks[0]?.type).toBe('email-list');
+    const emails = (structured.blocks[0]?.data as { emails: Array<{ subject: string; from: { name: string; email: string } }> }).emails;
+    expect(emails[0]?.from).toEqual({ name: 'Alice', email: 'alice@example.com' });
   });
 
   it('returns message when no results', async () => {
@@ -56,7 +63,8 @@ describe('searchEmails', () => {
     });
 
     const result = await searchEmails(mockCtx, 'long');
-    const parsed = JSON.parse(result);
+    const structured = result as { text: string };
+    const parsed = JSON.parse(structured.text);
 
     expect(parsed[0].bodyPreview).toHaveLength(200);
   });

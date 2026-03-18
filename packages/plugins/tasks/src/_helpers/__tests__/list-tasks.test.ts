@@ -29,6 +29,7 @@ const createMockContext: CreateMockContext = (overrides = {}) =>
     broadcast: vi.fn().mockResolvedValue(undefined),
     getSettings: vi.fn().mockResolvedValue({}),
     notifySettingsChange: vi.fn().mockResolvedValue(undefined),
+    reportStatus: vi.fn(),
     ...overrides,
   }) as never;
 
@@ -75,12 +76,21 @@ describe('listTasks', () => {
     });
 
     const result = await listTasks(ctx, {}, defaultMeta);
+    const structured = result as { text: string; blocks: { type: string; data: Record<string, unknown> }[] };
 
-    expect(result).toContain('[TODO]');
-    expect(result).toContain('Fix bug');
-    expect(result).toContain('HIGH');
-    expect(result).toContain('id:task-1');
-    expect(result).toContain('[My Project]');
+    expect(structured.text).toContain('[TODO]');
+    expect(structured.text).toContain('Fix bug');
+    expect(structured.text).toContain('HIGH');
+    expect(structured.text).toContain('id:task-1');
+    expect(structured.text).toContain('[My Project]');
+    expect(structured.blocks).toHaveLength(1);
+    expect(structured.blocks[0]?.type).toBe('task-list');
+    const tasks = (structured.blocks[0]?.data as { tasks: { id: string; title: string; status: string; priority: string }[] }).tasks;
+    expect(tasks).toHaveLength(1);
+    expect(tasks[0]?.id).toBe('task-1');
+    expect(tasks[0]?.title).toBe('Fix bug');
+    expect(tasks[0]?.status).toBe('TODO');
+    expect(tasks[0]?.priority).toBe('HIGH');
   });
 
   it('shows [global] for tasks with no project', async () => {
@@ -109,8 +119,11 @@ describe('listTasks', () => {
     });
 
     const result = await listTasks(ctx, {}, defaultMeta);
+    const structured = result as { text: string; blocks: { type: string; data: Record<string, unknown> }[] };
 
-    expect(result).toContain('[global]');
+    expect(structured.text).toContain('[global]');
+    const tasks = (structured.blocks[0]?.data as { tasks: { projectName: string | null }[] }).tasks;
+    expect(tasks[0]?.projectName).toBeNull();
   });
 
   it('shows due date when present', async () => {
@@ -139,8 +152,11 @@ describe('listTasks', () => {
     });
 
     const result = await listTasks(ctx, {}, defaultMeta);
+    const structured = result as { text: string; blocks: { type: string; data: Record<string, unknown> }[] };
 
-    expect(result).toContain('due:2099-06-15');
+    expect(structured.text).toContain('due:2099-06-15');
+    const tasks = (structured.blocks[0]?.data as { tasks: { dueDate: Date }[] }).tasks;
+    expect(tasks[0]?.dueDate).toEqual(new Date('2099-06-15T00:00:00Z'));
   });
 
   it('shows blocked-by info when dependencies exist', async () => {
@@ -172,8 +188,11 @@ describe('listTasks', () => {
     });
 
     const result = await listTasks(ctx, {}, defaultMeta);
+    const structured = result as { text: string; blocks: { type: string; data: Record<string, unknown> }[] };
 
-    expect(result).toContain('blocked-by:[Setup DB, Write API]');
+    expect(structured.text).toContain('blocked-by:[Setup DB, Write API]');
+    const tasks = (structured.blocks[0]?.data as { tasks: { blockedBy: string[] }[] }).tasks;
+    expect(tasks[0]?.blockedBy).toEqual(['dep-1', 'dep-2']);
   });
 
   it('auto-resolves projectId from thread when not provided', async () => {
@@ -311,10 +330,16 @@ describe('listTasks', () => {
     });
 
     const result = await listTasks(ctx, {}, defaultMeta);
-    const lines = result.split('\n');
+    const structured = result as { text: string; blocks: { type: string; data: Record<string, unknown> }[] };
+    const lines = structured.text.split('\n');
 
     expect(lines).toHaveLength(2);
     expect(lines[0]).toContain('First');
     expect(lines[1]).toContain('Second');
+
+    const tasks = (structured.blocks[0]?.data as { tasks: { id: string; title: string }[] }).tasks;
+    expect(tasks).toHaveLength(2);
+    expect(tasks[0]?.id).toBe('t1');
+    expect(tasks[1]?.id).toBe('t2');
   });
 });

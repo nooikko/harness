@@ -1,6 +1,6 @@
-import type { PluginToolHandler } from '@harness/plugin-contract';
+import type { PluginToolHandler, ToolResult } from '@harness/plugin-contract';
 
-export const listTasks: PluginToolHandler = async (ctx, input, meta) => {
+export const listTasks: PluginToolHandler = async (ctx, input, meta): Promise<ToolResult> => {
   const { status, projectId, includeGlobal } = input as {
     status?: string;
     projectId?: string;
@@ -53,5 +53,25 @@ export const listTasks: PluginToolHandler = async (ctx, input, meta) => {
     return `- [${t.status}] ${t.title} (${t.priority}${due}${proj}${blockerStr}) id:${t.id}`;
   });
 
-  return lines.join('\n');
+  const text = lines.join('\n');
+
+  return {
+    text,
+    blocks: [
+      {
+        type: 'task-list',
+        data: {
+          tasks: tasks.map((t) => ({
+            id: t.id,
+            title: t.title,
+            status: t.status,
+            priority: t.priority,
+            dueDate: t.dueDate,
+            projectName: t.project?.name ?? null,
+            blockedBy: t.blockedBy.map((d) => d.dependsOn.id),
+          })),
+        },
+      },
+    ],
+  };
 };
