@@ -1,6 +1,6 @@
 import type { Browser, BrowserContext, Page } from 'playwright';
 
-const PAGE_TTL_MS = 5 * 60 * 1000; // 5 minutes
+const PAGE_TTL_MS = 10 * 60 * 1000; // 10 minutes (2x default Claude timeout)
 
 type PageEntry = {
   page: Page;
@@ -27,6 +27,8 @@ export const launchBrowser: LaunchBrowser = async () => {
 type CloseBrowser = () => Promise<void>;
 
 export const closeBrowser: CloseBrowser = async () => {
+  const b = browser;
+  browser = null; // Signal to getPage() immediately
   if (sweepInterval) {
     clearInterval(sweepInterval);
     sweepInterval = null;
@@ -35,9 +37,8 @@ export const closeBrowser: CloseBrowser = async () => {
     await entry.context.close().catch(() => {});
     pages.delete(threadId);
   }
-  if (browser) {
-    await browser.close().catch(() => {});
-    browser = null;
+  if (b) {
+    await b.close().catch(() => {});
   }
 };
 

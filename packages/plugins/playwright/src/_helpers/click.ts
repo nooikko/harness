@@ -9,9 +9,8 @@ export const click: Click = async (_ctx, input, meta) => {
     return 'Error: selector is required.';
   }
 
-  const page = await getPage(meta.threadId);
-
   try {
+    const page = await getPage(meta.threadId);
     await page.click(selector, { timeout: 10_000 });
     // Wait briefly for any navigation or DOM updates
     await page.waitForTimeout(500);

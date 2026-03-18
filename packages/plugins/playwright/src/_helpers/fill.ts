@@ -14,9 +14,8 @@ export const fill: Fill = async (_ctx, input, meta) => {
     return 'Error: value is required.';
   }
 
-  const page = await getPage(meta.threadId);
-
   try {
+    const page = await getPage(meta.threadId);
     await page.fill(selector, value, { timeout: 10_000 });
     return `Filled "${selector}" with value.`;
   } catch (err) {

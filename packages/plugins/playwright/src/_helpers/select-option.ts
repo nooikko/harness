@@ -14,9 +14,8 @@ export const selectOption: SelectOption = async (_ctx, input, meta) => {
     return 'Error: value is required.';
   }
 
-  const page = await getPage(meta.threadId);
-
   try {
+    const page = await getPage(meta.threadId);
     const selected = await page.selectOption(selector, value, { timeout: 10_000 });
     return `Selected option "${selected.join(', ')}" in "${selector}".`;
   } catch (err) {

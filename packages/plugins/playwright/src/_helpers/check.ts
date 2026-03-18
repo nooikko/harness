@@ -13,9 +13,8 @@ export const check: Check = async (_ctx, input, meta) => {
 
   const shouldCheck = checked !== false; // default to checking
 
-  const page = await getPage(meta.threadId);
-
   try {
+    const page = await getPage(meta.threadId);
     if (shouldCheck) {
       await page.check(selector, { timeout: 10_000 });
       return `Checked: ${selector}`;

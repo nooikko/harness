@@ -8,9 +8,8 @@ type Screenshot = (ctx: PluginContext, input: Record<string, unknown>, meta: Plu
 export const screenshot: Screenshot = async (_ctx, input, meta) => {
   const fullPage = (input.full_page as boolean) ?? false;
 
-  const page = await getPage(meta.threadId);
-
   try {
+    const page = await getPage(meta.threadId);
     const traceId = meta.traceId ?? 'unknown';
     const dir = ensureTraceDir(traceId);
     const filename = `screenshot-${Date.now()}.png`;

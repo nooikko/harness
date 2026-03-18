@@ -9,9 +9,8 @@ export const pressKey: PressKey = async (_ctx, input, meta) => {
     return "Error: key is required (e.g., 'Enter', 'Tab', 'Escape').";
   }
 
-  const page = await getPage(meta.threadId);
-
   try {
+    const page = await getPage(meta.threadId);
     await page.keyboard.press(key);
     return `Pressed key: ${key}`;
   } catch (err) {

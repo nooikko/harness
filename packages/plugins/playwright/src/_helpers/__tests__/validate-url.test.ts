@@ -85,4 +85,26 @@ describe('validateUrl', () => {
     expect(result.valid).toBe(false);
     expect(result.reason).toContain('private/internal');
   });
+
+  it('rejects IPv4-mapped IPv6 loopback (::ffff:127.0.0.1)', () => {
+    const result = validateUrl('http://[::ffff:127.0.0.1]/');
+    expect(result.valid).toBe(false);
+    expect(result.reason).toContain('private/internal');
+  });
+
+  it('rejects IPv4-mapped IPv6 private 10.x (::ffff:10.0.0.1)', () => {
+    const result = validateUrl('http://[::ffff:10.0.0.1]/');
+    expect(result.valid).toBe(false);
+    expect(result.reason).toContain('private/internal');
+  });
+
+  it('rejects IPv4-mapped IPv6 private 192.168.x (::ffff:192.168.1.1)', () => {
+    const result = validateUrl('http://[::ffff:192.168.1.1]/');
+    expect(result.valid).toBe(false);
+    expect(result.reason).toContain('private/internal');
+  });
+
+  it('allows IPv4-mapped IPv6 public address (::ffff:8.8.8.8)', () => {
+    expect(validateUrl('http://[::ffff:8.8.8.8]/')).toEqual({ valid: true });
+  });
 });

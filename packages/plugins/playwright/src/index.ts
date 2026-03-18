@@ -152,7 +152,11 @@ export const plugin: PluginDefinition = {
       // Clean up temp files for this pipeline run
       const traceId = result?.invokeResult?.traceId;
       if (traceId) {
-        cleanupTrace(traceId);
+        try {
+          cleanupTrace(traceId);
+        } catch {
+          // Best-effort filesystem cleanup — must not block page cleanup
+        }
       }
 
       // Close the browser page for this thread

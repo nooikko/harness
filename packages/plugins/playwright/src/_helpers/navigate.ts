@@ -15,9 +15,8 @@ export const navigate: Navigate = async (_ctx, input, meta) => {
     return `Error: ${validation.reason}`;
   }
 
-  const page = await getPage(meta.threadId);
-
   try {
+    const page = await getPage(meta.threadId);
     const response = await page.goto(url, { waitUntil: 'domcontentloaded', timeout: 30_000 });
     const title = await page.title();
     const finalUrl = page.url();
