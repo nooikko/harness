@@ -23,8 +23,7 @@
   "dependencies": {
     "@harness/database": "workspace:*",
     "@harness/oauth": "workspace:*",
-    "@harness/plugin-contract": "workspace:*",
-    "rrule": "^2.8.1"
+    "@harness/plugin-contract": "workspace:*"
   },
   "devDependencies": {
     "@types/node": "^22.19.11",

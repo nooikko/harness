@@ -156,6 +156,9 @@ importers:
       '@harness/plugin-auto-namer':
         specifier: workspace:*
         version: link:../../packages/plugins/auto-namer
+      '@harness/plugin-calendar':
+        specifier: workspace:*
+        version: link:../../packages/plugins/calendar
       '@harness/plugin-context':
         specifier: workspace:*
         version: link:../../packages/plugins/context
@@ -554,9 +557,6 @@ importers:
       '@harness/plugin-contract':
         specifier: workspace:*
         version: link:../../plugin-contract
-      rrule:
-        specifier: ^2.8.1
-        version: 2.8.1
     devDependencies:
       '@types/node':
         specifier: ^22.19.11
@@ -803,9 +803,6 @@ importers:
       '@harness/plugin-contract':
         specifier: workspace:*
         version: link:../../plugin-contract
-      rrule:
-        specifier: ^2.8.1
-        version: 2.8.1
     devDependencies:
       '@types/node':
         specifier: ^22.19.11
@@ -1204,6 +1201,9 @@ importers:
       '@harness/plugin-auto-namer':
         specifier: workspace:*
         version: link:../../packages/plugins/auto-namer
+      '@harness/plugin-calendar':
+        specifier: workspace:*
+        version: link:../../packages/plugins/calendar
       '@harness/plugin-context':
         specifier: workspace:*
         version: link:../../packages/plugins/context
@@ -4969,9 +4969,6 @@ packages:
   router@2.2.0:
     resolution: {integrity: sha512-nLTrUKm2UyiL7rlhapu/Zl45FwNgkZGaCpZbIHajDYgwlJCOzLSk+cIPAnsEqV955GjILJnKbdQC1nVPz+gAYQ==}
     engines: {node: '>= 18'}
-
-  rrule@2.8.1:
-    resolution: {integrity: sha512-hM3dHSBMeaJ0Ktp7W38BJZ7O1zOgaFEsn41PDk+yHoEtfLV+PoJt9E9xAlZiWgf/iqEqionN0ebHFZIDAp+iGw==}
 
   safe-buffer@5.1.2:
     resolution: {integrity: sha512-Gd2UZBJDkXlY7GbJxfsE8/nvKkUEU1G38c1siN6QP6a9PT9MmHB8GnpscSmMJSoF8LOIrt8ud/wPtojys4G6+g==}
@@ -9632,10 +9629,6 @@ snapshots:
       path-to-regexp: 8.3.0
     transitivePeerDependencies:
       - supports-color
-
-  rrule@2.8.1:
-    dependencies:
-      tslib: 2.8.1
 
   safe-buffer@5.1.2: {}
 

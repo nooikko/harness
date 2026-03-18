@@ -5,6 +5,7 @@ import type { Logger } from '@harness/logger';
 import { plugin as activityPlugin } from '@harness/plugin-activity';
 import { plugin as auditPlugin } from '@harness/plugin-audit';
 import { plugin as autoNamerPlugin } from '@harness/plugin-auto-namer';
+import { plugin as calendarPlugin } from '@harness/plugin-calendar';
 import { plugin as contextPlugin } from '@harness/plugin-context';
 import type { PluginDefinition } from '@harness/plugin-contract';
 import { plugin as cronPlugin } from '@harness/plugin-cron';
@@ -44,6 +45,7 @@ const ALL_PLUGINS: PluginDefinition[] = [
   tasksPlugin,
   outlookPlugin,
   outlookCalendarPlugin,
+  calendarPlugin,
   musicPlugin,
   searchPlugin,
   playwrightPlugin,
