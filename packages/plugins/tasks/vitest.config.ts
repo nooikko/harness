@@ -1,8 +1,11 @@
-import { defineConfig } from 'vitest/config';
+import { nodeConfig } from '@harness/vitest-config';
+import { defineConfig, mergeConfig } from 'vitest/config';
 
-export default defineConfig({
-  test: {
-    name: 'plugin-tasks',
-    environment: 'node',
-  },
-});
+export default mergeConfig(
+  nodeConfig,
+  defineConfig({
+    test: {
+      name: 'plugin-tasks',
+    },
+  }),
+);

@@ -58,6 +58,7 @@
     "zod": "^4.3.6"
   },
   "devDependencies": {
+    "@harness/vitest-config": "workspace:*",
     "@tailwindcss/postcss": "^4.2.0",
     "@testing-library/dom": "^10.4.1",
     "@testing-library/jest-dom": "^6.9.1",
@@ -73,7 +74,6 @@
     "tailwindcss": "^4.2.0",
     "typescript": "^5.9.3",
     "vite": "^7.3.1",
-    "vite-tsconfig-paths": "^6.1.1",
     "vitest": "^4.0.18"
   }
 }

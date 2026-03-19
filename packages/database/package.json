@@ -34,6 +34,7 @@
     "dotenv": "^16.6.1"
   },
   "devDependencies": {
+    "@harness/vitest-config": "workspace:*",
     "@types/node": "^22.19.11",
     "prisma": "^6.19.2",
     "tsup": "^8.5.0",

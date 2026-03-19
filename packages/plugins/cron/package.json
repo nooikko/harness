@@ -26,6 +26,7 @@
     "croner": "^9.1.0"
   },
   "devDependencies": {
+    "@harness/vitest-config": "workspace:*",
     "@types/node": "^22.19.11",
     "@vitest/coverage-v8": "^4.0.18",
     "tsup": "^8.5.0",

@@ -1,14 +1,18 @@
-import tsconfigPaths from 'vite-tsconfig-paths';
-import { defineConfig } from 'vitest/config';
+import { resolve } from 'node:path';
+import { nodeConfig } from '@harness/vitest-config';
+import { defineConfig, mergeConfig } from 'vitest/config';
 
-export default defineConfig({
-  plugins: [tsconfigPaths()],
-  test: {
-    name: 'orchestrator',
-    environment: 'node',
-    exclude: ['**/dist/**', '**/node_modules/**'],
-    coverage: {
-      provider: 'v8',
+export default mergeConfig(
+  nodeConfig,
+  defineConfig({
+    resolve: {
+      alias: {
+        '@/': `${resolve(__dirname, 'src')}/`,
+      },
     },
-  },
-});
+    test: {
+      name: 'orchestrator',
+      exclude: ['**/dist/**', '**/node_modules/**'],
+    },
+  }),
+);
