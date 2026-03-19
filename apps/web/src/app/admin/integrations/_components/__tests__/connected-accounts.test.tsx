@@ -23,7 +23,7 @@ const { ConnectedAccounts } = await import('../connected-accounts');
 describe('ConnectedAccounts', () => {
   it('renders empty state when no tokens exist', async () => {
     mockFindMany.mockResolvedValue([]);
-    const html = renderToStaticMarkup(await ConnectedAccounts());
+    const html = renderToStaticMarkup(await ConnectedAccounts({}));
     expect(html).toContain('No accounts connected');
   });
 
@@ -41,7 +41,7 @@ describe('ConnectedAccounts', () => {
       },
     ]);
 
-    const html = renderToStaticMarkup(await ConnectedAccounts());
+    const html = renderToStaticMarkup(await ConnectedAccounts({}));
     expect(html).toContain('Quinn Penney');
     expect(html).toContain('user@outlook.com');
     expect(html).toContain('Mail.Read');
@@ -61,7 +61,7 @@ describe('ConnectedAccounts', () => {
       },
     ]);
 
-    const html = renderToStaticMarkup(await ConnectedAccounts());
+    const html = renderToStaticMarkup(await ConnectedAccounts({}));
     expect(html).toContain('+2 more');
   });
 
@@ -79,7 +79,7 @@ describe('ConnectedAccounts', () => {
       },
     ]);
 
-    const html = renderToStaticMarkup(await ConnectedAccounts());
+    const html = renderToStaticMarkup(await ConnectedAccounts({}));
     expect(html).toContain('raw-account-id');
   });
 
@@ -97,7 +97,7 @@ describe('ConnectedAccounts', () => {
       },
     ]);
 
-    const html = renderToStaticMarkup(await ConnectedAccounts());
+    const html = renderToStaticMarkup(await ConnectedAccounts({}));
     expect(html).toContain('Connected');
     expect(html).toContain('bg-green-500');
   });
@@ -116,7 +116,7 @@ describe('ConnectedAccounts', () => {
       },
     ]);
 
-    const html = renderToStaticMarkup(await ConnectedAccounts());
+    const html = renderToStaticMarkup(await ConnectedAccounts({}));
     expect(html).toContain('Connected');
     expect(html).toContain('bg-green-500');
     expect(html).not.toContain('Re-authentication required');
@@ -136,7 +136,7 @@ describe('ConnectedAccounts', () => {
       },
     ]);
 
-    const html = renderToStaticMarkup(await ConnectedAccounts());
+    const html = renderToStaticMarkup(await ConnectedAccounts({}));
     expect(html).toContain('Re-authentication required');
     expect(html).toContain('bg-red-500');
     expect(html).not.toContain('>Connected<');

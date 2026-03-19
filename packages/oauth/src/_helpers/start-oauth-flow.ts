@@ -1,5 +1,5 @@
 import { randomBytes } from 'node:crypto';
-import { getMicrosoftConfig } from '../providers/microsoft';
+import { getProviderConfig } from './get-provider-config';
 
 type OAuthFlowResult = {
   authUrl: string;
@@ -9,11 +9,7 @@ type OAuthFlowResult = {
 type StartOAuthFlow = (provider: string) => OAuthFlowResult;
 
 const startOAuthFlow: StartOAuthFlow = (provider) => {
-  if (provider !== 'microsoft') {
-    throw new Error(`Unsupported OAuth provider: ${provider}`);
-  }
-
-  const config = getMicrosoftConfig();
+  const config = getProviderConfig(provider);
   const state = randomBytes(32).toString('hex');
 
   const params = new URLSearchParams({
@@ -22,9 +18,15 @@ const startOAuthFlow: StartOAuthFlow = (provider) => {
     redirect_uri: config.redirectUri,
     scope: config.scopes.join(' '),
     state,
-    response_mode: 'query',
     prompt: 'consent',
   });
+
+  // Provider-specific params
+  if (provider === 'google') {
+    params.set('access_type', 'offline');
+  } else if (provider === 'microsoft') {
+    params.set('response_mode', 'query');
+  }
 
   return {
     authUrl: `${config.authorizeEndpoint}?${params.toString()}`,

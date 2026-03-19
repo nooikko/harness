@@ -28,9 +28,7 @@ export const OAuthStatusMessage: OAuthStatusMessageComponent = ({ error, success
   }
 
   if (success) {
-    return (
-      <div className='rounded-md bg-green-500/10 px-4 py-3 text-sm text-green-600 dark:text-green-400'>Microsoft account connected successfully.</div>
-    );
+    return <div className='rounded-md bg-green-500/10 px-4 py-3 text-sm text-green-600 dark:text-green-400'>Account connected successfully.</div>;
   }
 
   return null;

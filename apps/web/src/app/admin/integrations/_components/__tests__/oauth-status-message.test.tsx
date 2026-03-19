@@ -10,7 +10,7 @@ describe('OAuthStatusMessage', () => {
 
   it('renders success message', () => {
     render(<OAuthStatusMessage success />);
-    expect(screen.getByText('Microsoft account connected successfully.')).toBeInTheDocument();
+    expect(screen.getByText('Account connected successfully.')).toBeInTheDocument();
   });
 
   it('renders nothing when no props', () => {

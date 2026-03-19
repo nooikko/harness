@@ -18,13 +18,21 @@ const deriveConnectionStatus: DeriveConnectionStatus = (token) => {
 
 const STATUS_CONFIG: Record<ConnectionStatus, { color: string; label: string }> = {
   connected: { color: 'bg-green-500', label: 'Connected' },
-  'reauth-required': { color: 'bg-red-500', label: 'Re-authentication required' },
+  'reauth-required': {
+    color: 'bg-red-500',
+    label: 'Re-authentication required',
+  },
 };
 
-type ConnectedAccountsComponent = () => Promise<React.ReactNode>;
+type ConnectedAccountsProps = {
+  provider?: string;
+};
 
-export const ConnectedAccounts: ConnectedAccountsComponent = async () => {
+type ConnectedAccountsComponent = (props: ConnectedAccountsProps) => Promise<React.ReactNode>;
+
+export const ConnectedAccounts: ConnectedAccountsComponent = async ({ provider }) => {
   const tokens = await prisma.oAuthToken.findMany({
+    where: provider ? { provider } : undefined,
     orderBy: { createdAt: 'desc' },
     select: {
       id: true,

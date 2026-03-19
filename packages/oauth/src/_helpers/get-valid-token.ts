@@ -1,7 +1,7 @@
 import type { PrismaClient } from '@harness/database';
-import { getMicrosoftConfig } from '../providers/microsoft';
 import { decryptToken } from './decrypt-token';
 import { encryptToken } from './encrypt-token';
+import { getProviderConfig } from './get-provider-config';
 
 const REFRESH_BUFFER_MS = 5 * 60 * 1000; // 5 minutes before expiry
 
@@ -18,7 +18,7 @@ const refreshAccessToken: RefreshAccessToken = async (tokenId, encryptedRefreshT
   }
 
   const refreshToken = decryptToken(encryptedRefreshToken);
-  const config = getMicrosoftConfig();
+  const config = getProviderConfig(provider);
 
   const response = await fetch(config.tokenEndpoint, {
     method: 'POST',

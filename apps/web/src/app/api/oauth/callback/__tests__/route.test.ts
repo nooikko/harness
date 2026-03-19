@@ -14,6 +14,7 @@ vi.mock('next/navigation', () => ({
 const mockHandleOAuthCallback = vi.fn();
 vi.mock('@harness/oauth', () => ({
   handleOAuthCallback: mockHandleOAuthCallback,
+  isProviderSupported: (p: string) => p === 'microsoft' || p === 'google',
 }));
 
 vi.mock('@harness/database', () => ({
@@ -33,6 +34,12 @@ const makeRequest = (params: Record<string, string>) => {
 describe('GET /api/oauth/callback', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    // Default: return oauth_state for 'oauth_state', undefined for others
+    mockGet.mockImplementation((name: string) => {
+      if (name === 'oauth_state') return { value: 'valid-state' };
+      if (name === 'oauth_provider') return { value: 'microsoft' };
+      return undefined;
+    });
   });
 
   it('redirects with error message for known OAuth errors', async () => {
@@ -42,23 +49,25 @@ describe('GET /api/oauth/callback', () => {
 
   it('redirects with generic message for unknown OAuth errors', async () => {
     await GET(makeRequest({ error: 'unknown_error' }));
-    expect(mockRedirect).toHaveBeenCalledWith(expect.stringContaining('Microsoft+authentication+failed'));
+    expect(mockRedirect).toHaveBeenCalledWith(expect.stringContaining('Authentication+failed'));
   });
 
   it('redirects on state mismatch', async () => {
-    mockGet.mockReturnValue({ value: 'stored-state' });
+    mockGet.mockImplementation((name: string) => {
+      if (name === 'oauth_state') return { value: 'stored-state' };
+      if (name === 'oauth_provider') return { value: 'microsoft' };
+      return undefined;
+    });
     await GET(makeRequest({ code: 'auth-code', state: 'wrong-state' }));
     expect(mockRedirect).toHaveBeenCalledWith(expect.stringContaining('Invalid+state+parameter'));
   });
 
   it('redirects when no code is provided', async () => {
-    mockGet.mockReturnValue({ value: 'matching-state' });
-    await GET(makeRequest({ state: 'matching-state' }));
+    await GET(makeRequest({ state: 'valid-state' }));
     expect(mockRedirect).toHaveBeenCalledWith(expect.stringContaining('No+authorization+code+received'));
   });
 
   it('calls handleOAuthCallback and redirects on success', async () => {
-    mockGet.mockReturnValue({ value: 'valid-state' });
     mockHandleOAuthCallback.mockResolvedValue(undefined);
 
     await GET(makeRequest({ code: 'auth-code', state: 'valid-state' }));
@@ -72,7 +81,6 @@ describe('GET /api/oauth/callback', () => {
   });
 
   it('redirects with error when handleOAuthCallback throws', async () => {
-    mockGet.mockReturnValue({ value: 'valid-state' });
     mockHandleOAuthCallback.mockRejectedValue(new Error('Token exchange failed'));
 
     await GET(makeRequest({ code: 'auth-code', state: 'valid-state' }));
@@ -80,12 +88,12 @@ describe('GET /api/oauth/callback', () => {
     expect(mockRedirect).toHaveBeenCalledWith(expect.stringContaining('Token+exchange+failed'));
   });
 
-  it('deletes oauth_state cookie', async () => {
-    mockGet.mockReturnValue({ value: 'valid-state' });
+  it('deletes oauth_state and oauth_provider cookies', async () => {
     mockHandleOAuthCallback.mockResolvedValue(undefined);
 
     await GET(makeRequest({ code: 'auth-code', state: 'valid-state' }));
 
     expect(mockDelete).toHaveBeenCalledWith('oauth_state');
+    expect(mockDelete).toHaveBeenCalledWith('oauth_provider');
   });
 });

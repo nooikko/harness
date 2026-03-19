@@ -5,6 +5,7 @@ import type { TEventColor } from './types';
 // Maps our CalendarEventSource enum to yassir's TEventColor
 const SOURCE_COLOR_MAP: Record<string, TEventColor> = {
   OUTLOOK: 'blue',
+  GOOGLE: 'green',
   LOCAL: 'purple',
   MEMORY: 'yellow',
   TASK: 'green',
@@ -29,6 +30,7 @@ const resolveColor = (row: CalendarEventRow): TEventColor => {
 // Virtual user per source — yassir requires a user on every event
 const SOURCE_USER_MAP: Record<string, IUser> = {
   OUTLOOK: { id: 'source-outlook', name: 'Outlook', picturePath: null },
+  GOOGLE: { id: 'source-google', name: 'Google', picturePath: null },
   LOCAL: { id: 'source-local', name: 'Local', picturePath: null },
   MEMORY: { id: 'source-memory', name: 'Memory', picturePath: null },
   TASK: { id: 'source-task', name: 'Task', picturePath: null },

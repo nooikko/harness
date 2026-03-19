@@ -9,6 +9,7 @@ type SourceStyle = {
 
 const SOURCE_STYLES: Record<CalendarEventSource, SourceStyle> = {
   OUTLOOK: { color: '#4285F4', icon: Calendar, label: 'Outlook' },
+  GOOGLE: { color: '#34A853', icon: Calendar, label: 'Google' },
   LOCAL: { color: '#9333EA', icon: Star, label: 'Local' },
   MEMORY: { color: '#F59E0B', icon: Brain, label: 'Memory' },
   TASK: { color: '#22C55E', icon: CheckSquare, label: 'Task' },

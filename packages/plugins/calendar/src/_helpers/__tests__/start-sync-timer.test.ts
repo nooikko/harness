@@ -1,11 +1,15 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { startSyncTimer, stopSyncTimer } from '../start-sync-timer';
 
-const mockSync = vi.fn().mockResolvedValue(undefined);
+const mockOutlookSync = vi.fn().mockResolvedValue(undefined);
+const mockGoogleSync = vi.fn().mockResolvedValue(undefined);
 const mockProject = vi.fn().mockResolvedValue(undefined);
 
 vi.mock('../sync-outlook-calendars', () => ({
-  syncOutlookCalendars: (...args: unknown[]) => mockSync(...args),
+  syncOutlookCalendars: (...args: unknown[]) => mockOutlookSync(...args),
+}));
+vi.mock('../sync-google-calendars', () => ({
+  syncGoogleCalendars: (...args: unknown[]) => mockGoogleSync(...args),
 }));
 vi.mock('../project-virtual-events', () => ({
   projectVirtualEvents: (...args: unknown[]) => mockProject(...args),
@@ -23,14 +27,14 @@ describe('startSyncTimer', () => {
 
   it('starts timers and logs', () => {
     startSyncTimer(ctx);
-    expect(ctx.logger.info).toHaveBeenCalledWith(expect.stringContaining('sync timer started'));
+    expect(ctx.logger.info).toHaveBeenCalledWith(expect.stringContaining('sync timers started'));
   });
 
   it('stopSyncTimer clears active intervals', () => {
     const clearSpy = vi.spyOn(globalThis, 'clearInterval');
     startSyncTimer(ctx);
     stopSyncTimer();
-    expect(clearSpy).toHaveBeenCalledTimes(2); // sync + projection
+    expect(clearSpy).toHaveBeenCalledTimes(3); // outlook + google + projection
     clearSpy.mockRestore();
   });
 
@@ -45,20 +49,32 @@ describe('startSyncTimer', () => {
     const clearSpy = vi.spyOn(globalThis, 'clearInterval');
     startSyncTimer(ctx);
     startSyncTimer(ctx); // should clear previous intervals before setting new ones
-    // stopSyncTimer is called inside startSyncTimer, which clears 2 intervals
-    expect(clearSpy).toHaveBeenCalledTimes(2);
+    // stopSyncTimer is called inside startSyncTimer, which clears 3 intervals
+    expect(clearSpy).toHaveBeenCalledTimes(3);
     clearSpy.mockRestore();
   });
 
-  it('sync timer fires successfully', async () => {
+  it('google sync timer fires at 5-minute interval', async () => {
     vi.useFakeTimers();
-    mockSync.mockResolvedValueOnce(undefined);
+    mockGoogleSync.mockResolvedValueOnce(undefined);
 
     startSyncTimer(ctx);
-    await vi.advanceTimersByTimeAsync(15 * 60 * 1000);
+    await vi.advanceTimersByTimeAsync(5 * 60 * 1000);
     stopSyncTimer();
 
-    expect(mockSync).toHaveBeenCalledTimes(1);
+    expect(mockGoogleSync).toHaveBeenCalledTimes(1);
+    vi.useRealTimers();
+  });
+
+  it('outlook sync timer fires at 30-minute interval', async () => {
+    vi.useFakeTimers();
+    mockOutlookSync.mockResolvedValueOnce(undefined);
+
+    startSyncTimer(ctx);
+    await vi.advanceTimersByTimeAsync(30 * 60 * 1000);
+    stopSyncTimer();
+
+    expect(mockOutlookSync).toHaveBeenCalledTimes(1);
     vi.useRealTimers();
   });
 
@@ -74,19 +90,31 @@ describe('startSyncTimer', () => {
     vi.useRealTimers();
   });
 
-  it('sync timer fires and catches sync errors', async () => {
+  it('outlook sync timer catches errors', async () => {
     vi.useFakeTimers();
-    mockSync.mockRejectedValueOnce(new Error('sync failed'));
+    mockOutlookSync.mockRejectedValueOnce(new Error('sync failed'));
 
     startSyncTimer(ctx);
-    await vi.advanceTimersByTimeAsync(15 * 60 * 1000);
+    await vi.advanceTimersByTimeAsync(30 * 60 * 1000);
     stopSyncTimer();
 
-    expect(ctx.logger.warn).toHaveBeenCalledWith(expect.stringContaining('sync timer error'));
+    expect(ctx.logger.warn).toHaveBeenCalledWith(expect.stringContaining('outlook sync timer error'));
     vi.useRealTimers();
   });
 
-  it('projection timer fires and catches projection errors', async () => {
+  it('google sync timer catches errors', async () => {
+    vi.useFakeTimers();
+    mockGoogleSync.mockRejectedValueOnce(new Error('sync failed'));
+
+    startSyncTimer(ctx);
+    await vi.advanceTimersByTimeAsync(5 * 60 * 1000);
+    stopSyncTimer();
+
+    expect(ctx.logger.warn).toHaveBeenCalledWith(expect.stringContaining('google sync timer error'));
+    vi.useRealTimers();
+  });
+
+  it('projection timer catches errors', async () => {
     vi.useFakeTimers();
     mockProject.mockRejectedValueOnce(new Error('projection failed'));
 
