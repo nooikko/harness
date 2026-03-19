@@ -1,7 +1,7 @@
 'use client';
 
 import { motion } from 'motion/react';
-import { cn } from '../index';
+import { cn } from '../cn';
 
 type SwitchProps = {
   checked: boolean;

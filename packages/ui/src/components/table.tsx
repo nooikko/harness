@@ -2,7 +2,7 @@
 
 import { cva, type VariantProps } from 'class-variance-authority';
 import type * as React from 'react';
-import { cn } from '../index';
+import { cn } from '../cn';
 
 const Table = ({ className, ...props }: React.ComponentProps<'table'>) => (
   <div data-slot='table-container' className='relative w-full overflow-x-auto rounded-lg border border-border'>

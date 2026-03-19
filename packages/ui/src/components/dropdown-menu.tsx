@@ -4,7 +4,7 @@ import * as DropdownMenuPrimitive from '@radix-ui/react-dropdown-menu';
 import { CheckIcon, ChevronRightIcon, CircleIcon } from 'lucide-react';
 import { AnimatePresence, motion } from 'motion/react';
 import * as React from 'react';
-import { cn } from '../index';
+import { cn } from '../cn';
 
 const spring = { type: 'spring' as const, stiffness: 400, damping: 28 };
 

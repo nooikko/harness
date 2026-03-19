@@ -1,5 +1,5 @@
 import type * as React from 'react';
-import { cn } from '../index';
+import { cn } from '../cn';
 
 const Kbd = ({ className, style, ...props }: React.ComponentProps<'kbd'>) => (
   <kbd

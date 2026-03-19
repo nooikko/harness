@@ -1,12 +1,7 @@
 // Shared UI utilities
-import { type ClassValue, clsx } from 'clsx';
-import { twMerge } from 'tailwind-merge';
 
-export type { ClassValue };
-
-export const cn = (...inputs: ClassValue[]): string => {
-  return twMerge(clsx(inputs));
-};
+export type { ClassValue } from './cn';
+export { cn } from './cn';
 
 export type { AlertProps } from './components/alert';
 export { Alert, AlertDescription, AlertTitle, alertVariants } from './components/alert';
@@ -23,6 +18,7 @@ export {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from './components/alert-dialog';
+export { Avatar, AvatarFallback, AvatarGroup, AvatarImage } from './components/avatar';
 export type { BadgeProps } from './components/badge';
 export { Badge, badgeVariants } from './components/badge';
 // Shared UI components
@@ -73,11 +69,24 @@ export {
   DropdownMenuSubTrigger,
   DropdownMenuTrigger,
 } from './components/dropdown-menu';
+export { Form, FormControl, FormDescription, FormField, FormItem, FormLabel, FormMessage, useFormField } from './components/form';
 export { Input } from './components/input';
 export { Kbd } from './components/kbd';
 export { Label } from './components/label';
 export { Popover, PopoverAnchor, PopoverClose, PopoverContent, PopoverTrigger } from './components/popover';
 export { Progress } from './components/progress';
+export {
+  Modal,
+  ModalClose,
+  ModalContent,
+  ModalDescription,
+  ModalFooter,
+  ModalHeader,
+  ModalOverlay,
+  ModalPortal,
+  ModalTitle,
+  ModalTrigger,
+} from './components/responsive-modal';
 export { ScrollArea, ScrollBar } from './components/scroll-area';
 export {
   Select,
@@ -121,4 +130,5 @@ export { Switch } from './components/switch';
 export { Table, TableBody, TableCaption, TableCell, TableFooter, TableHead, TableHeader, TableRow } from './components/table';
 export { Tabs, TabsContent, TabsList, TabsTrigger } from './components/tabs';
 export { Textarea } from './components/textarea';
+export { Toggle, toggleVariants } from './components/toggle';
 export { Tooltip } from './components/tooltip';

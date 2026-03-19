@@ -1,5 +1,5 @@
 import type * as React from 'react';
-import { cn } from '../index';
+import { cn } from '../cn';
 
 // overflow-hidden clips border-radius cleanly on children
 // divide-y divide-border adds internal dividers between header/content/footer

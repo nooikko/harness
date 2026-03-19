@@ -5,7 +5,7 @@ import { cva, type VariantProps } from 'class-variance-authority';
 import type { TargetAndTransition } from 'motion/react';
 import { motion } from 'motion/react';
 import * as React from 'react';
-import { cn } from '../index';
+import { cn } from '../cn';
 
 export const buttonVariants = cva(
   // No border classes in base — variants control their own border

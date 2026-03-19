@@ -4,7 +4,7 @@ import * as ProgressPrimitive from '@radix-ui/react-progress';
 import { motion } from 'motion/react';
 import type * as React from 'react';
 
-import { cn } from '../index';
+import { cn } from '../cn';
 
 type ProgressProps = React.ComponentProps<typeof ProgressPrimitive.Root> & {
   value: number; // 0–1

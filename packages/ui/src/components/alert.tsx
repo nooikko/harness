@@ -1,6 +1,6 @@
 import { cva, type VariantProps } from 'class-variance-authority';
 import type * as React from 'react';
-import { cn } from '../index';
+import { cn } from '../cn';
 
 // Grid layout: first column holds the icon (0 width when absent, 16px when present).
 // When the `icon` prop is provided the column widens explicitly.

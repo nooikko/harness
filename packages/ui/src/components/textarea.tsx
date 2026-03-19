@@ -1,5 +1,5 @@
 import type * as React from 'react';
-import { cn } from '../index';
+import { cn } from '../cn';
 
 const Textarea = ({ className, ...props }: React.ComponentProps<'textarea'>) => (
   <textarea

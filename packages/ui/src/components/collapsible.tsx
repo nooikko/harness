@@ -3,7 +3,7 @@
 import * as CollapsiblePrimitive from '@radix-ui/react-collapsible';
 import { AnimatePresence, motion } from 'motion/react';
 import * as React from 'react';
-import { cn } from '../index';
+import { cn } from '../cn';
 
 type CollapsibleContextValue = { open: boolean };
 const CollapsibleContext = React.createContext<CollapsibleContextValue>({ open: false });

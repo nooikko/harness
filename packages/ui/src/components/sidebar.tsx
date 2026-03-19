@@ -5,7 +5,7 @@ import { cva, type VariantProps } from 'class-variance-authority';
 import { PanelLeft } from 'lucide-react';
 import * as React from 'react';
 
-import { cn } from '../index';
+import { cn } from '../cn';
 
 // ---------------------------------------------------------------------------
 // Constants

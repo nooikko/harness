@@ -2,7 +2,7 @@
 
 import { motion } from 'motion/react';
 import * as React from 'react';
-import { cn } from '../index';
+import { cn } from '../cn';
 
 type TabsContextValue = { value: string; onValueChange: (value: string) => void };
 const TabsContext = React.createContext<TabsContextValue>({ value: '', onValueChange: () => {} });

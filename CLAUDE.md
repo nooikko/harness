@@ -67,7 +67,7 @@ packages/plugins/project/    → Project memory tools (@harness/plugin-project)
 
 ### Dependency Flow
 
-`apps/web` imports from both `database` and `ui`. The packages are referenced by name in `next.config.ts` via `transpilePackages: ["ui", "database"]`. Plugin packages import from `@harness/plugin-contract` and `database` — never from the orchestrator. The orchestrator imports plugins via a static registry.
+`apps/web` imports from both `database` and `ui`. The packages are referenced by name in `next.config.ts` via `transpilePackages: ["@harness/ui", "database"]`. Plugin packages import from `@harness/plugin-contract` and `database` — never from the orchestrator. The orchestrator imports plugins via a static registry.
 
 ### Database Package
 
@@ -80,9 +80,10 @@ packages/plugins/project/    → Project memory tools (@harness/plugin-project)
 
 - Exports `cn()` utility (clsx + tailwind-merge) from `packages/ui/src/index.ts`
 - ShadCN components live in `packages/ui/src/components/` (shared across apps)
-- Available components: AlertDialog, Alert, Badge, Button, Card, Collapsible, Command, Dialog, DropdownMenu, Input, Label, Progress, ScrollArea, Select, Separator, Sidebar, Skeleton, Table, Textarea, Tooltip
+- Available components: AlertDialog, Alert, Avatar, AvatarGroup, Badge, Button, Card, Collapsible, Command, Dialog, DropdownMenu, Form, Input, Kbd, Label, Popover, Progress, ResponsiveModal, ScrollArea, Select, Separator, Sidebar, Skeleton, Switch, Table, Tabs, Textarea, Toggle, Tooltip
 - Uses Radix UI primitives (`@radix-ui/react-*`), Class Variance Authority for variants, Lucide for icons
-- Import components from `"ui"` (e.g., `import { Button, Card, Dialog } from "ui"`)
+- Import components from `"@harness/ui"` (e.g., `import { Button, Card, Dialog } from "@harness/ui"`)
+- **UI package is the source of truth** for all shadcn/Radix primitives. Never create local copies in apps — if a primitive is missing, add it to `packages/ui/`. App-specific compositions that use these primitives as building blocks belong in the app's own `_components/` directories.
 
 ### Web App
 
