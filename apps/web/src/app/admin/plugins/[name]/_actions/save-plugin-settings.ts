@@ -2,6 +2,7 @@
 
 import { prisma } from '@harness/database';
 import { revalidatePath } from 'next/cache';
+import { logServerError } from '@/lib/log-server-error';
 import { buildSettingsPayload } from './_helpers/build-settings-payload';
 
 const ENCRYPTION_KEY = process.env.HARNESS_ENCRYPTION_KEY ?? '';
@@ -38,6 +39,7 @@ export const savePluginSettings: SavePluginSettings = async (pluginName, formDat
     revalidatePath(`/admin/plugins/${pluginName}`);
     return { success: true };
   } catch (err) {
+    logServerError({ action: 'savePluginSettings', error: err, context: { pluginName } });
     return { success: false, error: err instanceof Error ? err.message : String(err) };
   }
 };

@@ -1,11 +1,6 @@
-import type { Page } from '@playwright/test';
 import { BasePage } from './base.page';
 
 export class CalendarPage extends BasePage {
-  constructor(page: Page) {
-    super(page);
-  }
-
   gotoCalendar = async (view?: 'week' | 'day' | 'month-grid' | 'agenda'): Promise<void> => {
     const params = view ? `?view=${view}` : '';
     await this.goto(`/calendar${params}`);

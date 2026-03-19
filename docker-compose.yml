@@ -24,6 +24,33 @@ services:
     environment:
       QDRANT__SERVICE__GRPC_PORT: 6334
 
+  loki:
+    image: grafana/loki:3.4.3
+    container_name: harness-loki
+    restart: unless-stopped
+    ports:
+      - "3100:3100"
+    volumes:
+      - harness-loki:/loki
+    command: -config.file=/etc/loki/local-config.yaml
+
+  grafana:
+    image: grafana/grafana:11.6.0
+    container_name: harness-grafana
+    restart: unless-stopped
+    ports:
+      - "3200:3000"
+    environment:
+      - GF_AUTH_ANONYMOUS_ENABLED=true
+      - GF_AUTH_ANONYMOUS_ORG_ROLE=Admin
+    volumes:
+      - harness-grafana:/var/lib/grafana
+      - ./docker/grafana/provisioning:/etc/grafana/provisioning
+    depends_on:
+      - loki
+
 volumes:
   harness-pgdata:
   harness-qdrant:
+  harness-loki:
+  harness-grafana:

@@ -2,6 +2,7 @@
 
 import { prisma } from '@harness/database';
 import { revalidatePath } from 'next/cache';
+import { logServerError } from '@/lib/log-server-error';
 
 type CreateAgentInput = {
   slug: string;
@@ -39,6 +40,7 @@ export const createAgent: CreateAgent = async (input) => {
     revalidatePath('/agents');
     return { agentId: agent.id };
   } catch (err) {
+    logServerError({ action: 'createAgent', error: err, context: { slug: input.slug } });
     if (err instanceof Error && err.message.includes('Unique constraint')) {
       return { error: `Slug "${input.slug}" is already taken` };
     }

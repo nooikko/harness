@@ -2,6 +2,7 @@
 
 import { prisma } from '@harness/database';
 import { revalidatePath } from 'next/cache';
+import { logServerError } from '@/lib/log-server-error';
 import { notifyCronReload } from './_helpers/notify-cron-reload';
 
 type CreateCronJobInput = {
@@ -54,6 +55,7 @@ export const createCronJob: CreateCronJob = async (input) => {
     void notifyCronReload();
     return { success: true, id: job.id };
   } catch (err) {
+    logServerError({ action: 'createCronJob', error: err, context: { name: input.name } });
     if (err instanceof Error && err.message.includes('Unique constraint')) {
       return { error: `A cron job named "${input.name}" already exists` };
     }

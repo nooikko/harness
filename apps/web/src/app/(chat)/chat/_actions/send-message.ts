@@ -3,6 +3,7 @@
 import { prisma } from '@harness/database';
 import { revalidatePath } from 'next/cache';
 import { getOrchestratorUrl } from '@/app/_helpers/get-orchestrator-url';
+import { logServerError } from '@/lib/log-server-error';
 
 type SendMessageResult = { error: string } | undefined;
 
@@ -42,7 +43,8 @@ export const sendMessage: SendMessage = async (threadId, content, fileIds) => {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ threadId, content: trimmed }),
     });
-  } catch {
+  } catch (err) {
+    logServerError({ action: 'sendMessage', error: err, context: { threadId } });
     return {
       error: 'Could not reach orchestrator. Make sure it is running.',
     };

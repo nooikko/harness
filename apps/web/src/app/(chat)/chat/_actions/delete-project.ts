@@ -5,6 +5,7 @@ import { join } from 'node:path';
 import { prisma } from '@harness/database';
 import { revalidatePath } from 'next/cache';
 import { loadEnv } from '@/app/_helpers/env';
+import { logServerError } from '@/lib/log-server-error';
 
 type DeleteProject = (projectId: string) => Promise<void>;
 
@@ -37,6 +38,7 @@ export const deleteProject: DeleteProject = async (projectId) => {
 
     revalidatePath('/chat');
   } catch (error) {
+    logServerError({ action: 'deleteProject', error, context: { projectId } });
     throw new Error(`Failed to delete project: ${error instanceof Error ? error.message : String(error)}`);
   }
 };

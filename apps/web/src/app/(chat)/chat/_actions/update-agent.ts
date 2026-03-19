@@ -2,6 +2,7 @@
 
 import { prisma } from '@harness/database';
 import { revalidatePath } from 'next/cache';
+import { logServerError } from '@/lib/log-server-error';
 
 type UpdateAgentInput = {
   id: string;
@@ -30,7 +31,8 @@ export const updateAgent: UpdateAgent = async ({ id, ...data }) => {
     });
     revalidatePath('/agents');
     return { success: true };
-  } catch {
+  } catch (err) {
+    logServerError({ action: 'updateAgent', error: err, context: { id } });
     return { error: 'Failed to update agent' };
   }
 };

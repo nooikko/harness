@@ -1,11 +1,7 @@
-import type { Locator, Page } from '@playwright/test';
+import type { Locator } from '@playwright/test';
 import { BasePage } from './base.page';
 
 export class TasksPage extends BasePage {
-  constructor(page: Page) {
-    super(page);
-  }
-
   gotoList = async (): Promise<void> => {
     await this.goto('/tasks');
   };

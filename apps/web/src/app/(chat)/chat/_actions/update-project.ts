@@ -2,6 +2,7 @@
 
 import { prisma } from '@harness/database';
 import { revalidatePath } from 'next/cache';
+import { logServerError } from '@/lib/log-server-error';
 
 type UpdateProjectFields = {
   name?: string;
@@ -37,6 +38,7 @@ export const updateProject: UpdateProject = async (projectId, fields) => {
 
     return project;
   } catch (error) {
+    logServerError({ action: 'updateProject', error, context: { projectId } });
     throw new Error(`Failed to update project: ${error instanceof Error ? error.message : String(error)}`);
   }
 };

@@ -1,6 +1,7 @@
 'use server';
 
 import { getOrchestratorUrl } from '@/app/_helpers/get-orchestrator-url';
+import { logServerError } from '@/lib/log-server-error';
 
 type RequestAuditDeleteResult = { ok: boolean; error?: string };
 
@@ -15,7 +16,8 @@ export const requestAuditDelete: RequestAuditDelete = async (threadId) => {
     });
 
     return { ok: true };
-  } catch {
+  } catch (err) {
+    logServerError({ action: 'requestAuditDelete', error: err, context: { threadId } });
     return { ok: false, error: 'Orchestrator unreachable' };
   }
 };

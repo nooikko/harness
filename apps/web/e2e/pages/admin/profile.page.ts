@@ -1,11 +1,6 @@
-import type { Page } from '@playwright/test';
 import { BasePage } from '../base.page';
 
 export class ProfilePage extends BasePage {
-  constructor(page: Page) {
-    super(page);
-  }
-
   gotoProfile = async (): Promise<void> => {
     await this.goto('/admin/profile');
   };

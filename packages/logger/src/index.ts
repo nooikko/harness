@@ -1,7 +1,9 @@
 // Logger package — structured logging for Harness (backed by Pino)
 
+export { createHttpLogger } from './_helpers/create-http-logger';
 export { writeErrorToDb } from './_helpers/write-error-to-db';
 
+import type { TransportTargetOptions } from 'pino';
 import pino from 'pino';
 import { loadLoggerEnv } from './env';
 
@@ -18,15 +20,60 @@ export type Logger = {
 
 const env = loadLoggerEnv();
 
-type BuildTransport = () => pino.TransportSingleOptions | undefined;
+type BuildTransport = () => pino.TransportSingleOptions | pino.TransportMultiOptions | undefined;
 
 const buildTransport: BuildTransport = () => {
+  const targets: TransportTargetOptions[] = [];
+
   if (env.LOG_FILE) {
-    return {
-      target: 'pino/file',
-      options: { destination: env.LOG_FILE, mkdir: true },
-    };
+    // Primary rotating log: info+ level, daily rotation, 100MB size cap, 7 files kept
+    targets.push({
+      target: 'pino-roll',
+      level: 'info',
+      options: {
+        file: env.LOG_FILE,
+        frequency: 'daily',
+        size: '100m',
+        dateFormat: 'yyyy-MM-dd',
+        symlink: true,
+        limit: { count: 7 },
+        mkdir: true,
+      },
+    });
+
+    // Error-only rotating log: errors retained longer (14 files)
+    targets.push({
+      target: 'pino-roll',
+      level: 'error',
+      options: {
+        file: `${env.LOG_FILE}.error`,
+        frequency: 'daily',
+        size: '50m',
+        dateFormat: 'yyyy-MM-dd',
+        limit: { count: 14 },
+        mkdir: true,
+      },
+    });
   }
+
+  if (env.LOKI_URL) {
+    targets.push({
+      target: 'pino-loki',
+      level: 'info',
+      options: {
+        host: env.LOKI_URL,
+        batching: true,
+        interval: 2,
+      },
+    });
+  }
+
+  // If we have any targets from LOG_FILE or LOKI_URL, return multi-target
+  if (targets.length > 0) {
+    return { targets };
+  }
+
+  // Dev mode: pretty print
   if (env.NODE_ENV !== 'production') {
     return {
       target: 'pino-pretty',
@@ -37,6 +84,8 @@ const buildTransport: BuildTransport = () => {
       },
     };
   }
+
+  // Production without LOG_FILE/LOKI_URL: no transport (JSON to stdout)
   return undefined;
 };
 
@@ -47,7 +96,9 @@ const rootLogger = pino({
 
 // --- Adapter: wraps a Pino child logger as a Logger interface ---
 
-type WrapPino = (pinoLogger: pino.Logger) => Logger & { _pinoInstance: pino.Logger };
+type WrapPino = (pinoLogger: pino.Logger) => Logger & {
+  _pinoInstance: pino.Logger;
+};
 
 const wrapPino: WrapPino = (p) => {
   const wrapped: Logger & { _pinoInstance: pino.Logger } = {
@@ -110,3 +161,15 @@ export const createChildLogger: CreateChildLogger = (parent, context) => {
     debug: (message, meta) => parent.debug(message, { ...context, ...meta }),
   };
 };
+
+// --- Flush + raw instance access ---
+
+type FlushLogger = () => void;
+
+export const flushLogger: FlushLogger = () => {
+  rootLogger.flush();
+};
+
+type GetRootPinoInstance = () => pino.Logger;
+
+export const getRootPinoInstance: GetRootPinoInstance = () => rootLogger;

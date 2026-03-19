@@ -1,5 +1,4 @@
 import { prisma } from '@harness/database';
-import { Badge } from '@harness/ui';
 import { DisconnectButton } from './disconnect-button';
 
 type ConnectionStatus = 'connected' | 'reauth-required';
@@ -40,7 +39,6 @@ export const ConnectedAccounts: ConnectedAccountsComponent = async ({ provider }
       accountId: true,
       expiresAt: true,
       refreshToken: true,
-      scopes: true,
       metadata: true,
       createdAt: true,
     },
@@ -71,18 +69,6 @@ export const ConnectedAccounts: ConnectedAccountsComponent = async ({ provider }
                   <span className={`text-xs ${status === 'connected' ? 'text-muted-foreground' : 'text-red-500'}`}>{label}</span>
                 </div>
                 {meta?.email && <span className='text-xs text-muted-foreground'>{meta.email}</span>}
-                <div className='flex gap-1 pt-1'>
-                  {token.scopes.slice(0, 4).map((scope) => (
-                    <Badge key={scope} variant='secondary' className='px-1.5 py-0 text-[10px]'>
-                      {scope}
-                    </Badge>
-                  ))}
-                  {token.scopes.length > 4 && (
-                    <Badge variant='secondary' className='px-1.5 py-0 text-[10px]'>
-                      +{token.scopes.length - 4} more
-                    </Badge>
-                  )}
-                </div>
               </div>
             </div>
             <div className='flex items-center gap-2'>

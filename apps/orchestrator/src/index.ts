@@ -1,7 +1,7 @@
 // Bootstrap and lifecycle manager — orchestrator entry point
 
 import { prisma } from '@harness/database';
-import { createLogger, writeErrorToDb } from '@harness/logger';
+import { createLogger, flushLogger, writeErrorToDb } from '@harness/logger';
 import { validateEncryptionKeyIfSet } from '@harness/oauth';
 import type { PluginDefinition } from '@harness/plugin-contract';
 import { state as delegationState } from '@harness/plugin-delegation';
@@ -184,6 +184,7 @@ export const boot: Boot = async () => {
       });
     }
 
+    flushLogger();
     logger.info('Shutdown complete');
   };
 

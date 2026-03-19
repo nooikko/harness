@@ -8,6 +8,7 @@ import { createId } from '@paralleldrive/cuid2';
 import { revalidatePath } from 'next/cache';
 import { loadEnv } from '@/app/_helpers/env';
 import { notifyOrchestrator } from '@/app/_helpers/notify-orchestrator';
+import { logServerError } from '@/lib/log-server-error';
 
 const ALLOWED_MIME_TYPES = new Set([
   'application/pdf',
@@ -111,6 +112,7 @@ export const uploadFile: UploadFile = async (input) => {
     await mkdir(join(env.UPLOAD_DIR, SCOPE_FOLDERS[scope], parentId), { recursive: true });
     await writeFile(fullPath, fileBuffer);
   } catch (err) {
+    logServerError({ action: 'uploadFile:disk', error: err, context: { fileName, scope } });
     return { error: `Disk write failed: ${err instanceof Error ? err.message : String(err)}` };
   }
 
@@ -132,6 +134,7 @@ export const uploadFile: UploadFile = async (input) => {
       },
     });
   } catch (err) {
+    logServerError({ action: 'uploadFile:db', error: err, context: { fileName, fileId, scope } });
     // Clean up disk file on DB failure
     try {
       await unlink(fullPath);

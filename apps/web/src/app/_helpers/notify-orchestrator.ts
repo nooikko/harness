@@ -1,4 +1,5 @@
 import { getOrchestratorUrl } from '@/app/_helpers/get-orchestrator-url';
+import { webLogger } from '@/lib/logger';
 
 type NotifyOrchestrator = (event: string, data: unknown) => Promise<void>;
 
@@ -9,7 +10,7 @@ export const notifyOrchestrator: NotifyOrchestrator = async (event, data) => {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ event, data }),
     });
-  } catch {
-    // Fire-and-forget — orchestrator unavailability should not break uploads
+  } catch (err) {
+    webLogger.warn('notifyOrchestrator: failed', { event, error: err instanceof Error ? err.message : String(err) });
   }
 };

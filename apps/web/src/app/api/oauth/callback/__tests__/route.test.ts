@@ -36,8 +36,12 @@ describe('GET /api/oauth/callback', () => {
     vi.clearAllMocks();
     // Default: return oauth_state for 'oauth_state', undefined for others
     mockGet.mockImplementation((name: string) => {
-      if (name === 'oauth_state') return { value: 'valid-state' };
-      if (name === 'oauth_provider') return { value: 'microsoft' };
+      if (name === 'oauth_state') {
+        return { value: 'valid-state' };
+      }
+      if (name === 'oauth_provider') {
+        return { value: 'microsoft' };
+      }
       return undefined;
     });
   });
@@ -54,8 +58,12 @@ describe('GET /api/oauth/callback', () => {
 
   it('redirects on state mismatch', async () => {
     mockGet.mockImplementation((name: string) => {
-      if (name === 'oauth_state') return { value: 'stored-state' };
-      if (name === 'oauth_provider') return { value: 'microsoft' };
+      if (name === 'oauth_state') {
+        return { value: 'stored-state' };
+      }
+      if (name === 'oauth_provider') {
+        return { value: 'microsoft' };
+      }
       return undefined;
     });
     await GET(makeRequest({ code: 'auth-code', state: 'wrong-state' }));

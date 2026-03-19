@@ -3,6 +3,7 @@ import { handleOAuthCallback, isProviderSupported } from '@harness/oauth';
 import { cookies } from 'next/headers';
 import { redirect } from 'next/navigation';
 import type { NextRequest } from 'next/server';
+import { webLogger } from '@/lib/logger';
 
 const OAUTH_ERROR_MESSAGES: Record<string, string> = {
   access_denied: 'Access was denied. Please grant the required permissions.',
@@ -45,6 +46,7 @@ export const GET: GetHandler = async (request) => {
   try {
     await handleOAuthCallback({ code, provider, db: prisma });
   } catch (err) {
+    webLogger.error('OAuth callback failed', { provider, error: err instanceof Error ? err.message : String(err) });
     const message = err instanceof Error ? err.message : 'OAuth flow failed. Please try again.';
     redirect(`/admin/integrations?${new URLSearchParams({ error: message }).toString()}`);
   }

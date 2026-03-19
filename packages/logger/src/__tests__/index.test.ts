@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from 'vitest';
-import { createChildLogger, createLogger } from '../index';
+import { createChildLogger, createLogger, flushLogger, getRootPinoInstance } from '../index';
 
 describe('createLogger', () => {
   it('returns a logger with info, warn, error, debug methods', () => {
@@ -44,7 +44,10 @@ describe('createChildLogger', () => {
 
   it('does not throw when logging with and without metadata', () => {
     const parent = createLogger('parent');
-    const child = createChildLogger(parent, { traceId: 'abc', threadId: 't1' });
+    const child = createChildLogger(parent, {
+      traceId: 'abc',
+      threadId: 't1',
+    });
     expect(() => child.info('child log')).not.toThrow();
     expect(() => child.info('with meta', { extra: true })).not.toThrow();
     expect(() => child.warn('child warn')).not.toThrow();
@@ -76,10 +79,45 @@ describe('createChildLogger', () => {
     child.error('error');
     child.debug('debug');
     // Fallback merges context into meta
-    expect(mockParent.info).toHaveBeenCalledWith('fallback log', { source: 'test' });
-    expect(mockParent.info).toHaveBeenCalledWith('with meta', { source: 'test', key: 'val' });
+    expect(mockParent.info).toHaveBeenCalledWith('fallback log', {
+      source: 'test',
+    });
+    expect(mockParent.info).toHaveBeenCalledWith('with meta', {
+      source: 'test',
+      key: 'val',
+    });
     expect(mockParent.warn).toHaveBeenCalledWith('warn', { source: 'test' });
     expect(mockParent.error).toHaveBeenCalledWith('error', { source: 'test' });
     expect(mockParent.debug).toHaveBeenCalledWith('debug', { source: 'test' });
+  });
+});
+
+describe('flushLogger', () => {
+  it('does not throw when called', () => {
+    expect(() => flushLogger()).not.toThrow();
+  });
+
+  it('can be called multiple times', () => {
+    expect(() => {
+      flushLogger();
+      flushLogger();
+    }).not.toThrow();
+  });
+});
+
+describe('getRootPinoInstance', () => {
+  it('returns a pino logger instance', () => {
+    const instance = getRootPinoInstance();
+    expect(instance).toBeDefined();
+    expect(typeof instance.info).toBe('function');
+    expect(typeof instance.error).toBe('function');
+    expect(typeof instance.child).toBe('function');
+    expect(typeof instance.flush).toBe('function');
+  });
+
+  it('returns the same instance on repeated calls', () => {
+    const a = getRootPinoInstance();
+    const b = getRootPinoInstance();
+    expect(a).toBe(b);
   });
 });

@@ -12,6 +12,7 @@ import { plugin as cronPlugin } from '@harness/plugin-cron';
 import { plugin as delegationPlugin } from '@harness/plugin-delegation';
 import { plugin as discordPlugin } from '@harness/plugin-discord';
 import { plugin as identityPlugin } from '@harness/plugin-identity';
+import { plugin as logsPlugin } from '@harness/plugin-logs';
 import { plugin as metricsPlugin } from '@harness/plugin-metrics';
 import { musicPlugin } from '@harness/plugin-music';
 import { plugin as outlookPlugin } from '@harness/plugin-outlook';
@@ -49,6 +50,7 @@ const ALL_PLUGINS: PluginDefinition[] = [
   musicPlugin,
   searchPlugin,
   playwrightPlugin,
+  logsPlugin,
 ];
 
 type GetPlugins = (db: PrismaClient, logger: Logger) => Promise<PluginDefinition[]>;

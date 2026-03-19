@@ -23,7 +23,7 @@ export const ProjectCard: ProjectCardComponent = ({ id, name, description, model
   };
 
   return (
-    <Card className='cursor-pointer transition-colors hover:bg-muted/50' onClick={handleClick}>
+    <Card className='flex h-full cursor-pointer flex-col divide-none transition-colors hover:bg-muted/50' onClick={handleClick}>
       <CardHeader className='flex flex-row items-start justify-between gap-4'>
         <div className='flex min-w-0 flex-col gap-1'>
           <div className='flex items-center gap-2'>
@@ -38,7 +38,7 @@ export const ProjectCard: ProjectCardComponent = ({ id, name, description, model
           </Badge>
         )}
       </CardHeader>
-      <CardFooter className='justify-between'>
+      <CardFooter className='mt-auto justify-between border-t border-border'>
         <span className='flex items-center gap-1 text-xs text-muted-foreground'>
           <MessageSquare className='h-3 w-3' />
           {threadCount} {threadCount === 1 ? 'thread' : 'threads'}

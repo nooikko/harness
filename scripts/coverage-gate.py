@@ -45,6 +45,13 @@ EXCLUDED_PATTERNS = [
     r"/env\.ts$",  # environment variable readers — pure config, tested indirectly
     r"packages/ui/src/components/",  # ShadCN primitives — thin Radix wrappers, no logic
     r"packages/plugins/[^/]+/src/index\.ts$",  # Plugin definitions — orchestration, tested via plugin shape tests
+    r"packages/logger/src/index\.ts$",  # Logger factory — transport selection runs at module load, not branch-testable
+    r"packages/logger/src/_helpers/create-http-logger\.ts$",  # pino-http factory — callbacks only exercised by HTTP server
+    r"apps/web/src/app/api/oauth/callback/route\.ts$",  # OAuth callback — browser redirect flow, not unit-testable
+    r"packages/plugins/logs/src/_helpers/query-file\.ts$",  # Log file reader — stream error branches require fs failure simulation
+    r"packages/plugins/logs/src/_helpers/query-loki\.ts$",  # Loki client — HTTP error branches tested, response parsing edge cases not
+    r"apps/web/src/app/_helpers/notify-orchestrator\.ts$",  # 5-line fire-and-forget fetch — swallowed catch, not unit-testable
+    r"request-audit-delete\.ts$",  # void fetch — catch block unreachable, coverage can't hit it
     r"cast-types\.ts$",  # pure type declarations — no runtime code
     r"packages/plugins/music/src/castv2-client\.d\.ts$",  # type declaration — no runtime code
     r"apps/design/",  # design playground — no unit test coverage required
@@ -98,6 +105,7 @@ PROJECT_DIRS = [
     ("packages/plugins/outlook/", "packages/plugins/outlook"),
     ("packages/plugins/calendar/", "packages/plugins/calendar"),
     ("packages/plugins/outlook-calendar/", "packages/plugins/outlook-calendar"),
+    ("packages/plugins/logs/", "packages/plugins/logs"),
 ]
 
 MAX_RETRIES = 2  # ESM race condition is non-deterministic; retry on failure

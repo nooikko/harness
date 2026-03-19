@@ -1,6 +1,7 @@
 // REST route definitions for the web plugin
 
 import type { Logger } from '@harness/logger';
+import { createHttpLogger, getRootPinoInstance } from '@harness/logger';
 import type { PluginContext } from '@harness/plugin-contract';
 import { COLLECTION_NAMES, getQdrantClient, searchPoints } from '@harness/vector-search';
 import cors from 'cors';
@@ -30,6 +31,10 @@ export const createApp: CreateApp = ({ ctx, logger, onChatMessage }) => {
   );
 
   app.use(express.json());
+
+  // Structured HTTP request logging (pino-http)
+  const httpLogger = createHttpLogger({ pinoInstance: getRootPinoInstance() });
+  app.use(httpLogger);
 
   // Health check
   app.get('/api/health', (_req: Request, res: Response) => {

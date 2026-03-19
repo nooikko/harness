@@ -2,6 +2,7 @@
 
 import { prisma } from '@harness/database';
 import { revalidatePath } from 'next/cache';
+import { logServerError } from '@/lib/log-server-error';
 
 type CreateProjectOptions = {
   name: string;
@@ -33,6 +34,7 @@ export const createProject: CreateProject = async (options) => {
 
     return project;
   } catch (error) {
+    logServerError({ action: 'createProject', error, context: { name: options.name } });
     throw new Error(`Failed to create project: ${error instanceof Error ? error.message : String(error)}`);
   }
 };
