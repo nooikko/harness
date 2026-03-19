@@ -95,9 +95,9 @@ export const EventBlock: EventBlockComponent = ({ event, className }) => {
           </Link>
         ) : (
           <EventDetailsDialog event={event}>
-            <button type='button' className={calendarWeekEventCardClasses} style={{ height: `${heightInPixels}px` }}>
+            <div className={calendarWeekEventCardClasses} style={{ height: `${heightInPixels}px` }}>
               {cardContent}
-            </button>
+            </div>
           </EventDetailsDialog>
         )}
       </DraggableEvent>

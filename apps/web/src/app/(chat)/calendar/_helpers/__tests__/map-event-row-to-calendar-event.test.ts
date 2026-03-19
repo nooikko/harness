@@ -18,6 +18,12 @@ const base: CalendarEventRow = {
   attendees: [{ name: 'Bob', email: 'bob@example.com', response: 'accepted' }],
   isCancelled: false,
   cronJobId: null,
+  webLink: 'https://outlook.office.com/calendar/item/abc',
+  importance: 'high',
+  sensitivity: 'private',
+  reminder: 15,
+  recurrence: '{"pattern":{"type":"weekly","interval":1,"daysOfWeek":["monday"]}}',
+  externalId: 'graph-evt-1',
 };
 
 describe('mapEventRowToCalendarEvent', () => {
@@ -108,5 +114,35 @@ describe('mapEventRowToCalendarEvent', () => {
   it('sets isTeamsMeeting false when joinUrl is null or unrelated', () => {
     expect(mapEventRowToCalendarEvent({ ...base, joinUrl: null }).isTeamsMeeting).toBe(false);
     expect(mapEventRowToCalendarEvent({ ...base, joinUrl: 'https://zoom.us/j/123' }).isTeamsMeeting).toBe(false);
+  });
+
+  it('maps webLink directly', () => {
+    expect(mapEventRowToCalendarEvent(base).webLink).toBe('https://outlook.office.com/calendar/item/abc');
+    expect(mapEventRowToCalendarEvent({ ...base, webLink: null }).webLink).toBeNull();
+  });
+
+  it('maps importance directly', () => {
+    expect(mapEventRowToCalendarEvent(base).importance).toBe('high');
+    expect(mapEventRowToCalendarEvent({ ...base, importance: null }).importance).toBeNull();
+  });
+
+  it('maps sensitivity directly', () => {
+    expect(mapEventRowToCalendarEvent(base).sensitivity).toBe('private');
+    expect(mapEventRowToCalendarEvent({ ...base, sensitivity: null }).sensitivity).toBeNull();
+  });
+
+  it('maps reminder directly', () => {
+    expect(mapEventRowToCalendarEvent(base).reminder).toBe(15);
+    expect(mapEventRowToCalendarEvent({ ...base, reminder: null }).reminder).toBeNull();
+  });
+
+  it('maps recurrence directly', () => {
+    expect(mapEventRowToCalendarEvent(base).recurrence).toBe(base.recurrence);
+    expect(mapEventRowToCalendarEvent({ ...base, recurrence: null }).recurrence).toBeNull();
+  });
+
+  it('maps externalId directly', () => {
+    expect(mapEventRowToCalendarEvent(base).externalId).toBe('graph-evt-1');
+    expect(mapEventRowToCalendarEvent({ ...base, externalId: null }).externalId).toBeNull();
   });
 });

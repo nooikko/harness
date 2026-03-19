@@ -16,6 +16,12 @@ type CalendarEventRow = {
   attendees: Array<{ name: string; email: string; response: string }> | null;
   isCancelled: boolean;
   cronJobId: string | null;
+  webLink: string | null;
+  importance: string | null;
+  sensitivity: string | null;
+  reminder: number | null;
+  recurrence: string | null;
+  externalId: string | null;
 };
 
 export type { CalendarEventRow };

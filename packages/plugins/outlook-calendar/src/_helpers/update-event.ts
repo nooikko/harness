@@ -68,6 +68,21 @@ const updateEvent: UpdateEvent = async (ctx, input) => {
     return `Failed to update Outlook event ${input.eventId} — no response from Graph API.`;
   }
 
+  // Update local CalendarEvent for immediate UI reflection
+  await ctx.db.calendarEvent.updateMany({
+    where: { source: 'OUTLOOK', externalId: input.eventId },
+    data: {
+      ...(data.subject !== undefined && { title: data.subject }),
+      ...(data.start !== undefined && { startAt: new Date(`${data.start.dateTime}Z`) }),
+      ...(data.end !== undefined && { endAt: new Date(`${data.end.dateTime}Z`) }),
+      ...(data.isAllDay !== undefined && { isAllDay: data.isAllDay }),
+      ...(data.location !== undefined && { location: data.location?.displayName ?? null }),
+      lastSyncedAt: new Date(),
+    },
+  });
+
+  await ctx.broadcast('calendar:updated', { action: 'updated', eventId: input.eventId });
+
   return `Updated Outlook event "${data.subject}" (${data.id})`;
 };
 

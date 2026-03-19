@@ -399,6 +399,10 @@ model CalendarEvent {
   attendees     Json?
   organizer     String?
   isCancelled   Boolean             @default(false)
+  webLink       String?
+  importance    String?             // "low" | "normal" | "high"
+  sensitivity   String?             // "normal" | "private" | "confidential"
+  reminder      Int?                // minutes before event
 
   sourceMemoryId String?
   sourceTaskId   String?

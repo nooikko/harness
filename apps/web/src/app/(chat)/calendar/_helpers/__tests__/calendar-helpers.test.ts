@@ -39,6 +39,12 @@ const makeEvent = (overrides: Partial<IEvent> = {}): IEvent => ({
   isCancelled: false,
   isAllDay: overrides.isAllDay ?? false,
   cronJobId: null,
+  webLink: null,
+  importance: null,
+  sensitivity: null,
+  reminder: null,
+  recurrence: null,
+  externalId: null,
   user: { id: 'u1', name: 'Test', picturePath: null },
   ...overrides,
 });

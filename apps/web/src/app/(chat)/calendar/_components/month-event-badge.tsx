@@ -104,7 +104,7 @@ export const MonthEventBadge: MonthEventBadgeComponent = ({
   return (
     <DraggableEvent event={event} className={marginClass}>
       <EventDetailsDialog event={event}>
-        <button type='button' className={eventBadgeClasses}>
+        <div className={eventBadgeClasses}>
           <div className='flex items-center gap-1.5 truncate'>
             {!['middle', 'last'].includes(position) && badgeVariant === 'dot' && <EventBullet color={event.color} />}
 
@@ -121,7 +121,7 @@ export const MonthEventBadge: MonthEventBadgeComponent = ({
           </div>
 
           <div className='hidden sm:block'>{renderBadgeTime && <span>{formatTime(new Date(event.startDate), use24HourFormat)}</span>}</div>
-        </button>
+        </div>
       </EventDetailsDialog>
     </DraggableEvent>
   );

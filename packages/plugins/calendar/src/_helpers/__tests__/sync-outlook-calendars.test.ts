@@ -106,6 +106,58 @@ describe('syncOutlookCalendars', () => {
     );
   });
 
+  it('syncs importance, sensitivity, reminder, body, and webLink fields', async () => {
+    mockGetValidToken.mockResolvedValue('test-token');
+
+    vi.stubGlobal(
+      'fetch',
+      vi.fn().mockResolvedValue({
+        ok: true,
+        json: () =>
+          Promise.resolve({
+            value: [
+              {
+                id: 'evt-rich',
+                subject: 'Important Meeting',
+                start: { dateTime: '2026-03-17T15:00:00', timeZone: 'UTC' },
+                end: { dateTime: '2026-03-17T16:00:00', timeZone: 'UTC' },
+                isAllDay: false,
+                isCancelled: false,
+                webLink: 'https://outlook.office.com/calendar/item/xyz',
+                importance: 'high',
+                sensitivity: 'private',
+                reminderMinutesBeforeStart: 30,
+                body: { contentType: 'html', content: '<p>Agenda items</p>' },
+              },
+            ],
+            '@odata.deltaLink': 'https://delta-next',
+          }),
+      }),
+    );
+
+    const ctx = makeMockCtx();
+    await syncOutlookCalendars(ctx as unknown as Parameters<typeof syncOutlookCalendars>[0]);
+
+    expect(ctx.db.calendarEvent.upsert).toHaveBeenCalledWith(
+      expect.objectContaining({
+        create: expect.objectContaining({
+          webLink: 'https://outlook.office.com/calendar/item/xyz',
+          importance: 'high',
+          sensitivity: 'private',
+          reminder: 30,
+          description: '<p>Agenda items</p>',
+        }),
+        update: expect.objectContaining({
+          webLink: 'https://outlook.office.com/calendar/item/xyz',
+          importance: 'high',
+          sensitivity: 'private',
+          reminder: 30,
+          description: '<p>Agenda items</p>',
+        }),
+      }),
+    );
+  });
+
   it('upserts events from Graph API delta response', async () => {
     mockGetValidToken.mockResolvedValue('test-token');
 

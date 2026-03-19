@@ -45,6 +45,12 @@ const getCalendarEvents: GetCalendarEvents = async (input) => {
     attendees: evt.attendees as CalendarEventRow['attendees'],
     isCancelled: evt.isCancelled,
     cronJobId: evt.sourceCronId ?? null,
+    webLink: evt.webLink,
+    importance: evt.importance,
+    sensitivity: evt.sensitivity,
+    reminder: evt.reminder,
+    recurrence: evt.recurrence,
+    externalId: evt.externalId,
   }));
 };
 

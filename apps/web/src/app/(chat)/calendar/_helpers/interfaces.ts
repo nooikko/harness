@@ -24,6 +24,12 @@ export interface IEvent {
   isCancelled: boolean;
   isAllDay: boolean;
   cronJobId: string | null;
+  webLink: string | null;
+  importance: string | null;
+  sensitivity: string | null;
+  reminder: number | null;
+  recurrence: string | null;
+  externalId: string | null;
 }
 
 export interface ICalendarCell {

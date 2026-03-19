@@ -58,6 +58,35 @@ const createEvent: CreateEvent = async (ctx, input) => {
     return 'Failed to create Outlook event — no response from Graph API.';
   }
 
+  // Write to local CalendarEvent for immediate UI reflection
+  await ctx.db.calendarEvent.upsert({
+    where: { source_externalId: { source: 'OUTLOOK', externalId: data.id } },
+    create: {
+      source: 'OUTLOOK',
+      externalId: data.id,
+      title: data.subject,
+      startAt: new Date(`${data.start.dateTime}Z`),
+      endAt: new Date(`${data.end.dateTime}Z`),
+      isAllDay: data.isAllDay,
+      location: data.location?.displayName ?? undefined,
+      joinUrl: undefined,
+      webLink: data.webLink ?? undefined,
+      calendarId: 'outlook:primary',
+      lastSyncedAt: new Date(),
+    },
+    update: {
+      title: data.subject,
+      startAt: new Date(`${data.start.dateTime}Z`),
+      endAt: new Date(`${data.end.dateTime}Z`),
+      isAllDay: data.isAllDay,
+      location: data.location?.displayName ?? undefined,
+      webLink: data.webLink ?? undefined,
+      lastSyncedAt: new Date(),
+    },
+  });
+
+  await ctx.broadcast('calendar:updated', { action: 'created', eventId: data.id });
+
   return {
     text: `Created Outlook event "${data.subject}" (${data.id})`,
     blocks: [

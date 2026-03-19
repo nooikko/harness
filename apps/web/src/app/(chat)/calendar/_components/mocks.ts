@@ -146,6 +146,12 @@ const mockGenerator = (numberOfEvents: number): IEvent[] => {
     isCancelled: false,
     isAllDay: false,
     cronJobId: null,
+    webLink: null,
+    importance: null,
+    sensitivity: null,
+    reminder: null,
+    recurrence: null,
+    externalId: null,
   };
 
   result.push(currentEvent);
@@ -189,6 +195,12 @@ const mockGenerator = (numberOfEvents: number): IEvent[] => {
       isCancelled: false,
       isAllDay: false,
       cronJobId: null,
+      webLink: null,
+      importance: null,
+      sensitivity: null,
+      reminder: null,
+      recurrence: null,
+      externalId: null,
     });
   }
 

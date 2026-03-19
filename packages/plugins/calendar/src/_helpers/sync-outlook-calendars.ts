@@ -18,6 +18,10 @@ type GraphCalendarEvent = {
   onlineMeeting?: { joinUrl?: string };
   changeKey?: string;
   recurrence?: unknown;
+  importance?: string;
+  sensitivity?: string;
+  reminderMinutesBeforeStart?: number;
+  body?: { contentType: string; content: string };
   '@removed'?: { reason: string };
 };
 
@@ -73,7 +77,7 @@ const syncOutlookCalendarsInner = async (ctx: PluginContext): Promise<void> => {
       const now = new Date();
       const startDate = new Date(now.getTime() - SYNC_WINDOW_PAST_DAYS * 24 * 60 * 60 * 1000);
       const endDate = new Date(now.getTime() + SYNC_WINDOW_FUTURE_DAYS * 24 * 60 * 60 * 1000);
-      nextLink = `https://graph.microsoft.com/v1.0/me/calendarView/delta?startDateTime=${startDate.toISOString()}&endDateTime=${endDate.toISOString()}&$select=id,subject,start,end,location,organizer,attendees,isAllDay,isCancelled,webLink,onlineMeeting,changeKey,recurrence`;
+      nextLink = `https://graph.microsoft.com/v1.0/me/calendarView/delta?startDateTime=${startDate.toISOString()}&endDateTime=${endDate.toISOString()}&$select=id,subject,start,end,location,organizer,attendees,isAllDay,isCancelled,webLink,onlineMeeting,changeKey,recurrence,importance,sensitivity,reminderMinutesBeforeStart,body`;
     }
 
     while (nextLink) {
@@ -144,6 +148,11 @@ const syncOutlookCalendarsInner = async (ctx: PluginContext): Promise<void> => {
           calendarId: 'outlook:primary',
           lastSyncedAt: new Date(),
           recurrence: evt.recurrence ? JSON.stringify(evt.recurrence) : undefined,
+          webLink: evt.webLink ?? undefined,
+          importance: evt.importance ?? undefined,
+          sensitivity: evt.sensitivity ?? undefined,
+          reminder: evt.reminderMinutesBeforeStart ?? undefined,
+          description: evt.body?.content ?? undefined,
         },
         update: {
           title: evt.subject,
@@ -158,6 +167,11 @@ const syncOutlookCalendarsInner = async (ctx: PluginContext): Promise<void> => {
           changeKey: evt.changeKey,
           lastSyncedAt: new Date(),
           recurrence: evt.recurrence ? JSON.stringify(evt.recurrence) : undefined,
+          webLink: evt.webLink ?? undefined,
+          importance: evt.importance ?? undefined,
+          sensitivity: evt.sensitivity ?? undefined,
+          reminder: evt.reminderMinutesBeforeStart ?? undefined,
+          description: evt.body?.content ?? undefined,
         },
       });
       upserted++;

@@ -31,6 +31,12 @@ const mockEvent = {
   attendees: [{ name: 'Bob', email: 'bob@test.com', response: 'accepted' }],
   isCancelled: false,
   sourceCronId: null,
+  webLink: 'https://outlook.office.com/calendar/item/abc',
+  importance: 'normal',
+  sensitivity: 'normal',
+  reminder: 15,
+  recurrence: null,
+  externalId: 'graph-evt-1',
 };
 
 describe('getCalendarEvents', () => {
@@ -106,5 +112,23 @@ describe('getCalendarEvents', () => {
     });
 
     expect(result[0]!.cronJobId).toBe('cron-abc');
+  });
+
+  it('returns new Outlook fields in mapped rows', async () => {
+    vi.mocked(prisma.calendarEvent.findMany).mockResolvedValue([mockEvent] as never);
+
+    const result = await getCalendarEvents({
+      startDate: '2026-03-01T00:00:00.000Z',
+      endDate: '2026-03-31T23:59:59.000Z',
+    });
+
+    expect(result[0]).toMatchObject({
+      webLink: 'https://outlook.office.com/calendar/item/abc',
+      importance: 'normal',
+      sensitivity: 'normal',
+      reminder: 15,
+      recurrence: null,
+      externalId: 'graph-evt-1',
+    });
   });
 });

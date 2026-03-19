@@ -2,13 +2,16 @@
 
 import { Button, Dialog, DialogClose, DialogContent, DialogHeader, DialogTitle, DialogTrigger, ScrollArea } from '@harness/ui';
 import { differenceInMinutes, format, parseISO } from 'date-fns';
-import { Calendar, ExternalLink, MapPin, Text, User, Users, Video } from 'lucide-react';
+import { AlertTriangle, ArrowDown, Bell, Calendar, ExternalLink, Lock, MapPin, Repeat, Text, User, Users, Video } from 'lucide-react';
 import type { ReactNode } from 'react';
 import { toast } from 'sonner';
 import { deleteCalendarEvent } from '../_actions/delete-calendar-event';
+import { deleteOutlookEvent } from '../_actions/delete-outlook-event';
 import { formatTime } from '../_helpers/calendar-helpers';
+import { formatRecurrence } from '../_helpers/format-recurrence';
 import type { IEvent } from '../_helpers/interfaces';
 import { SOURCE_STYLES } from '../_helpers/source-style-map';
+import { AddEditEventDialog } from './add-edit-event-dialog';
 import { useCalendar } from './calendar-context';
 
 interface IProps {
@@ -58,6 +61,19 @@ export const EventDetailsDialog: EventDetailsDialogComponent = ({ event, childre
     }
     removeEvent(eventId);
     toast.success('Event deleted successfully.');
+  };
+
+  const handleDeleteOutlook = async () => {
+    if (!event.externalId) {
+      return;
+    }
+    const result = await deleteOutlookEvent({ eventId: event.id, externalId: event.externalId });
+    if ('error' in result) {
+      toast.error(result.error);
+      return;
+    }
+    removeEvent(event.id);
+    toast.success('Event deleted from Outlook.');
   };
 
   return (
@@ -175,13 +191,84 @@ export const EventDetailsDialog: EventDetailsDialogComponent = ({ event, childre
                 </div>
               </div>
             )}
+
+            {formatRecurrence(event.recurrence) && (
+              <div className='flex items-start gap-2'>
+                <Repeat className='mt-1 size-4 shrink-0 text-muted-foreground' />
+                <div>
+                  <p className='text-sm font-medium'>Recurrence</p>
+                  <p className='text-sm text-muted-foreground'>{formatRecurrence(event.recurrence)}</p>
+                </div>
+              </div>
+            )}
+
+            {event.importance && event.importance !== 'normal' && (
+              <div className='flex items-start gap-2'>
+                {event.importance === 'high' ? (
+                  <AlertTriangle className='mt-1 size-4 shrink-0 text-orange-500' />
+                ) : (
+                  <ArrowDown className='mt-1 size-4 shrink-0 text-muted-foreground' />
+                )}
+                <div>
+                  <p className='text-sm font-medium'>Importance</p>
+                  <p className='text-sm capitalize text-muted-foreground'>{event.importance}</p>
+                </div>
+              </div>
+            )}
+
+            {event.sensitivity && event.sensitivity !== 'normal' && (
+              <div className='flex items-start gap-2'>
+                <Lock className='mt-1 size-4 shrink-0 text-muted-foreground' />
+                <div>
+                  <p className='text-sm font-medium'>Sensitivity</p>
+                  <p className='text-sm capitalize text-muted-foreground'>{event.sensitivity}</p>
+                </div>
+              </div>
+            )}
+
+            {event.reminder != null && (
+              <div className='flex items-start gap-2'>
+                <Bell className='mt-1 size-4 shrink-0 text-muted-foreground' />
+                <div>
+                  <p className='text-sm font-medium'>Reminder</p>
+                  <p className='text-sm text-muted-foreground'>{formatDuration(event.reminder)} before</p>
+                </div>
+              </div>
+            )}
+
+            {event.source === 'OUTLOOK' && event.webLink && (
+              <a href={event.webLink} target='_blank' rel='noreferrer' className='block'>
+                <Button variant='outline' className='w-full gap-2'>
+                  <ExternalLink className='size-4' />
+                  Open in Outlook
+                </Button>
+              </a>
+            )}
           </div>
         </ScrollArea>
 
         <div className='flex justify-end gap-2'>
-          <Button variant='destructive' onClick={() => void deleteEvent(event.id)}>
-            Delete
-          </Button>
+          {event.source === 'OUTLOOK' && event.externalId ? (
+            <>
+              <AddEditEventDialog event={event}>
+                <Button variant='outline'>Edit</Button>
+              </AddEditEventDialog>
+              <Button variant='destructive' onClick={() => void handleDeleteOutlook()}>
+                Delete from Outlook
+              </Button>
+            </>
+          ) : event.source === 'LOCAL' ? (
+            <>
+              <AddEditEventDialog event={event}>
+                <Button variant='outline'>Edit</Button>
+              </AddEditEventDialog>
+              <Button variant='destructive' onClick={() => void deleteEvent(event.id)}>
+                Delete
+              </Button>
+            </>
+          ) : (
+            <p className='text-xs text-muted-foreground self-center'>Auto-generated event — cannot edit.</p>
+          )}
         </div>
         <DialogClose />
       </DialogContent>

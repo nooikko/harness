@@ -51,5 +51,11 @@ export const mapEventRowToCalendarEvent = (row: CalendarEventRow): IEvent => ({
   isCancelled: row.isCancelled,
   isAllDay: row.isAllDay,
   cronJobId: row.cronJobId,
+  webLink: row.webLink,
+  importance: row.importance,
+  sensitivity: row.sensitivity,
+  reminder: row.reminder,
+  recurrence: row.recurrence,
+  externalId: row.externalId,
   user: SOURCE_USER_MAP[row.source] ?? { id: 'source-unknown', name: 'Unknown', picturePath: null },
 });

@@ -96,6 +96,7 @@ PROJECT_DIRS = [
     ("packages/oauth/", "packages/oauth"),
     ("packages/plugins/outlook/", "packages/plugins/outlook"),
     ("packages/plugins/calendar/", "packages/plugins/calendar"),
+    ("packages/plugins/outlook-calendar/", "packages/plugins/outlook-calendar"),
 ]
 
 MAX_RETRIES = 2  # ESM race condition is non-deterministic; retry on failure
