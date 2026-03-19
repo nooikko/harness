@@ -3,6 +3,8 @@ import type { Metadata } from 'next';
 import { Suspense } from 'react';
 import { ConnectButton } from './_components/connect-button';
 import { ConnectedAccounts } from './_components/connected-accounts';
+import { GoogleConnectButton } from './_components/google-connect-button';
+import { GoogleConnectionStatus } from './_components/google-connection-status';
 import { OAuthStatusMessage } from './_components/oauth-status-message';
 
 export const dynamic = 'force-dynamic';
@@ -33,7 +35,21 @@ const IntegrationsPage = async ({ searchParams }: { searchParams: Promise<Record
         </div>
         <Separator />
         <Suspense fallback={<div className='text-sm text-muted-foreground'>Loading accounts...</div>}>
-          <ConnectedAccounts />
+          <ConnectedAccounts provider='microsoft' />
+        </Suspense>
+      </div>
+
+      <div className='flex flex-col gap-4'>
+        <div className='flex items-center justify-between'>
+          <h2 className='text-sm font-medium'>Google Calendar</h2>
+          <GoogleConnectButton />
+        </div>
+        <Separator />
+        <Suspense fallback={<div className='text-sm text-muted-foreground'>Loading accounts...</div>}>
+          <ConnectedAccounts provider='google' />
+        </Suspense>
+        <Suspense fallback={<div className='text-sm text-muted-foreground'>Loading sync status...</div>}>
+          <GoogleConnectionStatus />
         </Suspense>
       </div>
     </div>

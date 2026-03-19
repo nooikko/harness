@@ -376,6 +376,7 @@ model OAuthToken {
 
 enum CalendarEventSource {
   OUTLOOK
+  GOOGLE
   LOCAL
   MEMORY
   TASK
@@ -428,6 +429,7 @@ model CalendarSyncState {
   lastSyncAt    DateTime?
   syncStatus    String   @default("idle")
   errorMessage  String?
+  metadata      Json?
   createdAt     DateTime @default(now())
   updatedAt     DateTime @updatedAt
 }

@@ -158,9 +158,9 @@ describe('handleOAuthCallback', () => {
     await expect(
       handleOAuthCallback({
         code: 'code',
-        provider: 'google',
+        provider: 'github',
         db: mockDb,
       }),
-    ).rejects.toThrow('Unsupported OAuth provider: google');
+    ).rejects.toThrow('Unsupported OAuth provider: github');
   });
 });

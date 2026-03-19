@@ -4,7 +4,10 @@ import { deleteEvent } from './_helpers/delete-event';
 import { getEvent } from './_helpers/get-event';
 import { listEvents } from './_helpers/list-events';
 import { projectVirtualEvents } from './_helpers/project-virtual-events';
+import type { RespondToEventInput } from './_helpers/respond-to-event';
+import { respondToEvent } from './_helpers/respond-to-event';
 import { startSyncTimer, stopSyncTimer } from './_helpers/start-sync-timer';
+import { syncGoogleCalendars } from './_helpers/sync-google-calendars';
 import { syncOutlookCalendars } from './_helpers/sync-outlook-calendars';
 import { updateEvent } from './_helpers/update-event';
 
@@ -16,7 +19,7 @@ const plugin: PluginDefinition = {
     {
       name: 'create_event',
       description:
-        'Create a local calendar event (birthday, reminder, appointment, etc.). Outlook events are synced automatically and managed via the outlook-calendar plugin.',
+        'Create a local calendar event (birthday, reminder, appointment, etc.). Outlook/Google events are synced automatically and managed via their respective plugins.',
       schema: {
         type: 'object',
         properties: {
@@ -111,7 +114,7 @@ const plugin: PluginDefinition = {
     },
     {
       name: 'list_events',
-      description: 'List events from the unified calendar (Outlook, local, memories, tasks, cron). Defaults to the next 7 days.',
+      description: 'List events from the unified calendar (Outlook, Google, local, memories, tasks, cron). Defaults to the next 7 days.',
       schema: {
         type: 'object',
         properties: {
@@ -127,7 +130,7 @@ const plugin: PluginDefinition = {
             type: 'array',
             items: {
               type: 'string',
-              enum: ['OUTLOOK', 'LOCAL', 'MEMORY', 'TASK', 'CRON'],
+              enum: ['OUTLOOK', 'GOOGLE', 'LOCAL', 'MEMORY', 'TASK', 'CRON'],
             },
             description: 'Filter by event source(s)',
           },
@@ -163,8 +166,34 @@ const plugin: PluginDefinition = {
       },
     },
     {
+      name: 'respond_to_event',
+      description: 'Accept, tentatively accept, or decline a calendar event invitation (Outlook or Google).',
+      schema: {
+        type: 'object',
+        properties: {
+          eventId: {
+            type: 'string',
+            description: 'The calendar event ID (internal ID from list_events)',
+          },
+          response: {
+            type: 'string',
+            enum: ['accepted', 'tentativelyAccepted', 'declined'],
+            description: 'Your response to the event',
+          },
+          message: {
+            type: 'string',
+            description: 'Optional message to send with the response',
+          },
+        },
+        required: ['eventId', 'response'],
+      },
+      handler: async (ctx, input) => {
+        return respondToEvent(ctx, input as RespondToEventInput);
+      },
+    },
+    {
       name: 'sync_now',
-      description: 'Trigger an immediate sync of Outlook calendar events into the local calendar database.',
+      description: 'Trigger an immediate sync of Outlook and Google calendar events into the local calendar database.',
       schema: {
         type: 'object',
         properties: {},
@@ -173,13 +202,13 @@ const plugin: PluginDefinition = {
       handler: async (ctx) => {
         void (async () => {
           try {
-            await syncOutlookCalendars(ctx);
+            await Promise.allSettled([syncOutlookCalendars(ctx), syncGoogleCalendars(ctx)]);
             await projectVirtualEvents(ctx);
           } catch (err) {
             ctx.logger.warn(`calendar: sync_now failed — ${err instanceof Error ? err.message : String(err)}`);
           }
         })();
-        return 'Calendar sync triggered. Results will appear shortly.';
+        return 'Calendar sync triggered for all providers. Results will appear shortly.';
       },
     },
   ],
@@ -188,7 +217,7 @@ const plugin: PluginDefinition = {
       if (pluginName === 'calendar') {
         stopSyncTimer();
         try {
-          await syncOutlookCalendars(ctx);
+          await Promise.allSettled([syncOutlookCalendars(ctx), syncGoogleCalendars(ctx)]);
           await projectVirtualEvents(ctx);
         } catch (err) {
           ctx.logger.warn(`calendar: settings change sync failed — ${err instanceof Error ? err.message : String(err)}`);
@@ -201,7 +230,7 @@ const plugin: PluginDefinition = {
   start: async (ctx) => {
     void (async () => {
       try {
-        await syncOutlookCalendars(ctx);
+        await Promise.allSettled([syncOutlookCalendars(ctx), syncGoogleCalendars(ctx)]);
         await projectVirtualEvents(ctx);
       } catch (err) {
         ctx.logger.warn(`calendar: initial sync failed — ${err instanceof Error ? err.message : String(err)}`);

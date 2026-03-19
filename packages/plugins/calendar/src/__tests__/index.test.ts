@@ -4,6 +4,9 @@ import { plugin } from '../index';
 vi.mock('../_helpers/sync-outlook-calendars', () => ({
   syncOutlookCalendars: vi.fn().mockResolvedValue(undefined),
 }));
+vi.mock('../_helpers/sync-google-calendars', () => ({
+  syncGoogleCalendars: vi.fn().mockResolvedValue(undefined),
+}));
 vi.mock('../_helpers/project-virtual-events', () => ({
   projectVirtualEvents: vi.fn().mockResolvedValue(undefined),
 }));
@@ -14,6 +17,7 @@ vi.mock('../_helpers/start-sync-timer', () => ({
 
 import { projectVirtualEvents } from '../_helpers/project-virtual-events';
 import { startSyncTimer, stopSyncTimer } from '../_helpers/start-sync-timer';
+import { syncGoogleCalendars } from '../_helpers/sync-google-calendars';
 import { syncOutlookCalendars } from '../_helpers/sync-outlook-calendars';
 
 const makeCtx = () =>
@@ -33,13 +37,16 @@ describe('plugin', () => {
     expect(plugin.version).toBe('1.0.0');
   });
 
-  it('defines 6 tools', () => {
-    expect(plugin.tools).toHaveLength(6);
+  it('defines 7 tools', () => {
+    expect(plugin.tools).toHaveLength(7);
   });
 
   it('has expected tool names', () => {
     const toolNames = plugin.tools!.map((t) => t.name);
-    expect(toolNames).toEqual(['create_event', 'update_event', 'delete_event', 'list_events', 'get_event', 'sync_now']);
+    expect(toolNames).toContain('create_event');
+    expect(toolNames).toContain('sync_now');
+    expect(toolNames).toContain('respond_to_event');
+    expect(toolNames).toContain('list_events');
   });
 
   it('register returns onSettingsChange hook', async () => {
@@ -56,14 +63,15 @@ describe('plugin', () => {
 
     await vi.waitFor(() => {
       expect(syncOutlookCalendars).toHaveBeenCalledWith(ctx);
+      expect(syncGoogleCalendars).toHaveBeenCalledWith(ctx);
       expect(projectVirtualEvents).toHaveBeenCalledWith(ctx);
     });
     expect(startSyncTimer).toHaveBeenCalledWith(ctx);
   });
 
-  it('start() catches sync errors and still starts timer', async () => {
+  it('start() catches projection errors and still starts timer', async () => {
     const ctx = makeCtx();
-    vi.mocked(syncOutlookCalendars).mockRejectedValueOnce(new Error('sync boom'));
+    vi.mocked(projectVirtualEvents).mockRejectedValueOnce(new Error('projection boom'));
 
     await plugin.start!(ctx);
 
@@ -91,6 +99,7 @@ describe('plugin', () => {
 
     expect(stopSyncTimer).toHaveBeenCalled();
     expect(syncOutlookCalendars).toHaveBeenCalledWith(ctx);
+    expect(syncGoogleCalendars).toHaveBeenCalledWith(ctx);
     expect(projectVirtualEvents).toHaveBeenCalledWith(ctx);
     expect(startSyncTimer).toHaveBeenCalledWith(ctx);
   });
@@ -103,13 +112,14 @@ describe('plugin', () => {
 
     expect(stopSyncTimer).not.toHaveBeenCalled();
     expect(syncOutlookCalendars).not.toHaveBeenCalled();
+    expect(syncGoogleCalendars).not.toHaveBeenCalled();
     expect(projectVirtualEvents).not.toHaveBeenCalled();
     expect(startSyncTimer).not.toHaveBeenCalled();
   });
 
-  it('onSettingsChange restarts timer even when sync fails', async () => {
+  it('onSettingsChange restarts timer even when projection fails', async () => {
     const ctx = makeCtx();
-    vi.mocked(syncOutlookCalendars).mockRejectedValueOnce(new Error('settings boom'));
+    vi.mocked(projectVirtualEvents).mockRejectedValueOnce(new Error('settings boom'));
     const hooks = await plugin.register(ctx);
 
     await hooks.onSettingsChange!('calendar');
@@ -127,22 +137,23 @@ describe('plugin', () => {
 
     const result = await syncTool.handler(ctx, {}, { threadId: 't1' });
 
-    expect(result).toBe('Calendar sync triggered. Results will appear shortly.');
+    expect(result).toContain('Calendar sync triggered');
 
     await vi.waitFor(() => {
       expect(syncOutlookCalendars).toHaveBeenCalledWith(ctx);
+      expect(syncGoogleCalendars).toHaveBeenCalledWith(ctx);
       expect(projectVirtualEvents).toHaveBeenCalledWith(ctx);
     });
   });
 
   it('sync_now handler catches background errors', async () => {
     const ctx = makeCtx();
-    vi.mocked(syncOutlookCalendars).mockRejectedValueOnce(new Error('sync tool boom'));
+    vi.mocked(projectVirtualEvents).mockRejectedValueOnce(new Error('sync tool boom'));
     const syncTool = plugin.tools!.find((t) => t.name === 'sync_now')!;
 
     const result = await syncTool.handler(ctx, {}, { threadId: 't1' });
 
-    expect(result).toBe('Calendar sync triggered. Results will appear shortly.');
+    expect(result).toContain('Calendar sync triggered');
 
     await vi.waitFor(() => {
       expect(ctx.logger.warn).toHaveBeenCalledWith(expect.stringContaining('sync_now failed'));

@@ -1,6 +1,6 @@
 import type { PrismaClient } from '@harness/database';
-import { getMicrosoftConfig } from '../providers/microsoft';
 import { encryptToken } from './encrypt-token';
+import { getProviderConfig } from './get-provider-config';
 
 type HandleOAuthCallbackInput = {
   code: string;
@@ -8,14 +8,66 @@ type HandleOAuthCallbackInput = {
   db: PrismaClient;
 };
 
+type ProfileResult = {
+  accountId: string;
+  email?: string;
+  displayName?: string;
+};
+
+type FetchProfile = (accessToken: string, provider: string) => Promise<ProfileResult>;
+
+const fetchProfile: FetchProfile = async (accessToken, provider) => {
+  if (provider === 'google') {
+    const response = await fetch('https://www.googleapis.com/oauth2/v2/userinfo', {
+      headers: { Authorization: `Bearer ${accessToken}` },
+      signal: AbortSignal.timeout(10_000),
+    });
+
+    if (!response.ok) {
+      throw new Error(`Failed to fetch user profile: ${response.status}`);
+    }
+
+    const profile = (await response.json()) as {
+      id: string;
+      email?: string;
+      name?: string;
+    };
+
+    return {
+      accountId: profile.id,
+      email: profile.email,
+      displayName: profile.name,
+    };
+  }
+
+  // Microsoft (default)
+  const response = await fetch('https://graph.microsoft.com/v1.0/me', {
+    headers: { Authorization: `Bearer ${accessToken}` },
+    signal: AbortSignal.timeout(10_000),
+  });
+
+  if (!response.ok) {
+    throw new Error(`Failed to fetch user profile: ${response.status}`);
+  }
+
+  const profile = (await response.json()) as {
+    id: string;
+    mail?: string;
+    userPrincipalName?: string;
+    displayName?: string;
+  };
+
+  return {
+    accountId: profile.id,
+    email: profile.mail ?? profile.userPrincipalName,
+    displayName: profile.displayName,
+  };
+};
+
 type HandleOAuthCallback = (input: HandleOAuthCallbackInput) => Promise<{ accountId: string; email?: string }>;
 
 const handleOAuthCallback: HandleOAuthCallback = async ({ code, provider, db }) => {
-  if (provider !== 'microsoft') {
-    throw new Error(`Unsupported OAuth provider: ${provider}`);
-  }
-
-  const config = getMicrosoftConfig();
+  const config = getProviderConfig(provider);
 
   const tokenResponse = await fetch(config.tokenEndpoint, {
     method: 'POST',
@@ -43,49 +95,33 @@ const handleOAuthCallback: HandleOAuthCallback = async ({ code, provider, db }) 
     scope: string;
   };
 
-  // Fetch user profile to get accountId
-  const profileResponse = await fetch('https://graph.microsoft.com/v1.0/me', {
-    headers: { Authorization: `Bearer ${tokenData.access_token}` },
-    signal: AbortSignal.timeout(10_000),
-  });
-
-  if (!profileResponse.ok) {
-    throw new Error(`Failed to fetch user profile: ${profileResponse.status}`);
-  }
-
-  const profile = (await profileResponse.json()) as {
-    id: string;
-    mail?: string;
-    userPrincipalName?: string;
-    displayName?: string;
-  };
-
-  const accountId = profile.id;
-  const email = profile.mail ?? profile.userPrincipalName;
+  const profile = await fetchProfile(tokenData.access_token, provider);
   const expiresAt = new Date(Date.now() + tokenData.expires_in * 1000);
   const scopes = tokenData.scope.split(' ');
 
   await db.oAuthToken.upsert({
-    where: { provider_accountId: { provider, accountId } },
+    where: {
+      provider_accountId: { provider, accountId: profile.accountId },
+    },
     create: {
       provider,
-      accountId,
+      accountId: profile.accountId,
       accessToken: encryptToken(tokenData.access_token),
       refreshToken: tokenData.refresh_token ? encryptToken(tokenData.refresh_token) : null,
       expiresAt,
       scopes,
-      metadata: { email, displayName: profile.displayName },
+      metadata: { email: profile.email, displayName: profile.displayName },
     },
     update: {
       accessToken: encryptToken(tokenData.access_token),
       refreshToken: tokenData.refresh_token ? encryptToken(tokenData.refresh_token) : null,
       expiresAt,
       scopes,
-      metadata: { email, displayName: profile.displayName },
+      metadata: { email: profile.email, displayName: profile.displayName },
     },
   });
 
-  return { accountId, email: email ?? undefined };
+  return { accountId: profile.accountId, email: profile.email ?? undefined };
 };
 
 export { handleOAuthCallback };

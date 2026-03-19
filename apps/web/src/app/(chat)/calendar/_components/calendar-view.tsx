@@ -11,7 +11,7 @@ import { CalendarProvider } from './calendar-context';
 import { CalendarHeader } from './calendar-header';
 import { DndProvider } from './dnd-context';
 
-const ALL_SOURCES: CalendarEventSource[] = ['OUTLOOK', 'LOCAL', 'TASK', 'CRON'];
+const ALL_SOURCES: CalendarEventSource[] = ['OUTLOOK', 'GOOGLE', 'LOCAL', 'TASK', 'CRON'];
 
 const toCalendarView = (view?: 'week' | 'day' | 'month-grid'): TCalendarView => {
   if (view === 'month-grid') {

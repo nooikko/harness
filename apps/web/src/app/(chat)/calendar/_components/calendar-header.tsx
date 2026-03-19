@@ -19,7 +19,7 @@ type CalendarHeaderProps = {
   onSearchChange: (value: string) => void;
 };
 
-const ALL_SOURCES: CalendarEventSource[] = ['OUTLOOK', 'LOCAL', 'TASK', 'CRON'];
+const ALL_SOURCES: CalendarEventSource[] = ['OUTLOOK', 'GOOGLE', 'LOCAL', 'TASK', 'CRON'];
 
 type CalendarHeaderComponent = (props: CalendarHeaderProps) => React.ReactNode;
 

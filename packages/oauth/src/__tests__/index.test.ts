@@ -6,8 +6,11 @@ describe('isProviderSupported', () => {
     expect(isProviderSupported('microsoft')).toBe(true);
   });
 
+  it('returns true for google', () => {
+    expect(isProviderSupported('google')).toBe(true);
+  });
+
   it('returns false for unsupported providers', () => {
-    expect(isProviderSupported('google')).toBe(false);
     expect(isProviderSupported('github')).toBe(false);
   });
 });

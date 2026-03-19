@@ -25,6 +25,6 @@ describe('startOAuthFlow', () => {
     vi.resetModules();
     const { startOAuthFlow } = await import('../start-oauth-flow');
 
-    expect(() => startOAuthFlow('google')).toThrow('Unsupported OAuth provider: google');
+    expect(() => startOAuthFlow('github')).toThrow('Unsupported OAuth provider: github');
   });
 });
