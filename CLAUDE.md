@@ -63,6 +63,8 @@ packages/plugins/auto-namer/ → Thread auto-naming (@harness/plugin-auto-namer)
 packages/plugins/audit/      → Audit-delete flow (@harness/plugin-audit)
 packages/plugins/time/       → Time injection + tool (@harness/plugin-time)
 packages/plugins/project/    → Project memory tools (@harness/plugin-project)
+packages/plugins/search/     → Qdrant vector indexing for semantic search (@harness/plugin-search)
+packages/vector-search/      → Qdrant client + HuggingFace embeddings (@harness/vector-search)
 ```
 
 ### Dependency Flow
@@ -180,15 +182,21 @@ Configured in `.mcp.json`: serena (codebase tools), context7 (live docs), playwr
 ## Environment Setup
 
 ```bash
+# Quick setup (starts Docker services, installs deps, pushes schema + FTS indexes, seeds DB)
 cp .env.example .env
 cp packages/database/.env.example packages/database/.env
-# Edit DATABASE_URL in packages/database/.env
+pnpm setup
+
+# Or step-by-step:
+docker compose up -d               # PostgreSQL + Qdrant
 pnpm install
 pnpm db:generate
+pnpm db:push                       # Schema + FTS indexes (chained automatically)
+pnpm --filter database db:seed
 pnpm dev
 ```
 
-Required: Node >= 22, pnpm 10.x, PostgreSQL.
+Required: Node >= 22, pnpm 10.x, Docker (for PostgreSQL + Qdrant).
 
 ## What Already Exists
 
@@ -278,6 +286,16 @@ Do not rebuild any of the following — these subsystems are fully implemented.
 - Exposes `get_project_memory` and `set_project_memory` MCP tools for Claude
 - Reads/writes `Project.memory` field associated with current thread's project
 - Tool-only plugin (no hooks)
+
+### Search System (Cmd+K + FTS + Qdrant)
+
+- **Cmd+K palette** (`apps/web/src/app/_components/search-palette.tsx`) — global search with 9 filter types (`agent:`, `project:`, `in:`, `from:`, `has:file`, `file:`, `task:`, `before:`, `after:`)
+- **PostgreSQL FTS** — GIN indexes on Message, Thread, File, Agent, Project tables. Applied automatically by `pnpm db:push` (chained `db:search-indexes`).
+- **Qdrant semantic search** — `@harness/vector-search` package (HuggingFace `all-MiniLM-L6-v2`, 384-dim). Optional — search degrades to FTS-only if `QDRANT_URL` is not set.
+- **Search indexing plugin** (`packages/plugins/search/`) — indexes messages and threads into Qdrant via `onMessage`, `onPipelineComplete`, `onBroadcast` hooks. Backfills existing content on startup.
+- **API route** (`apps/web/src/app/api/search/route.ts`) — parallel FTS + Qdrant fan-out, score merging, result deduplication
+- **Polish features** — match highlighting, recent searches (localStorage), filter chips with removal
+- **Scroll-to-message** — search results for messages navigate to thread with `?highlight=messageId`, auto-scrolling and highlighting the matched message
 
 ### AgentConfig Model
 

@@ -5,6 +5,7 @@ type ParsedSearchFilters = {
   role?: 'user' | 'assistant';
   hasFile?: boolean;
   fileName?: string;
+  task?: string;
   before?: Date;
   after?: Date;
 };
@@ -21,6 +22,7 @@ const FILTER_PATTERNS = {
   role: /\bfrom:(user|assistant)/i,
   hasFile: /\bhas:file\b/i,
   fileName: /\bfile:(\S+)/i,
+  task: /\btask:(\S+)/i,
   before: /\bbefore:(\S+)/i,
   after: /\bafter:(\S+)/i,
 } as const;
@@ -60,6 +62,11 @@ export const parseSearchFilters: ParseSearchFilters = (raw) => {
   if (fileNameMatch) {
     filters.fileName = fileNameMatch[1];
     remaining = remaining.replace(fileNameMatch[0], '');
+  }
+  const taskMatch = FILTER_PATTERNS.task.exec(raw);
+  if (taskMatch) {
+    filters.task = taskMatch[1];
+    remaining = remaining.replace(taskMatch[0], '');
   }
   const beforeMatch = FILTER_PATTERNS.before.exec(raw);
   if (beforeMatch) {

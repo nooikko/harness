@@ -22,6 +22,7 @@
     "db:generate": "turbo db:generate",
     "db:push": "turbo db:push",
     "db:studio": "turbo db:studio",
+    "setup": "docker compose up -d && pnpm install && pnpm db:generate && pnpm db:push && pnpm --filter database db:seed",
     "prepare": "husky",
     "plugin:generate": "tsx scripts/generate-plugin-registry.ts",
     "test:integration": "turbo test:integration"

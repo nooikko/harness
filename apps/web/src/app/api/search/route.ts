@@ -6,7 +6,7 @@ import { searchFilesFts, searchMessagesFts, searchThreadsFts } from './_helpers/
 import { searchVector } from './_helpers/search-vector';
 
 type SearchResult = {
-  type: 'thread' | 'message' | 'file' | 'agent' | 'project';
+  type: 'thread' | 'message' | 'file' | 'agent' | 'project' | 'task';
   id: string;
   title: string;
   preview: string;
@@ -44,7 +44,7 @@ export const POST = async (request: Request) => {
   const { searchTerms, filters } = parseFilters(query);
   const results: SearchResult[] = [];
   const searchable = searchTerms.length > 0;
-  const searchTypes = new Set(types ?? ['thread', 'message', 'file', 'agent', 'project']);
+  const searchTypes = new Set(types ?? ['thread', 'message', 'file', 'agent', 'project', 'task']);
 
   // Resolve filter IDs upfront (parallel)
   const [agentId, projectId, threadId] = await Promise.all([
@@ -317,6 +317,53 @@ export const POST = async (request: Request) => {
             preview: p.description?.slice(0, 100) ?? 'No description',
             score: 0.85,
             meta: { projectName: p.name, createdAt: p.createdAt.toISOString() },
+          });
+        }
+      })(),
+    );
+  }
+
+  // Search tasks (ILIKE — small table)
+  if (searchTypes.has('task') && (searchable || filters.task)) {
+    ftsPromises.push(
+      (async () => {
+        const where: Prisma.UserTaskWhereInput = {};
+        if (filters.task) {
+          where.status = filters.task.toUpperCase() as Prisma.EnumTaskStatusFilter;
+        }
+        if (searchable) {
+          where.OR = [{ title: { contains: searchTerms, mode: 'insensitive' } }, { description: { contains: searchTerms, mode: 'insensitive' } }];
+        }
+        if (projectId) {
+          where.projectId = projectId;
+        }
+
+        const tasks = await prisma.userTask.findMany({
+          where,
+          select: {
+            id: true,
+            title: true,
+            description: true,
+            status: true,
+            priority: true,
+            createdAt: true,
+            project: { select: { name: true } },
+          },
+          orderBy: { createdAt: 'desc' },
+          take: 5,
+        });
+
+        for (const t of tasks) {
+          results.push({
+            type: 'task',
+            id: t.id,
+            title: t.title,
+            preview: t.description?.slice(0, 100) ?? `${t.status} · ${t.priority}`,
+            score: 0.8,
+            meta: {
+              projectName: t.project?.name,
+              createdAt: t.createdAt.toISOString(),
+            },
           });
         }
       })(),

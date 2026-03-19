@@ -1,7 +1,7 @@
 'use client';
 
 import { ScrollArea } from '@harness/ui';
-import { useRouter } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { useCallback, useEffect, useRef, useState, useTransition } from 'react';
 import { useWs } from '@/app/_components/ws-provider';
 import { checkForResponse } from '../_actions/check-for-response';
@@ -33,6 +33,8 @@ export const ChatArea: ChatAreaComponent = ({ threadId, currentModel, currentAge
   const anchorRef = useRef<HTMLDivElement>(null);
   const hasMountedRef = useRef(false);
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const highlightMessageId = searchParams.get('highlight');
   const { lastEvent, isConnected } = useWs('pipeline:complete');
   const { lastEvent: lastStepEvent } = useWs('pipeline:step');
   const { lastEvent: lastErrorEvent } = useWs('pipeline:error');
@@ -48,16 +50,41 @@ export const ChatArea: ChatAreaComponent = ({ threadId, currentModel, currentAge
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [threadId]);
 
+  // Scroll to highlighted message from search navigation (?highlight=messageId).
+  // Overrides the default scroll-to-bottom on mount when a highlight param is present.
+  useEffect(() => {
+    if (!highlightMessageId) {
+      return;
+    }
+    // Wait for RSC content to render before scrolling
+    const timer = setTimeout(() => {
+      const el = document.querySelector(`[data-message-id="${CSS.escape(highlightMessageId)}"]`);
+      if (!el) {
+        return;
+      }
+      el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      el.classList.add('search-highlight');
+      const cleanup = setTimeout(() => el.classList.remove('search-highlight'), 3000);
+      return () => clearTimeout(cleanup);
+    }, 300);
+    return () => clearTimeout(timer);
+  }, [highlightMessageId]);
+
   // Scroll to bottom on initial mount (instant) and after router.refresh() completes (smooth).
   // Fires when isRefreshing transitions false→true→false, ensuring new RSC content is rendered first.
   useEffect(() => {
     if (isRefreshing) {
       return;
     }
+    // Skip scroll-to-bottom when navigating from search with a highlight target
+    if (highlightMessageId && !hasMountedRef.current) {
+      hasMountedRef.current = true;
+      return;
+    }
     const behavior = hasMountedRef.current ? 'smooth' : 'instant';
     hasMountedRef.current = true;
     anchorRef.current?.scrollIntoView({ behavior, block: 'end' });
-  }, [isRefreshing]);
+  }, [isRefreshing, highlightMessageId]);
 
   // Scroll to bottom when pipeline starts so the activity indicator is visible
   useEffect(() => {

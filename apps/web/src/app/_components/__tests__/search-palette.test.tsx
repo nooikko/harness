@@ -269,7 +269,7 @@ describe('SearchPalette', () => {
     });
 
     await user.click(screen.getByRole('option'));
-    expect(mockPush).toHaveBeenCalledWith('/chat/t99');
+    expect(mockPush).toHaveBeenCalledWith('/chat/t99?highlight=m1');
   });
 
   it('navigates to thread for file results', async () => {

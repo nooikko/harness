@@ -58,6 +58,7 @@ const mockRefresh = vi.fn();
 const mockPush = vi.fn();
 vi.mock('next/navigation', () => ({
   useRouter: () => ({ refresh: mockRefresh, push: mockPush }),
+  useSearchParams: () => new URLSearchParams(),
 }));
 
 const { ChatArea } = await import('../chat-area');

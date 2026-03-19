@@ -134,20 +134,27 @@ File: `apps/orchestrator/src/plugin-registry/index.ts`
 
 ```typescript
 const ALL_PLUGINS: PluginDefinition[] = [
-  identityPlugin,       // onBeforeInvoke: injects agent soul + memories (MUST be first)
-  activityPlugin,       // onPipelineStart + onPipelineComplete: persists rich activity records
-  contextPlugin,        // onBeforeInvoke: injects context files + conversation history
-  discordPlugin,        // start/stop: Discord gateway; onSettingsChange: token reload
-  webPlugin,            // start/stop: HTTP server + WebSocket; onBroadcast: WebSocket fan-out
-  cronPlugin,           // start/stop: reads CronJob records, schedules with croner
-  delegationPlugin,     // tools: delegate, checkin; runs delegation loop in background
-  validatorPlugin,      // onTaskComplete: quality-gates sub-agent outputs via rubric
-  metricsPlugin,        // onAfterInvoke: records token usage + cost as Metric rows
-  summarizationPlugin,  // onAfterInvoke: compresses history every 50 messages
-  autoNamerPlugin,      // onMessage: generates thread title after first user message
-  auditPlugin,          // onBroadcast: extracts conversation to ThreadAudit, then deletes thread
-  timePlugin,           // onBeforeInvoke: replaces /current-time tokens; tool: current_time
-  projectPlugin,        // tools: get_project_memory, set_project_memory
+  identityPlugin,         // onBeforeInvoke: injects agent soul + memories (MUST be first)
+  activityPlugin,         // onPipelineStart + onPipelineComplete: persists rich activity records
+  contextPlugin,          // onBeforeInvoke: injects context files + conversation history
+  discordPlugin,          // start/stop: Discord gateway; onSettingsChange: token reload
+  webPlugin,              // start/stop: HTTP server + WebSocket; onBroadcast: WebSocket fan-out
+  cronPlugin,             // start/stop: reads CronJob records, schedules with croner
+  delegationPlugin,       // tools: delegate, checkin; runs delegation loop in background
+  validatorPlugin,        // onTaskComplete: quality-gates sub-agent outputs via rubric
+  metricsPlugin,          // onAfterInvoke: records token usage + cost as Metric rows
+  summarizationPlugin,    // onAfterInvoke: compresses history every 50 messages
+  autoNamerPlugin,        // onMessage: generates thread title after first user message
+  auditPlugin,            // onBroadcast: extracts conversation to ThreadAudit, then deletes thread
+  timePlugin,             // onBeforeInvoke: replaces /current-time tokens; tool: current_time
+  projectPlugin,          // tools: get_project_memory, set_project_memory
+  tasksPlugin,            // tools: task CRUD for UserTask records
+  outlookPlugin,          // tools: email read/send via Microsoft Graph
+  outlookCalendarPlugin,  // tools: calendar events via Microsoft Graph
+  calendarPlugin,         // onBeforeInvoke: injects calendar context
+  musicPlugin,            // tools: music playback control
+  searchPlugin,           // start: Qdrant backfill; onMessage + onPipelineComplete: index content; onBroadcast: re-index threads
+  playwrightPlugin,       // tools: browser automation for E2E testing
 ];
 ```
 
@@ -223,3 +230,9 @@ Plugins can be disabled at runtime via `PluginConfig.enabled` in the database wi
 ### project plugin
 **Tools:** `get_project_memory`, `set_project_memory`
 **Does:** Exposes MCP tools for Claude to read and write the `Project.memory` field associated with the current thread's project. No hooks — tool-only plugin.
+
+### search plugin
+**Hooks:** `onMessage`, `onPipelineComplete`, `onBroadcast`
+**Lifecycle:** `start` (ensure Qdrant collections + backfill existing content), `stop` (abort backfill)
+**Does:** Maintains Qdrant vector indexes for semantic search. Indexes user messages via `onMessage`, assistant responses via `onPipelineComplete`, and re-indexes threads on name change via `onBroadcast('thread:name-updated')`. All indexing is fire-and-forget. On startup, runs a cancellable backfill of existing content. No-op if `QDRANT_URL` is not configured — search degrades to FTS-only.
+**Key behavior:** Uses `@harness/vector-search` package (HuggingFace `all-MiniLM-L6-v2`, 384 dimensions). Truncates content to 512 chars for embedding focus.

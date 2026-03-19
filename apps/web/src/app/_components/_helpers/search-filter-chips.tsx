@@ -11,6 +11,7 @@ type Filters = {
   role?: 'user' | 'assistant';
   hasFile?: boolean;
   fileName?: string;
+  task?: string;
   before?: Date;
   after?: Date;
 };
@@ -47,6 +48,9 @@ const buildEntries: BuildEntries = (filters) => {
   }
   if (filters.fileName) {
     entries.push({ key: 'fileName', label: `file: ${filters.fileName}` });
+  }
+  if (filters.task) {
+    entries.push({ key: 'task', label: `task: ${filters.task}` });
   }
   if (filters.before) {
     entries.push({

@@ -83,7 +83,7 @@ export const MessageItem: MessageItemComponent = ({ message, files }) => {
 
   if (message.role === 'user') {
     return (
-      <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
+      <div data-message-id={message.id} style={{ display: 'flex', justifyContent: 'flex-end' }}>
         <div
           style={{
             background: 'var(--accent-subtle)',
@@ -108,6 +108,7 @@ export const MessageItem: MessageItemComponent = ({ message, files }) => {
   if (message.role === 'assistant') {
     return (
       <article
+        data-message-id={message.id}
         aria-label='Assistant'
         style={{
           background: 'var(--surface-card)',

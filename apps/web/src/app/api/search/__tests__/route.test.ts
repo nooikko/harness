@@ -8,6 +8,7 @@ vi.mock('@harness/database', () => ({
     thread: { findFirst: vi.fn(), findMany: vi.fn(), findUnique: vi.fn() },
     message: { findMany: vi.fn(), findUnique: vi.fn() },
     file: { findMany: vi.fn() },
+    userTask: { findMany: vi.fn() },
   },
   Prisma: {
     sql: (strings: TemplateStringsArray, ...values: unknown[]) => ({ strings, values }),
@@ -53,6 +54,7 @@ describe('POST /api/search', () => {
     vi.mocked(prisma.message.findMany).mockResolvedValue([]);
     vi.mocked(prisma.message.findUnique).mockResolvedValue(null);
     vi.mocked(prisma.file.findMany).mockResolvedValue([]);
+    vi.mocked(prisma.userTask.findMany).mockResolvedValue([]);
   });
 
   it('returns 400 for invalid JSON', async () => {

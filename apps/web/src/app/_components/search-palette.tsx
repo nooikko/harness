@@ -1,7 +1,7 @@
 'use client';
 
 import { CommandDialog, CommandEmpty, CommandFooter, CommandGroup, CommandInput, CommandItem, CommandList } from '@harness/ui';
-import { Clock, FileText, FolderOpen, Hash, Loader2, MessageSquare, User, X } from 'lucide-react';
+import { CheckSquare, Clock, FileText, FolderOpen, Hash, Loader2, MessageSquare, User, X } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { FILTER_PATTERNS, parseSearchFilters } from '@/app/_helpers/parse-search-filters';
@@ -10,7 +10,7 @@ import { SearchFilterChips } from './_helpers/search-filter-chips';
 import { useRecentSearches } from './_helpers/use-recent-searches';
 
 type SearchResult = {
-  type: 'thread' | 'message' | 'file' | 'agent' | 'project';
+  type: 'thread' | 'message' | 'file' | 'agent' | 'project' | 'task';
   id: string;
   title: string;
   preview: string;
@@ -35,6 +35,7 @@ const TYPE_ICONS = {
   file: FileText,
   agent: User,
   project: FolderOpen,
+  task: CheckSquare,
 } as const;
 
 const TYPE_LABELS = {
@@ -43,6 +44,7 @@ const TYPE_LABELS = {
   file: 'Files',
   agent: 'Agents',
   project: 'Projects',
+  task: 'Tasks',
 } as const;
 
 type SearchPaletteComponent = (props: SearchPaletteProps) => React.ReactNode;
@@ -144,7 +146,7 @@ export const SearchPalette: SearchPaletteComponent = ({ open, onOpenChange }) =>
           break;
         case 'message':
           if (result.meta.threadId) {
-            router.push(`/chat/${result.meta.threadId}`);
+            router.push(`/chat/${result.meta.threadId}?highlight=${result.id}`);
           }
           break;
         case 'agent':
@@ -157,6 +159,9 @@ export const SearchPalette: SearchPaletteComponent = ({ open, onOpenChange }) =>
           if (result.meta.threadId) {
             router.push(`/chat/${result.meta.threadId}`);
           }
+          break;
+        case 'task':
+          router.push('/tasks');
           break;
       }
     },
