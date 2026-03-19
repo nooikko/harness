@@ -59,9 +59,7 @@ describe('cron plugin integration', () => {
     await vi.waitFor(
       async () => {
         const job = await prisma.cronJob.findFirst({ where: { agentId: agent.id } });
-        expect(job?.enabled).toBe(false);
-        expect(job?.lastRunAt).toBeDefined();
-        expect(job?.nextRunAt).toBeNull();
+        expect(job).toBeNull();
       },
       { timeout: 10_000 },
     );
@@ -91,20 +89,22 @@ describe('cron plugin integration', () => {
 
     harness = await createTestHarness(cronPlugin);
 
+    // One-shot jobs are deleted after firing, so verify thread creation
+    // by checking that a cron thread was created for this agent
     await vi.waitFor(
       async () => {
-        const job = await prisma.cronJob.findFirst({ where: { agentId: agent.id } });
-        expect(job?.threadId).toBeDefined();
-        expect(job?.threadId).not.toBeNull();
+        const cronThread = await prisma.thread.findFirst({
+          where: { agentId: agent.id, kind: 'cron' },
+        });
+        expect(cronThread).not.toBeNull();
+        expect(cronThread?.agentId).toBe(agent.id);
       },
       { timeout: 10_000 },
     );
 
-    // Verify the auto-created thread has the right kind
+    // Job should be deleted after firing
     const job = await prisma.cronJob.findFirst({ where: { agentId: agent.id } });
-    const createdThread = await prisma.thread.findUnique({ where: { id: job!.threadId! } });
-    expect(createdThread?.kind).toBe('cron');
-    expect(createdThread?.agentId).toBe(agent.id);
+    expect(job).toBeNull();
   });
 
   it('does not fire disabled jobs', async () => {
@@ -178,13 +178,13 @@ describe('cron plugin integration', () => {
 
     harness = await createTestHarness(cronPlugin);
 
-    // Wait for the first job to fire and auto-disable
+    // Wait for the first job to fire and be auto-deleted
     await vi.waitFor(
       async () => {
         const job = await prisma.cronJob.findFirst({
           where: { agentId: agent.id, prompt: 'First job prompt' },
         });
-        expect(job?.enabled).toBe(false);
+        expect(job).toBeNull();
       },
       { timeout: 10_000 },
     );
@@ -212,14 +212,13 @@ describe('cron plugin integration', () => {
     // Trigger hot-reload — this should pick up the newly created second job
     await harness.orchestrator.getContext().notifySettingsChange('cron');
 
-    // Verify the second job fires after reload
+    // Verify the second job fires and is auto-deleted after reload
     await vi.waitFor(
       async () => {
         const job2 = await prisma.cronJob.findFirst({
           where: { agentId: agent.id, prompt: 'Second job prompt' },
         });
-        expect(job2?.enabled).toBe(false);
-        expect(job2?.lastRunAt).toBeDefined();
+        expect(job2).toBeNull();
       },
       { timeout: 10_000 },
     );

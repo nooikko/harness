@@ -30,18 +30,6 @@ export const scheduleOneShot: ScheduleOneShot = (ctx, job, cleanup) => {
   const isPast = fireAtMs <= now;
 
   const fire = async () => {
-    // Disable FIRST — prevents re-scheduling during concurrent hot-reload
-    await ctx.db.cronJob
-      .update({
-        where: { id: job.id },
-        data: { enabled: false },
-      })
-      .catch((err: unknown) => {
-        ctx.logger.error(
-          `Cron plugin: failed to disable one-shot job "${job.name}" before fire: ${err instanceof Error ? err.message : String(err)}`,
-        );
-      });
-
     let threadId: string;
     try {
       threadId = await resolveOrCreateThread(ctx.db, job);
@@ -52,8 +40,6 @@ export const scheduleOneShot: ScheduleOneShot = (ctx, job, cleanup) => {
 
     ctx.logger.info(`Cron plugin: firing one-shot job "${job.name}" on thread ${threadId}`);
 
-    const firedAt = new Date();
-
     try {
       await ctx.sendToThread(threadId, job.prompt);
     } catch (err) {
@@ -61,13 +47,12 @@ export const scheduleOneShot: ScheduleOneShot = (ctx, job, cleanup) => {
     }
 
     await ctx.db.cronJob
-      .update({
+      .delete({
         where: { id: job.id },
-        data: { lastRunAt: firedAt, nextRunAt: null },
       })
-      .catch((updateErr: unknown) => {
+      .catch((deleteErr: unknown) => {
         ctx.logger.error(
-          `Cron plugin: failed to update one-shot job "${job.name}": ${updateErr instanceof Error ? updateErr.message : String(updateErr)}`,
+          `Cron plugin: failed to delete one-shot job "${job.name}": ${deleteErr instanceof Error ? deleteErr.message : String(deleteErr)}`,
         );
       });
 

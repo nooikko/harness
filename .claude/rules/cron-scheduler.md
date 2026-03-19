@@ -80,11 +80,8 @@ On trigger (one-shot):
 2. ctx.sendToThread(threadId, job.prompt)
    — runs the full pipeline, persists assistant response
 
-3. prisma.cronJob.update({
-     where: { id: job.id },
-     data: { lastRunAt: now, nextRunAt: null, enabled: false }
-   })
-   — fire once, then auto-disable
+3. prisma.cronJob.delete({ where: { id: job.id } })
+   — fire once, then auto-delete. No disabled records accumulate.
 ```
 
 On `stop()`:
@@ -206,8 +203,7 @@ One-shot jobs use `fireAt` instead of `schedule`. They fire exactly once at the 
 
 **Behavior on fire:**
 1. Execute the prompt via `ctx.sendToThread`
-2. Set `enabled: false` — the job is auto-disabled after firing
-3. Write `lastRunAt`, clear `nextRunAt` to null
+2. Delete the CronJob record — no disabled records accumulate in the database
 
 **Past-due handling:** If `fireAt` is in the past when the scheduler starts, the job fires immediately. This covers orchestrator restarts that happen after a one-shot was due.
 
