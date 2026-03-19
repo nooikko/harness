@@ -44,6 +44,10 @@ rel_path = os.path.relpath(file_path, project_dir)
 if rel_path.startswith("tests/integration/"):
     sys.exit(0)
 
+# Exempt Playwright E2E tests (use .spec.ts in e2e/tests/ per Playwright convention)
+if "/e2e/" in rel_path:
+    sys.exit(0)
+
 # This is a test file NOT in a __tests__/ directory — block it
 print(f"Test file '{filename}' must be inside a __tests__/ directory.", file=sys.stderr)
 print("", file=sys.stderr)

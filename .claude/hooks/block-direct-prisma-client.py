@@ -43,8 +43,10 @@ if rel_path.startswith("packages/database/"):
 if rel_path.startswith("packages/athena-database/"):
     sys.exit(0)
 
-# Exempt integration tests (they need direct PrismaClient for testcontainer URL)
+# Exempt integration tests and e2e setup (they need direct PrismaClient for testcontainer URL)
 if rel_path.startswith("tests/integration/"):
+    sys.exit(0)
+if rel_path.startswith("apps/web/e2e/"):
     sys.exit(0)
 
 # Exempt generated directories

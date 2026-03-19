@@ -59,3 +59,9 @@ uploads/
 
 .playwright-mcp
 screenshots/
+
+# Playwright E2E
+**/e2e/test-results/
+**/playwright-report/
+**/blob-report/
+.env.e2e

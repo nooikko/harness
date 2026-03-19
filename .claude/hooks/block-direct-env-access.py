@@ -51,6 +51,10 @@ rel_path = os.path.relpath(file_path, project_dir)
 if rel_path.startswith("packages/typescript-config/"):
     sys.exit(0)
 
+# Exempt E2E setup (needs to set DATABASE_URL for testcontainer)
+if "/e2e/" in rel_path:
+    sys.exit(0)
+
 # Check content for direct process.env access
 env_pattern = re.compile(r"process\.env\.")
 

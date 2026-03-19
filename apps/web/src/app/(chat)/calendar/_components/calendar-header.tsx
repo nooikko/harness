@@ -55,6 +55,7 @@ const CalendarHeader: CalendarHeaderComponent = ({ activeSources, onToggleSource
         {/* Today button — mini date card */}
         <button
           type='button'
+          aria-label='Today'
           onClick={handleToday}
           className='group flex h-10 w-10 shrink-0 flex-col items-center justify-center rounded-lg border border-border/50 bg-card transition-colors hover:bg-accent'
         >
@@ -68,6 +69,7 @@ const CalendarHeader: CalendarHeaderComponent = ({ activeSources, onToggleSource
         <div className='flex items-center gap-0.5'>
           <button
             type='button'
+            aria-label='Previous'
             onClick={handlePrev}
             className='flex h-7 w-7 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-accent hover:text-foreground'
           >
@@ -97,6 +99,7 @@ const CalendarHeader: CalendarHeaderComponent = ({ activeSources, onToggleSource
 
           <button
             type='button'
+            aria-label='Next'
             onClick={handleNext}
             className='flex h-7 w-7 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-accent hover:text-foreground'
           >
@@ -214,6 +217,7 @@ const CalendarHeader: CalendarHeaderComponent = ({ activeSources, onToggleSource
               />
               <button
                 type='button'
+                aria-label='Close search'
                 onClick={closeSearch}
                 className='flex h-6 w-6 shrink-0 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-accent hover:text-foreground'
               >
@@ -224,6 +228,7 @@ const CalendarHeader: CalendarHeaderComponent = ({ activeSources, onToggleSource
             <motion.button
               key='closed'
               type='button'
+              aria-label='Search events'
               onClick={() => setSearchOpen(true)}
               className={cn(
                 'flex h-8 w-8 items-center justify-center rounded-lg border transition-colors',

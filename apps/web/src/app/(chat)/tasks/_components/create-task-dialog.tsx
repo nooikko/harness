@@ -42,7 +42,7 @@ export const CreateTaskDialog: CreateTaskDialogComponent = ({ trigger }) => {
   const [description, setDescription] = useState('');
   const [priority, setPriority] = useState('MEDIUM');
   const [dueDate, setDueDate] = useState('');
-  const [projectId, setProjectId] = useState('');
+  const [projectId, setProjectId] = useState('__none__');
 
   useEffect(() => {
     if (open) {
@@ -65,14 +65,14 @@ export const CreateTaskDialog: CreateTaskDialogComponent = ({ trigger }) => {
           description: description.trim() || undefined,
           priority: priority as 'LOW' | 'MEDIUM' | 'HIGH' | 'URGENT',
           dueDate: dueDate ? new Date(dueDate) : undefined,
-          projectId: projectId || undefined,
+          projectId: projectId === '__none__' ? undefined : projectId,
         });
         setOpen(false);
         setTitle('');
         setDescription('');
         setPriority('MEDIUM');
         setDueDate('');
-        setProjectId('');
+        setProjectId('__none__');
         router.refresh();
       });
     },
@@ -133,7 +133,7 @@ export const CreateTaskDialog: CreateTaskDialogComponent = ({ trigger }) => {
                   <SelectValue placeholder='None' />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value=''>None</SelectItem>
+                  <SelectItem value='__none__'>None</SelectItem>
                   {projects.map((p) => (
                     <SelectItem key={p.id} value={p.id}>
                       {p.name}

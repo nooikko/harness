@@ -25,7 +25,9 @@
     "setup": "docker compose up -d && pnpm install && pnpm db:generate && pnpm db:push && pnpm --filter database db:seed",
     "prepare": "husky",
     "plugin:generate": "tsx scripts/generate-plugin-registry.ts",
-    "test:integration": "turbo test:integration"
+    "test:integration": "turbo test:integration",
+    "test:e2e": "pnpm --filter web test:e2e",
+    "test:all": "pnpm test && pnpm test:integration && pnpm test:e2e"
   },
   "devDependencies": {
     "@biomejs/biome": "^2.4.4",

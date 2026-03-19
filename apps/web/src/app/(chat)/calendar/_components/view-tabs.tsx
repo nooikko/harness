@@ -62,6 +62,7 @@ const Views: ViewsComponent = () => {
             >
               <TabsTrigger
                 value={value}
+                aria-label={name}
                 className='flex h-8 w-full items-center justify-center cursor-pointer'
                 style={{ color: isActive ? 'var(--foreground)' : 'var(--muted-foreground)', background: 'none', border: 'none', padding: 0 }}
               >

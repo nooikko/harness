@@ -35,6 +35,7 @@ EXCLUDED_PATTERNS = [
     r"/generated/",  # auto-generated files
     r"^scripts/",  # build/codegen scripts
     r"^tests/",  # integration test infrastructure — not unit-testable source code
+    r"/e2e/",  # Playwright E2E tests — run by Playwright, not Vitest
     r"\.next/",
     r"node_modules/",
     r"dist/",
