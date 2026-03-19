@@ -15,10 +15,7 @@
     },
     "context7": {
       "command": "bash",
-      "args": [
-        "-c",
-        "[ -f ~/.zshrc ] && . ~/.zshrc; [ -f ~/.bashrc ] && . ~/.bashrc; exec npx -y @upstash/context7-mcp@latest --api-key $CONTEXT7_API_KEY"
-      ],
+      "args": ["-c", "[ -f ~/.bashrc ] && . ~/.bashrc; exec npx -y @upstash/context7-mcp@latest --api-key $CONTEXT7_API_KEY"],
       "env": {}
     },
     "playwright": {
