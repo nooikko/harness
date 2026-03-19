@@ -62,7 +62,7 @@ const MusicPluginPage: MusicPluginPageComponent = async () => {
           <h1 className='text-lg font-semibold tracking-tight'>Music Plugin</h1>
           <p className='text-sm text-muted-foreground'>YouTube Music playback via Cast devices.</p>
           {!config?.enabled && (
-            <div className='mt-3 rounded-md border border-yellow-200 bg-yellow-50 p-3 text-sm text-yellow-800'>
+            <div className='mt-3 rounded-md border border-yellow-200 bg-yellow-50 p-3 text-sm text-yellow-800 dark:border-yellow-800 dark:bg-yellow-950 dark:text-yellow-200'>
               This plugin is currently <strong>disabled</strong>. Settings are saved but will not take effect until the plugin is enabled.
             </div>
           )}

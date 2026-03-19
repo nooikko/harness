@@ -5,7 +5,7 @@
 import { EventEmitter } from 'node:events';
 import type { Server as HttpServer } from 'node:http';
 import type { Logger } from '@harness/logger';
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 // ---------------------------------------------------------------------------
 // Fake WebSocket and WebSocketServer
@@ -16,6 +16,8 @@ class FakeWebSocket extends EventEmitter {
   OPEN = 1;
   send = vi.fn();
   close = vi.fn();
+  ping = vi.fn();
+  terminate = vi.fn();
 }
 
 // Shared mutable state so vi.mock closure can update instances
@@ -169,18 +171,6 @@ describe('ws-broadcaster (mocked ws)', () => {
     JSON.stringify = origStringify;
   });
 
-  it('logs error with String(err) when send() throws a non-Error value', () => {
-    const broadcaster = createWsBroadcaster({ server: makeServer(), logger });
-    const socket = new FakeWebSocket();
-    socket.send = vi.fn(() => {
-      throw new Error('plain string error');
-    });
-    simulateConnection(socket);
-    broadcaster.broadcast('oops2', {});
-    expect(logger.error).toHaveBeenCalledWith(expect.stringContaining('plain string error'));
-    expect(broadcaster.getClientCount()).toBe(0);
-  });
-
   it('uses String(err) when send() throws a non-Error object', () => {
     const broadcaster = createWsBroadcaster({ server: makeServer(), logger });
     const socket = new FakeWebSocket();
@@ -203,5 +193,77 @@ describe('ws-broadcaster (mocked ws)', () => {
 
     expect(socket.close).toHaveBeenCalledOnce();
     expect(broadcaster.getClientCount()).toBe(0);
+  });
+});
+
+describe('ping/pong keepalive', () => {
+  let logger: Logger;
+
+  beforeEach(() => {
+    vi.useFakeTimers();
+    vi.clearAllMocks();
+    logger = makeLogger();
+  });
+
+  afterEach(() => {
+    vi.useRealTimers();
+  });
+
+  it('terminates clients that did not respond with pong', () => {
+    const broadcaster = createWsBroadcaster({ server: makeServer(), logger });
+    const socket = new FakeWebSocket();
+    simulateConnection(socket);
+
+    // First tick: sets alive=false, calls ping
+    vi.advanceTimersByTime(30_000);
+    expect(socket.ping).toHaveBeenCalledOnce();
+
+    // Second tick: alive is still false → terminate
+    vi.advanceTimersByTime(30_000);
+    expect(socket.terminate).toHaveBeenCalledOnce();
+    expect(broadcaster.getClientCount()).toBe(0);
+    expect(logger.debug).toHaveBeenCalledWith('WebSocket client terminated (no pong)');
+
+    void broadcaster.close();
+  });
+
+  it('keeps clients alive when they respond with pong', () => {
+    const broadcaster = createWsBroadcaster({ server: makeServer(), logger });
+    const socket = new FakeWebSocket();
+    simulateConnection(socket);
+
+    // First tick: sets alive=false, calls ping
+    vi.advanceTimersByTime(30_000);
+    expect(socket.ping).toHaveBeenCalledOnce();
+
+    // Client responds with pong → alive=true
+    socket.emit('pong');
+
+    // Second tick: alive is true → sets alive=false, pings again (no terminate)
+    vi.advanceTimersByTime(30_000);
+    expect(socket.terminate).not.toHaveBeenCalled();
+    expect(broadcaster.getClientCount()).toBe(1);
+    expect(socket.ping).toHaveBeenCalledTimes(2);
+
+    void broadcaster.close();
+  });
+
+  it('terminates client when pong is missing between intervals', () => {
+    const broadcaster = createWsBroadcaster({ server: makeServer(), logger });
+    const socket = new FakeWebSocket();
+    simulateConnection(socket);
+
+    // First tick: alive starts true → sets alive=false, calls ping
+    vi.advanceTimersByTime(30_000);
+    expect(socket.ping).toHaveBeenCalledOnce();
+
+    // No pong emitted
+
+    // Second tick: alive is still false → terminate
+    vi.advanceTimersByTime(30_000);
+    expect(socket.terminate).toHaveBeenCalledOnce();
+    expect(broadcaster.getClientCount()).toBe(0);
+
+    void broadcaster.close();
   });
 });

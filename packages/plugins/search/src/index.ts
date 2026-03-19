@@ -1,17 +1,17 @@
 // Search indexing plugin — indexes messages and threads into Qdrant for semantic search
-// Hooks: onMessage (index user messages), onPipelineComplete (index assistant responses + thread)
-// Lifecycle: start (ensure collections + backfill)
+// Hooks: onMessage (index user messages), onPipelineComplete (index assistant responses),
+//        onBroadcast (re-index thread on name change)
+// Lifecycle: start (ensure collections + backfill), stop (abort backfill)
 
 import type { PluginContext, PluginDefinition, PluginHooks } from '@harness/plugin-contract';
-import type { QdrantClient } from '@harness/vector-search';
 import { ensureCollections, getQdrantClient } from '@harness/vector-search';
 import { backfill } from './_helpers/backfill.js';
-import { indexMessage } from './_helpers/index-message.js';
+import { indexText } from './_helpers/index-text.js';
 import { indexThread } from './_helpers/index-thread.js';
 
-type IndexInBackground = (ctx: PluginContext, qdrant: QdrantClient, fn: () => Promise<void>) => void;
+type IndexInBackground = (ctx: PluginContext, fn: () => Promise<void>) => void;
 
-const indexInBackground: IndexInBackground = (ctx, _qdrant, fn) => {
+const indexInBackground: IndexInBackground = (ctx, fn) => {
   void (async () => {
     try {
       await fn();
@@ -20,6 +20,8 @@ const indexInBackground: IndexInBackground = (ctx, _qdrant, fn) => {
     }
   })();
 };
+
+let backfillAbort: AbortController | null = null;
 
 export const plugin: PluginDefinition = {
   name: 'search',
@@ -34,42 +36,51 @@ export const plugin: PluginDefinition = {
     await ensureCollections(qdrant);
     ctx.logger.info('search: Qdrant collections ready');
 
-    // Fire-and-forget backfill on startup
+    // Fire-and-forget backfill on startup with cancellation support
+    backfillAbort = new AbortController();
+    const { signal } = backfillAbort;
     void (async () => {
       try {
-        await backfill(qdrant, ctx.db, ctx.logger);
+        await backfill(qdrant, ctx.db, ctx.logger, signal);
       } catch (err) {
-        ctx.logger.warn(`search: backfill failed: ${err}`);
+        if (!signal.aborted) {
+          ctx.logger.warn(`search: backfill failed: ${err}`);
+        }
       }
     })();
+  },
+  stop: async (ctx: PluginContext) => {
+    if (backfillAbort) {
+      backfillAbort.abort();
+      backfillAbort = null;
+      ctx.logger.info('search: backfill aborted on shutdown');
+    }
   },
   register: async (ctx: PluginContext): Promise<PluginHooks> => {
     ctx.logger.info('Search indexing plugin registered');
 
     return {
-      onMessage: async (threadId, role, content) => {
+      onMessage: async (threadId, _role, content) => {
         const qdrant = getQdrantClient();
         if (!qdrant) {
           return;
         }
 
-        // Only index user messages — assistant messages are indexed via onPipelineComplete
-        if (role !== 'user') {
+        // Only index user messages — assistant messages are indexed via onPipelineComplete.
+        // Use the content param directly instead of querying the DB to avoid race conditions
+        // when concurrent pipelines arrive for the same thread.
+        if (_role !== 'user') {
           return;
         }
 
-        // Find the message just persisted (most recent user message in thread)
-        const message = await ctx.db.message.findFirst({
-          where: { threadId, role: 'user' },
-          orderBy: { createdAt: 'desc' },
-          select: { id: true },
-        });
-
-        if (!message) {
-          return;
-        }
-
-        indexInBackground(ctx, qdrant, () => indexMessage(qdrant, ctx.db, message.id));
+        const pointId = crypto.randomUUID();
+        indexInBackground(ctx, () =>
+          indexText(qdrant, pointId, content, {
+            threadId,
+            role: 'user',
+            createdAt: new Date().toISOString(),
+          }),
+        );
       },
 
       onPipelineComplete: async (threadId, result) => {
@@ -78,21 +89,41 @@ export const plugin: PluginDefinition = {
           return;
         }
 
-        // Index the assistant response if it produced text output
-        if (result.invokeResult?.output) {
-          const assistantMsg = await ctx.db.message.findFirst({
-            where: { threadId, role: 'assistant', kind: 'text' },
-            orderBy: { createdAt: 'desc' },
-            select: { id: true },
-          });
-
-          if (assistantMsg) {
-            indexInBackground(ctx, qdrant, () => indexMessage(qdrant, ctx.db, assistantMsg.id));
-          }
+        // Index the assistant response directly from invokeResult.output.
+        // onPipelineComplete fires BEFORE the assistant message is persisted to the DB,
+        // so querying db.message would return the previous assistant message (wrong).
+        const output = result.invokeResult?.output;
+        if (output) {
+          const pointId = crypto.randomUUID();
+          indexInBackground(ctx, () =>
+            indexText(qdrant, pointId, output, {
+              threadId,
+              role: 'assistant',
+              createdAt: new Date().toISOString(),
+            }),
+          );
         }
 
-        // Re-index the thread (name may have been updated by auto-namer)
-        indexInBackground(ctx, qdrant, () => indexThread(qdrant, ctx.db, threadId));
+        // Thread re-indexing is handled by onBroadcast('thread:name-updated')
+        // to avoid racing with the auto-namer plugin.
+      },
+
+      onBroadcast: async (event, data) => {
+        if (event !== 'thread:name-updated') {
+          return;
+        }
+
+        const qdrant = getQdrantClient();
+        if (!qdrant) {
+          return;
+        }
+
+        const { threadId } = data as { threadId: string };
+        if (!threadId) {
+          return;
+        }
+
+        indexInBackground(ctx, () => indexThread(qdrant, ctx.db, threadId));
       },
     };
   },

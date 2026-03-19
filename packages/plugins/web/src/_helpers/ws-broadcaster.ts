@@ -17,13 +17,21 @@ export type WsBroadcaster = {
 
 type CreateWsBroadcaster = (deps: WsBroadcasterDeps) => WsBroadcaster;
 
+const PING_INTERVAL_MS = 30_000;
+
 export const createWsBroadcaster: CreateWsBroadcaster = ({ server, logger }) => {
   const wss = new WebSocketServer({ server, path: '/ws' });
   const clients = new Set<WebSocket>();
+  const alive = new WeakMap<WebSocket, boolean>();
 
   wss.on('connection', (ws) => {
     clients.add(ws);
+    alive.set(ws, true);
     logger.info('WebSocket client connected', { total: clients.size });
+
+    ws.on('pong', () => {
+      alive.set(ws, true);
+    });
 
     ws.on('close', () => {
       clients.delete(ws);
@@ -35,6 +43,20 @@ export const createWsBroadcaster: CreateWsBroadcaster = ({ server, logger }) => 
       clients.delete(ws);
     });
   });
+
+  // Ping all clients periodically — terminate any that did not respond with pong
+  const pingInterval = setInterval(() => {
+    for (const client of clients) {
+      if (!alive.get(client)) {
+        client.terminate();
+        clients.delete(client);
+        logger.debug('WebSocket client terminated (no pong)');
+        continue;
+      }
+      alive.set(client, false);
+      client.ping();
+    }
+  }, PING_INTERVAL_MS);
 
   return {
     broadcast: (event, data) => {
@@ -67,6 +89,7 @@ export const createWsBroadcaster: CreateWsBroadcaster = ({ server, logger }) => 
 
     close: () =>
       new Promise<void>((resolve) => {
+        clearInterval(pingInterval);
         for (const client of clients) {
           client.close();
         }

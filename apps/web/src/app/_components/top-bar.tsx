@@ -1,6 +1,7 @@
 import { prisma } from '@harness/database';
 import Link from 'next/link';
 import { SearchTrigger } from './search-trigger';
+import { ThemeToggle } from './theme-toggle';
 import { UserMenu } from './user-menu';
 
 type TopBarComponent = () => Promise<React.ReactNode>;
@@ -21,7 +22,10 @@ export const TopBar: TopBarComponent = async () => {
       <div className='mx-auto'>
         <SearchTrigger />
       </div>
-      <UserMenu name={name} />
+      <div className='flex items-center gap-2'>
+        <ThemeToggle />
+        <UserMenu name={name} />
+      </div>
     </header>
   );
 };

@@ -2,7 +2,7 @@
 
 import type { PrismaClient } from '@harness/database';
 import type { Logger } from '@harness/logger';
-import { createChildLogger } from '@harness/logger';
+import { createChildLogger, writeErrorToDb } from '@harness/logger';
 import type {
   InvokeResult,
   Invoker,
@@ -145,18 +145,15 @@ export const createOrchestrator: CreateOrchestrator = (deps) => {
             });
 
             // Write to ErrorLog for /admin/errors visibility
-            void deps.db.errorLog
-              .create({
-                data: {
-                  level: 'error',
-                  source: 'orchestrator',
-                  message: `Pipeline returned no output: ${errorMsg}`,
-                  traceId,
-                  threadId,
-                  metadata: { exitCode: invokeResult.exitCode ?? null, durationMs: invokeResult.durationMs },
-                },
-              })
-              .catch(() => {}); // Fire-and-forget — must not mask the original error
+            writeErrorToDb({
+              db: deps.db,
+              level: 'error',
+              source: 'orchestrator',
+              message: `Pipeline returned no output: ${errorMsg}`,
+              traceId,
+              threadId,
+              metadata: { exitCode: invokeResult.exitCode ?? null, durationMs: invokeResult.durationMs },
+            });
 
             await context.broadcast('pipeline:error', { threadId, error: errorMsg, traceId });
           }
@@ -193,18 +190,15 @@ export const createOrchestrator: CreateOrchestrator = (deps) => {
             });
 
             // Write to ErrorLog for /admin/errors visibility
-            void deps.db.errorLog
-              .create({
-                data: {
-                  level: 'error',
-                  source: 'orchestrator',
-                  message: `Pipeline threw: ${errorMsg}`,
-                  stack: error instanceof Error ? error.stack : undefined,
-                  threadId,
-                  metadata: {},
-                },
-              })
-              .catch(() => {});
+            writeErrorToDb({
+              db: deps.db,
+              level: 'error',
+              source: 'orchestrator',
+              message: `Pipeline threw: ${errorMsg}`,
+              stack: error instanceof Error ? error.stack : undefined,
+              threadId,
+              metadata: {},
+            });
 
             await context.broadcast('pipeline:error', { threadId, error: errorMsg });
             await context.broadcast('pipeline:complete', { threadId, error: true });
@@ -439,6 +433,13 @@ export const createOrchestrator: CreateOrchestrator = (deps) => {
           } catch (error) {
             const message = error instanceof Error ? error.message : String(error);
             deps.logger.error(`Plugin start failed [plugin=${plugin.definition.name}]: ${message}`);
+            writeErrorToDb({
+              db: deps.db,
+              level: 'error',
+              source: plugin.definition.name,
+              message: `Plugin start failed: ${message}`,
+              stack: error instanceof Error ? error.stack : undefined,
+            });
             pluginHealth.push({ name: plugin.definition.name, status: 'failed', error: message });
             statusRegistry.report(plugin.definition.name, 'error', `Start failed: ${message}`);
           }

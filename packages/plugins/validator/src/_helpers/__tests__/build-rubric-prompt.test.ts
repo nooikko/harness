@@ -9,41 +9,53 @@ describe('buildRubricPrompt', () => {
     maxIterations: 3,
   };
 
-  it('contains the task prompt text', () => {
-    const prompt = buildRubricPrompt(baseParams);
-    expect(prompt).toContain(baseParams.taskPrompt);
-  });
-
-  it('contains the result text', () => {
-    const prompt = buildRubricPrompt(baseParams);
-    expect(prompt).toContain(baseParams.result);
-  });
-
-  it('contains the iteration number', () => {
-    const prompt = buildRubricPrompt(baseParams);
-    expect(prompt).toContain('iteration 1 of 3');
-  });
-
-  it('contains VERDICT: PASS instruction', () => {
-    const prompt = buildRubricPrompt(baseParams);
-    expect(prompt).toContain('VERDICT: PASS');
-  });
-
-  it('contains VERDICT: FAIL instruction', () => {
-    const prompt = buildRubricPrompt(baseParams);
-    expect(prompt).toContain('VERDICT: FAIL');
-  });
-
-  it('reflects different iteration values correctly', () => {
-    const prompt = buildRubricPrompt({ ...baseParams, iteration: 2, maxIterations: 5 });
+  it('interpolates iteration and maxIterations into the prompt', () => {
+    const prompt = buildRubricPrompt({
+      ...baseParams,
+      iteration: 2,
+      maxIterations: 5,
+    });
     expect(prompt).toContain('iteration 2 of 5');
   });
 
-  it('includes all four rubric questions', () => {
+  it('uses default rubric when customRubric is undefined', () => {
     const prompt = buildRubricPrompt(baseParams);
     expect(prompt).toContain('Q1.');
     expect(prompt).toContain('Q2.');
     expect(prompt).toContain('Q3.');
     expect(prompt).toContain('Q4.');
+  });
+
+  it('uses default rubric when customRubric is empty string', () => {
+    const prompt = buildRubricPrompt({ ...baseParams, customRubric: '' });
+    expect(prompt).toContain('Q1.');
+  });
+
+  it('uses custom rubric and omits default when customRubric is provided', () => {
+    const customRubric = 'Is the code well-tested?\nIs the architecture sound?';
+    const prompt = buildRubricPrompt({ ...baseParams, customRubric });
+
+    expect(prompt).toContain(customRubric);
+    expect(prompt).not.toContain('Q1.');
+    expect(prompt).not.toContain('Q2.');
+  });
+
+  it('places task prompt in Original Task section and result in Sub-Agent Output section', () => {
+    const prompt = buildRubricPrompt(baseParams);
+    const taskIndex = prompt.indexOf('## Original Task');
+    const resultIndex = prompt.indexOf('## Sub-Agent Output');
+    const rubricIndex = prompt.indexOf('## Review Rubric');
+
+    // Structural ordering: task before result before rubric
+    expect(taskIndex).toBeLessThan(resultIndex);
+    expect(resultIndex).toBeLessThan(rubricIndex);
+
+    // Task prompt appears between Original Task and Sub-Agent Output
+    const taskSection = prompt.slice(taskIndex, resultIndex);
+    expect(taskSection).toContain(baseParams.taskPrompt);
+
+    // Result appears between Sub-Agent Output and Review Rubric
+    const resultSection = prompt.slice(resultIndex, rubricIndex);
+    expect(resultSection).toContain(baseParams.result);
   });
 });

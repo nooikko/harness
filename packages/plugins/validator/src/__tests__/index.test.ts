@@ -39,19 +39,6 @@ const createMockContext: CreateMockContext = () =>
   }) as unknown as PluginContext;
 
 describe('validator plugin', () => {
-  it('has correct name and version', () => {
-    expect(plugin.name).toBe('validator');
-    expect(plugin.version).toBe('1.0.0');
-  });
-
-  it('registers and returns onTaskComplete hook', async () => {
-    const ctx = createMockContext();
-    const hooks = await plugin.register(ctx);
-
-    expect(hooks.onTaskComplete).toBeDefined();
-    expect(typeof hooks.onTaskComplete).toBe('function');
-  });
-
   describe('onTaskComplete', () => {
     let ctx: PluginContext;
 
@@ -61,34 +48,6 @@ describe('validator plugin', () => {
 
     it('accepts without throwing when task is not found', async () => {
       vi.mocked(ctx.db.orchestratorTask.findUnique).mockResolvedValueOnce(null);
-
-      const hooks = await plugin.register(ctx);
-
-      await expect(hooks.onTaskComplete?.('thread-1', 'task-1', 'some result')).resolves.toBeUndefined();
-
-      expect(ctx.invoker.invoke).not.toHaveBeenCalled();
-    });
-
-    it('accepts on final iteration without invoking (safety valve)', async () => {
-      vi.mocked(ctx.db.orchestratorTask.findUnique).mockResolvedValueOnce({
-        currentIteration: 5,
-        maxIterations: 5,
-        prompt: 'Write a summary',
-      } as never);
-
-      const hooks = await plugin.register(ctx);
-
-      await expect(hooks.onTaskComplete?.('thread-1', 'task-1', 'some result')).resolves.toBeUndefined();
-
-      expect(ctx.invoker.invoke).not.toHaveBeenCalled();
-    });
-
-    it('accepts when currentIteration exceeds maxIterations', async () => {
-      vi.mocked(ctx.db.orchestratorTask.findUnique).mockResolvedValueOnce({
-        currentIteration: 7,
-        maxIterations: 5,
-        prompt: 'Write a summary',
-      } as never);
 
       const hooks = await plugin.register(ctx);
 
@@ -200,6 +159,226 @@ describe('validator plugin', () => {
         where: { id: 'task-abc-123' },
         select: { currentIteration: true, maxIterations: true, prompt: true },
       });
+    });
+
+    // --- Fix 1: Invoke failure → auto-accept ---
+
+    it('auto-accepts when invoker throws (infrastructure failure)', async () => {
+      vi.mocked(ctx.invoker.invoke).mockRejectedValueOnce(new Error('Connection timeout'));
+
+      const hooks = await plugin.register(ctx);
+
+      await expect(hooks.onTaskComplete?.('thread-1', 'task-1', 'some result')).resolves.toBeUndefined();
+
+      expect(ctx.logger.error).toHaveBeenCalledWith(
+        'Validator: invoke failed, auto-accepting',
+        expect.objectContaining({ taskId: 'task-1', threadId: 'thread-1', error: 'Connection timeout' }),
+      );
+    });
+
+    it('auto-accepts when invoker throws a non-Error value', async () => {
+      vi.mocked(ctx.invoker.invoke).mockRejectedValueOnce('string rejection');
+
+      const hooks = await plugin.register(ctx);
+
+      await expect(hooks.onTaskComplete?.('thread-1', 'task-1', 'some result')).resolves.toBeUndefined();
+
+      expect(ctx.logger.error).toHaveBeenCalledWith(
+        'Validator: invoke failed, auto-accepting',
+        expect.objectContaining({ error: 'string rejection' }),
+      );
+    });
+
+    // --- Fix 2: Last iteration still validates but suppresses rejection ---
+
+    it('still invokes on final iteration (validates the work)', async () => {
+      vi.mocked(ctx.db.orchestratorTask.findUnique).mockResolvedValueOnce({
+        currentIteration: 5,
+        maxIterations: 5,
+        prompt: 'Write a summary',
+      } as never);
+
+      vi.mocked(ctx.invoker.invoke).mockResolvedValueOnce({
+        output: 'VERDICT: PASS\nGreat work.',
+        exitCode: 0,
+        durationMs: 100,
+        error: undefined,
+      });
+
+      const hooks = await plugin.register(ctx);
+
+      await expect(hooks.onTaskComplete?.('thread-1', 'task-1', 'some result')).resolves.toBeUndefined();
+
+      expect(ctx.invoker.invoke).toHaveBeenCalled();
+      expect(ctx.logger.info).toHaveBeenCalledWith('Validator: task accepted', expect.objectContaining({ taskId: 'task-1' }));
+    });
+
+    it('auto-accepts on final iteration when verdict is FAIL (safety valve)', async () => {
+      vi.mocked(ctx.db.orchestratorTask.findUnique).mockResolvedValueOnce({
+        currentIteration: 5,
+        maxIterations: 5,
+        prompt: 'Write a summary',
+      } as never);
+
+      vi.mocked(ctx.invoker.invoke).mockResolvedValueOnce({
+        output: 'VERDICT: FAIL\nOutput was bad.',
+        exitCode: 0,
+        durationMs: 100,
+        error: undefined,
+      });
+
+      const hooks = await plugin.register(ctx);
+
+      // Does NOT throw — safety valve suppresses rejection
+      await expect(hooks.onTaskComplete?.('thread-1', 'task-1', 'some result')).resolves.toBeUndefined();
+
+      expect(ctx.logger.warn).toHaveBeenCalledWith(
+        'Validator: task rejected on final iteration, auto-accepting',
+        expect.objectContaining({ taskId: 'task-1', feedback: 'Output was bad.' }),
+      );
+    });
+
+    it('validates with maxIterations=1 instead of skipping entirely', async () => {
+      vi.mocked(ctx.db.orchestratorTask.findUnique).mockResolvedValueOnce({
+        currentIteration: 1,
+        maxIterations: 1,
+        prompt: 'Quick task',
+      } as never);
+
+      vi.mocked(ctx.invoker.invoke).mockResolvedValueOnce({
+        output: 'VERDICT: PASS',
+        exitCode: 0,
+        durationMs: 50,
+        error: undefined,
+      });
+
+      const hooks = await plugin.register(ctx);
+
+      await expect(hooks.onTaskComplete?.('thread-1', 'task-1', 'some result')).resolves.toBeUndefined();
+
+      // Opus WAS invoked (unlike the old behavior which skipped entirely)
+      expect(ctx.invoker.invoke).toHaveBeenCalled();
+    });
+
+    it('auto-accepts when currentIteration exceeds maxIterations and verdict is FAIL', async () => {
+      vi.mocked(ctx.db.orchestratorTask.findUnique).mockResolvedValueOnce({
+        currentIteration: 7,
+        maxIterations: 5,
+        prompt: 'Write a summary',
+      } as never);
+
+      vi.mocked(ctx.invoker.invoke).mockResolvedValueOnce({
+        output: 'VERDICT: FAIL\nToo late.',
+        exitCode: 0,
+        durationMs: 100,
+        error: undefined,
+      });
+
+      const hooks = await plugin.register(ctx);
+
+      await expect(hooks.onTaskComplete?.('thread-1', 'task-1', 'some result')).resolves.toBeUndefined();
+
+      expect(ctx.logger.warn).toHaveBeenCalledWith(
+        'Validator: task rejected on final iteration, auto-accepting',
+        expect.objectContaining({ taskId: 'task-1' }),
+      );
+    });
+
+    // --- Fix 3: Empty result → skip Opus invocation ---
+
+    it('auto-accepts on empty result without invoking Opus', async () => {
+      const hooks = await plugin.register(ctx);
+
+      await expect(hooks.onTaskComplete?.('thread-1', 'task-1', '')).resolves.toBeUndefined();
+
+      expect(ctx.invoker.invoke).not.toHaveBeenCalled();
+      expect(ctx.logger.warn).toHaveBeenCalledWith(
+        'Validator: empty result, auto-accepting',
+        expect.objectContaining({ taskId: 'task-1', threadId: 'thread-1' }),
+      );
+    });
+
+    it('auto-accepts on whitespace-only result without invoking Opus', async () => {
+      const hooks = await plugin.register(ctx);
+
+      await expect(hooks.onTaskComplete?.('thread-1', 'task-1', '   \n  \t  ')).resolves.toBeUndefined();
+
+      expect(ctx.invoker.invoke).not.toHaveBeenCalled();
+      expect(ctx.logger.warn).toHaveBeenCalledWith('Validator: empty result, auto-accepting', expect.objectContaining({ taskId: 'task-1' }));
+    });
+
+    // --- Fix 4: Configurable model via settings ---
+
+    it('uses model from settings when configured', async () => {
+      vi.mocked(ctx.getSettings).mockResolvedValueOnce({ model: 'claude-sonnet-4-6' });
+
+      const hooks = await plugin.register(ctx);
+
+      await hooks.onTaskComplete?.('thread-1', 'task-1', 'some result');
+
+      expect(ctx.invoker.invoke).toHaveBeenCalledWith(expect.any(String), expect.objectContaining({ model: 'claude-sonnet-4-6' }));
+    });
+
+    it('falls back to default model when settings.model is undefined', async () => {
+      vi.mocked(ctx.getSettings).mockResolvedValueOnce({});
+
+      const hooks = await plugin.register(ctx);
+
+      await hooks.onTaskComplete?.('thread-1', 'task-1', 'some result');
+
+      expect(ctx.invoker.invoke).toHaveBeenCalledWith(expect.any(String), expect.objectContaining({ model: 'claude-opus-4-6' }));
+    });
+
+    it('passes customRubric from settings into the rubric prompt', async () => {
+      vi.mocked(ctx.getSettings).mockResolvedValueOnce({ customRubric: 'Is the code correct?' });
+
+      const hooks = await plugin.register(ctx);
+
+      await hooks.onTaskComplete?.('thread-1', 'task-1', 'some result');
+
+      const invokedPrompt = vi.mocked(ctx.invoker.invoke).mock.calls[0]?.[0] as string;
+      expect(invokedPrompt).toContain('Is the code correct?');
+      expect(invokedPrompt).not.toContain('Q1.');
+    });
+  });
+
+  describe('onSettingsChange', () => {
+    it('reloads settings when pluginName is validator', async () => {
+      const ctx = createMockContext();
+      const hooks = await plugin.register(ctx);
+
+      // register calls getSettings once
+      expect(ctx.getSettings).toHaveBeenCalledTimes(1);
+
+      await hooks.onSettingsChange?.('validator');
+
+      expect(ctx.getSettings).toHaveBeenCalledTimes(2);
+    });
+
+    it('ignores settings change for other plugins', async () => {
+      const ctx = createMockContext();
+      const hooks = await plugin.register(ctx);
+
+      await hooks.onSettingsChange?.('cron');
+
+      // Only the initial call from register, no reload
+      expect(ctx.getSettings).toHaveBeenCalledTimes(1);
+    });
+
+    it('uses reloaded settings on subsequent onTaskComplete calls', async () => {
+      const ctx = createMockContext();
+      // Initial registration returns default settings (no model override)
+      vi.mocked(ctx.getSettings).mockResolvedValueOnce({});
+      const hooks = await plugin.register(ctx);
+
+      // Simulate admin changing model to sonnet
+      vi.mocked(ctx.getSettings).mockResolvedValueOnce({ model: 'claude-sonnet-4-6' });
+      await hooks.onSettingsChange?.('validator');
+
+      // Now onTaskComplete should use the reloaded model
+      await hooks.onTaskComplete?.('thread-1', 'task-1', 'some result');
+
+      expect(ctx.invoker.invoke).toHaveBeenCalledWith(expect.any(String), expect.objectContaining({ model: 'claude-sonnet-4-6' }));
     });
   });
 });

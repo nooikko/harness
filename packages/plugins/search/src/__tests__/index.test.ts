@@ -9,8 +9,8 @@ vi.mock('../_helpers/backfill', () => ({
   backfill: vi.fn().mockResolvedValue(undefined),
 }));
 
-vi.mock('../_helpers/index-message', () => ({
-  indexMessage: vi.fn().mockResolvedValue(undefined),
+vi.mock('../_helpers/index-text', () => ({
+  indexText: vi.fn().mockResolvedValue(undefined),
 }));
 
 vi.mock('../_helpers/index-thread', () => ({
@@ -18,16 +18,14 @@ vi.mock('../_helpers/index-thread', () => ({
 }));
 
 const { getQdrantClient, ensureCollections } = await import('@harness/vector-search');
-await import('../_helpers/backfill');
-const { indexMessage } = await import('../_helpers/index-message');
+const { backfill } = await import('../_helpers/backfill');
+const { indexText } = await import('../_helpers/index-text');
 const { indexThread } = await import('../_helpers/index-thread');
 const { plugin } = await import('../index');
 
 const createMockCtx = () => ({
   logger: { info: vi.fn(), warn: vi.fn(), error: vi.fn(), debug: vi.fn() },
-  db: {
-    message: { findFirst: vi.fn().mockResolvedValue(null) },
-  },
+  db: {},
 });
 
 describe('search plugin', () => {
@@ -60,17 +58,54 @@ describe('search plugin', () => {
       expect(ensureCollections).toHaveBeenCalled();
       expect(ctx.logger.info).toHaveBeenCalledWith(expect.stringContaining('collections ready'));
     });
+
+    it('logs warning when backfill rejects (non-abort error path)', async () => {
+      vi.mocked(getQdrantClient).mockReturnValue({} as never);
+      vi.mocked(backfill).mockRejectedValueOnce(new Error('DB connection failed'));
+      const ctx = createMockCtx();
+
+      await plugin.start!(ctx as never);
+
+      await vi.waitFor(() => {
+        expect(ctx.logger.warn).toHaveBeenCalledWith(expect.stringContaining('backfill failed'));
+      });
+    });
+
+    it('passes AbortSignal to backfill', async () => {
+      vi.mocked(getQdrantClient).mockReturnValue({} as never);
+      const ctx = createMockCtx();
+
+      await plugin.start!(ctx as never);
+
+      await vi.waitFor(() => {
+        expect(backfill).toHaveBeenCalledWith(expect.anything(), expect.anything(), expect.anything(), expect.any(AbortSignal));
+      });
+    });
+  });
+
+  describe('stop', () => {
+    it('aborts backfill on shutdown', async () => {
+      vi.mocked(getQdrantClient).mockReturnValue({} as never);
+      const ctx = createMockCtx();
+
+      await plugin.start!(ctx as never);
+      await plugin.stop!(ctx as never);
+
+      expect(ctx.logger.info).toHaveBeenCalledWith(expect.stringContaining('backfill aborted'));
+    });
+
+    it('is safe to call when Qdrant was not configured', async () => {
+      vi.mocked(getQdrantClient).mockReturnValue(null);
+      const ctx = createMockCtx();
+
+      await plugin.start!(ctx as never);
+      await plugin.stop!(ctx as never);
+
+      expect(ctx.logger.info).not.toHaveBeenCalledWith(expect.stringContaining('backfill aborted'));
+    });
   });
 
   describe('register', () => {
-    it('returns hooks object', async () => {
-      const ctx = createMockCtx();
-      const hooks = await plugin.register(ctx as never);
-
-      expect(hooks.onMessage).toBeDefined();
-      expect(hooks.onPipelineComplete).toBeDefined();
-    });
-
     describe('onMessage', () => {
       it('skips when Qdrant is not configured', async () => {
         vi.mocked(getQdrantClient).mockReturnValue(null);
@@ -78,7 +113,7 @@ describe('search plugin', () => {
         const hooks = await plugin.register(ctx as never);
 
         await hooks.onMessage!('t1', 'user', 'hello');
-        expect(indexMessage).not.toHaveBeenCalled();
+        expect(indexText).not.toHaveBeenCalled();
       });
 
       it('skips non-user messages', async () => {
@@ -87,31 +122,37 @@ describe('search plugin', () => {
         const hooks = await plugin.register(ctx as never);
 
         await hooks.onMessage!('t1', 'assistant', 'hello');
-        expect(ctx.db.message.findFirst).not.toHaveBeenCalled();
+        expect(indexText).not.toHaveBeenCalled();
       });
 
-      it('indexes user messages', async () => {
+      it('logs warning when indexText throws (fire-and-forget error path)', async () => {
         vi.mocked(getQdrantClient).mockReturnValue({} as never);
+        vi.mocked(indexText).mockRejectedValueOnce(new Error('Qdrant connection lost'));
         const ctx = createMockCtx();
-        ctx.db.message.findFirst.mockResolvedValue({ id: 'm1' });
         const hooks = await plugin.register(ctx as never);
 
         await hooks.onMessage!('t1', 'user', 'hello');
 
-        // indexMessage is called in background (fire-and-forget)
         await vi.waitFor(() => {
-          expect(indexMessage).toHaveBeenCalledWith(expect.anything(), expect.anything(), 'm1');
+          expect(ctx.logger.warn).toHaveBeenCalledWith(expect.stringContaining('indexing failed'));
         });
       });
 
-      it('skips when no message found in DB', async () => {
+      it('indexes user messages using content param directly (no DB query)', async () => {
         vi.mocked(getQdrantClient).mockReturnValue({} as never);
         const ctx = createMockCtx();
-        ctx.db.message.findFirst.mockResolvedValue(null);
         const hooks = await plugin.register(ctx as never);
 
-        await hooks.onMessage!('t1', 'user', 'hello');
-        expect(indexMessage).not.toHaveBeenCalled();
+        await hooks.onMessage!('t1', 'user', 'hello world');
+
+        await vi.waitFor(() => {
+          expect(indexText).toHaveBeenCalledWith(
+            expect.anything(),
+            expect.any(String),
+            'hello world',
+            expect.objectContaining({ threadId: 't1', role: 'user' }),
+          );
+        });
       });
     });
 
@@ -122,17 +163,12 @@ describe('search plugin', () => {
         const hooks = await plugin.register(ctx as never);
 
         await hooks.onPipelineComplete!('t1', { invokeResult: { output: 'hi' } } as never);
-        expect(indexMessage).not.toHaveBeenCalled();
-        expect(indexThread).not.toHaveBeenCalled();
+        expect(indexText).not.toHaveBeenCalled();
       });
 
-      it('indexes assistant response and thread', async () => {
+      it('indexes assistant response from invokeResult.output (not from DB)', async () => {
         vi.mocked(getQdrantClient).mockReturnValue({} as never);
         const ctx = createMockCtx();
-        (ctx.db as Record<string, unknown>).message = {
-          ...ctx.db.message,
-          findFirst: vi.fn().mockResolvedValue({ id: 'a1' }),
-        };
         const hooks = await plugin.register(ctx as never);
 
         await hooks.onPipelineComplete!('t1', {
@@ -140,8 +176,12 @@ describe('search plugin', () => {
         } as never);
 
         await vi.waitFor(() => {
-          expect(indexMessage).toHaveBeenCalled();
-          expect(indexThread).toHaveBeenCalled();
+          expect(indexText).toHaveBeenCalledWith(
+            expect.anything(),
+            expect.any(String),
+            'response text',
+            expect.objectContaining({ threadId: 't1', role: 'assistant' }),
+          );
         });
       });
 
@@ -154,11 +194,101 @@ describe('search plugin', () => {
           invokeResult: { output: '' },
         } as never);
 
-        // Thread should still be indexed even without output
+        expect(indexText).not.toHaveBeenCalled();
+      });
+
+      it('skips indexing when invokeResult is null', async () => {
+        vi.mocked(getQdrantClient).mockReturnValue({} as never);
+        const ctx = createMockCtx();
+        const hooks = await plugin.register(ctx as never);
+
+        await hooks.onPipelineComplete!('t1', { invokeResult: null } as never);
+        expect(indexText).not.toHaveBeenCalled();
+      });
+
+      it('skips indexing when invokeResult is undefined', async () => {
+        vi.mocked(getQdrantClient).mockReturnValue({} as never);
+        const ctx = createMockCtx();
+        const hooks = await plugin.register(ctx as never);
+
+        await hooks.onPipelineComplete!('t1', {} as never);
+        expect(indexText).not.toHaveBeenCalled();
+      });
+
+      it('does not re-index thread (moved to onBroadcast)', async () => {
+        vi.mocked(getQdrantClient).mockReturnValue({} as never);
+        const ctx = createMockCtx();
+        const hooks = await plugin.register(ctx as never);
+
+        await hooks.onPipelineComplete!('t1', {
+          invokeResult: { output: 'hi' },
+        } as never);
+
+        // indexThread should NOT be called from onPipelineComplete
+        expect(indexThread).not.toHaveBeenCalled();
+      });
+    });
+
+    describe('onBroadcast', () => {
+      it('ignores non-thread:name-updated events', async () => {
+        vi.mocked(getQdrantClient).mockReturnValue({} as never);
+        const ctx = createMockCtx();
+        const hooks = await plugin.register(ctx as never);
+
+        await hooks.onBroadcast!('pipeline:complete', { threadId: 't1' });
+        expect(indexThread).not.toHaveBeenCalled();
+      });
+
+      it('skips when Qdrant is not configured', async () => {
+        vi.mocked(getQdrantClient).mockReturnValue(null);
+        const ctx = createMockCtx();
+        const hooks = await plugin.register(ctx as never);
+
+        await hooks.onBroadcast!('thread:name-updated', { threadId: 't1', name: 'New Name' });
+        expect(indexThread).not.toHaveBeenCalled();
+      });
+
+      it('re-indexes thread on thread:name-updated', async () => {
+        vi.mocked(getQdrantClient).mockReturnValue({} as never);
+        const ctx = createMockCtx();
+        const hooks = await plugin.register(ctx as never);
+
+        await hooks.onBroadcast!('thread:name-updated', { threadId: 't1', name: 'New Name' });
+
         await vi.waitFor(() => {
-          expect(indexThread).toHaveBeenCalled();
+          expect(indexThread).toHaveBeenCalledWith(expect.anything(), expect.anything(), 't1');
         });
-        expect(ctx.db.message.findFirst).not.toHaveBeenCalled();
+      });
+
+      it('logs warning when indexThread throws (fire-and-forget error path)', async () => {
+        vi.mocked(getQdrantClient).mockReturnValue({} as never);
+        vi.mocked(indexThread).mockRejectedValueOnce(new Error('Qdrant timeout'));
+        const ctx = createMockCtx();
+        const hooks = await plugin.register(ctx as never);
+
+        await hooks.onBroadcast!('thread:name-updated', { threadId: 't1' });
+
+        await vi.waitFor(() => {
+          expect(ctx.logger.warn).toHaveBeenCalledWith(expect.stringContaining('indexing failed'));
+        });
+      });
+
+      it('throws when broadcast data is null', async () => {
+        vi.mocked(getQdrantClient).mockReturnValue({} as never);
+        const ctx = createMockCtx();
+        const hooks = await plugin.register(ctx as never);
+
+        await expect(hooks.onBroadcast!('thread:name-updated', null as never)).rejects.toThrow();
+        expect(indexThread).not.toHaveBeenCalled();
+      });
+
+      it('skips when threadId is missing from broadcast data', async () => {
+        vi.mocked(getQdrantClient).mockReturnValue({} as never);
+        const ctx = createMockCtx();
+        const hooks = await plugin.register(ctx as never);
+
+        await hooks.onBroadcast!('thread:name-updated', {});
+        expect(indexThread).not.toHaveBeenCalled();
       });
     });
   });

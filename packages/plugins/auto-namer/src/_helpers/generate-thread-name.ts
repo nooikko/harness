@@ -12,7 +12,14 @@ export const generateThreadName: GenerateThreadName = async (ctx, content, custo
 
   const result = await ctx.invoker.invoke(prompt, {
     model: 'claude-haiku-4-5-20251001',
+    maxTokens: 30,
   });
 
-  return result.output.trim();
+  if (result.error || (result.exitCode !== null && result.exitCode !== 0)) {
+    return '';
+  }
+
+  const MAX_NAME_LENGTH = 100;
+  const name = result.output.trim();
+  return name.length > MAX_NAME_LENGTH ? name.slice(0, MAX_NAME_LENGTH) : name;
 };

@@ -57,7 +57,7 @@ export const plugin: PluginDefinition = {
         const count = await ctx.db.message.count({
           where: { threadId, role: 'user' },
         });
-        if (count !== 1) {
+        if (count < 1) {
           return;
         }
 

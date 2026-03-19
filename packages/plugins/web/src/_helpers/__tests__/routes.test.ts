@@ -143,6 +143,32 @@ describe('routes', () => {
       expect(testCtx.onChatMessage).toHaveBeenCalledWith('t1', 'spaced');
     });
 
+    it('returns 400 when content is not a string', async () => {
+      const res = await fetch(`${testCtx.baseUrl}/api/chat`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ threadId: 't1', content: 123 }),
+      });
+      const body = (await res.json()) as JsonResponse;
+
+      expect(res.status).toBe(400);
+      expect(body.error).toBe('Missing or invalid content');
+      expect(testCtx.onChatMessage).not.toHaveBeenCalled();
+    });
+
+    it('returns 400 when content is only whitespace', async () => {
+      const res = await fetch(`${testCtx.baseUrl}/api/chat`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ threadId: 't1', content: '   ' }),
+      });
+      const body = (await res.json()) as JsonResponse;
+
+      expect(res.status).toBe(400);
+      expect(body.error).toBe('Missing or invalid content');
+      expect(testCtx.onChatMessage).not.toHaveBeenCalled();
+    });
+
     it('returns 400 when threadId is missing', async () => {
       const res = await fetch(`${testCtx.baseUrl}/api/chat`, {
         method: 'POST',
@@ -211,7 +237,7 @@ describe('routes', () => {
   });
 
   describe('GET /api/threads', () => {
-    it('returns threads from database', async () => {
+    it('returns threads with default pagination', async () => {
       const mockThreads = [
         {
           id: 't1',
@@ -231,8 +257,10 @@ describe('routes', () => {
 
       expect(res.status).toBe(200);
       expect(body.threads).toEqual(mockThreads);
+      expect(body.nextCursor).toBeUndefined();
       expect(testCtx.mockDb.thread.findMany).toHaveBeenCalledWith({
         orderBy: { lastActivity: 'desc' },
+        take: 101,
         select: {
           id: true,
           source: true,
@@ -244,6 +272,49 @@ describe('routes', () => {
           createdAt: true,
         },
       });
+    });
+
+    it('returns nextCursor when more results exist', async () => {
+      const mockThreads = Array.from({ length: 101 }, (_, i) => ({
+        id: `t${i}`,
+        source: 'web',
+        sourceId: `s${i}`,
+        name: `Thread ${i}`,
+        kind: 'general',
+        status: 'active',
+        lastActivity: new Date().toISOString(),
+        createdAt: new Date().toISOString(),
+      }));
+      testCtx.mockDb.thread.findMany.mockResolvedValue(mockThreads);
+
+      const res = await fetch(`${testCtx.baseUrl}/api/threads`);
+      const body = (await res.json()) as JsonResponse;
+
+      expect(res.status).toBe(200);
+      expect((body.threads as unknown[]).length).toBe(100);
+      expect(body.nextCursor).toBe('t99');
+    });
+
+    it('accepts limit and cursor query params', async () => {
+      testCtx.mockDb.thread.findMany.mockResolvedValue([]);
+
+      await fetch(`${testCtx.baseUrl}/api/threads?limit=10&cursor=t5`);
+
+      expect(testCtx.mockDb.thread.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          take: 11,
+          cursor: { id: 't5' },
+          skip: 1,
+        }),
+      );
+    });
+
+    it('caps limit at 500', async () => {
+      testCtx.mockDb.thread.findMany.mockResolvedValue([]);
+
+      await fetch(`${testCtx.baseUrl}/api/threads?limit=9999`);
+
+      expect(testCtx.mockDb.thread.findMany).toHaveBeenCalledWith(expect.objectContaining({ take: 501 }));
     });
 
     it('returns 500 when database query fails with Error', async () => {
@@ -268,7 +339,7 @@ describe('routes', () => {
   });
 
   describe('GET /api/tasks', () => {
-    it('returns tasks from database', async () => {
+    it('returns tasks with default pagination', async () => {
       const mockTasks = [
         {
           id: 'task1',
@@ -289,6 +360,51 @@ describe('routes', () => {
 
       expect(res.status).toBe(200);
       expect(body.tasks).toEqual(mockTasks);
+      expect(body.nextCursor).toBeUndefined();
+    });
+
+    it('returns nextCursor when more results exist', async () => {
+      const mockTasks = Array.from({ length: 101 }, (_, i) => ({
+        id: `task${i}`,
+        threadId: 't1',
+        status: 'completed',
+        prompt: 'do something',
+        currentIteration: 1,
+        maxIterations: 3,
+        result: 'done',
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+      }));
+      testCtx.mockDb.orchestratorTask.findMany.mockResolvedValue(mockTasks);
+
+      const res = await fetch(`${testCtx.baseUrl}/api/tasks`);
+      const body = (await res.json()) as JsonResponse;
+
+      expect(res.status).toBe(200);
+      expect((body.tasks as unknown[]).length).toBe(100);
+      expect(body.nextCursor).toBe('task99');
+    });
+
+    it('accepts limit and cursor query params', async () => {
+      testCtx.mockDb.orchestratorTask.findMany.mockResolvedValue([]);
+
+      await fetch(`${testCtx.baseUrl}/api/tasks?limit=10&cursor=task5`);
+
+      expect(testCtx.mockDb.orchestratorTask.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          take: 11,
+          cursor: { id: 'task5' },
+          skip: 1,
+        }),
+      );
+    });
+
+    it('caps limit at 500', async () => {
+      testCtx.mockDb.orchestratorTask.findMany.mockResolvedValue([]);
+
+      await fetch(`${testCtx.baseUrl}/api/tasks?limit=9999`);
+
+      expect(testCtx.mockDb.orchestratorTask.findMany).toHaveBeenCalledWith(expect.objectContaining({ take: 501 }));
     });
 
     it('returns 500 when database query fails with Error', async () => {
@@ -582,6 +698,19 @@ describe('routes', () => {
   });
 
   describe('POST /api/broadcast', () => {
+    it('returns 403 for blocked destructive events', async () => {
+      const res = await fetch(`${testCtx.baseUrl}/api/broadcast`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ event: 'audit:requested', data: { threadId: 't1' } }),
+      });
+      const body = (await res.json()) as JsonResponse;
+
+      expect(res.status).toBe(403);
+      expect(body.error).toBe('Event "audit:requested" is not allowed via this endpoint');
+      expect(testCtx.mockBroadcast).not.toHaveBeenCalled();
+    });
+
     it('broadcasts event and data, returns ok', async () => {
       testCtx.mockBroadcast.mockResolvedValue(undefined);
 
@@ -859,6 +988,20 @@ describe('plugin route mounting', () => {
     const [_ctx, req] = mockHandler.mock.calls[0] as [unknown, { body: unknown; params: Record<string, string>; query: Record<string, string> }];
     expect(req.body).toEqual({ track: 'song.mp3' });
     expect(req.query).toEqual(expect.objectContaining({ shuffle: 'true' }));
+  });
+
+  it('flattens repeated query params to last value', async () => {
+    mockHandler.mockResolvedValue({ status: 200, body: { ok: true } });
+
+    await fetch(`${pluginBaseUrl}/api/plugins/music/play?genre=rock&genre=jazz`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({}),
+    });
+
+    const [_ctx, req] = mockHandler.mock.calls[0] as [unknown, { query: Record<string, string> }];
+    expect(req.query.genre).toBe('jazz');
+    expect(typeof req.query.genre).toBe('string');
   });
 
   it('passes the plugin ctx (not the web ctx) to handler', async () => {

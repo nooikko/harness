@@ -2,9 +2,13 @@ import type { Logger } from '@harness/logger';
 import type { OrchestratorConfig, PluginDefinition } from '@harness/plugin-contract';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
-vi.mock('@harness/logger', () => ({
-  createLogger: vi.fn(),
-}));
+vi.mock('@harness/logger', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('@harness/logger')>();
+  return {
+    ...actual,
+    createLogger: vi.fn(),
+  };
+});
 
 vi.mock('@harness/database', () => ({
   prisma: {
@@ -16,6 +20,9 @@ vi.mock('@harness/database', () => ({
     },
     thread: {
       update: vi.fn().mockResolvedValue({}),
+    },
+    errorLog: {
+      create: vi.fn().mockResolvedValue({}),
     },
   },
 }));

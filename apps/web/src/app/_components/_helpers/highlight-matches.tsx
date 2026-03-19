@@ -27,7 +27,7 @@ export const highlightMatches: HighlightMatches = (text, query) => {
   return parts.map((part, i) => {
     if (classifier.test(part)) {
       return (
-        <mark key={i} className='rounded-sm bg-yellow-200/30 text-foreground'>
+        <mark key={i} className='rounded-sm bg-yellow-200/30 text-foreground dark:bg-yellow-500/20'>
           {part}
         </mark>
       );

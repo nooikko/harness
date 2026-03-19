@@ -5,6 +5,8 @@ import { buildRubricPrompt } from './_helpers/build-rubric-prompt';
 import { parseVerdict } from './_helpers/parse-verdict';
 import { settingsSchema } from './_helpers/settings-schema';
 
+const DEFAULT_MODEL = 'claude-opus-4-6';
+
 type CreateRegister = () => PluginDefinition['register'];
 
 const createRegister: CreateRegister = () => {
@@ -28,10 +30,19 @@ const createRegister: CreateRegister = () => {
           select: { currentIteration: true, maxIterations: true, prompt: true },
         });
 
-        // Safety valve: never block the last iteration (prevents infinite loops)
-        if (!task || task.currentIteration >= task.maxIterations) {
+        if (!task) {
           return;
         }
+
+        const isLastIteration = task.currentIteration >= task.maxIterations;
+
+        // Fix 3: Skip Opus invocation for empty results — nothing to evaluate
+        if (!result.trim()) {
+          ctx.logger.warn('Validator: empty result, auto-accepting', { taskId, threadId });
+          return;
+        }
+
+        const model = settings.model ?? DEFAULT_MODEL;
 
         const rubricPrompt = buildRubricPrompt({
           taskPrompt: task.prompt,
@@ -41,12 +52,24 @@ const createRegister: CreateRegister = () => {
           customRubric: settings.customRubric,
         });
 
-        const invokeResult = await ctx.invoker.invoke(rubricPrompt, {
-          model: 'claude-opus-4-6',
-          threadId: `validator-${threadId}`,
-        });
+        // Fix 1: Invoker failures auto-accept instead of masquerading as quality rejections
+        let output: string;
+        try {
+          const invokeResult = await ctx.invoker.invoke(rubricPrompt, {
+            model,
+            threadId: `validator-${threadId}`,
+          });
+          output = invokeResult.output;
+        } catch (err) {
+          ctx.logger.error('Validator: invoke failed, auto-accepting', {
+            taskId,
+            threadId,
+            error: err instanceof Error ? err.message : String(err),
+          });
+          return;
+        }
 
-        const { verdict, feedback } = parseVerdict(invokeResult.output);
+        const { verdict, feedback } = parseVerdict(output);
 
         if (verdict === 'pass') {
           ctx.logger.info('Validator: task accepted', { taskId, threadId });
@@ -54,6 +77,11 @@ const createRegister: CreateRegister = () => {
         }
 
         if (verdict === 'fail') {
+          // Fix 2: Still validate on last iteration but suppress rejection (safety valve)
+          if (isLastIteration) {
+            ctx.logger.warn('Validator: task rejected on final iteration, auto-accepting', { taskId, threadId, feedback });
+            return;
+          }
           ctx.logger.warn('Validator: task rejected', { taskId, threadId, feedback });
           throw new Error(feedback);
         }

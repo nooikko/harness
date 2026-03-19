@@ -1,5 +1,6 @@
 import type { Metadata } from 'next';
 import { Figtree } from 'next/font/google';
+import { ThemeProvider } from './_components/theme-provider';
 import { TopBar } from './_components/top-bar';
 import { WsProvider } from './_components/ws-provider';
 import './globals.css';
@@ -19,12 +20,14 @@ type RootLayoutComponent = (props: RootLayoutProps) => Promise<React.ReactNode>;
 
 const RootLayout: RootLayoutComponent = async ({ children }) => {
   return (
-    <html lang='en'>
+    <html lang='en' suppressHydrationWarning>
       <body className={`${figtree.variable} flex h-screen flex-col`}>
-        <WsProvider>
-          <TopBar />
-          <div className='flex min-h-0 flex-1'>{children}</div>
-        </WsProvider>
+        <ThemeProvider>
+          <WsProvider>
+            <TopBar />
+            <div className='flex min-h-0 flex-1'>{children}</div>
+          </WsProvider>
+        </ThemeProvider>
       </body>
     </html>
   );

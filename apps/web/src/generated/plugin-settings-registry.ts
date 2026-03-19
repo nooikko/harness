@@ -27,6 +27,12 @@ export const pluginSettingsRegistry: PluginSettingsEntry[] = [
         "type": "string",
         "label": "Custom Validation Rubric",
         "description": "Override the default validation rubric prompt used to evaluate delegated task outputs. Leave empty for the default rubric."
+      },
+      {
+        "name": "model",
+        "type": "string",
+        "label": "Validation Model",
+        "description": "Model to use for validation invocations. Defaults to claude-opus-4-6."
       }
     ]
   },
@@ -52,6 +58,13 @@ export const pluginSettingsRegistry: PluginSettingsEntry[] = [
         "type": "string",
         "label": "Custom Summarization Prompt",
         "description": "Override the default summarization prompt. The conversation history will be appended after this text."
+      },
+      {
+        "name": "model",
+        "type": "string",
+        "label": "Summarization Model",
+        "description": "Model used for generating summaries. Defaults to claude-haiku-4-5-20251001.",
+        "default": "claude-haiku-4-5-20251001"
       }
     ]
   },
@@ -160,6 +173,13 @@ export const pluginSettingsRegistry: PluginSettingsEntry[] = [
         "label": "Reflection Boost",
         "description": "Extra score added to REFLECTION-type memories during retrieval. Higher values prioritize reflections over episodic memories.",
         "default": 0.3
+      },
+      {
+        "name": "semanticBoost",
+        "type": "number",
+        "label": "User Insight Boost",
+        "description": "Extra score added to SEMANTIC (user insight) memories during retrieval. Higher values prioritize user facts over episodic memories.",
+        "default": 0.3
       }
     ]
   },
@@ -173,6 +193,13 @@ export const pluginSettingsRegistry: PluginSettingsEntry[] = [
         "description": "Discord bot token from the Developer Portal. Stored encrypted at rest.",
         "secret": true,
         "required": true
+      },
+      {
+        "name": "allowedChannelIds",
+        "type": "string",
+        "label": "Allowed Channel IDs",
+        "description": "Comma-separated Discord channel IDs. When set, the bot only responds in these channels. Leave empty to allow all channels.",
+        "required": false
       }
     ]
   },

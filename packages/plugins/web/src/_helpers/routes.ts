@@ -50,8 +50,14 @@ export const createApp: CreateApp = ({ ctx, logger, onChatMessage }) => {
       return;
     }
 
+    const content = body.content.trim();
+    if (!content) {
+      res.status(400).json({ error: 'Missing or invalid content' });
+      return;
+    }
+
     try {
-      await onChatMessage(body.threadId, body.content.trim());
+      await onChatMessage(body.threadId, content);
       res.json({ success: true, threadId: body.threadId });
     } catch (err) {
       const message = err instanceof Error ? err.message : String(err);
@@ -126,11 +132,21 @@ export const createApp: CreateApp = ({ ctx, logger, onChatMessage }) => {
   });
 
   // POST /api/broadcast — generic event broadcast to WebSocket clients
+  // Blocklist: events that trigger destructive plugin side effects via onBroadcast hooks.
+  // These have dedicated endpoints (e.g., POST /api/audit-delete) and must not be reachable
+  // through the generic broadcast path.
+  const BLOCKED_BROADCAST_EVENTS = new Set(['audit:requested']);
+
   app.post('/api/broadcast', async (req: Request, res: Response) => {
     const body = req.body as Partial<{ event: string; data: unknown }>;
 
     if (!body.event || typeof body.event !== 'string') {
       res.status(400).json({ error: 'Missing or invalid event' });
+      return;
+    }
+
+    if (BLOCKED_BROADCAST_EVENTS.has(body.event)) {
+      res.status(403).json({ error: `Event "${body.event}" is not allowed via this endpoint` });
       return;
     }
 
@@ -144,11 +160,15 @@ export const createApp: CreateApp = ({ ctx, logger, onChatMessage }) => {
     }
   });
 
-  // GET /api/threads — list all threads
-  app.get('/api/threads', async (_req: Request, res: Response) => {
+  // GET /api/threads — list threads (paginated, default 100)
+  app.get('/api/threads', async (req: Request, res: Response) => {
     try {
+      const take = Math.min(Number(req.query.limit) || 100, 500);
+      const cursor = typeof req.query.cursor === 'string' ? req.query.cursor : undefined;
       const threads = await ctx.db.thread.findMany({
         orderBy: { lastActivity: 'desc' },
+        take: take + 1,
+        ...(cursor ? { cursor: { id: cursor }, skip: 1 } : {}),
         select: {
           id: true,
           source: true,
@@ -160,7 +180,10 @@ export const createApp: CreateApp = ({ ctx, logger, onChatMessage }) => {
           createdAt: true,
         },
       });
-      res.json({ threads });
+      const hasMore = threads.length > take;
+      const items = hasMore ? threads.slice(0, take) : threads;
+      const nextCursor = hasMore ? items[items.length - 1]?.id : undefined;
+      res.json({ threads: items, nextCursor });
     } catch (err) {
       const message = err instanceof Error ? err.message : String(err);
       logger.error('Threads endpoint error', { error: message });
@@ -168,11 +191,15 @@ export const createApp: CreateApp = ({ ctx, logger, onChatMessage }) => {
     }
   });
 
-  // GET /api/tasks — list all tasks
-  app.get('/api/tasks', async (_req: Request, res: Response) => {
+  // GET /api/tasks — list tasks (paginated, default 100)
+  app.get('/api/tasks', async (req: Request, res: Response) => {
     try {
+      const take = Math.min(Number(req.query.limit) || 100, 500);
+      const cursor = typeof req.query.cursor === 'string' ? req.query.cursor : undefined;
       const tasks = await ctx.db.orchestratorTask.findMany({
         orderBy: { createdAt: 'desc' },
+        take: take + 1,
+        ...(cursor ? { cursor: { id: cursor }, skip: 1 } : {}),
         select: {
           id: true,
           threadId: true,
@@ -185,7 +212,10 @@ export const createApp: CreateApp = ({ ctx, logger, onChatMessage }) => {
           updatedAt: true,
         },
       });
-      res.json({ tasks });
+      const hasMore = tasks.length > take;
+      const items = hasMore ? tasks.slice(0, take) : tasks;
+      const nextCursor = hasMore ? items[items.length - 1]?.id : undefined;
+      res.json({ tasks: items, nextCursor });
     } catch (err) {
       const message = err instanceof Error ? err.message : String(err);
       logger.error('Tasks endpoint error', { error: message });
@@ -273,10 +303,19 @@ export const mountPluginRoutes: MountPluginRoutes = (app, ctx, logger) => {
       const method = route.method.toLowerCase() as 'get' | 'post' | 'put' | 'delete';
       app[method](fullPath, async (req: Request, res: Response) => {
         try {
+          // Flatten Express ParsedQs to Record<string, string> — repeated params take last value
+          const query: Record<string, string> = {};
+          for (const [key, val] of Object.entries(req.query)) {
+            if (typeof val === 'string') {
+              query[key] = val;
+            } else if (Array.isArray(val) && val.length > 0) {
+              query[key] = String(val[val.length - 1]);
+            }
+          }
           const pluginReq = {
             body: req.body as unknown,
             params: req.params as Record<string, string>,
-            query: req.query as Record<string, string>,
+            query,
           };
           const result = await route.handler(pluginEntry.ctx, pluginReq);
           res.status(result.status).json(result.body);

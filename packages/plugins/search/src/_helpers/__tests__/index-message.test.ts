@@ -60,6 +60,23 @@ describe('indexMessage', () => {
     expect(upsertPoint).not.toHaveBeenCalled();
   });
 
+  it('skips messages with null content', async () => {
+    const db = {
+      message: {
+        findUnique: vi.fn().mockResolvedValue({
+          id: 'm1',
+          content: null,
+          role: 'user',
+          kind: 'text',
+          threadId: 't1',
+          createdAt: new Date(),
+        }),
+      },
+    };
+    await indexMessage({} as never, db as never, 'm1');
+    expect(upsertPoint).not.toHaveBeenCalled();
+  });
+
   it('skips messages with empty content', async () => {
     const db = {
       message: {

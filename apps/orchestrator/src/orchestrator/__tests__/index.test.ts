@@ -5,14 +5,18 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import type { OrchestratorDeps } from '../index';
 import { createOrchestrator } from '../index';
 
-vi.mock('@harness/logger', () => ({
-  createChildLogger: vi.fn((_parent: unknown, _context: unknown) => ({
-    debug: vi.fn(),
-    info: vi.fn(),
-    warn: vi.fn(),
-    error: vi.fn(),
-  })),
-}));
+vi.mock('@harness/logger', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('@harness/logger')>();
+  return {
+    ...actual,
+    createChildLogger: vi.fn((_parent: unknown, _context: unknown) => ({
+      debug: vi.fn(),
+      info: vi.fn(),
+      warn: vi.fn(),
+      error: vi.fn(),
+    })),
+  };
+});
 
 vi.mock('../_helpers/run-chain-hooks', () => ({
   runChainHooks: vi.fn().mockImplementation((_hooks, _threadId, prompt) => Promise.resolve(prompt)),
@@ -526,6 +530,28 @@ describe('createOrchestrator', () => {
       expect(statusCalls).toHaveLength(1);
       expect(statusCalls[0]![0].data.content).toBe('Pipeline failed: Connection refused');
       expect(statusCalls[0]![0].data.metadata).toEqual({ event: 'pipeline_error', error: 'Connection refused' });
+    });
+
+    it('writes to ErrorLog when pipeline throws', async () => {
+      const deps = makeDeps({
+        invoker: { invoke: vi.fn().mockRejectedValue(new Error('Connection refused')) } as unknown as Invoker,
+      });
+      const orchestrator = createOrchestrator(deps);
+
+      await orchestrator.getContext().sendToThread('thread-1', 'hello');
+
+      // Allow fire-and-forget to flush
+      await new Promise((r) => setTimeout(r, 10));
+
+      expect(deps.db.errorLog.create as ReturnType<typeof vi.fn>).toHaveBeenCalledWith({
+        data: expect.objectContaining({
+          level: 'error',
+          source: 'orchestrator',
+          message: 'Pipeline threw: Connection refused',
+          threadId: 'thread-1',
+          metadata: {},
+        }),
+      });
     });
 
     it('calls runNotifyHooks with onPipelineStart', async () => {

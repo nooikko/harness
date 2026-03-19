@@ -1,7 +1,7 @@
 // Bootstrap and lifecycle manager — orchestrator entry point
 
 import { prisma } from '@harness/database';
-import { createLogger } from '@harness/logger';
+import { createLogger, writeErrorToDb } from '@harness/logger';
 import { validateEncryptionKeyIfSet } from '@harness/oauth';
 import type { PluginDefinition } from '@harness/plugin-contract';
 import { state as delegationState } from '@harness/plugin-delegation';
@@ -94,9 +94,17 @@ export const boot: Boot = async () => {
     try {
       await orchestrator.registerPlugin(plugin);
     } catch (err) {
+      const errorMsg = err instanceof Error ? err.message : String(err);
       logger.error('Failed to register plugin', {
         plugin: plugin.name,
-        error: err instanceof Error ? err.message : String(err),
+        error: errorMsg,
+      });
+      writeErrorToDb({
+        db: prisma,
+        level: 'error',
+        source: plugin.name,
+        message: `Plugin registration failed: ${errorMsg}`,
+        stack: err instanceof Error ? err.stack : undefined,
       });
     }
   }
@@ -215,11 +223,27 @@ export const main = async (): Promise<void> => {
     logger.error('Unhandled promise rejection', {
       error: reason instanceof Error ? reason.message : String(reason),
     });
+    writeErrorToDb({
+      db: prisma,
+      level: 'error',
+      source: 'process',
+      message: `Unhandled rejection: ${reason instanceof Error ? reason.message : String(reason)}`,
+      stack: reason instanceof Error ? reason.stack : undefined,
+    });
   });
 
   process.on('uncaughtException', (err: Error) => {
     logger.error('Uncaught exception — initiating shutdown', {
       error: err.message,
+      stack: err.stack,
+    });
+    // Best-effort: this fire-and-forget write races against process.exit below.
+    // The DB row may not land if shutdown + exit completes first.
+    writeErrorToDb({
+      db: prisma,
+      level: 'error',
+      source: 'process',
+      message: `Uncaught exception: ${err.message}`,
       stack: err.stack,
     });
     const doShutdown = shutdownFn ?? (() => Promise.resolve());
