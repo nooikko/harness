@@ -44,6 +44,7 @@ const getCalendarEvents: GetCalendarEvents = async (input) => {
     organizer: evt.organizer,
     attendees: evt.attendees as CalendarEventRow['attendees'],
     isCancelled: evt.isCancelled,
+    cronJobId: evt.sourceCronId ?? null,
   }));
 };
 

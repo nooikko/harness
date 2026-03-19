@@ -12,7 +12,7 @@ const SOURCE_STYLES: Record<CalendarEventSource, SourceStyle> = {
   LOCAL: { color: '#9333EA', icon: Star, label: 'Local' },
   MEMORY: { color: '#F59E0B', icon: Brain, label: 'Memory' },
   TASK: { color: '#22C55E', icon: CheckSquare, label: 'Task' },
-  CRON: { color: '#6B7280', icon: Clock, label: 'Scheduled' },
+  CRON: { color: '#EA580C', icon: Clock, label: 'Scheduled' },
 };
 
 type CategoryStyle = {
