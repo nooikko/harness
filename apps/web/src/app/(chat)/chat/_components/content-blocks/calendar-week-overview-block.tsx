@@ -64,7 +64,7 @@ const CalendarWeekOverviewBlock: CalendarWeekOverviewBlockComponent = ({ data })
             >
               <span className='text-[10px] text-muted-foreground uppercase'>{weekday}</span>
               <span className={`text-sm font-medium ${isToday ? 'text-primary' : 'text-foreground'}`}>{dayNum}</span>
-              <div className='flex items-center gap-0.5 mt-1 min-h-[12px]'>
+              <div className='flex items-center gap-0.5 mt-1 min-h-3'>
                 {day.events.slice(0, 5).map((evt) => (
                   <span
                     key={evt.id}

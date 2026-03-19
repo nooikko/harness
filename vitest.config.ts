@@ -27,6 +27,11 @@ export default defineConfig({
       'packages/plugins/search',
       'packages/vector-search',
       'packages/database',
+      'packages/oauth',
+      'packages/plugins/validator',
+      'packages/plugins/outlook',
+      'packages/plugins/outlook-calendar',
+      'packages/plugins/calendar',
     ],
     coverage: {
       provider: 'v8',

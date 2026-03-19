@@ -46,7 +46,7 @@ const NowPlayingBlock: NowPlayingBlockComponent = ({ data }) => {
         </div>
         <div className='flex shrink-0 items-center gap-2 text-xs text-muted-foreground'>
           <Speaker className='h-3 w-3' />
-          <span className='truncate max-w-[100px]'>{deviceName}</span>
+          <span className='truncate max-w-25'>{deviceName}</span>
         </div>
       </div>
 

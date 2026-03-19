@@ -15,6 +15,7 @@ type CalendarEventRow = {
   organizer: string | null;
   attendees: Array<{ name: string; email: string; response: string }> | null;
   isCancelled: boolean;
+  cronJobId: string | null;
 };
 
 export type { CalendarEventRow };

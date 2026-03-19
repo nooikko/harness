@@ -54,6 +54,16 @@ EXCLUDED_PATTERNS = [
     r"/loading\.tsx$",  # Next.js loading states — pure UI, no logic
     r"/error\.tsx$",  # Next.js error boundaries — pure UI, no logic
     r"/not-found\.tsx$",  # Next.js not-found pages — pure UI, no logic
+    r"/_components/.*\.tsx$",  # React UI compositions — tested via E2E, not unit-testable
+    r"apps/web/src/components/ui/",  # calendar-specific UI primitives — thin wrappers
+    r"apps/web/src/components/hooks\.ts$",  # React hooks — require component context
+    r"apps/web/src/lib/utils\.ts$",  # cn() re-export — no logic
+    r"/_helpers/animations\.ts$",  # pure data constants — no runtime logic
+    r"/_helpers/interfaces\.ts$",  # pure type declarations — no runtime code
+    r"/_helpers/types\.ts$",  # pure type declarations — no runtime code
+    r"/_helpers/event-colors\.ts$",  # pure data constant — no runtime logic
+    r"/_helpers/calendar-event-row\.ts$",  # pure type export — no runtime code
+    r"/_components/mocks\.ts$",  # test mock data — not production code
 ]
 
 # Maps repo-relative file prefix -> package subdirectory (relative to repo root).

@@ -35,15 +35,10 @@ const CalendarPage: CalendarPageComponent = async ({ searchParams }) => {
   const view = (params.view as 'week' | 'day' | 'month-grid') ?? 'week';
 
   return (
-    <div className='flex h-full flex-col'>
-      <div className='flex items-center justify-between border-b px-6 py-3'>
-        <h1 className='text-lg font-semibold'>Calendar</h1>
-      </div>
-      <div className='flex-1 overflow-hidden'>
-        <Suspense fallback={<div className='flex h-full items-center justify-center text-muted-foreground'>Loading calendar...</div>}>
-          <CalendarEventsLoader defaultView={view} />
-        </Suspense>
-      </div>
+    <div className='h-full overflow-hidden'>
+      <Suspense fallback={<div className='flex h-full items-center justify-center text-muted-foreground'>Loading calendar…</div>}>
+        <CalendarEventsLoader defaultView={view} />
+      </Suspense>
     </div>
   );
 };
