@@ -18,7 +18,7 @@ export default mergeConfig(
     test: {
       name: 'dashboard',
       setupFiles: ['./vitest.setup.ts'],
-      exclude: ['e2e/**', 'node_modules/**'],
+      exclude: ['e2e/**', 'node_modules/**', '.next/**'],
     },
   }),
 );

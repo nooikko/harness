@@ -452,3 +452,43 @@ model ErrorLog {
   @@index([createdAt])
   @@index([traceId])
 }
+
+// ── SSH Plugin ──────────────────────────────────────────────────────────
+
+model SshHost {
+  id          String    @id @default(cuid())
+  name        String    @unique
+  hostname    String
+  port        Int       @default(22)
+  username    String
+  authMethod  String    @default("key") // "key" or "password"
+  privateKey  String?   @db.Text // PEM-encoded, encrypted at rest
+  fingerprint String?   // Host key fingerprint (TOFU)
+  tags        String[]
+  enabled     Boolean   @default(true)
+  lastSeenAt  DateTime?
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  commandLogs SshCommandLog[]
+
+  @@index([name])
+  @@index([enabled])
+}
+
+model SshCommandLog {
+  id        String   @id @default(cuid())
+  hostId    String
+  host      SshHost  @relation(fields: [hostId], references: [id], onDelete: Cascade)
+  command   String   @db.Text
+  exitCode  Int?
+  stdout    String?  @db.Text
+  stderr    String?  @db.Text
+  duration  Int?     // milliseconds
+  threadId  String?
+  agentId   String?
+  createdAt DateTime @default(now())
+
+  @@index([hostId, createdAt])
+  @@index([threadId])
+}

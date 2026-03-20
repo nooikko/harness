@@ -204,6 +204,9 @@ importers:
       '@harness/plugin-search':
         specifier: workspace:*
         version: link:../../packages/plugins/search
+      '@harness/plugin-ssh':
+        specifier: workspace:*
+        version: link:../../packages/plugins/ssh
       '@harness/plugin-summarization':
         specifier: workspace:*
         version: link:../../packages/plugins/summarization
@@ -373,6 +376,9 @@ importers:
       sonner:
         specifier: ^2.0.7
         version: 2.0.7(react-dom@19.2.4(react@19.2.4))(react@19.2.4)
+      ssh2:
+        specifier: ^1.16.0
+        version: 1.17.0
       tailwind-merge:
         specifier: ^3.5.0
         version: 3.5.0
@@ -416,6 +422,9 @@ importers:
       '@types/react-dom':
         specifier: ^19.2.3
         version: 19.2.3(@types/react@19.2.14)
+      '@types/ssh2':
+        specifier: ^1.15.4
+        version: 1.15.5
       '@vitejs/plugin-react':
         specifier: ^5.1.4
         version: 5.1.4(vite@7.3.1(@types/node@22.19.11)(jiti@2.6.1)(lightningcss@1.31.1)(tsx@4.21.0)(yaml@2.8.2))
@@ -1054,6 +1063,40 @@ importers:
       '@types/node':
         specifier: ^22.19.11
         version: 22.19.11
+      '@vitest/coverage-v8':
+        specifier: ^4.0.18
+        version: 4.0.18(vitest@4.0.18(@types/node@22.19.11)(jiti@2.6.1)(jsdom@28.1.0(@noble/hashes@2.0.1))(lightningcss@1.31.1)(tsx@4.21.0)(yaml@2.8.2))
+      tsup:
+        specifier: ^8.5.0
+        version: 8.5.1(jiti@2.6.1)(postcss@8.5.6)(tsx@4.21.0)(typescript@5.9.3)(yaml@2.8.2)
+      typescript:
+        specifier: ^5.9.3
+        version: 5.9.3
+      vitest:
+        specifier: ^4.0.18
+        version: 4.0.18(@types/node@22.19.11)(jiti@2.6.1)(jsdom@28.1.0(@noble/hashes@2.0.1))(lightningcss@1.31.1)(tsx@4.21.0)(yaml@2.8.2)
+
+  packages/plugins/ssh:
+    dependencies:
+      '@harness/database':
+        specifier: workspace:*
+        version: link:../../database
+      '@harness/plugin-contract':
+        specifier: workspace:*
+        version: link:../../plugin-contract
+      ssh2:
+        specifier: ^1.16.0
+        version: 1.17.0
+    devDependencies:
+      '@harness/vitest-config':
+        specifier: workspace:*
+        version: link:../../vitest-config
+      '@types/node':
+        specifier: ^22.19.11
+        version: 22.19.11
+      '@types/ssh2':
+        specifier: ^1.15.4
+        version: 1.15.5
       '@vitest/coverage-v8':
         specifier: ^4.0.18
         version: 4.0.18(vitest@4.0.18(@types/node@22.19.11)(jiti@2.6.1)(jsdom@28.1.0(@noble/hashes@2.0.1))(lightningcss@1.31.1)(tsx@4.21.0)(yaml@2.8.2))

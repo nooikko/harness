@@ -51,7 +51,7 @@ export const ErrorDetailModal: ErrorDetailModalComponent = ({ error, open, onOpe
 
   return (
     <Dialog open={open} onOpenChange={onOpenChangeAction}>
-      <DialogContent className='max-h-[80vh] max-w-2xl overflow-y-auto' aria-describedby={undefined}>
+      <DialogContent className='max-h-[85vh] sm:max-w-4xl overflow-y-auto' aria-describedby={undefined}>
         <DialogHeader>
           <DialogTitle className='flex items-center gap-2'>
             <Badge variant={levelVariant(error.level)}>{error.level.toUpperCase()}</Badge>
@@ -80,7 +80,7 @@ export const ErrorDetailModal: ErrorDetailModalComponent = ({ error, open, onOpe
               <Separator />
               <div className='flex flex-col gap-1'>
                 <span className='text-xs font-medium text-muted-foreground'>Stack Trace</span>
-                <pre className='max-h-60 overflow-auto rounded-md bg-muted p-3 font-mono text-xs leading-relaxed'>{error.stack}</pre>
+                <pre className='max-h-96 overflow-auto rounded-md bg-muted p-3 font-mono text-xs leading-relaxed'>{error.stack}</pre>
               </div>
             </>
           )}

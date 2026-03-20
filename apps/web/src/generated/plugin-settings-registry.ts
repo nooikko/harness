@@ -69,6 +69,43 @@ export const pluginSettingsRegistry: PluginSettingsEntry[] = [
     ]
   },
   {
+    "pluginName": "ssh",
+    "fields": [
+      {
+        "name": "defaultTimeout",
+        "type": "number",
+        "label": "Default Timeout (seconds)",
+        "default": 30
+      },
+      {
+        "name": "maxOutputLength",
+        "type": "number",
+        "label": "Max Output Length (bytes)",
+        "default": 50000
+      },
+      {
+        "name": "logCommands",
+        "type": "boolean",
+        "label": "Log Commands",
+        "default": true
+      },
+      {
+        "name": "maxConcurrentPerHost",
+        "type": "number",
+        "label": "Max Concurrent Commands Per Host",
+        "description": "Maximum simultaneous SSH commands per host. Excess commands are queued.",
+        "default": 10
+      },
+      {
+        "name": "maxPoolConnections",
+        "type": "number",
+        "label": "Max Pool Connections",
+        "description": "Maximum total SSH connections across all hosts.",
+        "default": 20
+      }
+    ]
+  },
+  {
     "pluginName": "music",
     "fields": [
       {

@@ -152,17 +152,10 @@ export const TaskList: TaskListComponent = ({ tasks }) => {
           const blockerCount = task.blockedBy.length;
 
           return (
-            <div
+            <button
               key={task.id}
-              role='button'
-              tabIndex={0}
+              type='button'
               onClick={() => setSelectedTaskId(isSelected ? null : task.id)}
-              onKeyDown={(e) => {
-                if (e.key === 'Enter' || e.key === ' ') {
-                  e.preventDefault();
-                  setSelectedTaskId(isSelected ? null : task.id);
-                }
-              }}
               className={`group flex w-full cursor-pointer items-start gap-3 rounded-lg border p-3 text-left transition-colors ${
                 isSelected ? 'border-primary/50 bg-accent/50' : 'border-border hover:bg-accent/30'
               }`}
@@ -214,7 +207,7 @@ export const TaskList: TaskListComponent = ({ tasks }) => {
                   {formatDueDate(new Date(task.dueDate))}
                 </span>
               )}
-            </div>
+            </button>
           );
         })}
       </div>

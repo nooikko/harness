@@ -11,7 +11,7 @@ import {
   SidebarSeparator,
 } from '@harness/ui';
 import type { LucideIcon } from 'lucide-react';
-import { Activity, AlertCircle, BarChart3, Calendar, CheckSquare, Link2, MessageSquare, Puzzle, User } from 'lucide-react';
+import { Activity, AlertCircle, BarChart3, Calendar, CheckSquare, Link2, MessageSquare, Puzzle, Server, User } from 'lucide-react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 
@@ -37,6 +37,7 @@ const NAV_GROUPS: NavGroup[] = [
       { href: '/admin/plugins', label: 'Plugins', icon: Puzzle },
       { href: '/admin/cron-jobs', label: 'Cron Jobs', icon: Calendar },
       { href: '/admin/integrations', label: 'Integrations', icon: Link2 },
+      { href: '/admin/ssh-hosts', label: 'SSH Hosts', icon: Server },
     ],
   },
   {

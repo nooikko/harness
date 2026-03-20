@@ -68,7 +68,7 @@ describe('AdminSidebar', () => {
   it('renders all 9 navigation links', () => {
     renderWithProvider(<AdminSidebar />);
     const links = screen.getAllByRole('link');
-    expect(links).toHaveLength(9);
+    expect(links).toHaveLength(10);
   });
 
   it('renders an SVG icon for each nav item', () => {

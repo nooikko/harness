@@ -1,0 +1,37 @@
+{
+  "name": "@harness/plugin-ssh",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "main": "./dist/index.cjs",
+  "module": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js",
+      "require": "./dist/index.cjs"
+    }
+  },
+  "scripts": {
+    "build": "tsup src/index.ts --format cjs,esm --dts",
+    "dev": "tsup src/index.ts --format cjs,esm --dts --watch",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run",
+    "test:watch": "vitest"
+  },
+  "dependencies": {
+    "@harness/database": "workspace:*",
+    "@harness/plugin-contract": "workspace:*",
+    "ssh2": "^1.16.0"
+  },
+  "devDependencies": {
+    "@harness/vitest-config": "workspace:*",
+    "@types/node": "^22.19.11",
+    "@types/ssh2": "^1.15.4",
+    "@vitest/coverage-v8": "^4.0.18",
+    "tsup": "^8.5.0",
+    "typescript": "^5.9.3",
+    "vitest": "^4.0.18"
+  }
+}

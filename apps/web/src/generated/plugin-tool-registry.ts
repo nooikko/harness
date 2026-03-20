@@ -60,6 +60,41 @@ export const pluginToolRegistry: PluginToolEntry[] = [
     "args": "<taskId> <blockedById>"
   },
   {
+    "pluginName": "ssh",
+    "toolName": "exec",
+    "qualifiedName": "ssh__exec",
+    "description": "Execute a command on a remote SSH host. Returns stdout, stderr, and exit code. Commands must be non-interactive (no prompts for input). Use sudo -n for passwordless sudo.",
+    "args": "<host> <command> [timeout]"
+  },
+  {
+    "pluginName": "ssh",
+    "toolName": "list-hosts",
+    "qualifiedName": "ssh__list_hosts",
+    "description": "List registered SSH hosts. Optionally filter by tag.",
+    "args": "[tag]"
+  },
+  {
+    "pluginName": "ssh",
+    "toolName": "add-host",
+    "qualifiedName": "ssh__add_host",
+    "description": "Register a new SSH host. Keys must be configured separately via admin UI.",
+    "args": "<name> <hostname> [port] <username> [tags]"
+  },
+  {
+    "pluginName": "ssh",
+    "toolName": "remove-host",
+    "qualifiedName": "ssh__remove_host",
+    "description": "Remove a registered SSH host by name.",
+    "args": "<name>"
+  },
+  {
+    "pluginName": "ssh",
+    "toolName": "test-connection",
+    "qualifiedName": "ssh__test_connection",
+    "description": "Test SSH connectivity to a host. Updates lastSeenAt on success and saves fingerprint on first connection (TOFU).",
+    "args": "<host>"
+  },
+  {
     "pluginName": "project",
     "toolName": "get-project-memory",
     "qualifiedName": "project__get_project_memory",
@@ -333,6 +368,13 @@ export const pluginToolRegistry: PluginToolEntry[] = [
     "args": "[defaultVolume] [radioEnabled] [audioQuality]"
   },
   {
+    "pluginName": "logs",
+    "toolName": "query",
+    "qualifiedName": "logs__query",
+    "description": "Search structured logs from the running Harness instance. Use this to diagnose errors, trace pipeline execution, or investigate plugin behavior.\n\nDiagnostic workflow:\n1. Start with errorsOnly=true to quickly find errors\n2. If you have a threadId (from the URL of the page you're testing), filter by it\n3. Use source to narrow to a specific plugin (e.g., \"identity\", \"cron\", \"delegation\")\n4. Use search for text matching in log messages\n5. Expand the time window with since if needed (default: 15m)\n\nWhen diagnosing Playwright test failures:\n- The threadId is in the URL path (/chat/{threadId})\n- Query with that threadId and since=\"5m\" to find related errors\n- Check errorsOnly first, then widen to level=\"info\" for context",
+    "args": "[level] [source] [threadId] [traceId] [search] [since] [limit] [errorsOnly]"
+  },
+  {
     "pluginName": "identity",
     "toolName": "update-self",
     "qualifiedName": "identity__update_self",
@@ -392,7 +434,7 @@ export const pluginToolRegistry: PluginToolEntry[] = [
     "pluginName": "calendar",
     "toolName": "create-event",
     "qualifiedName": "calendar__create_event",
-    "description": "Create a local calendar event (birthday, reminder, appointment, etc.). Outlook events are synced automatically and managed via the outlook-calendar plugin.",
+    "description": "Create a local calendar event (birthday, reminder, appointment, etc.). Outlook/Google events are synced automatically and managed via their respective plugins.",
     "args": "<title> <startAt> <endAt> [isAllDay] [location] [description] [category] [color]"
   },
   {
@@ -413,7 +455,7 @@ export const pluginToolRegistry: PluginToolEntry[] = [
     "pluginName": "calendar",
     "toolName": "list-events",
     "qualifiedName": "calendar__list_events",
-    "description": "List events from the unified calendar (Outlook, local, memories, tasks, cron). Defaults to the next 7 days.",
+    "description": "List events from the unified calendar (Outlook, Google, local, memories, tasks, cron). Defaults to the next 7 days.",
     "args": "[startDate] [endDate] [sources] [categories] [limit]"
   },
   {
@@ -425,9 +467,16 @@ export const pluginToolRegistry: PluginToolEntry[] = [
   },
   {
     "pluginName": "calendar",
+    "toolName": "respond-to-event",
+    "qualifiedName": "calendar__respond_to_event",
+    "description": "Accept, tentatively accept, or decline a calendar event invitation (Outlook or Google).",
+    "args": "<eventId> <response> [message]"
+  },
+  {
+    "pluginName": "calendar",
     "toolName": "sync-now",
     "qualifiedName": "calendar__sync_now",
-    "description": "Trigger an immediate sync of Outlook calendar events into the local calendar database.",
+    "description": "Trigger an immediate sync of Outlook and Google calendar events into the local calendar database.",
     "args": ""
   }
 ];

@@ -50,6 +50,7 @@ EXCLUDED_PATTERNS = [
     r"apps/web/src/app/api/oauth/callback/route\.ts$",  # OAuth callback — browser redirect flow, not unit-testable
     r"packages/plugins/logs/src/_helpers/query-file\.ts$",  # Log file reader — stream error branches require fs failure simulation
     r"packages/plugins/logs/src/_helpers/query-loki\.ts$",  # Loki client — HTTP error branches tested, response parsing edge cases not
+    r"install-ssh-key\.ts$",  # SSH key install — requires real SSH connection, tested via E2E
     r"apps/web/src/app/_helpers/notify-orchestrator\.ts$",  # 5-line fire-and-forget fetch — swallowed catch, not unit-testable
     r"request-audit-delete\.ts$",  # void fetch — catch block unreachable, coverage can't hit it
     r"cast-types\.ts$",  # pure type declarations — no runtime code
@@ -106,6 +107,7 @@ PROJECT_DIRS = [
     ("packages/plugins/calendar/", "packages/plugins/calendar"),
     ("packages/plugins/outlook-calendar/", "packages/plugins/outlook-calendar"),
     ("packages/plugins/logs/", "packages/plugins/logs"),
+    ("packages/plugins/ssh/", "packages/plugins/ssh"),
 ]
 
 MAX_RETRIES = 2  # ESM race condition is non-deterministic; retry on failure

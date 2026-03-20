@@ -2,7 +2,7 @@
 
 // Client component — filter controls for error log list (level + source)
 
-import { Badge, Button } from '@harness/ui';
+import { Badge, Button, Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@harness/ui';
 import { useRouter, useSearchParams } from 'next/navigation';
 
 type ErrorFiltersProps = {
@@ -61,18 +61,19 @@ export const ErrorFilters: ErrorFiltersComponent = ({ sources }) => {
 
       <div className='flex items-center gap-1.5'>
         <span className='text-xs text-muted-foreground'>Source:</span>
-        <select
-          value={currentSource}
-          onChange={(e) => updateFilter('source', e.target.value)}
-          className='h-7 rounded-md border border-border bg-background px-2 text-xs text-foreground focus:outline-none focus:ring-1 focus:ring-ring'
-        >
-          <option value='all'>All sources</option>
-          {sources.map((source) => (
-            <option key={source} value={source}>
-              {source}
-            </option>
-          ))}
-        </select>
+        <Select value={currentSource} onValueChange={(value) => updateFilter('source', value)}>
+          <SelectTrigger className='h-7 w-auto gap-1.5 px-2.5 text-xs'>
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value='all'>All sources</SelectItem>
+            {sources.map((source) => (
+              <SelectItem key={source} value={source}>
+                {source}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
       </div>
 
       {(currentLevel !== 'all' || currentSource !== 'all') && (

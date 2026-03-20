@@ -8,6 +8,7 @@ import { usePathname } from 'next/navigation';
 const SEGMENT_LABELS: Record<string, string> = {
   admin: 'Admin',
   'cron-jobs': 'Scheduled Tasks',
+  'ssh-hosts': 'SSH Hosts',
   plugins: 'Plugins',
   tasks: 'Tasks',
   'agent-runs': 'Agent Runs',

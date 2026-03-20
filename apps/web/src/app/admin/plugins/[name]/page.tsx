@@ -1,4 +1,5 @@
 import { prisma } from '@harness/database';
+import { Card, CardContent, CardHeader, CardTitle } from '@harness/ui';
 import { notFound } from 'next/navigation';
 import { pluginSettingsRegistry } from '@/generated/plugin-settings-registry';
 import { AdminBreadcrumb } from '../../_components/admin-breadcrumb';
@@ -32,7 +33,7 @@ const PluginSettingsPage: PluginSettingsPageComponent = async ({ params }) => {
   }
 
   return (
-    <div className='mx-auto flex w-full max-w-5xl flex-col gap-6 px-6 py-8 animate-[fade-in_150ms_ease-out]'>
+    <div className='mx-auto flex w-full max-w-2xl flex-col gap-6 px-6 py-8 animate-[fade-in_150ms_ease-out]'>
       <div className='flex flex-col gap-2'>
         <AdminBreadcrumb labels={{ [name]: name }} />
         <div>
@@ -46,9 +47,14 @@ const PluginSettingsPage: PluginSettingsPageComponent = async ({ params }) => {
         </div>
       </div>
 
-      <div className='max-w-xl'>
-        <SettingsForm pluginName={name} fields={entry.fields} currentValues={displayValues} disabled={!config?.enabled} />
-      </div>
+      <Card>
+        <CardHeader>
+          <CardTitle className='capitalize'>{name} Settings</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <SettingsForm pluginName={name} fields={entry.fields} currentValues={displayValues} disabled={!config?.enabled} />
+        </CardContent>
+      </Card>
     </div>
   );
 };

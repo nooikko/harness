@@ -34,7 +34,7 @@ const NewCronJobPage: NewCronJobPageComponent = async ({ searchParams }) => {
   ]);
 
   return (
-    <div className='mx-auto flex w-full max-w-5xl flex-col gap-6 px-6 py-8 animate-[fade-in_150ms_ease-out]'>
+    <div className='mx-auto flex w-full max-w-2xl flex-col gap-6 px-6 py-8 animate-[fade-in_150ms_ease-out]'>
       <div className='flex flex-col gap-2'>
         <AdminBreadcrumb />
         <div>
@@ -42,9 +42,7 @@ const NewCronJobPage: NewCronJobPageComponent = async ({ searchParams }) => {
           <p className='text-sm text-muted-foreground'>Create a recurring or one-shot scheduled task for an agent.</p>
         </div>
       </div>
-      <div className='max-w-2xl'>
-        <CronJobForm mode='create' agents={agents} threads={threads} projects={projects} defaultValues={agentId ? { agentId } : undefined} />
-      </div>
+      <CronJobForm mode='create' agents={agents} threads={threads} projects={projects} defaultValues={agentId ? { agentId } : undefined} />
     </div>
   );
 };

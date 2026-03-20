@@ -20,6 +20,7 @@ import { plugin as outlookCalendarPlugin } from '@harness/plugin-outlook-calenda
 import { plugin as playwrightPlugin } from '@harness/plugin-playwright';
 import { projectPlugin } from '@harness/plugin-project';
 import { plugin as searchPlugin } from '@harness/plugin-search';
+import { plugin as sshPlugin } from '@harness/plugin-ssh';
 import { plugin as summarizationPlugin } from '@harness/plugin-summarization';
 import { plugin as tasksPlugin } from '@harness/plugin-tasks';
 import { plugin as timePlugin } from '@harness/plugin-time';
@@ -51,6 +52,7 @@ const ALL_PLUGINS: PluginDefinition[] = [
   searchPlugin,
   playwrightPlugin,
   logsPlugin,
+  sshPlugin,
 ];
 
 type GetPlugins = (db: PrismaClient, logger: Logger) => Promise<PluginDefinition[]>;

@@ -60,7 +60,7 @@ const EditCronJobPage: EditCronJobPageComponent = async ({ params }) => {
   }
 
   return (
-    <div className='mx-auto flex w-full max-w-5xl flex-col gap-6 px-6 py-8 animate-[fade-in_150ms_ease-out]'>
+    <div className='mx-auto flex w-full max-w-2xl flex-col gap-6 px-6 py-8 animate-[fade-in_150ms_ease-out]'>
       <div className='flex flex-col gap-2'>
         <AdminBreadcrumb labels={{ [id]: job.name }} />
         <div>
@@ -68,25 +68,23 @@ const EditCronJobPage: EditCronJobPageComponent = async ({ params }) => {
           <p className='text-sm text-muted-foreground'>Update the schedule, prompt, or configuration for this task.</p>
         </div>
       </div>
-      <div className='max-w-2xl'>
-        <CronJobForm
-          mode='edit'
-          agents={agents}
-          threads={threads}
-          projects={projects}
-          defaultValues={{
-            id: job.id,
-            name: job.name,
-            agentId: job.agentId,
-            threadId: job.threadId,
-            projectId: job.projectId,
-            schedule: job.schedule,
-            fireAt: job.fireAt ? job.fireAt.toISOString() : null,
-            prompt: job.prompt,
-            enabled: job.enabled,
-          }}
-        />
-      </div>
+      <CronJobForm
+        mode='edit'
+        agents={agents}
+        threads={threads}
+        projects={projects}
+        defaultValues={{
+          id: job.id,
+          name: job.name,
+          agentId: job.agentId,
+          threadId: job.threadId,
+          projectId: job.projectId,
+          schedule: job.schedule,
+          fireAt: job.fireAt ? job.fireAt.toISOString() : null,
+          prompt: job.prompt,
+          enabled: job.enabled,
+        }}
+      />
     </div>
   );
 };

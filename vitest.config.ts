@@ -32,6 +32,7 @@ export default defineConfig({
       'packages/plugins/outlook',
       'packages/plugins/outlook-calendar',
       'packages/plugins/calendar',
+      'packages/plugins/ssh',
     ],
     coverage: {
       provider: 'v8',

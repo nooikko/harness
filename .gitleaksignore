@@ -1,0 +1,5 @@
+# Test fixtures using dummy encryption keys (not real secrets)
+4722435713f76ad88e68dfec4700aff7c3c4be21:packages/oauth/src/_helpers/__tests__/encrypt-token.test.ts:generic-api-key:6
+4722435713f76ad88e68dfec4700aff7c3c4be21:packages/oauth/src/_helpers/__tests__/decrypt-token.test.ts:generic-api-key:5
+4722435713f76ad88e68dfec4700aff7c3c4be21:packages/oauth/src/_helpers/__tests__/get-valid-token.test.ts:generic-api-key:14
+4722435713f76ad88e68dfec4700aff7c3c4be21:packages/oauth/src/_helpers/__tests__/handle-oauth-callback.test.ts:generic-api-key:12
