@@ -9,6 +9,8 @@ import { screenshot } from './_helpers/screenshot';
 import { selectOption } from './_helpers/select-option';
 import { snapshot } from './_helpers/snapshot';
 import { cleanupAll, cleanupTrace } from './_helpers/temp-tracker';
+import { validatePages } from './_helpers/validate-pages';
+import { cleanupRecordingState, startRecording, stopRecording } from './_helpers/video-recording';
 
 const tools: PluginTool[] = [
   {
@@ -113,7 +115,7 @@ const tools: PluginTool[] = [
   {
     name: 'screenshot',
     description:
-      'Take a screenshot of the current page. The screenshot is saved to a temporary file that will be auto-deleted when this pipeline run completes. Only use this when you need visual confirmation or the user explicitly asked for a screenshot. Prefer snapshot (accessibility tree) for understanding page structure.',
+      'Take a screenshot of the current page. The screenshot is persisted as a file attachment on the thread and will be visible in the chat UI. Use this when you need visual confirmation, want to show the user what something looks like, or the user explicitly asked for a screenshot. Prefer snapshot (accessibility tree) for understanding page structure.',
     schema: {
       type: 'object',
       properties: {
@@ -140,6 +142,43 @@ const tools: PluginTool[] = [
     },
     handler: pressKey,
   },
+  {
+    name: 'start_recording',
+    description:
+      'Start recording a video of the browser page. All page activity will be captured until stop_recording is called. The current page URL is preserved. Note: this closes and recreates the browser context, so cookies and session state will be lost.',
+    schema: {
+      type: 'object',
+      properties: {},
+    },
+    handler: startRecording,
+  },
+  {
+    name: 'stop_recording',
+    description:
+      'Stop the active video recording and save it as a file attachment on the thread. The video will be visible in the chat UI. Must call start_recording first. Note: after stopping, the browser page resets to about:blank — call navigate before using other browser tools.',
+    schema: {
+      type: 'object',
+      properties: {},
+    },
+    handler: stopRecording,
+  },
+  {
+    name: 'validate_pages',
+    description:
+      'Navigate to a list of URLs and take a screenshot of each page. All screenshots are persisted as file attachments visible in the chat UI. Use this for batch visual validation — e.g., checking multiple pages on a staging server after a deployment.',
+    schema: {
+      type: 'object',
+      properties: {
+        urls: {
+          type: 'array',
+          items: { type: 'string' },
+          description: 'List of URLs to screenshot (max 20). Each must be http:// or https://.',
+        },
+      },
+      required: ['urls'],
+    },
+    handler: validatePages,
+  },
 ];
 
 export const plugin: PluginDefinition = {
@@ -149,6 +188,10 @@ export const plugin: PluginDefinition = {
 
   register: async (ctx) => ({
     onPipelineComplete: async (threadId, result) => {
+      // Safety net: if agent forgot to call stop_recording, finalize and upload the video.
+      // Must run BEFORE cleanupTrace (which deletes the trace dir) and BEFORE closePageForThread.
+      await cleanupRecordingState(threadId, ctx);
+
       // Clean up temp files for this pipeline run
       const traceId = result?.invokeResult?.traceId;
       if (traceId) {

@@ -29,6 +29,7 @@ const makeMockCtx = () => ({
   getSettings: vi.fn().mockResolvedValue({}),
   notifySettingsChange: vi.fn(),
   reportStatus: vi.fn(),
+  uploadFile: vi.fn().mockResolvedValue({ fileId: 'test', relativePath: 'test' }),
 });
 
 describe('audit plugin', () => {

@@ -31,6 +31,7 @@ const createMockContext: CreateMockContext = () =>
     getSettings: vi.fn().mockResolvedValue({}),
     notifySettingsChange: vi.fn().mockResolvedValue(undefined),
     reportStatus: vi.fn(),
+    uploadFile: vi.fn().mockResolvedValue({ fileId: 'test', relativePath: 'test' }),
   }) as unknown as PluginContext;
 
 type MakeInput = (overrides?: Partial<ThreadNotificationInput>) => ThreadNotificationInput;

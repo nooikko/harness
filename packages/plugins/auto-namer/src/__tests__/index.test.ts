@@ -20,6 +20,7 @@ const makeMockCtx = (invokeOutput = 'Generated Thread Name') => ({
   getSettings: vi.fn().mockResolvedValue({}),
   notifySettingsChange: vi.fn(),
   reportStatus: vi.fn(),
+  uploadFile: vi.fn().mockResolvedValue({ fileId: 'test', relativePath: 'test' }),
   invoker: {
     invoke: vi.fn().mockResolvedValue({
       output: invokeOutput,

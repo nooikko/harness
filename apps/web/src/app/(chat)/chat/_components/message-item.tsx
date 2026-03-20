@@ -119,6 +119,7 @@ export const MessageItem: MessageItemComponent = ({ message, files }) => {
       >
         <div style={{ padding: '12px 14px' }}>
           <MarkdownContent content={message.content} />
+          {files && files.length > 0 && <MessageFiles files={files} />}
         </div>
       </article>
     );

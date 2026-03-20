@@ -154,6 +154,22 @@ export type PluginRouteEntry = {
   ctx: PluginContext;
 };
 
+export type UploadFileInput = {
+  filename: string;
+  buffer: Buffer;
+  mimeType: string;
+  scope: 'PROJECT' | 'THREAD' | 'DECORATIVE';
+  threadId?: string;
+  projectId?: string;
+  agentId?: string;
+  messageId?: string;
+};
+
+export type UploadFileResult = {
+  fileId: string;
+  relativePath: string;
+};
+
 export type PluginContext = {
   db: PrismaClient;
   invoker: Invoker;
@@ -164,6 +180,7 @@ export type PluginContext = {
   getSettings: <T extends SettingsFieldDefs>(schema: PluginSettingsSchemaInstance<T>) => Promise<InferSettings<T>>;
   notifySettingsChange: (pluginName: string) => Promise<void>;
   reportStatus: (level: PluginStatusLevel, message?: string, details?: Record<string, unknown>) => void;
+  uploadFile: (input: UploadFileInput) => Promise<UploadFileResult>;
   pluginRoutes?: PluginRouteEntry[];
 };
 

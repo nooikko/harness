@@ -91,6 +91,7 @@ const makeMockCtx = (db: PrismaClient, overrides: Record<string, unknown> = {}) 
     logCommands: true,
   }),
   reportStatus: vi.fn(),
+  uploadFile: vi.fn().mockResolvedValue({ fileId: 'test', relativePath: 'test' }),
   broadcast: vi.fn(),
   sendToThread: vi.fn(),
   notifySettingsChange: vi.fn(),

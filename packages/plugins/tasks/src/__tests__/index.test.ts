@@ -76,6 +76,7 @@ describe('tasksPlugin', () => {
       getSettings: vi.fn(),
       notifySettingsChange: vi.fn(),
       reportStatus: vi.fn(),
+      uploadFile: vi.fn().mockResolvedValue({ fileId: 'test', relativePath: 'test' }),
     } as Parameters<typeof tasksPlugin.register>[0];
 
     const result = await tool!.handler(mockCtx, {}, { threadId: 'thread-1' });

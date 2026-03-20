@@ -105,6 +105,7 @@ const createMockContext = (): PluginContext => {
     getSettings: vi.fn(),
     notifySettingsChange: vi.fn(),
     reportStatus: vi.fn(),
+    uploadFile: vi.fn().mockResolvedValue({ fileId: 'test', relativePath: 'test' }),
   } as unknown as PluginContext;
 };
 

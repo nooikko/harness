@@ -35,6 +35,7 @@ describe('oauth-routes', () => {
       },
       notifySettingsChange: vi.fn().mockResolvedValue(undefined),
       reportStatus: vi.fn(),
+      uploadFile: vi.fn().mockResolvedValue({ fileId: 'test', relativePath: 'test' }),
       logger: { info: vi.fn(), warn: vi.fn(), error: vi.fn(), debug: vi.fn() },
     } as unknown as PluginContext;
   };

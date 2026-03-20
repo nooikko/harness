@@ -33,8 +33,8 @@ This is not one feature — it's the convergence of multiple systems working tog
 | File uploads (browser) | **Complete** | Full pipeline: upload API, preview modal, chat integration, context injection |
 | Git worktrees | **Exists** | Worktree hooks in Claude Code settings |
 | SSH to homelab | **Complete** | `@harness/plugin-ssh` — 5 MCP tools, connection pool, admin UI, key install |
-| Programmatic file creation | **Missing** | Agents can't create File attachments (screenshots → message) |
-| Video capture | **Missing** | Playwright supports it but plugin doesn't use it |
+| Programmatic file creation | **Complete** | `ctx.uploadFile` on PluginContext — any plugin can persist attachments |
+| Video capture | **Complete** | `start_recording`/`stop_recording` tools, WebM at 1280x720 |
 | Staged deployment | **Missing** | No multi-server deploy, no staging concept |
 | Roadmap/task → delegation bridge | **Missing** | Turn roadmap items into delegatable task prompts |
 | Coding workspace UI | **Missing** | No agent activity dashboard |
@@ -121,15 +121,15 @@ These are ordered by dependency. Each one unlocks the next. After this tier, Har
 - Settings hot-reload via `onSettingsChange`, structured error classification
 - 155+ tests. Plan: `tier1-ssh-plugin.md`
 
-### 2. Playwright Visual Capture
-- **What:** Extend existing Playwright plugin so screenshots/video persist as File attachments in chat
-- **Current state:** Plugin exists with 8 tools, screenshots save to `/tmp/` and get cleaned up. Never reach chat.
-- **Key changes:**
-  - Screenshot tool → persist as File record instead of temp file
-  - Add video recording tools (Playwright supports it natively)
-  - Add `video/webm` to allowed MIME types + video player in preview modal
-  - Consider `PluginContext.uploadFile()` method for any plugin to create attachments
-- **Plan file:** `tier1-playwright-visual-capture.md`
+### ~~2. Playwright Visual Capture~~ — COMPLETE
+- `ctx.uploadFile` on PluginContext — any plugin can persist file attachments
+- Screenshot tool persists as File records (no more temp files)
+- Video recording via `start_recording` / `stop_recording` tools (WebM, 1280x720)
+- `validate_pages` composite tool for batch URL screenshots
+- Inline media rendering: images as thumbnail grid, videos with `<video controls>`
+- Range request support (HTTP 206) for video seeking
+- Video preview in file preview modal
+- 11 Playwright tools (was 8), 75 tests. Plan: `tier1-playwright-visual-capture.md`
 
 ### ~~3. File Upload / Attachment Pipeline~~ — COMPLETE
 File uploads are fully implemented: Prisma File model, upload/delete/list server actions, multipart API route, file serving with proper headers, chat input with paperclip button, preview modal (images/PDFs/text), thread attachments panel, project files panel, context plugin injection. Only gap is programmatic uploads from plugins (addressed in #2 above).
@@ -265,6 +265,7 @@ Rich notifications with Dynamic Island, actionable alerts, media control widgets
 - ~~E2E test framework~~ — Playwright Test configured, POM with 9 page objects, ~20 smoke/admin tests
 - ~~SSH plugin~~ — `@harness/plugin-ssh` with 5 MCP tools, connection pool, admin UI, key install, 155+ tests
 - ~~Search plugin hardening~~ — `qdrantReady` guard for graceful Qdrant downtime handling
+- ~~Playwright Visual Capture~~ — `ctx.uploadFile`, screenshot/video persistence, inline media, `validate_pages`, 11 tools
 
 ---
 

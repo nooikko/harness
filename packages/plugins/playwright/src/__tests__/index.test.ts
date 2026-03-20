@@ -15,6 +15,16 @@ vi.mock('../_helpers/temp-tracker', () => ({
   trackFile: vi.fn(),
 }));
 
+vi.mock('../_helpers/video-recording', () => ({
+  startRecording: vi.fn(),
+  stopRecording: vi.fn(),
+  cleanupRecordingState: vi.fn().mockResolvedValue(undefined),
+}));
+
+vi.mock('../_helpers/validate-pages', () => ({
+  validatePages: vi.fn(),
+}));
+
 import { closeBrowser, closePageForThread, launchBrowser } from '../_helpers/browser-manager';
 import { cleanupAll, cleanupTrace } from '../_helpers/temp-tracker';
 
@@ -28,10 +38,22 @@ describe('playwright plugin', () => {
     expect(plugin.version).toBe('1.0.0');
   });
 
-  it('exports 8 tools', () => {
-    expect(plugin.tools).toHaveLength(8);
+  it('exports 11 tools', () => {
+    expect(plugin.tools).toHaveLength(11);
     const names = plugin.tools?.map((t) => t.name) ?? [];
-    expect(names).toEqual(['navigate', 'snapshot', 'click', 'fill', 'select_option', 'check', 'screenshot', 'press_key']);
+    expect(names).toEqual([
+      'navigate',
+      'snapshot',
+      'click',
+      'fill',
+      'select_option',
+      'check',
+      'screenshot',
+      'press_key',
+      'start_recording',
+      'stop_recording',
+      'validate_pages',
+    ]);
   });
 
   it('all tools have description and schema', () => {

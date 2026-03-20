@@ -23,6 +23,7 @@ import { createPluginStatusRegistry } from './_helpers/plugin-status-registry';
 import { assemblePrompt } from './_helpers/prompt-assembler';
 import { runChainHooks } from './_helpers/run-chain-hooks';
 import { runNotifyHooks } from './_helpers/run-notify-hooks';
+import { createUploadFile } from './_helpers/upload-file';
 
 export type PluginHealth = {
   name: string;
@@ -222,6 +223,12 @@ export const createOrchestrator: CreateOrchestrator = (deps) => {
     reportStatus: () => {
       // No-op on the shared context — each plugin gets a scoped version in buildPluginContext
     },
+    uploadFile: createUploadFile({
+      db: deps.db,
+      uploadDir: deps.config.uploadDir,
+      logger: deps.logger,
+      broadcast: async (event, data) => context.broadcast(event, data),
+    }),
   };
 
   type BuildPluginContext = (definition: PluginDefinition) => PluginContext;

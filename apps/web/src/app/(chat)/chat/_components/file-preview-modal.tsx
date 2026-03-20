@@ -123,6 +123,14 @@ const TextPreviewContent: TextPreviewContentComponent = ({ fileId, language }) =
   return <CodeBlock language={language}>{content}</CodeBlock>;
 };
 
+const VideoPreview = ({ file }: FilePreviewContentProps) => (
+  <div className='flex items-center justify-center overflow-auto bg-muted/30 p-4'>
+    <video src={`/api/files/${file.id}`} controls className='max-h-[70vh] max-w-full rounded'>
+      <track kind='captions' />
+    </video>
+  </div>
+);
+
 const DownloadFallback = ({ file }: FilePreviewContentProps) => (
   <div className='flex flex-col items-center gap-4 p-8'>
     <p className='text-sm text-muted-foreground'>Preview not available for this file type.</p>
@@ -143,6 +151,7 @@ export const FilePreviewModal: FilePreviewModalComponent = ({ file, open, onOpen
   }
 
   const isImage = file.mimeType.startsWith('image/');
+  const isVideo = file.mimeType.startsWith('video/');
   const isPdf = file.mimeType === 'application/pdf';
   const isText =
     file.mimeType.startsWith('text/') ||
@@ -164,9 +173,10 @@ export const FilePreviewModal: FilePreviewModalComponent = ({ file, open, onOpen
           </DialogTitle>
         </DialogHeader>
         {isImage && <ImagePreview file={file} />}
+        {isVideo && <VideoPreview file={file} />}
         {isPdf && <PdfPreview file={file} />}
         {isText && <TextPreview file={file} />}
-        {!isImage && !isPdf && !isText && <DownloadFallback file={file} />}
+        {!isImage && !isVideo && !isPdf && !isText && <DownloadFallback file={file} />}
       </DialogContent>
     </Dialog>
   );

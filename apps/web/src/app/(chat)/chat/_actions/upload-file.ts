@@ -18,6 +18,8 @@ const ALLOWED_MIME_TYPES = new Set([
   'image/jpeg',
   'image/gif',
   'image/webp',
+  'video/webm',
+  'video/mp4',
   'text/plain',
   'text/markdown',
   'text/csv',

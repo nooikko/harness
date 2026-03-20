@@ -110,6 +110,7 @@ const createMockContext = (overrides: Partial<PluginContext['config']> = {}): Pl
     getSettings: vi.fn().mockResolvedValue({}),
     notifySettingsChange: vi.fn().mockResolvedValue(undefined),
     reportStatus: vi.fn(),
+    uploadFile: vi.fn().mockResolvedValue({ fileId: 'test', relativePath: 'test' }),
   }) as unknown as PluginContext;
 
 // Module-level let variables for dynamic re-import (Phase 1: test isolation)

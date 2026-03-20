@@ -28,6 +28,7 @@ const createMockContext: CreateMockContext = () =>
     getSettings: vi.fn().mockResolvedValue({}),
     notifySettingsChange: vi.fn(),
     reportStatus: vi.fn(),
+    uploadFile: vi.fn().mockResolvedValue({ fileId: 'test', relativePath: 'test' }),
   }) as never;
 
 describe('summarization plugin', () => {
