@@ -11,7 +11,7 @@ Everything you need to go from a fresh clone to a running development environmen
 | Node.js | >= 22 | [nodejs.org](https://nodejs.org) or via `fnm`/`nvm` |
 | pnpm | 10.x (exact version pinned) | `corepack enable && corepack use pnpm@10` |
 | PostgreSQL | 17 (via Docker, see below) | [docker.com](https://docker.com) |
-| Docker | Any recent version | Required for PostgreSQL + integration tests |
+| Docker | Any recent version | Required for PostgreSQL + Qdrant + Loki + integration tests |
 | Python 3 | Any 3.x | Used by the pre-commit coverage gate script |
 
 pnpm's exact version is pinned in `package.json` under `"packageManager"`. Running `corepack enable` will automatically install and use the correct version.
@@ -37,18 +37,22 @@ cp packages/database/.env.example packages/database/.env
 
 Both files need a valid `DATABASE_URL`. The default value matches the Docker Compose configuration below — no changes needed if you use Docker.
 
-### 3. Start PostgreSQL
+### 3. Start Docker services
 
 ```bash
 docker compose up -d
 ```
 
-This starts a PostgreSQL 17 container named `harness-postgres` on port `5432` with:
-- User: `user`
-- Password: `password`
-- Database: `harness`
+This starts the following containers:
 
-Data is persisted in a named Docker volume (`harness-pgdata`) so it survives container restarts.
+| Container | Port | Purpose |
+|-----------|------|---------|
+| `harness-postgres` | 5432 | PostgreSQL 17 database (user: `user`, password: `password`, db: `harness`) |
+| `harness-qdrant` | 6333, 6334 | Qdrant vector database for semantic search (optional — search degrades to FTS-only without it) |
+| `harness-loki` | 3100 | Loki log aggregation (optional — used by the logs plugin) |
+| `harness-grafana` | 3200 | Grafana dashboard for log visualization (optional — depends on Loki) |
+
+Data is persisted in named Docker volumes (`harness-pgdata`, `harness-qdrant`, `harness-loki`, `harness-grafana`) so it survives container restarts.
 
 ### 4. Generate the Prisma client
 
@@ -114,6 +118,16 @@ Starts all packages in watch mode via Turborepo:
 | `HARNESS_ENCRYPTION_KEY` | *(empty)* | 64-char hex key for AES-256-GCM secret encryption |
 | `CLAUDE_MODEL_DEFAULT` | `sonnet` | Default Claude model (`sonnet`, `opus`, `haiku`) |
 | `LOG_LEVEL` | `info` | Log verbosity (`debug`, `info`, `warn`, `error`) |
+| `QDRANT_URL` | `http://localhost:6333` | Qdrant vector database URL (optional — search degrades to FTS-only without it) |
+| `UPLOAD_DIR` | `./uploads` | Directory for file upload storage |
+| `MAX_FILE_SIZE_MB` | `10` | Maximum file upload size in megabytes |
+| `LOG_FILE` | *(empty)* | Path for rotating file-based logs (pino-roll). Used by the logs plugin. |
+| `LOKI_URL` | `http://localhost:3100` | Loki log aggregation URL (pino-loki). Used by the logs plugin. |
+| `MICROSOFT_CLIENT_ID` | *(empty)* | Azure App Registration client ID (for Outlook + Calendar plugins) |
+| `MICROSOFT_CLIENT_SECRET` | *(empty)* | Azure App Registration client secret |
+| `MICROSOFT_TENANT_ID` | `consumers` | Azure tenant ID (`consumers` for personal accounts) |
+| `MICROSOFT_REDIRECT_URI` | `http://localhost:4000/api/oauth/callback` | OAuth callback URL for Microsoft Graph |
+| `OAUTH_ENCRYPTION_KEY` | *(empty)* | 64-char hex key for encrypting stored OAuth tokens |
 
 ### `packages/database/.env`
 

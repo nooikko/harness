@@ -1,6 +1,8 @@
 # Research: E2E Testing Approaches for Next.js 16 + Node.js Monorepo
 Date: 2026-03-02
 
+> **Status: IMPLEMENTED** — Playwright E2E testing is fully set up. See `apps/web/e2e/` directory for the test suite and `packages/plugins/playwright/` for the orchestrator plugin. This document is preserved as historical research context.
+
 ## Summary
 
 Six E2E testing topics researched for this monorepo (Next.js 16 App Router, Node.js orchestrator, Prisma/PostgreSQL, WebSockets, pnpm + Turborepo). The dominant pattern that emerges: **Playwright is the right primary tool for full E2E**, Testcontainers handles real database isolation, and Vitest browser mode is a secondary tool for component-level work — not a replacement for Playwright in this stack.

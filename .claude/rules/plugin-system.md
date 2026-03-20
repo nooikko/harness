@@ -150,11 +150,12 @@ const ALL_PLUGINS: PluginDefinition[] = [
   projectPlugin,          // tools: get_project_memory, set_project_memory
   tasksPlugin,            // tools: task CRUD for UserTask records
   outlookPlugin,          // tools: email read/send via Microsoft Graph
-  outlookCalendarPlugin,  // tools: calendar events via Microsoft Graph
-  calendarPlugin,         // onBeforeInvoke: injects calendar context
-  musicPlugin,            // tools: music playback control
+  calendarPlugin,         // onSettingsChange: re-sync; start/stop: sync timer; tools: unified calendar CRUD + Outlook Graph
+  musicPlugin,            // start/stop: YouTube Music + Cast discovery; onSettingsChange: reload; tools: playback control
   searchPlugin,           // start: Qdrant backfill; onMessage + onPipelineComplete: index content; onBroadcast: re-index threads
-  playwrightPlugin,       // tools: browser automation for E2E testing
+  playwrightPlugin,       // start/stop: headless browser; onPipelineComplete: cleanup; tools: browser automation + visual capture
+  logsPlugin,             // tools: structured log querying via Loki or file
+  sshPlugin,              // onSettingsChange: reload; start/stop: connection pool; tools: remote execution via SSH
 ];
 ```
 
@@ -236,3 +237,44 @@ Plugins can be disabled at runtime via `PluginConfig.enabled` in the database wi
 **Lifecycle:** `start` (ensure Qdrant collections + backfill existing content), `stop` (abort backfill)
 **Does:** Maintains Qdrant vector indexes for semantic search. Indexes user messages via `onMessage`, assistant responses via `onPipelineComplete`, and re-indexes threads on name change via `onBroadcast('thread:name-updated')`. All indexing is fire-and-forget. On startup, runs a cancellable backfill of existing content. No-op if `QDRANT_URL` is not configured — search degrades to FTS-only.
 **Key behavior:** Uses `@harness/vector-search` package (HuggingFace `all-MiniLM-L6-v2`, 384 dimensions). Truncates content to 512 chars for embedding focus.
+
+### tasks plugin
+**Tools:** `add_task`, `list_tasks`, `update_task`, `complete_task`, `add_dependency`, `remove_dependency`
+**Does:** CRUD for `UserTask` records via MCP tools. Supports task dependencies with cycle detection/rejection. `add_task` auto-resolves `projectId` and `sourceThreadId` from the current thread via `meta.threadId`. `list_tasks` filters by status and project scope. No hooks — tool-only plugin.
+
+### outlook plugin
+**Tools:** `search_emails`, `read_email`, `list_recent`, `send_email`, `reply_email`, `move_email`, `list_folders`, `find_unsubscribe_links`
+**Does:** Email access via Microsoft Graph API. All tools authenticate using OAuth tokens stored in PluginConfig. `search_emails` supports KQL syntax. `list_recent` browses inbox/sent/drafts/archive/trash. `find_unsubscribe_links` scans recent emails for unsubscribe URLs. No hooks — tool-only plugin.
+
+### calendar plugin
+**Hooks:** `onSettingsChange`
+**Lifecycle:** `start` (initial sync from Outlook + Google + project virtual events, starts periodic sync timer), `stop` (stops sync timer)
+**Tools:** `create_event`, `update_event`, `delete_event`, `list_events`, `get_event`, `respond_to_event`, `outlook_create_event`, `outlook_update_event`, `outlook_delete_event`, `outlook_list_events`, `outlook_get_event`, `outlook_find_free_time`, `outlook_list_calendars`, `sync_now`
+**Does:** Unified calendar system merging events from Outlook (via Graph API), Google Calendar, and local events into a single CalendarEvent table. On startup and periodically, syncs external calendars and projects virtual events from memories, tasks, and cron jobs. `list_events` queries the unified local database; `outlook_list_events` queries Graph API directly for real-time data. `respond_to_event` handles RSVP for Outlook and Google invitations. `onSettingsChange('calendar')` re-syncs all providers.
+**Key behavior:** `system: true` — receives unsandboxed PluginContext. Local events support categories and color overrides.
+
+### music plugin
+**Hooks:** `onSettingsChange`
+**Lifecycle:** `start` (init YouTube Music client, start Cast device mDNS discovery, init playback controller), `stop` (destroy client, stop discovery, destroy controller)
+**Tools:** `search`, `play`, `pause`, `resume`, `stop`, `skip`, `queue_add`, `queue_view`, `set_volume`, `list_devices`, `my_playlists`, `liked_songs`, `get_playback_settings`, `update_playback_settings`
+**Does:** YouTube Music playback on Cast devices (Chromecast, Google Home, Nest speakers). `play` accepts a search query or videoId and resolves a target Cast device by name (or uses last-used). Radio/autoplay mode keeps music playing after the current track ends. `update_playback_settings` persists changes to PluginConfig and triggers settings reload. `onSettingsChange('music')` reloads credentials and playback defaults.
+**Key behavior:** Settings schema defines YouTube auth credentials, cookie/poToken auth, device aliases, default volume, radio toggle, and audio quality.
+
+### playwright plugin
+**Hooks:** `onPipelineComplete`
+**Lifecycle:** `start` (launch headless Chromium browser), `stop` (close browser, cleanup all temp files)
+**Tools:** `navigate`, `snapshot`, `click`, `fill`, `select_option`, `check`, `screenshot`, `press_key`, `start_recording`, `stop_recording`, `validate_pages`
+**Does:** Browser automation for E2E testing and visual capture. Each thread gets its own browser page that persists across tool calls within a pipeline run. `screenshot` persists images as File records via `ctx.uploadFile` — visible inline in the chat UI. `start_recording`/`stop_recording` capture WebM video at 1280x720. `validate_pages` batch-screenshots a list of URLs. `onPipelineComplete` is a safety net: cleans up any open recording state, removes temp files for the trace, and closes the thread's browser page.
+**Key behavior:** `snapshot` returns an accessibility tree (not a visual screenshot) — preferred for understanding page structure. Per-thread page isolation prevents cross-thread interference.
+
+### logs plugin
+**Tools:** `query`
+**Does:** Searches structured logs from the running Harness instance. Dual backend: prefers Loki (via `LOKI_URL`) for LogQL queries, falls back to rotating log files (via `LOG_FILE`) for JSON-line parsing. Filters by level, source (plugin name), threadId, traceId, text search, and time window. `errorsOnly` flag reads from a dedicated error log file for faster diagnosis. Default time window is 15 minutes.
+**Key behavior:** No hooks or lifecycle methods. Designed as a diagnostic companion for the playwright plugin — when Playwright tests fail, query logs by threadId to find related errors.
+
+### ssh plugin
+**Hooks:** `onSettingsChange`
+**Lifecycle:** `start` (log ready), `stop` (release all pooled connections)
+**Tools:** `exec`, `list_hosts`, `add_host`, `remove_host`, `test_connection`
+**Does:** Remote command execution via SSH. `exec` connects to a registered `SshHost` record, runs a command with configurable timeout, and returns stdout/stderr/exit code. Commands are logged to the database with duration and agent context. `test_connection` verifies connectivity and saves the host key fingerprint on first connection (TOFU — Trust On First Use). `add_host` registers hosts; private keys must be configured separately via admin UI. Connection pool reuses SSH sessions across tool calls.
+**Key behavior:** Requires `HARNESS_ENCRYPTION_KEY` for secure private key storage. `onSettingsChange('ssh')` reloads timeout and pool settings. Error responses are classified by category (AUTH_FAILED, TIMEOUT, CONNECTION_FAILED, HOST_KEY_CHANGED).

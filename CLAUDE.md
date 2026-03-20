@@ -64,7 +64,15 @@ packages/plugins/audit/      → Audit-delete flow (@harness/plugin-audit)
 packages/plugins/time/       → Time injection + tool (@harness/plugin-time)
 packages/plugins/project/    → Project memory tools (@harness/plugin-project)
 packages/plugins/search/     → Qdrant vector indexing for semantic search (@harness/plugin-search)
+packages/plugins/tasks/      → Task CRUD tools (@harness/plugin-tasks)
+packages/plugins/outlook/    → Outlook email via Microsoft Graph (@harness/plugin-outlook)
+packages/plugins/calendar/   → Calendar context injection + Outlook/Google sync (@harness/plugin-calendar)
+packages/plugins/music/      → Music playback control via Cast devices (@harness/plugin-music)
+packages/plugins/playwright/ → Browser automation + visual capture (@harness/plugin-playwright)
+packages/plugins/logs/       → Structured log querying via Loki or file (@harness/plugin-logs)
+packages/plugins/ssh/        → SSH remote execution (@harness/plugin-ssh)
 packages/vector-search/      → Qdrant client + HuggingFace embeddings (@harness/vector-search)
+packages/logger/             → Shared structured logger (@harness/logger)
 ```
 
 ### Dependency Flow
@@ -177,7 +185,7 @@ Three `.claude/rules/` files document execution paths and constraints for the or
 
 ## MCP Servers
 
-Configured in `.mcp.json`: serena (codebase tools), context7 (live docs), playwright (E2E testing), github (requires `GITHUB_TOKEN`).
+Configured in `.mcp.json`: serena (codebase tools), context7 (live docs), playwright (E2E testing), github (requires `GITHUB_TOKEN`), semgrep (static analysis).
 
 ## Environment Setup
 
@@ -304,6 +312,74 @@ Do not rebuild any of the following — these subsystems are fully implemented.
 - Server action: `update-agent-config.ts` — wired to the agent edit form
 - Both flags are checked by the identity plugin: `memoryEnabled` gates memory writing, `reflectionEnabled` gates reflection triggering
 
+### Tasks Plugin (`packages/plugins/tasks/`)
+
+- Exposes 6 MCP tools for `UserTask` records: `add_task`, `list_tasks`, `update_task`, `complete_task`, `add_dependency`, `remove_dependency`
+- Supports task dependencies with cycle rejection
+- Auto-resolves `projectId` and `sourceThreadId` from the current thread
+- Tool-only plugin (no hooks)
+- Admin UI at `/admin/tasks`
+
+### Outlook Plugin (`packages/plugins/outlook/`)
+
+- Email read/send/search via Microsoft Graph OAuth
+- 8 MCP tools: `search_emails`, `read_email`, `list_recent`, `send_email`, `reply_email`, `move_email`, `list_folders`, `find_unsubscribe_links`
+- Tool-only plugin (no hooks)
+- Requires Microsoft Graph OAuth setup (see `docs/microsoft-graph-setup.md`)
+
+### Calendar Plugin (`packages/plugins/calendar/`)
+
+- Unified calendar system merging Outlook, Google, and local events
+- 14 MCP tools: local CRUD (`create_event`, `update_event`, `delete_event`, `list_events`, `get_event`), Outlook Graph tools (`outlook_create_event`, `outlook_update_event`, `outlook_delete_event`, `outlook_list_events`, `outlook_get_event`, `outlook_find_free_time`, `outlook_list_calendars`), response handling (`respond_to_event`), and `sync_now`
+- **Lifecycle:** `start` (initial sync + sync timer), `stop` (stop timer)
+- **Hook:** `onSettingsChange` — re-syncs calendars on settings change
+- Projects virtual events from memories, tasks, and cron jobs
+- Calendar UI at `/calendar` route
+- `system: true` — receives unsandboxed PluginContext
+
+### Music Plugin (`packages/plugins/music/`)
+
+- YouTube Music playback via Cast devices (Chromecast, Google Home, Nest speakers)
+- 14 MCP tools: `search`, `play`, `pause`, `resume`, `stop`, `skip`, `queue_add`, `queue_view`, `set_volume`, `list_devices`, `my_playlists`, `liked_songs`, `get_playback_settings`, `update_playback_settings`
+- **Lifecycle:** `start` (init YouTube Music client + Cast device discovery + playback controller), `stop` (cleanup all)
+- **Hook:** `onSettingsChange` — reloads credentials and playback settings
+- Settings schema for YouTube auth, default volume, radio/autoplay, audio quality
+
+### Playwright Plugin (`packages/plugins/playwright/`)
+
+- Browser automation for E2E testing and visual capture
+- 11 MCP tools: `navigate`, `snapshot`, `click`, `fill`, `select_option`, `check`, `screenshot`, `press_key`, `start_recording`, `stop_recording`, `validate_pages`
+- Per-thread browser pages with auto-cleanup via `onPipelineComplete`
+- Visual capture pipeline: screenshots and video persist as File records via `ctx.uploadFile`
+- Video recording at 1280x720 WebM
+- **Lifecycle:** `start` (launch headless browser), `stop` (close browser + cleanup temp files)
+
+### Logs Plugin (`packages/plugins/logs/`)
+
+- Structured log querying via Loki or rotating log files
+- 1 MCP tool: `query` — search by level, source, threadId, traceId, text, time window
+- Dual backend: prefers Loki when `LOKI_URL` is set, falls back to file-based log querying via `LOG_FILE`
+- Uses `@harness/logger` shared package for structured pino logging
+
+### SSH Plugin (`packages/plugins/ssh/`)
+
+- Remote server execution via SSH connections
+- 5 MCP tools: `exec`, `list_hosts`, `add_host`, `remove_host`, `test_connection`
+- Connection pool with key-based auth and host key verification (TOFU)
+- Command logging to database with exit code, stdout/stderr, and duration
+- **Hook:** `onSettingsChange` — reloads timeout and pool settings
+- **Lifecycle:** `start` / `stop` (connection pool management)
+- Settings schema for default timeout, max output length, command logging, pool limits
+- Admin UI for host management at `/admin/ssh-hosts`
+
+### File Upload System
+
+- Upload API route at `/api/files` with configurable `UPLOAD_DIR` and `MAX_FILE_SIZE_MB`
+- File serving at `/api/files/[id]`
+- Preview modal in chat UI for images, video, and other file types
+- `ctx.uploadFile` on PluginContext — any plugin can persist file attachments (used by playwright for screenshots/video)
+- Inline media gallery for images and video in chat messages
+
 ---
 
 ## Planned But Incomplete
@@ -313,15 +389,6 @@ These features have partial implementation but are missing execution logic. Do n
 ### Agent Identity Phase 3 — Vector Search
 
 - **What:** Similarity search over AgentMemory records for semantic retrieval
-- **Status:** PAUSED — vector backend decision pending
-- **Backend candidate:** Qdrant (pgvector explicitly rejected)
-- **When ready:** Implement as an enhancement to the identity plugin's memory retrieval, not as a new plugin
-
-### Agent Identity Phase 4 — Reflection Cycle
-
-- **What:** Periodic meta-reflection that stores `REFLECTION` type AgentMemory records
-- **Status:** COMPLETE — reflection trigger fires after episodic memory writes, `AgentConfig.reflectionEnabled` gates the trigger (defaults to false). REFLECTION memories receive a 0.3 scoring boost and 2 guaranteed slots in `retrieveMemories`.
-
-### Memory Architecture — COMPLETE
-
-Memory scoping is implemented via a 3-level `MemoryScope` enum (AGENT, PROJECT, THREAD) on the `AgentMemory` model. AGENT memories are always retrieved; PROJECT and THREAD memories are filtered by context. Scope is classified during episodic memory writing via Haiku (piggybacked on existing summarization call, zero additional cost). See `.claude/rules/agent-identity-state.md` for full details.
+- **Status:** PAUSED — Qdrant is operational for the search plugin (message and thread indexing) but has not yet been wired into identity memory retrieval. The blocker is integration work, not a backend decision.
+- **Backend:** Qdrant (pgvector explicitly rejected). The `@harness/vector-search` package and Qdrant infrastructure are already in place.
+- **When ready:** Implement as an enhancement to the identity plugin's `retrieveMemories` helper, not as a new plugin. Use the existing `@harness/vector-search` package for embeddings and ANN search.

@@ -186,7 +186,7 @@ These determine how plugins interact. Read before assuming hooks work a certain 
 |------|-------------|
 | `packages/plugin-contract/src/index.ts` | Every type, interface, and hook signature. Start here. |
 | `apps/orchestrator/src/orchestrator/index.ts` | The pipeline. handleMessage + sendToThread + PluginContext construction. |
-| `apps/orchestrator/src/plugin-registry/index.ts` | Plugin registration order (14 plugins). DB-driven enable/disable. |
+| `apps/orchestrator/src/plugin-registry/index.ts` | Plugin registration order (21 plugins). DB-driven enable/disable. |
 | `apps/orchestrator/src/invoker-sdk/index.ts` | Session pool, timeout wrapper, stream event mapping. |
 | `apps/orchestrator/src/tool-server/index.ts` | MCP tool server. Plugin tools exposed as `pluginName__toolName`. |
 | `packages/plugins/web/src/index.ts` | HTTP server + WebSocket broadcaster. The onChatMessage bridge. |

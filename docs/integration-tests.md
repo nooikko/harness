@@ -4,7 +4,7 @@
 
 The integration test suite at `tests/integration/` tests the entire orchestrator pipeline end-to-end — from plugin registration through the 8-step `handleMessage` pipeline to verified database side-effects — without a browser, without a running Claude process, and without network calls to Anthropic.
 
-Each test file covers one plugin: it spins up a real orchestrator wired to a real PostgreSQL database, registers the plugin under test, fires messages through the pipeline, and asserts concrete outcomes (DB rows written, invoker called, HTTP responses, prompt content).
+Each test file covers one plugin (or a cross-cutting concern like the full pipeline): it spins up a real orchestrator wired to a real PostgreSQL database, registers the plugin under test, fires messages through the pipeline, and asserts concrete outcomes (DB rows written, invoker called, HTTP responses, prompt content). The suite currently includes 22 test files covering all 21 plugins plus a full-pipeline integration test.
 
 These tests sit at the boundary between unit tests (too isolated to catch integration bugs) and true end-to-end tests (too slow and fragile for CI). They are the appropriate layer for verifying that plugins interact correctly with the orchestrator lifecycle, the Prisma schema, and each other's data.
 
@@ -29,15 +29,30 @@ The orchestrator's plugin system has several subtle correctness properties that 
 tests/
   integration/
     helpers/
-      create-harness.ts          # Factory: real orchestrator + real Prisma + mock invoker
+      create-harness.ts              # Factory: real orchestrator + real Prisma + mock invoker
     setup/
-      reset-db.ts                # Truncates all tables between tests
+      reset-db.ts                    # Truncates all tables between tests
     activity-plugin.test.ts
+    audit-plugin.test.ts
+    auto-namer-plugin.test.ts
+    calendar-outlook-tools.test.ts
+    calendar-plugin.test.ts
     context-plugin.test.ts
+    cron-plugin.test.ts
     delegation-plugin.test.ts
     discord-plugin.test.ts
+    full-pipeline.test.ts
+    identity-plugin.test.ts
     metrics-plugin.test.ts
+    music-plugin.test.ts
+    outlook-plugin.test.ts
+    playwright-plugin.test.ts
+    project-plugin.test.ts
+    search-plugin.test.ts
+    summarization-plugin.test.ts
+    tasks-plugin.test.ts
     time-plugin.test.ts
+    validator-plugin.test.ts
     web-plugin.test.ts
 ```
 

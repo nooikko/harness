@@ -79,10 +79,11 @@ If no -> the system can already do what you need. Implement it as a plugin.
 
 File: `apps/orchestrator/src/plugin-registry/index.ts`
 
-Plugin registration order (14 plugins):
+Plugin registration order (21 plugins):
 ```
 identity, activity, context, discord, web, cron, delegation, validator,
-metrics, summarization, auto-namer, audit, time, project
+metrics, summarization, auto-namer, audit, time, project, tasks, outlook,
+calendar, music, search, playwright, logs, ssh
 ```
 (filtered by `PluginConfig.enabled` in DB — plugins can be disabled at runtime without code changes)
 

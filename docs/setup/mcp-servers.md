@@ -1,6 +1,6 @@
 # MCP Server Setup
 
-MCP (Model Context Protocol) servers extend Claude Code's capabilities during development sessions. Harness uses four servers configured in `.mcp.json` at the project root.
+MCP (Model Context Protocol) servers extend Claude Code's capabilities during development sessions. Harness uses five servers configured in `.mcp.json` at the project root.
 
 ---
 
@@ -65,12 +65,12 @@ Reload the shell (`source ~/.bashrc`) before starting Claude Code.
 ```json
 "context7": {
   "command": "bash",
-  "args": ["-c", ". ~/.bashrc; exec npx -y @upstash/context7-mcp@latest --api-key $CONTEXT7_API_KEY"],
+  "args": ["-c", "[ -f ~/.bashrc ] && . ~/.bashrc; exec npx -y @upstash/context7-mcp@latest --api-key $CONTEXT7_API_KEY"],
   "env": {}
 }
 ```
 
-The `bash -c ". ~/.bashrc; exec ...` wrapper sources your profile so `$CONTEXT7_API_KEY` is available even when Claude Code does not inherit your full shell environment.
+The `bash -c "[ -f ~/.bashrc ] && . ~/.bashrc; exec ...` wrapper sources your profile so `$CONTEXT7_API_KEY` is available even when Claude Code does not inherit your full shell environment.
 
 **Verify:** In a Claude Code session, ask it to look up docs for any library (e.g. "show me how to use Prisma's `findMany`"). If Context7 resolves a library ID and returns docs, it is working.
 
@@ -145,6 +145,39 @@ GITHUB_TOKEN=ghp_your-token-here
 `${GITHUB_TOKEN}` is resolved from the environment at startup.
 
 **Verify:** Ask Claude Code to list recent issues or show the latest PR for this repository. If it returns data, the token is valid.
+
+---
+
+## Semgrep
+
+**Purpose:** Static analysis and code pattern matching. Runs Semgrep rules against the codebase to find security issues, anti-patterns, and code quality problems.
+
+**Installation:**
+
+```bash
+pipx install semgrep
+# or
+pip install semgrep
+```
+
+Requires `uvx` (from `uv`) to be available on PATH:
+
+```bash
+pipx install uv
+```
+
+**Config in `.mcp.json`:**
+
+```json
+"semgrep": {
+  "command": "uvx",
+  "args": ["semgrep-mcp"]
+}
+```
+
+No API key required.
+
+**Verify:** Ask Claude Code to run a Semgrep scan on a file. If it returns results (or no findings), the tool is working.
 
 ---
 
