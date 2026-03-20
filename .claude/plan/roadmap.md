@@ -32,7 +32,7 @@ This is not one feature — it's the convergence of multiple systems working tog
 | E2E test framework | **Complete** | Playwright Test configured, POM with 9 page objects, ~20 tests |
 | File uploads (browser) | **Complete** | Full pipeline: upload API, preview modal, chat integration, context injection |
 | Git worktrees | **Exists** | Worktree hooks in Claude Code settings |
-| SSH to homelab | **Missing** | No plugin, no host registry, no remote exec |
+| SSH to homelab | **Complete** | `@harness/plugin-ssh` — 5 MCP tools, connection pool, admin UI, key install |
 | Programmatic file creation | **Missing** | Agents can't create File attachments (screenshots → message) |
 | Video capture | **Missing** | Playwright supports it but plugin doesn't use it |
 | Staged deployment | **Missing** | No multi-server deploy, no staging concept |
@@ -113,14 +113,13 @@ Possible approaches:
 
 These are ordered by dependency. Each one unlocks the next. After this tier, Harness can start building itself.
 
-### 1. SSH / Remote Execution Plugin
-- **What:** Run commands on approved servers via SSH. Homelab: 3 servers + 2 desktops.
-- **Scope:** `packages/plugins/ssh/` — MCP tools for exec, file read, service status, deployment
-- **Design:** Host registry with admin UI. No hardcoded hosts. SshHost model + SshCommandLog for audit.
-- **Tools:** `ssh__exec`, `ssh__list_hosts`, `ssh__upload_file`, `ssh__download_file`, `ssh__service_status`, `ssh__deploy`
-- **Library:** `ssh2` (Node.js) for persistent connections
-- **Why first:** Without this, agents can't reach the homelab. Everything else depends on it.
-- **Plan file:** `tier1-ssh-plugin.md`
+### ~~1. SSH / Remote Execution Plugin~~ — COMPLETE
+- `@harness/plugin-ssh` with 5 MCP tools: `exec`, `list_hosts`, `add_host`, `remove_host`, `test_connection`
+- Connection pool (per-host, inUse tracking, LRU eviction, 15s timeout, 5-min TTL)
+- Admin UI at `/admin/ssh-hosts` with CRUD, "Install Key Automatically" flow (ssh-copy-id equivalent), key verification
+- AES-256-GCM encrypted key storage, TOFU host fingerprint verification, SshCommandLog audit trail
+- Settings hot-reload via `onSettingsChange`, structured error classification
+- 155+ tests. Plan: `tier1-ssh-plugin.md`
 
 ### 2. Playwright Visual Capture
 - **What:** Extend existing Playwright plugin so screenshots/video persist as File attachments in chat
@@ -264,6 +263,8 @@ Rich notifications with Dynamic Island, actionable alerts, media control widgets
 - ~~File uploads~~ — Full pipeline: File model, upload/serve API, chat integration, preview modal, context plugin injection
 - ~~Playwright plugin~~ — 8 MCP tools (navigate, snapshot, click, fill, select, check, screenshot, press_key)
 - ~~E2E test framework~~ — Playwright Test configured, POM with 9 page objects, ~20 smoke/admin tests
+- ~~SSH plugin~~ — `@harness/plugin-ssh` with 5 MCP tools, connection pool, admin UI, key install, 155+ tests
+- ~~Search plugin hardening~~ — `qdrantReady` guard for graceful Qdrant downtime handling
 
 ---
 
