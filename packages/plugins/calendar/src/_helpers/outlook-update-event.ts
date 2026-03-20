@@ -1,7 +1,8 @@
 import type { PluginContext, ToolResult } from '@harness/plugin-contract';
+import { checkOutlookAuth, OUTLOOK_AUTH_ERROR } from './check-outlook-auth';
 import { graphFetch } from './graph-fetch';
 
-type UpdateEventInput = {
+type OutlookUpdateEventInput = {
   eventId: string;
   subject?: string;
   start?: string;
@@ -22,9 +23,14 @@ type GraphUpdatedEvent = {
   location?: { displayName?: string };
 };
 
-type UpdateEvent = (ctx: PluginContext, input: UpdateEventInput) => Promise<ToolResult>;
+type OutlookUpdateEvent = (ctx: PluginContext, input: OutlookUpdateEventInput) => Promise<ToolResult>;
 
-const updateEvent: UpdateEvent = async (ctx, input) => {
+const outlookUpdateEvent: OutlookUpdateEvent = async (ctx, input) => {
+  const token = await checkOutlookAuth(ctx);
+  if (!token) {
+    return OUTLOOK_AUTH_ERROR;
+  }
+
   const timeZone = input.timeZone ?? ctx.config.timezone ?? 'America/Phoenix';
   const graphBody: Record<string, unknown> = {};
 
@@ -86,4 +92,5 @@ const updateEvent: UpdateEvent = async (ctx, input) => {
   return `Updated Outlook event "${data.subject}" (${data.id})`;
 };
 
-export { updateEvent };
+export { outlookUpdateEvent };
+export type { OutlookUpdateEventInput };

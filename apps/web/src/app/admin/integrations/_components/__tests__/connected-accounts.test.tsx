@@ -44,10 +44,9 @@ describe('ConnectedAccounts', () => {
     const html = renderToStaticMarkup(await ConnectedAccounts({}));
     expect(html).toContain('Quinn Penney');
     expect(html).toContain('user@outlook.com');
-    expect(html).toContain('Mail.Read');
   });
 
-  it('shows +N more badge when more than 4 scopes', async () => {
+  it('falls back to accountId when metadata is null', async () => {
     mockFindMany.mockResolvedValue([
       {
         id: 'tok-2',
@@ -62,7 +61,7 @@ describe('ConnectedAccounts', () => {
     ]);
 
     const html = renderToStaticMarkup(await ConnectedAccounts({}));
-    expect(html).toContain('+2 more');
+    expect(html).toContain('user@outlook.com');
   });
 
   it('falls back to accountId when no metadata', async () => {

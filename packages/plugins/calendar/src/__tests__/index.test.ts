@@ -37,8 +37,8 @@ describe('plugin', () => {
     expect(plugin.version).toBe('1.0.0');
   });
 
-  it('defines 7 tools', () => {
-    expect(plugin.tools).toHaveLength(7);
+  it('defines 14 tools', () => {
+    expect(plugin.tools).toHaveLength(14);
   });
 
   it('has expected tool names', () => {
@@ -47,6 +47,13 @@ describe('plugin', () => {
     expect(toolNames).toContain('sync_now');
     expect(toolNames).toContain('respond_to_event');
     expect(toolNames).toContain('list_events');
+    expect(toolNames).toContain('outlook_create_event');
+    expect(toolNames).toContain('outlook_update_event');
+    expect(toolNames).toContain('outlook_delete_event');
+    expect(toolNames).toContain('outlook_list_events');
+    expect(toolNames).toContain('outlook_get_event');
+    expect(toolNames).toContain('outlook_find_free_time');
+    expect(toolNames).toContain('outlook_list_calendars');
   });
 
   it('register returns onSettingsChange hook', async () => {

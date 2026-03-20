@@ -1,4 +1,5 @@
 import type { PluginContext, ToolResult } from '@harness/plugin-contract';
+import { checkOutlookAuth, OUTLOOK_AUTH_ERROR } from './check-outlook-auth';
 import { graphFetch } from './graph-fetch';
 
 type GraphEventDetail = {
@@ -20,9 +21,14 @@ type GraphEventDetail = {
   recurrence?: unknown;
 };
 
-type GetEvent = (ctx: PluginContext, eventId: string) => Promise<ToolResult>;
+type OutlookGetEvent = (ctx: PluginContext, eventId: string) => Promise<ToolResult>;
 
-const getEvent: GetEvent = async (ctx, eventId) => {
+const outlookGetEvent: OutlookGetEvent = async (ctx, eventId) => {
+  const token = await checkOutlookAuth(ctx);
+  if (!token) {
+    return OUTLOOK_AUTH_ERROR;
+  }
+
   const data = (await graphFetch(ctx, `/me/events/${eventId}`, {
     params: {
       $select: 'id,subject,start,end,isAllDay,isCancelled,location,organizer,attendees,body,onlineMeeting,webLink,recurrence',
@@ -80,4 +86,4 @@ const getEvent: GetEvent = async (ctx, eventId) => {
   };
 };
 
-export { getEvent };
+export { outlookGetEvent };

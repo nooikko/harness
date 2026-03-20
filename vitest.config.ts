@@ -30,7 +30,7 @@ export default defineConfig({
       'packages/oauth',
       'packages/plugins/validator',
       'packages/plugins/outlook',
-      'packages/plugins/outlook-calendar',
+
       'packages/plugins/calendar',
     ],
     coverage: {

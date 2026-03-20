@@ -3,6 +3,15 @@ import { createEvent } from './_helpers/create-event';
 import { deleteEvent } from './_helpers/delete-event';
 import { getEvent } from './_helpers/get-event';
 import { listEvents } from './_helpers/list-events';
+import type { OutlookCreateEventInput } from './_helpers/outlook-create-event';
+import { outlookCreateEvent } from './_helpers/outlook-create-event';
+import { outlookDeleteEvent } from './_helpers/outlook-delete-event';
+import { outlookFindFreeTime } from './_helpers/outlook-find-free-time';
+import { outlookGetEvent } from './_helpers/outlook-get-event';
+import { outlookListCalendars } from './_helpers/outlook-list-calendars';
+import { outlookListEvents } from './_helpers/outlook-list-events';
+import type { OutlookUpdateEventInput } from './_helpers/outlook-update-event';
+import { outlookUpdateEvent } from './_helpers/outlook-update-event';
 import { projectVirtualEvents } from './_helpers/project-virtual-events';
 import type { RespondToEventInput } from './_helpers/respond-to-event';
 import { respondToEvent } from './_helpers/respond-to-event';
@@ -18,8 +27,7 @@ const plugin: PluginDefinition = {
   tools: [
     {
       name: 'create_event',
-      description:
-        'Create a local calendar event (birthday, reminder, appointment, etc.). Outlook/Google events are synced automatically and managed via their respective plugins.',
+      description: 'Create a local calendar event (birthday, reminder, appointment, etc.). To create events on Outlook, use outlook_create_event.',
       schema: {
         type: 'object',
         properties: {
@@ -68,7 +76,8 @@ const plugin: PluginDefinition = {
     },
     {
       name: 'update_event',
-      description: 'Update a local calendar event. Only LOCAL events can be edited. Provide only the fields to change.',
+      description:
+        'Update a calendar event. Supports LOCAL events (direct edit) and OUTLOOK events (via Graph API). Google events must be edited in Google Calendar. Provide only the fields to change.',
       schema: {
         type: 'object',
         properties: {
@@ -96,7 +105,8 @@ const plugin: PluginDefinition = {
     },
     {
       name: 'delete_event',
-      description: 'Delete a local calendar event. Only LOCAL events can be deleted.',
+      description:
+        'Delete a calendar event. Supports LOCAL events (direct delete) and OUTLOOK events (via Graph API). Google events must be deleted in Google Calendar.',
       schema: {
         type: 'object',
         properties: {
@@ -189,6 +199,131 @@ const plugin: PluginDefinition = {
       },
       handler: async (ctx, input) => {
         return respondToEvent(ctx, input as RespondToEventInput);
+      },
+    },
+    {
+      name: 'outlook_create_event',
+      description: 'Create a new event on Outlook calendar via Microsoft Graph API. Supports attendees, timezone, and rich body text.',
+      schema: {
+        type: 'object',
+        properties: {
+          subject: { type: 'string', description: 'Event title' },
+          start: { type: 'string', description: "Start time (ISO 8601, e.g., '2026-03-17T10:00:00')" },
+          end: { type: 'string', description: 'End time (ISO 8601)' },
+          timeZone: { type: 'string', description: 'IANA timezone (default: America/Phoenix)' },
+          location: { type: 'string', description: 'Event location' },
+          body: { type: 'string', description: 'Event description / body text' },
+          attendees: { type: 'array', items: { type: 'string' }, description: 'Attendee email addresses' },
+          isAllDay: { type: 'boolean', description: 'Whether this is an all-day event (default: false)' },
+        },
+        required: ['subject', 'start', 'end'],
+      },
+      handler: async (ctx, input) => {
+        return outlookCreateEvent(ctx, input as OutlookCreateEventInput);
+      },
+    },
+    {
+      name: 'outlook_update_event',
+      description:
+        'Update an existing Outlook calendar event via Microsoft Graph API. Pass the Outlook Graph event ID directly. Only provide the fields you want to change.',
+      schema: {
+        type: 'object',
+        properties: {
+          eventId: { type: 'string', description: 'The Outlook event ID (Graph API ID)' },
+          subject: { type: 'string', description: 'New event title' },
+          start: { type: 'string', description: 'New start time (ISO 8601)' },
+          end: { type: 'string', description: 'New end time (ISO 8601)' },
+          timeZone: { type: 'string', description: 'IANA timezone' },
+          location: { type: 'string', description: 'New location' },
+          body: { type: 'string', description: 'New description' },
+          attendees: { type: 'array', items: { type: 'string' }, description: 'Updated attendee email addresses' },
+          isAllDay: { type: 'boolean', description: 'All-day event toggle' },
+        },
+        required: ['eventId'],
+      },
+      handler: async (ctx, input) => {
+        return outlookUpdateEvent(ctx, input as OutlookUpdateEventInput);
+      },
+    },
+    {
+      name: 'outlook_delete_event',
+      description: 'Delete/cancel an Outlook calendar event by its Graph API ID.',
+      schema: {
+        type: 'object',
+        properties: {
+          eventId: { type: 'string', description: 'The Outlook event ID to delete' },
+        },
+        required: ['eventId'],
+      },
+      handler: async (ctx, input) => {
+        const { eventId } = input as { eventId: string };
+        return outlookDeleteEvent(ctx, eventId);
+      },
+    },
+    {
+      name: 'outlook_list_events',
+      description:
+        'List Outlook calendar events in real-time via Microsoft Graph API calendarView. Returns live data directly from Outlook, not the synced local database.',
+      schema: {
+        type: 'object',
+        properties: {
+          startDateTime: { type: 'string', description: 'Start of date range (ISO 8601). Default: now.' },
+          endDateTime: { type: 'string', description: 'End of date range (ISO 8601). Default: 7 days from now.' },
+          top: { type: 'number', description: 'Maximum events to return (default 25)' },
+        },
+        required: [],
+      },
+      handler: async (ctx, input) => {
+        const { startDateTime, endDateTime, top } = input as { startDateTime?: string; endDateTime?: string; top?: number };
+        return outlookListEvents(ctx, { startDateTime, endDateTime, top });
+      },
+    },
+    {
+      name: 'outlook_get_event',
+      description: 'Get full details of an Outlook calendar event by its Graph API ID, including HTML body, attendees, recurrence, and meeting link.',
+      schema: {
+        type: 'object',
+        properties: {
+          eventId: { type: 'string', description: 'The Outlook event ID (Graph API ID)' },
+        },
+        required: ['eventId'],
+      },
+      handler: async (ctx, input) => {
+        const { eventId } = input as { eventId: string };
+        return outlookGetEvent(ctx, eventId);
+      },
+    },
+    {
+      name: 'outlook_find_free_time',
+      description: 'Find available meeting time slots in a date range using Microsoft Graph findMeetingTimes API.',
+      schema: {
+        type: 'object',
+        properties: {
+          startDateTime: { type: 'string', description: 'Start of date range (ISO 8601)' },
+          endDateTime: { type: 'string', description: 'End of date range (ISO 8601)' },
+          durationMinutes: { type: 'number', description: 'Desired meeting duration in minutes (default: 30)' },
+        },
+        required: ['startDateTime', 'endDateTime'],
+      },
+      handler: async (ctx, input) => {
+        const { startDateTime, endDateTime, durationMinutes } = input as {
+          startDateTime: string;
+          endDateTime: string;
+          durationMinutes?: number;
+        };
+        return outlookFindFreeTime(ctx, { startDateTime, endDateTime, durationMinutes });
+      },
+    },
+    {
+      name: 'outlook_list_calendars',
+      description: 'List all available Outlook calendars (personal, shared, etc.) with their properties.',
+      schema: {
+        type: 'object',
+        properties: {},
+        required: [],
+      },
+      handler: async (ctx) => {
+        return outlookListCalendars(ctx);
       },
     },
     {

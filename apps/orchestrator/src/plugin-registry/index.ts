@@ -16,7 +16,7 @@ import { plugin as logsPlugin } from '@harness/plugin-logs';
 import { plugin as metricsPlugin } from '@harness/plugin-metrics';
 import { musicPlugin } from '@harness/plugin-music';
 import { plugin as outlookPlugin } from '@harness/plugin-outlook';
-import { plugin as outlookCalendarPlugin } from '@harness/plugin-outlook-calendar';
+
 import { plugin as playwrightPlugin } from '@harness/plugin-playwright';
 import { projectPlugin } from '@harness/plugin-project';
 import { plugin as searchPlugin } from '@harness/plugin-search';
@@ -45,7 +45,6 @@ const ALL_PLUGINS: PluginDefinition[] = [
   projectPlugin,
   tasksPlugin,
   outlookPlugin,
-  outlookCalendarPlugin,
   calendarPlugin,
   musicPlugin,
   searchPlugin,

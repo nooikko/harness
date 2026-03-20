@@ -1,7 +1,8 @@
 import type { PluginContext, ToolResult } from '@harness/plugin-contract';
+import { checkOutlookAuth, OUTLOOK_AUTH_ERROR } from './check-outlook-auth';
 import { graphFetch } from './graph-fetch';
 
-type CreateEventInput = {
+type OutlookCreateEventInput = {
   subject: string;
   start: string;
   end: string;
@@ -22,9 +23,14 @@ type GraphCreatedEvent = {
   webLink?: string;
 };
 
-type CreateEvent = (ctx: PluginContext, input: CreateEventInput) => Promise<ToolResult>;
+type OutlookCreateEvent = (ctx: PluginContext, input: OutlookCreateEventInput) => Promise<ToolResult>;
 
-const createEvent: CreateEvent = async (ctx, input) => {
+const outlookCreateEvent: OutlookCreateEvent = async (ctx, input) => {
+  const token = await checkOutlookAuth(ctx);
+  if (!token) {
+    return OUTLOOK_AUTH_ERROR;
+  }
+
   const timeZone = input.timeZone ?? ctx.config.timezone ?? 'America/Phoenix';
 
   const graphBody: Record<string, unknown> = {
@@ -109,4 +115,5 @@ const createEvent: CreateEvent = async (ctx, input) => {
   };
 };
 
-export { createEvent };
+export { outlookCreateEvent };
+export type { OutlookCreateEventInput };

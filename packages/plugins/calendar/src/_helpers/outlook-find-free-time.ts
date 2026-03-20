@@ -1,15 +1,21 @@
 import type { PluginContext, ToolResult } from '@harness/plugin-contract';
+import { checkOutlookAuth, OUTLOOK_AUTH_ERROR } from './check-outlook-auth';
 import { graphFetch } from './graph-fetch';
 
-type FindFreeTimeInput = {
+type OutlookFindFreeTimeInput = {
   startDateTime: string;
   endDateTime: string;
   durationMinutes?: number;
 };
 
-type FindFreeTime = (ctx: PluginContext, input: FindFreeTimeInput, timezone?: string) => Promise<ToolResult>;
+type OutlookFindFreeTime = (ctx: PluginContext, input: OutlookFindFreeTimeInput, timezone?: string) => Promise<ToolResult>;
 
-const findFreeTime: FindFreeTime = async (ctx, input, timezone) => {
+const outlookFindFreeTime: OutlookFindFreeTime = async (ctx, input, timezone) => {
+  const token = await checkOutlookAuth(ctx);
+  if (!token) {
+    return OUTLOOK_AUTH_ERROR;
+  }
+
   const tz = timezone ?? ctx.config.timezone ?? 'America/Phoenix';
   const duration = input.durationMinutes ?? 30;
   const hours = Math.floor(duration / 60);
@@ -75,4 +81,4 @@ const findFreeTime: FindFreeTime = async (ctx, input, timezone) => {
   };
 };
 
-export { findFreeTime };
+export { outlookFindFreeTime };
