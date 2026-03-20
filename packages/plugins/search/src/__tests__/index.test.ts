@@ -71,6 +71,17 @@ describe('search plugin', () => {
       });
     });
 
+    it('degrades gracefully when Qdrant is unreachable', async () => {
+      vi.mocked(getQdrantClient).mockReturnValue({} as never);
+      vi.mocked(ensureCollections).mockRejectedValueOnce(new TypeError('fetch failed'));
+      const ctx = createMockCtx();
+
+      await plugin.start!(ctx as never);
+
+      expect(ctx.logger.warn).toHaveBeenCalledWith(expect.stringContaining('Qdrant unreachable'));
+      expect(backfill).not.toHaveBeenCalled();
+    });
+
     it('passes AbortSignal to backfill', async () => {
       vi.mocked(getQdrantClient).mockReturnValue({} as never);
       const ctx = createMockCtx();
@@ -106,6 +117,14 @@ describe('search plugin', () => {
   });
 
   describe('register', () => {
+    // Hooks check qdrantReady flag which is set by start().
+    // Call start() before each hook test so the flag is true.
+    beforeEach(async () => {
+      vi.mocked(getQdrantClient).mockReturnValue({} as never);
+      await plugin.start!(createMockCtx() as never);
+      vi.clearAllMocks();
+    });
+
     describe('onMessage', () => {
       it('skips when Qdrant is not configured', async () => {
         vi.mocked(getQdrantClient).mockReturnValue(null);

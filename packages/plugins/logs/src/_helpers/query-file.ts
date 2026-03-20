@@ -24,7 +24,7 @@ export const parseDuration: ParseDuration = (duration) => {
   const match = /^(\d+)(m|h|d)$/.exec(duration);
   if (!match) return 15 * 60 * 1000; // default 15m
   const value = Number(match[1]);
-  const unit = match[2];
+  const unit = match[2] ?? "m";
   const multipliers: Record<string, number> = { m: 60_000, h: 3_600_000, d: 86_400_000 };
   return value * (multipliers[unit] ?? 60_000);
 };

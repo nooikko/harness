@@ -22,6 +22,7 @@ const indexInBackground: IndexInBackground = (ctx, fn) => {
 };
 
 let backfillAbort: AbortController | null = null;
+let qdrantReady = false;
 
 export const plugin: PluginDefinition = {
   name: 'search',
@@ -33,7 +34,13 @@ export const plugin: PluginDefinition = {
       return;
     }
 
-    await ensureCollections(qdrant);
+    try {
+      await ensureCollections(qdrant);
+    } catch (err) {
+      ctx.logger.warn(`search: Qdrant unreachable, plugin disabled: ${err instanceof Error ? err.message : String(err)}`);
+      return;
+    }
+    qdrantReady = true;
     ctx.logger.info('search: Qdrant collections ready');
 
     // Fire-and-forget backfill on startup with cancellation support
@@ -50,6 +57,7 @@ export const plugin: PluginDefinition = {
     })();
   },
   stop: async (ctx: PluginContext) => {
+    qdrantReady = false;
     if (backfillAbort) {
       backfillAbort.abort();
       backfillAbort = null;
@@ -61,6 +69,9 @@ export const plugin: PluginDefinition = {
 
     return {
       onMessage: async (threadId, _role, content) => {
+        if (!qdrantReady) {
+          return;
+        }
         const qdrant = getQdrantClient();
         if (!qdrant) {
           return;
@@ -84,6 +95,9 @@ export const plugin: PluginDefinition = {
       },
 
       onPipelineComplete: async (threadId, result) => {
+        if (!qdrantReady) {
+          return;
+        }
         const qdrant = getQdrantClient();
         if (!qdrant) {
           return;
@@ -109,7 +123,7 @@ export const plugin: PluginDefinition = {
       },
 
       onBroadcast: async (event, data) => {
-        if (event !== 'thread:name-updated') {
+        if (event !== 'thread:name-updated' || !qdrantReady) {
           return;
         }
 

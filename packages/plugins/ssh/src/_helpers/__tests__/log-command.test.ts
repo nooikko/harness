@@ -159,6 +159,28 @@ describe('logCommand', () => {
     expect(true).toBe(true);
   });
 
+  it('calls logger.warn with Error message when db.create rejects and logger provided', async () => {
+    const db = makeMockDb();
+    const logger = { warn: vi.fn() };
+    (db.sshCommandLog.create as ReturnType<typeof vi.fn>).mockRejectedValueOnce(new Error('DB timeout'));
+
+    logCommand(db, { hostId: 'h', command: 'c', exitCode: 0, stdout: '', stderr: '', duration: 1, threadId: undefined, agentId: undefined }, logger);
+
+    await new Promise((resolve) => setImmediate(resolve));
+    expect(logger.warn).toHaveBeenCalledWith(expect.stringContaining('DB timeout'));
+  });
+
+  it('calls logger.warn with stringified error when non-Error is thrown', async () => {
+    const db = makeMockDb();
+    const logger = { warn: vi.fn() };
+    (db.sshCommandLog.create as ReturnType<typeof vi.fn>).mockRejectedValueOnce('string error');
+
+    logCommand(db, { hostId: 'h', command: 'c', exitCode: 0, stdout: '', stderr: '', duration: 1, threadId: undefined, agentId: undefined }, logger);
+
+    await new Promise((resolve) => setImmediate(resolve));
+    expect(logger.warn).toHaveBeenCalledWith(expect.stringContaining('string error'));
+  });
+
   it('does not throw synchronously (fire-and-forget returns void)', () => {
     const db = makeMockDb();
     const returnValue = logCommand(db, {
