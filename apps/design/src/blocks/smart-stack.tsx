@@ -377,5 +377,5 @@ const SmartStack = ({ widgets = DEFAULT_WIDGETS, contents = DEFAULT_CONTENTS }: 
   );
 };
 
-export { SmartStack, MusicWidgetContent, TimerWidgetContent };
 export type { Widget };
+export { MusicWidgetContent, SmartStack, TimerWidgetContent };

@@ -92,5 +92,5 @@ const outlookUpdateEvent: OutlookUpdateEvent = async (ctx, input) => {
   return `Updated Outlook event "${data.subject}" (${data.id})`;
 };
 
-export { outlookUpdateEvent };
 export type { OutlookUpdateEventInput };
+export { outlookUpdateEvent };

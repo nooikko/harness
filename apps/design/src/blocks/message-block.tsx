@@ -237,5 +237,5 @@ const UserMessage = ({ content }: { content: string }) => (
   </div>
 );
 
-export { UserMessage, AssistantMessage, ToolCallRow, ThinkingRow };
-export type { ToolCall, ThinkingBlock, ActivityMetaProps };
+export type { ActivityMetaProps, ThinkingBlock, ToolCall };
+export { AssistantMessage, ThinkingRow, ToolCallRow, UserMessage };

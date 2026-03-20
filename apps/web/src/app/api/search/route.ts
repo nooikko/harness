@@ -482,4 +482,4 @@ const formatBytes: FormatBytes = (bytes) => {
   return `${(bytes / 1048576).toFixed(1)} MB`;
 };
 
-export type { SearchResult, SearchRequest };
+export type { SearchRequest, SearchResult };

@@ -61,5 +61,5 @@ const TOOL_COMMANDS: CommandDefinition[] = (() => {
 
 const COMMANDS: CommandDefinition[] = [...SYSTEM_COMMANDS, ...AGENT_COMMANDS, ...TOOL_COMMANDS];
 
-export type { CommandDefinition, CommandCategory };
+export type { CommandCategory, CommandDefinition };
 export { COMMANDS };

@@ -42,5 +42,5 @@ const getEventStyle: GetEventStyle = (source, category, colorOverride) => {
   };
 };
 
-export { CATEGORY_STYLES, SOURCE_STYLES, getEventStyle };
 export type { SourceStyle };
+export { CATEGORY_STYLES, getEventStyle, SOURCE_STYLES };

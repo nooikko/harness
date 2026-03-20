@@ -32,5 +32,5 @@ const getMicrosoftConfig = (): MicrosoftOAuthConfig => {
   };
 };
 
-export { getMicrosoftConfig };
 export type { MicrosoftOAuthConfig };
+export { getMicrosoftConfig };

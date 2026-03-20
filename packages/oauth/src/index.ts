@@ -16,5 +16,5 @@ type IsProviderSupported = (provider: string) => provider is SupportedProvider;
 const isProviderSupported: IsProviderSupported = (provider): provider is SupportedProvider =>
   SUPPORTED_PROVIDERS.includes(provider as SupportedProvider);
 
-export { isProviderSupported };
 export type { SupportedProvider };
+export { isProviderSupported };

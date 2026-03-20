@@ -173,5 +173,5 @@ const respondToEvent: RespondToEvent = async (ctx, input) => {
   return `Successfully ${input.response === 'declined' ? 'declined' : input.response === 'tentativelyAccepted' ? 'tentatively accepted' : 'accepted'} "${event.title}".`;
 };
 
-export { respondToEvent };
 export type { RespondToEventInput };
+export { respondToEvent };

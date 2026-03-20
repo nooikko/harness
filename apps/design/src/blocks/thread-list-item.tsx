@@ -107,5 +107,5 @@ const ThreadListItem = ({ name, agent, preview, time, active, unread, onManage, 
   );
 };
 
-export { ThreadListItem };
 export type { ThreadItem };
+export { ThreadListItem };

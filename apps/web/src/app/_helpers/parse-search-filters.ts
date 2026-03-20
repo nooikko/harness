@@ -88,5 +88,5 @@ export const parseSearchFilters: ParseSearchFilters = (raw) => {
   return { searchTerms: remaining.replace(/\s+/g, ' ').trim(), filters };
 };
 
-export { FILTER_PATTERNS };
 export type { ParsedSearchFilters, ParsedSearchQuery };
+export { FILTER_PATTERNS };

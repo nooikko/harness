@@ -31,5 +31,5 @@ const getGoogleConfig: GetGoogleConfig = () => {
   };
 };
 
-export { getGoogleConfig };
 export type { GoogleOAuthConfig };
+export { getGoogleConfig };

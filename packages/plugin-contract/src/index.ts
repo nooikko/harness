@@ -6,11 +6,12 @@ import type { PrismaClient } from '@harness/database';
 import type { Logger } from '@harness/logger';
 import { runChainHook } from './_helpers/run-chain-hook';
 import { runHook } from './_helpers/run-hook';
-export { runChainHook, runHook };
+
 export { decryptValue } from './_helpers/decrypt-value';
 export { encryptValue } from './_helpers/encrypt-value';
 export type { ModelPricing } from './_helpers/model-pricing';
 export { getModelCost, getModelPricing, isKnownModel } from './_helpers/model-pricing';
+export { runChainHook, runHook };
 
 // Inlined from orchestrator config
 export type LogLevel = 'debug' | 'info' | 'warn' | 'error';

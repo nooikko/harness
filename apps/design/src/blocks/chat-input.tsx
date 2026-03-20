@@ -510,5 +510,5 @@ const ChatInput = ({ initialAgent = 'primary', initialModel = 'claude-sonnet-4-6
   );
 };
 
-export { ChatInput };
 export type { ChatInputProps };
+export { ChatInput };

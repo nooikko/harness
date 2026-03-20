@@ -9,36 +9,35 @@
     "typecheck": "tsc --noEmit"
   },
   "devDependencies": {
+    "@harness/database": "workspace:*",
     "@harness/logger": "workspace:*",
+    "@harness/oauth": "workspace:*",
     "@harness/plugin-activity": "workspace:*",
     "@harness/plugin-audit": "workspace:*",
     "@harness/plugin-auto-namer": "workspace:*",
     "@harness/plugin-calendar": "workspace:*",
     "@harness/plugin-context": "workspace:*",
-    "@harness/plugin-cron": "workspace:*",
     "@harness/plugin-contract": "workspace:*",
+    "@harness/plugin-cron": "workspace:*",
     "@harness/plugin-delegation": "workspace:*",
     "@harness/plugin-discord": "workspace:*",
     "@harness/plugin-identity": "workspace:*",
-
     "@harness/plugin-metrics": "workspace:*",
     "@harness/plugin-music": "workspace:*",
     "@harness/plugin-outlook": "workspace:*",
     "@harness/plugin-playwright": "workspace:*",
     "@harness/plugin-project": "workspace:*",
     "@harness/plugin-search": "workspace:*",
-    "@harness/plugin-tasks": "workspace:*",
     "@harness/plugin-summarization": "workspace:*",
+    "@harness/plugin-tasks": "workspace:*",
     "@harness/plugin-time": "workspace:*",
     "@harness/plugin-validator": "workspace:*",
     "@harness/plugin-web": "workspace:*",
-    "@harness/oauth": "workspace:*",
     "@harness/vector-search": "workspace:*",
     "@testcontainers/postgresql": "^10.24.2",
-    "@vitest/coverage-v8": "^4.0.18",
-    "@harness/database": "workspace:*",
+    "@vitest/coverage-v8": "^4.1.0",
     "orchestrator": "workspace:*",
     "testcontainers": "^10.24.2",
-    "vitest": "^4.0.18"
+    "vitest": "^4.1.0"
   }
 }

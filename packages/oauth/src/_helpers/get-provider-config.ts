@@ -23,5 +23,5 @@ const getProviderConfig: GetProviderConfig = (provider) => {
   }
 };
 
-export { getProviderConfig };
 export type { ProviderConfig };
+export { getProviderConfig };

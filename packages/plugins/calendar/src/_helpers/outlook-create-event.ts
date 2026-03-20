@@ -115,5 +115,5 @@ const outlookCreateEvent: OutlookCreateEvent = async (ctx, input) => {
   };
 };
 
-export { outlookCreateEvent };
 export type { OutlookCreateEventInput };
+export { outlookCreateEvent };

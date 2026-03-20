@@ -56,5 +56,5 @@ const AlertDescription = ({ className, ...props }: React.ComponentProps<'div'>) 
   <div data-slot='alert-description' className={cn('col-start-2 text-sm leading-relaxed [&_p]:leading-relaxed', className)} {...props} />
 );
 
-export { Alert, alertVariants, AlertDescription, AlertTitle };
 export type { AlertProps };
+export { Alert, AlertDescription, AlertTitle, alertVariants };

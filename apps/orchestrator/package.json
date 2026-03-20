@@ -13,7 +13,7 @@
     "test:watch": "vitest"
   },
   "dependencies": {
-    "@anthropic-ai/claude-agent-sdk": "^0.2.52",
+    "@anthropic-ai/claude-agent-sdk": "^0.2.80",
     "@harness/database": "workspace:*",
     "@harness/logger": "workspace:*",
     "@harness/oauth": "workspace:*",
@@ -45,10 +45,10 @@
   "devDependencies": {
     "@harness/vitest-config": "workspace:*",
     "@types/node": "^22.19.11",
-    "@vitest/coverage-v8": "^4.0.18",
+    "@vitest/coverage-v8": "^4.1.0",
     "tsup": "^8.5.0",
     "tsx": "^4.21.0",
     "typescript": "^5.9.3",
-    "vitest": "^4.0.18"
+    "vitest": "^4.1.0"
   }
 }

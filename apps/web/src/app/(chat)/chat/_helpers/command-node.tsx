@@ -61,5 +61,5 @@ class CommandNode extends BeautifulMentionNode {
   // when defined, per lexical-beautiful-mentions docs.
 }
 
-export { CommandNode };
 export type { SerializedCommandNode };
+export { CommandNode };

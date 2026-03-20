@@ -185,6 +185,7 @@ const CommandFooter = ({
   </div>
 );
 
+export type { CommandFooterHint, CommandFooterProps };
 export {
   Command,
   CommandDialog,
@@ -197,4 +198,3 @@ export {
   CommandSeparator,
   CommandShortcut,
 };
-export type { CommandFooterProps, CommandFooterHint };

@@ -74,5 +74,5 @@ const EventCard = ({ icon, title, detail, meta, accent, action }: EventCardProps
   </div>
 );
 
-export { EventCard };
 export type { EventCardProps };
+export { EventCard };

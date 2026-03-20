@@ -99,5 +99,5 @@ const SubmitPlugin: SubmitPluginComponent = ({ threadId, onSubmit, disabled }) =
   return null;
 };
 
-export { SubmitPlugin, parseSystemCommand };
 export type { SystemCommand };
+export { parseSystemCommand, SubmitPlugin };

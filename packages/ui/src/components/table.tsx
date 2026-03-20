@@ -65,5 +65,5 @@ const TableCaption = ({ className, ...props }: React.ComponentProps<'caption'>) 
   <caption data-slot='table-caption' className={cn('mt-4 text-sm text-muted-foreground', className)} {...props} />
 );
 
-export { Table, TableBody, TableCaption, TableCell, TableFooter, TableHead, TableHeader, TableRow };
 export type { TableCellProps };
+export { Table, TableBody, TableCaption, TableCell, TableFooter, TableHead, TableHeader, TableRow };

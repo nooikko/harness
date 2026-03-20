@@ -30,16 +30,16 @@
     "test:all": "pnpm test && pnpm test:integration && pnpm test:e2e"
   },
   "devDependencies": {
-    "@biomejs/biome": "^2.4.4",
-    "@vitest/coverage-v8": "^4.0.18",
+    "@biomejs/biome": "^2.4.8",
+    "@vitest/coverage-v8": "^4.1.0",
     "glob": "^13.0.6",
     "husky": "^9.1.7",
-    "lint-staged": "^16.2.7",
+    "lint-staged": "^16.4.0",
     "sherif": "^1.10.0",
     "tsx": "^4.21.0",
-    "turbo": "^2.8.10",
+    "turbo": "^2.8.20",
     "typescript": "^5.9.3",
-    "vitest": "^4.0.18"
+    "vitest": "^4.1.0"
   },
   "packageManager": "pnpm@10.26.2+sha512.0e308ff2005fc7410366f154f625f6631ab2b16b1d2e70238444dd6ae9d630a8482d92a451144debc492416896ed16f7b114a86ec68b8404b2443869e68ffda6",
   "engines": {
