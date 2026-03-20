@@ -21,6 +21,18 @@
             "type": "command",
             "command": "$CLAUDE_PROJECT_DIR/.claude/hooks/block-any-types.py",
             "timeout": 30
+          },
+          {
+            "type": "command",
+            "command": "node \"$CLAUDE_PROJECT_DIR/.claude/ecc/scripts/hooks/auto-tmux-dev.js\""
+          },
+          {
+            "type": "command",
+            "command": "node \"$CLAUDE_PROJECT_DIR/.claude/ecc/scripts/hooks/run-with-flags.js\" \"pre:bash:tmux-reminder\" \"scripts/hooks/pre-bash-tmux-reminder.js\" \"strict\""
+          },
+          {
+            "type": "command",
+            "command": "node \"$CLAUDE_PROJECT_DIR/.claude/ecc/scripts/hooks/run-with-flags.js\" \"pre:bash:git-push-reminder\" \"scripts/hooks/pre-bash-git-push-reminder.js\" \"strict\""
           }
         ]
       },
@@ -68,6 +80,49 @@
             "command": "$CLAUDE_PROJECT_DIR/.claude/hooks/block-deep-package-imports.py"
           }
         ]
+      },
+      {
+        "matcher": "Write",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node \"$CLAUDE_PROJECT_DIR/.claude/ecc/scripts/hooks/run-with-flags.js\" \"pre:write:doc-file-warning\" \"scripts/hooks/doc-file-warning.js\" \"standard,strict\""
+          }
+        ],
+        "description": "ECC: warn about non-standard documentation file locations"
+      },
+      {
+        "matcher": "Edit|Write",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node \"$CLAUDE_PROJECT_DIR/.claude/ecc/scripts/hooks/run-with-flags.js\" \"pre:edit-write:suggest-compact\" \"scripts/hooks/suggest-compact.js\" \"standard,strict\""
+          }
+        ],
+        "description": "ECC: suggest manual compaction at logical intervals"
+      },
+      {
+        "matcher": "*",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash \"$CLAUDE_PROJECT_DIR/.claude/ecc/scripts/hooks/run-with-flags-shell.sh\" \"pre:observe\" \"skills/continuous-learning-v2/hooks/observe.sh\" \"standard,strict\"",
+            "async": true,
+            "timeout": 10
+          }
+        ],
+        "description": "ECC: Homunculus observer — capture tool use for continuous learning"
+      },
+      {
+        "matcher": "Bash|Write|Edit|MultiEdit",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node \"$CLAUDE_PROJECT_DIR/.claude/ecc/scripts/hooks/run-with-flags.js\" \"pre:insaits-security\" \"scripts/hooks/insaits-security-wrapper.js\" \"standard,strict\"",
+            "timeout": 15
+          }
+        ],
+        "description": "ECC: optional InsAIts security monitor (enable with ECC_ENABLE_INSAITS=1)"
       }
     ],
     "PostToolUse": [
@@ -78,6 +133,16 @@
             "type": "command",
             "command": "$CLAUDE_PROJECT_DIR/.claude/hooks/post-merge-validate.py",
             "timeout": 300
+          },
+          {
+            "type": "command",
+            "command": "node \"$CLAUDE_PROJECT_DIR/.claude/ecc/scripts/hooks/run-with-flags.js\" \"post:bash:pr-created\" \"scripts/hooks/post-bash-pr-created.js\" \"standard,strict\""
+          },
+          {
+            "type": "command",
+            "command": "node \"$CLAUDE_PROJECT_DIR/.claude/ecc/scripts/hooks/run-with-flags.js\" \"post:bash:build-complete\" \"scripts/hooks/post-bash-build-complete.js\" \"standard,strict\"",
+            "async": true,
+            "timeout": 30
           }
         ]
       },
@@ -86,8 +151,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "$CLAUDE_PROJECT_DIR/.claude/hooks/biome-check.py",
-            "timeout": 30
+            "command": "node \"$CLAUDE_PROJECT_DIR/.claude/ecc/scripts/hooks/run-with-flags.js\" \"post:edit:format\" \"scripts/hooks/post-edit-format.js\" \"standard,strict\""
           },
           {
             "type": "command",
@@ -98,11 +162,93 @@
             "type": "command",
             "command": "$CLAUDE_PROJECT_DIR/.claude/hooks/track-doc-changes.py",
             "timeout": 5
+          },
+          {
+            "type": "command",
+            "command": "node \"$CLAUDE_PROJECT_DIR/.claude/ecc/scripts/hooks/run-with-flags.js\" \"post:quality-gate\" \"scripts/hooks/quality-gate.js\" \"standard,strict\"",
+            "async": true,
+            "timeout": 30
+          },
+          {
+            "type": "command",
+            "command": "node \"$CLAUDE_PROJECT_DIR/.claude/ecc/scripts/hooks/run-with-flags.js\" \"post:edit:typecheck\" \"scripts/hooks/post-edit-typecheck.js\" \"standard,strict\""
+          }
+        ]
+      },
+      {
+        "matcher": "*",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash \"$CLAUDE_PROJECT_DIR/.claude/ecc/scripts/hooks/run-with-flags-shell.sh\" \"post:observe\" \"skills/continuous-learning-v2/hooks/observe.sh\" \"standard,strict\"",
+            "async": true,
+            "timeout": 10
+          }
+        ],
+        "description": "ECC: Homunculus observer — capture tool use results"
+      }
+    ],
+    "PreCompact": [
+      {
+        "matcher": "*",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node \"$CLAUDE_PROJECT_DIR/.claude/ecc/scripts/hooks/run-with-flags.js\" \"pre:compact\" \"scripts/hooks/pre-compact.js\" \"standard,strict\""
+          }
+        ],
+        "description": "ECC: save state before context compaction"
+      }
+    ],
+    "SessionStart": [
+      {
+        "matcher": "*",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node \"$CLAUDE_PROJECT_DIR/.claude/ecc/scripts/hooks/run-with-flags.js\" \"session:start\" \"scripts/hooks/session-start.js\" \"minimal,standard,strict\""
+          }
+        ],
+        "description": "ECC: load previous context and detect package manager on new session"
+      }
+    ],
+    "Stop": [
+      {
+        "matcher": "*",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node \"$CLAUDE_PROJECT_DIR/.claude/ecc/scripts/hooks/run-with-flags.js\" \"stop:session-end\" \"scripts/hooks/session-end.js\" \"minimal,standard,strict\"",
+            "async": true,
+            "timeout": 10
+          },
+          {
+            "type": "command",
+            "command": "node \"$CLAUDE_PROJECT_DIR/.claude/ecc/scripts/hooks/run-with-flags.js\" \"stop:evaluate-session\" \"scripts/hooks/evaluate-session.js\" \"minimal,standard,strict\"",
+            "async": true,
+            "timeout": 10
+          },
+          {
+            "type": "command",
+            "command": "node \"$CLAUDE_PROJECT_DIR/.claude/ecc/scripts/hooks/run-with-flags.js\" \"stop:cost-tracker\" \"scripts/hooks/cost-tracker.js\" \"minimal,standard,strict\"",
+            "async": true,
+            "timeout": 10
           }
         ]
       }
     ],
-    "Stop": [],
+    "SessionEnd": [
+      {
+        "matcher": "*",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node \"$CLAUDE_PROJECT_DIR/.claude/ecc/scripts/hooks/run-with-flags.js\" \"session:end:marker\" \"scripts/hooks/session-end-marker.js\" \"minimal,standard,strict\""
+          }
+        ],
+        "description": "ECC: session end lifecycle marker"
+      }
+    ],
     "WorktreeCreate": [
       {
         "matcher": "",
@@ -128,16 +274,15 @@
   },
   "permissions": {
     "allow": [
-      "Bash(npx claude-flow:*)",
-      "Bash(npm run lint)",
-      "Bash(npm run test:*)",
-      "Bash(npm test:*)",
       "Bash(pnpm typecheck)",
       "Bash(pnpm lint)",
       "Bash(pnpm build)",
       "Bash(pnpm check)",
       "Bash(pnpm test:*)",
       "Bash(pnpm dev:*)",
+      "Bash(pnpm install)",
+      "Bash(pnpm db:*)",
+      "Bash(pnpm --filter:*)",
       "Bash(git status)",
       "Bash(git diff:*)",
       "Bash(git log:*)",
@@ -150,15 +295,11 @@
       "Bash(git checkout:*)",
       "Bash(git stash:*)",
       "Bash(git worktree:*)",
-      "Bash(pnpm install)",
-      "Bash(jq:*)",
       "Bash(node:*)",
+      "Bash(jq:*)",
       "Bash(which:*)",
       "Bash(pwd)",
       "Bash(ls:*)",
-      "Bash(npx task-master:*)",
-      "Bash(pnpm db:*)",
-      "Bash(pnpm --filter:*)",
       "Bash(mkdir:*)",
       "Bash(chmod:*)"
     ]

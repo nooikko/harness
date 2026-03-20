@@ -32,7 +32,8 @@
       "!**/pnpm-lock.yaml",
       "!**/turbo",
       "!**/*.css",
-      "!**/components-backup"
+      "!**/components-backup",
+      "!**/.claude/ecc"
     ],
     "ignoreUnknown": false
   },

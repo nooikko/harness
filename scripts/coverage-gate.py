@@ -34,6 +34,7 @@ EXCLUDED_PATTERNS = [
     r"prisma/generated/",
     r"/generated/",  # auto-generated files
     r"^scripts/",  # build/codegen scripts
+    r"^\.claude/ecc/",  # vendored ECC — third-party, not our code
     r"^tests/",  # integration test infrastructure — not unit-testable source code
     r"/e2e/",  # Playwright E2E tests — run by Playwright, not Vitest
     r"\.next/",

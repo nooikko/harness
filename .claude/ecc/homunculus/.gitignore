@@ -1,0 +1,8 @@
+# Homunculus runtime data — observation batches and archives are ephemeral
+projects/*/observations.batches/
+projects/*/observations.archive/
+projects/*/.observer.pid
+projects/*/.last-purge
+projects/*/observer.log
+projects/*/batch-analysis.log
+projects/*/run-batch-analysis.sh
