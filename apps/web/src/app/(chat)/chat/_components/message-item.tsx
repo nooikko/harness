@@ -1,5 +1,6 @@
 import type { Message } from '@harness/database';
 import { Info } from 'lucide-react';
+import { formatMessageTime } from '../_helpers/format-message-time';
 import { isCrossThreadNotification } from '../_helpers/is-cross-thread-notification';
 import { MarkdownContent } from './markdown-content';
 import { MessageFiles } from './message-files';
@@ -83,14 +84,14 @@ export const MessageItem: MessageItemComponent = ({ message, files }) => {
 
   if (message.role === 'user') {
     return (
-      <div data-message-id={message.id} style={{ display: 'flex', justifyContent: 'flex-end' }}>
+      <div data-message-id={message.id} style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end' }}>
         <div
           style={{
             background: 'var(--accent-subtle)',
             border: '1px solid var(--border-subtle)',
             borderRadius: 'var(--radius-xl) var(--radius-xl) var(--radius-sm) var(--radius-xl)',
-            padding: '10px 14px',
-            fontSize: 14,
+            padding: '8px 12px',
+            fontSize: 13,
             color: 'var(--text-primary)',
             lineHeight: 1.6,
             maxWidth: '80%',
@@ -101,27 +102,32 @@ export const MessageItem: MessageItemComponent = ({ message, files }) => {
           {renderUserContent(message.content)}
           {files && files.length > 0 && <MessageFiles files={files} />}
         </div>
+        <span style={{ fontSize: 11, color: 'var(--text-muted)', opacity: 0.6, marginTop: 2 }}>{formatMessageTime(message.createdAt)}</span>
       </div>
     );
   }
 
   if (message.role === 'assistant') {
     return (
-      <article
-        data-message-id={message.id}
-        aria-label='Assistant'
-        style={{
-          background: 'var(--surface-card)',
-          border: '1px solid var(--border-subtle)',
-          borderRadius: 'var(--radius-xl)',
-          overflow: 'hidden',
-        }}
-      >
-        <div style={{ padding: '12px 14px' }}>
-          <MarkdownContent content={message.content} />
-          {files && files.length > 0 && <MessageFiles files={files} />}
-        </div>
-      </article>
+      <div data-message-id={message.id}>
+        <article
+          aria-label='Assistant'
+          style={{
+            background: 'var(--surface-card)',
+            border: '1px solid var(--border-subtle)',
+            borderRadius: 'var(--radius-xl)',
+            overflow: 'hidden',
+          }}
+        >
+          <div style={{ padding: '10px 12px' }}>
+            <MarkdownContent content={message.content} />
+            {files && files.length > 0 && <MessageFiles files={files} />}
+          </div>
+        </article>
+        <span style={{ fontSize: 11, color: 'var(--text-muted)', opacity: 0.6, marginTop: 2, display: 'inline-block' }}>
+          {formatMessageTime(message.createdAt)}
+        </span>
+      </div>
     );
   }
 

@@ -192,7 +192,7 @@ export const ChatInput: ChatInputComponent = ({
   }, []);
 
   return (
-    <div className='mx-auto w-full max-w-4xl bg-background px-4 pb-4 pt-3 shadow-[0_-1px_3px_0_rgba(0,0,0,0.04)] sm:px-6'>
+    <div className='mx-auto w-full max-w-4xl bg-background px-4 pb-4 pt-3 sm:px-6'>
       {(error || uploadError) && <p className='mb-2 text-xs text-destructive'>{error || uploadError}</p>}
       <input
         ref={fileInputRef}

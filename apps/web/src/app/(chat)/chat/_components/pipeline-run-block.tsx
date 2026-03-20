@@ -51,6 +51,11 @@ export const PipelineRunBlock: PipelineRunBlockComponent = ({ startMessage, comp
 
   // Determine if this is an incomplete (in-progress or stale) run
   const isIncomplete = !completeMessage && !hasError;
+
+  // Hide empty in-progress blocks — the live PipelineActivity component handles this state
+  if (isIncomplete && activityMessages.length === 0) {
+    return null;
+  }
   const startMetadata = startMessage?.metadata;
   const startedAt = (startMetadata?.startedAt as string) ?? startMessage?.createdAt;
   const isStale = isIncomplete && startedAt && Date.now() - new Date(startedAt).getTime() > STALE_THRESHOLD_MS;
@@ -58,12 +63,8 @@ export const PipelineRunBlock: PipelineRunBlockComponent = ({ startMessage, comp
   // Extract summary from the complete status message metadata
   const metadata = completeMessage?.metadata;
   const durationMs = metadata?.durationMs as number | undefined;
-  const inputTokens = metadata?.inputTokens as number | undefined;
-  const outputTokens = metadata?.outputTokens as number | undefined;
 
   const duration = durationMs ? (durationMs >= 1000 ? `${(durationMs / 1000).toFixed(1)}s` : `${durationMs}ms`) : null;
-  const tokens = inputTokens != null && outputTokens != null ? `${inputTokens + outputTokens} tokens` : null;
-
   const toolCount = activityMessages.filter((m) => m.kind === 'tool_call').length;
   const thinkingCount = activityMessages.filter((m) => m.kind === 'thinking').length;
 
@@ -80,9 +81,6 @@ export const PipelineRunBlock: PipelineRunBlockComponent = ({ startMessage, comp
     const summaryParts: string[] = [];
     if (duration) {
       summaryParts.push(duration);
-    }
-    if (tokens) {
-      summaryParts.push(tokens);
     }
     if (toolCount > 0) {
       summaryParts.push(`${toolCount} tool ${toolCount === 1 ? 'call' : 'calls'}`);
@@ -103,7 +101,7 @@ export const PipelineRunBlock: PipelineRunBlockComponent = ({ startMessage, comp
   );
 
   return (
-    <div className='-mb-2'>
+    <div className='-mb-1'>
       <button
         type='button'
         onClick={() => setIsExpanded(!isExpanded)}

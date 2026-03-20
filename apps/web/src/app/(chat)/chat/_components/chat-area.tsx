@@ -187,7 +187,7 @@ export const ChatArea: ChatAreaComponent = ({ threadId, currentModel, currentAge
     <>
       <ScrollArea className='min-h-0 flex-1 [&>[data-slot=scroll-area-viewport]>div]:min-h-full [&>[data-slot=scroll-area-viewport]>div]:flex! [&>[data-slot=scroll-area-viewport]>div]:flex-col'>
         <div className='mx-auto flex flex-1 w-full max-w-4xl flex-col justify-end px-4 py-6 sm:px-6'>
-          <div className='flex flex-col gap-4'>
+          <div className='flex flex-col gap-2'>
             {children}
             <PipelineActivity threadId={threadId} isActive={isThinking} />
             <DelegationStack parentThreadId={threadId} />
