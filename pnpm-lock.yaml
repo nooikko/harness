@@ -192,9 +192,6 @@ importers:
       '@harness/plugin-outlook':
         specifier: workspace:*
         version: link:../../packages/plugins/outlook
-      '@harness/plugin-outlook-calendar':
-        specifier: workspace:*
-        version: link:../../packages/plugins/outlook-calendar
       '@harness/plugin-playwright':
         specifier: workspace:*
         version: link:../../packages/plugins/playwright
@@ -958,37 +955,6 @@ importers:
         specifier: ^4.0.18
         version: 4.0.18(@types/node@22.19.11)(jiti@2.6.1)(jsdom@28.1.0(@noble/hashes@2.0.1))(lightningcss@1.31.1)(tsx@4.21.0)(yaml@2.8.2)
 
-  packages/plugins/outlook-calendar:
-    dependencies:
-      '@harness/database':
-        specifier: workspace:*
-        version: link:../../database
-      '@harness/oauth':
-        specifier: workspace:*
-        version: link:../../oauth
-      '@harness/plugin-contract':
-        specifier: workspace:*
-        version: link:../../plugin-contract
-    devDependencies:
-      '@harness/vitest-config':
-        specifier: workspace:*
-        version: link:../../vitest-config
-      '@types/node':
-        specifier: ^22.19.11
-        version: 22.19.11
-      '@vitest/coverage-v8':
-        specifier: ^4.0.18
-        version: 4.0.18(vitest@4.0.18(@types/node@22.19.11)(jiti@2.6.1)(jsdom@28.1.0(@noble/hashes@2.0.1))(lightningcss@1.31.1)(tsx@4.21.0)(yaml@2.8.2))
-      tsup:
-        specifier: ^8.5.0
-        version: 8.5.1(jiti@2.6.1)(postcss@8.5.6)(tsx@4.21.0)(typescript@5.9.3)(yaml@2.8.2)
-      typescript:
-        specifier: ^5.9.3
-        version: 5.9.3
-      vitest:
-        specifier: ^4.0.18
-        version: 4.0.18(@types/node@22.19.11)(jiti@2.6.1)(jsdom@28.1.0(@noble/hashes@2.0.1))(lightningcss@1.31.1)(tsx@4.21.0)(yaml@2.8.2)
-
   packages/plugins/playwright:
     dependencies:
       '@harness/plugin-contract':
@@ -1479,9 +1445,6 @@ importers:
       '@harness/plugin-outlook':
         specifier: workspace:*
         version: link:../../packages/plugins/outlook
-      '@harness/plugin-outlook-calendar':
-        specifier: workspace:*
-        version: link:../../packages/plugins/outlook-calendar
       '@harness/plugin-playwright':
         specifier: workspace:*
         version: link:../../packages/plugins/playwright

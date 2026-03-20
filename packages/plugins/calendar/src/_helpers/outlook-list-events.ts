@@ -1,13 +1,12 @@
 import type { PluginContext, ToolResult } from '@harness/plugin-contract';
+import { checkOutlookAuth, OUTLOOK_AUTH_ERROR } from './check-outlook-auth';
 import { graphFetch } from './graph-fetch';
 
-type ListEventsInput = {
+type OutlookListEventsInput = {
   startDateTime?: string;
   endDateTime?: string;
   top?: number;
 };
-
-type ListEvents = (ctx: PluginContext, input: ListEventsInput) => Promise<ToolResult>;
 
 type GraphEvent = {
   id: string;
@@ -25,7 +24,14 @@ type GraphEvent = {
   onlineMeeting?: { joinUrl?: string };
 };
 
-const listEvents: ListEvents = async (ctx, input) => {
+type OutlookListEvents = (ctx: PluginContext, input: OutlookListEventsInput) => Promise<ToolResult>;
+
+const outlookListEvents: OutlookListEvents = async (ctx, input) => {
+  const token = await checkOutlookAuth(ctx);
+  if (!token) {
+    return OUTLOOK_AUTH_ERROR;
+  }
+
   const now = new Date();
   const startDateTime = input.startDateTime ?? now.toISOString();
   const endDateTime = input.endDateTime ?? new Date(now.getTime() + 7 * 24 * 60 * 60 * 1000).toISOString();
@@ -86,4 +92,4 @@ const listEvents: ListEvents = async (ctx, input) => {
   };
 };
 
-export { listEvents };
+export { outlookListEvents };

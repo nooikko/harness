@@ -1,9 +1,15 @@
 import type { PluginContext } from '@harness/plugin-contract';
+import { checkOutlookAuth, OUTLOOK_AUTH_ERROR } from './check-outlook-auth';
 import { graphFetch } from './graph-fetch';
 
-type ListCalendars = (ctx: PluginContext) => Promise<string>;
+type OutlookListCalendars = (ctx: PluginContext) => Promise<string>;
 
-const listCalendars: ListCalendars = async (ctx) => {
+const outlookListCalendars: OutlookListCalendars = async (ctx) => {
+  const token = await checkOutlookAuth(ctx);
+  if (!token) {
+    return OUTLOOK_AUTH_ERROR;
+  }
+
   const data = (await graphFetch(ctx, '/me/calendars', {
     params: {
       $select: 'id,name,color,isDefaultCalendar,canEdit,owner',
@@ -35,4 +41,4 @@ const listCalendars: ListCalendars = async (ctx) => {
   return JSON.stringify(calendars, null, 2);
 };
 
-export { listCalendars };
+export { outlookListCalendars };

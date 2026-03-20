@@ -60,41 +60,6 @@ export const pluginToolRegistry: PluginToolEntry[] = [
     "args": "<taskId> <blockedById>"
   },
   {
-    "pluginName": "ssh",
-    "toolName": "exec",
-    "qualifiedName": "ssh__exec",
-    "description": "Execute a command on a remote SSH host. Returns stdout, stderr, and exit code. Commands must be non-interactive (no prompts for input). Use sudo -n for passwordless sudo.",
-    "args": "<host> <command> [timeout]"
-  },
-  {
-    "pluginName": "ssh",
-    "toolName": "list-hosts",
-    "qualifiedName": "ssh__list_hosts",
-    "description": "List registered SSH hosts. Optionally filter by tag.",
-    "args": "[tag]"
-  },
-  {
-    "pluginName": "ssh",
-    "toolName": "add-host",
-    "qualifiedName": "ssh__add_host",
-    "description": "Register a new SSH host. Keys must be configured separately via admin UI.",
-    "args": "<name> <hostname> [port] <username> [tags]"
-  },
-  {
-    "pluginName": "ssh",
-    "toolName": "remove-host",
-    "qualifiedName": "ssh__remove_host",
-    "description": "Remove a registered SSH host by name.",
-    "args": "<name>"
-  },
-  {
-    "pluginName": "ssh",
-    "toolName": "test-connection",
-    "qualifiedName": "ssh__test_connection",
-    "description": "Test SSH connectivity to a host. Updates lastSeenAt on success and saves fingerprint on first connection (TOFU).",
-    "args": "<host>"
-  },
-  {
     "pluginName": "project",
     "toolName": "get-project-memory",
     "qualifiedName": "project__get_project_memory",
@@ -163,55 +128,6 @@ export const pluginToolRegistry: PluginToolEntry[] = [
     "qualifiedName": "playwright__press_key",
     "description": "Press a keyboard key. Useful for submitting forms (Enter), tabbing between fields (Tab), closing modals (Escape), etc.",
     "args": "<key>"
-  },
-  {
-    "pluginName": "outlook-calendar",
-    "toolName": "list-events",
-    "qualifiedName": "outlook-calendar__list_events",
-    "description": "List upcoming Outlook calendar events via Microsoft Graph API. Defaults to the next 7 days. Provide ISO date strings to customize the range.",
-    "args": "[startDateTime] [endDateTime] [top]"
-  },
-  {
-    "pluginName": "outlook-calendar",
-    "toolName": "get-event",
-    "qualifiedName": "outlook-calendar__get_event",
-    "description": "Get full details of an Outlook calendar event by its Graph ID, including body, attendees, recurrence, and meeting link.",
-    "args": "<eventId>"
-  },
-  {
-    "pluginName": "outlook-calendar",
-    "toolName": "create-event",
-    "qualifiedName": "outlook-calendar__create_event",
-    "description": "Create a new event on the Outlook calendar via Microsoft Graph API. Supports attendees, timezone, and rich body text.",
-    "args": "<subject> <start> <end> [timeZone] [location] [body] [attendees] [isAllDay]"
-  },
-  {
-    "pluginName": "outlook-calendar",
-    "toolName": "update-event",
-    "qualifiedName": "outlook-calendar__update_event",
-    "description": "Update an existing Outlook calendar event via Microsoft Graph API. Only provide the fields you want to change.",
-    "args": "<eventId> [subject] [start] [end] [timeZone] [location] [body] [attendees] [isAllDay]"
-  },
-  {
-    "pluginName": "outlook-calendar",
-    "toolName": "delete-event",
-    "qualifiedName": "outlook-calendar__delete_event",
-    "description": "Delete/cancel an Outlook calendar event by its Graph ID.",
-    "args": "<eventId>"
-  },
-  {
-    "pluginName": "outlook-calendar",
-    "toolName": "find-free-time",
-    "qualifiedName": "outlook-calendar__find_free_time",
-    "description": "Find available meeting time slots in a date range. Uses Microsoft Graph findMeetingTimes API.",
-    "args": "<startDateTime> <endDateTime> [durationMinutes]"
-  },
-  {
-    "pluginName": "outlook-calendar",
-    "toolName": "list-calendars",
-    "qualifiedName": "outlook-calendar__list_calendars",
-    "description": "List all available Outlook calendars (personal, shared, etc.) with their properties.",
-    "args": ""
   },
   {
     "pluginName": "outlook",
@@ -434,21 +350,21 @@ export const pluginToolRegistry: PluginToolEntry[] = [
     "pluginName": "calendar",
     "toolName": "create-event",
     "qualifiedName": "calendar__create_event",
-    "description": "Create a local calendar event (birthday, reminder, appointment, etc.). Outlook/Google events are synced automatically and managed via their respective plugins.",
+    "description": "Create a local calendar event (birthday, reminder, appointment, etc.). To create events on Outlook, use outlook_create_event.",
     "args": "<title> <startAt> <endAt> [isAllDay] [location] [description] [category] [color]"
   },
   {
     "pluginName": "calendar",
     "toolName": "update-event",
     "qualifiedName": "calendar__update_event",
-    "description": "Update a local calendar event. Only LOCAL events can be edited. Provide only the fields to change.",
+    "description": "Update a calendar event. Supports LOCAL events (direct edit) and OUTLOOK events (via Graph API). Google events must be edited in Google Calendar. Provide only the fields to change.",
     "args": "<eventId> [title] [startAt] [endAt] [isAllDay] [location] [description] [category] [color]"
   },
   {
     "pluginName": "calendar",
     "toolName": "delete-event",
     "qualifiedName": "calendar__delete_event",
-    "description": "Delete a local calendar event. Only LOCAL events can be deleted.",
+    "description": "Delete a calendar event. Supports LOCAL events (direct delete) and OUTLOOK events (via Graph API). Google events must be deleted in Google Calendar.",
     "args": "<eventId>"
   },
   {
@@ -471,6 +387,55 @@ export const pluginToolRegistry: PluginToolEntry[] = [
     "qualifiedName": "calendar__respond_to_event",
     "description": "Accept, tentatively accept, or decline a calendar event invitation (Outlook or Google).",
     "args": "<eventId> <response> [message]"
+  },
+  {
+    "pluginName": "calendar",
+    "toolName": "outlook-create-event",
+    "qualifiedName": "calendar__outlook_create_event",
+    "description": "Create a new event on Outlook calendar via Microsoft Graph API. Supports attendees, timezone, and rich body text.",
+    "args": "<subject> <start> <end> [timeZone] [location] [body] [attendees] [isAllDay]"
+  },
+  {
+    "pluginName": "calendar",
+    "toolName": "outlook-update-event",
+    "qualifiedName": "calendar__outlook_update_event",
+    "description": "Update an existing Outlook calendar event via Microsoft Graph API. Pass the Outlook Graph event ID directly. Only provide the fields you want to change.",
+    "args": "<eventId> [subject] [start] [end] [timeZone] [location] [body] [attendees] [isAllDay]"
+  },
+  {
+    "pluginName": "calendar",
+    "toolName": "outlook-delete-event",
+    "qualifiedName": "calendar__outlook_delete_event",
+    "description": "Delete/cancel an Outlook calendar event by its Graph API ID.",
+    "args": "<eventId>"
+  },
+  {
+    "pluginName": "calendar",
+    "toolName": "outlook-list-events",
+    "qualifiedName": "calendar__outlook_list_events",
+    "description": "List Outlook calendar events in real-time via Microsoft Graph API calendarView. Returns live data directly from Outlook, not the synced local database.",
+    "args": "[startDateTime] [endDateTime] [top]"
+  },
+  {
+    "pluginName": "calendar",
+    "toolName": "outlook-get-event",
+    "qualifiedName": "calendar__outlook_get_event",
+    "description": "Get full details of an Outlook calendar event by its Graph API ID, including HTML body, attendees, recurrence, and meeting link.",
+    "args": "<eventId>"
+  },
+  {
+    "pluginName": "calendar",
+    "toolName": "outlook-find-free-time",
+    "qualifiedName": "calendar__outlook_find_free_time",
+    "description": "Find available meeting time slots in a date range using Microsoft Graph findMeetingTimes API.",
+    "args": "<startDateTime> <endDateTime> [durationMinutes]"
+  },
+  {
+    "pluginName": "calendar",
+    "toolName": "outlook-list-calendars",
+    "qualifiedName": "calendar__outlook_list_calendars",
+    "description": "List all available Outlook calendars (personal, shared, etc.) with their properties.",
+    "args": ""
   },
   {
     "pluginName": "calendar",

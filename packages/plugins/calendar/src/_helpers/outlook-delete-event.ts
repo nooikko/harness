@@ -1,9 +1,15 @@
 import type { PluginContext, ToolResult } from '@harness/plugin-contract';
+import { checkOutlookAuth, OUTLOOK_AUTH_ERROR } from './check-outlook-auth';
 import { graphFetch } from './graph-fetch';
 
-type DeleteEvent = (ctx: PluginContext, eventId: string) => Promise<ToolResult>;
+type OutlookDeleteEvent = (ctx: PluginContext, eventId: string) => Promise<ToolResult>;
 
-const deleteEvent: DeleteEvent = async (ctx, eventId) => {
+const outlookDeleteEvent: OutlookDeleteEvent = async (ctx, eventId) => {
+  const token = await checkOutlookAuth(ctx);
+  if (!token) {
+    return OUTLOOK_AUTH_ERROR;
+  }
+
   await graphFetch(ctx, `/me/events/${eventId}`, {
     method: 'DELETE',
   });
@@ -19,4 +25,4 @@ const deleteEvent: DeleteEvent = async (ctx, eventId) => {
   return `deleted Outlook event (${eventId})`;
 };
 
-export { deleteEvent };
+export { outlookDeleteEvent };
