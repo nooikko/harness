@@ -27,8 +27,8 @@ describe('summarization plugin integration', () => {
     harness = await createTestHarness(summarizationPlugin);
 
     // Seed exactly 50 kind:'text' messages so countThreadMessages returns 50
-    // when onAfterInvoke fires (assistant text is written AFTER onAfterInvoke)
-    const messageData = Array.from({ length: 50 }, (_, i) => ({
+    // Seed 49 messages: onAfterInvoke count=49, +1 for pending assistant write = 50, triggers at (49+1)%50===0
+    const messageData = Array.from({ length: 49 }, (_, i) => ({
       threadId: harness.threadId,
       role: i % 2 === 0 ? 'user' : 'assistant',
       kind: 'text' as const,

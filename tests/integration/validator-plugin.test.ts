@@ -116,15 +116,17 @@ describe('validator plugin integration', () => {
     expect(harness.invoker.invoke).toHaveBeenCalledTimes(1);
   });
 
-  it('skips validation and does not call invoker on the last iteration (safety valve)', async () => {
+  it('auto-accepts on the last iteration even if verdict is fail (safety valve)', async () => {
     harness = await createTestHarness(validatorPlugin);
     // currentIteration === maxIterations triggers the safety valve
     const taskId = await createTask(prisma, harness.threadId, { currentIteration: 3, maxIterations: 3 });
 
     const onTaskComplete = getOnTaskComplete(harness);
+    // Should not throw even though invoker returns FAIL — safety valve auto-accepts
     await expect(onTaskComplete(harness.threadId, taskId, 'Final result')).resolves.toBeUndefined();
 
-    expect(harness.invoker.invoke).not.toHaveBeenCalled();
+    // Validator still invokes to evaluate — it just auto-accepts on fail verdict
+    expect(harness.invoker.invoke).toHaveBeenCalledTimes(1);
   });
 
   it('skips validation and does not call invoker when task is not found in DB', async () => {

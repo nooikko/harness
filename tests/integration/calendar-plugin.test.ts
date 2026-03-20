@@ -200,7 +200,7 @@ describe('calendar plugin integration', () => {
     const result = await tool.handler(ctx, { eventId: event.id }, makeMeta(harness.threadId));
 
     const text = typeof result === 'string' ? result : result.text;
-    expect(text).toContain('OUTLOOK');
+    expect(text).toContain('Outlook');
 
     // Event should still exist
     const still = await prisma.calendarEvent.findUnique({ where: { id: event.id } });

@@ -95,7 +95,7 @@ describe('playwright plugin integration', () => {
     const result = await screenshotTool.handler(ctx, {}, { threadId: harness.threadId, traceId: 'test-trace' });
 
     expect(result).toContain('Screenshot saved:');
-    expect(result).toContain('auto-deleted');
+    expect(result).toContain('file ID:');
     expect(result).toContain('.png');
   });
 
