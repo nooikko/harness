@@ -1,4 +1,4 @@
-import type { PluginDefinition } from '@harness/plugin-contract';
+import type { PluginContext, PluginDefinition } from '@harness/plugin-contract';
 import { createEvent } from './_helpers/create-event';
 import { deleteEvent } from './_helpers/delete-event';
 import { getEvent } from './_helpers/get-event';
@@ -51,7 +51,7 @@ const plugin: PluginDefinition = {
         },
         required: ['title', 'startAt', 'endAt'],
       },
-      handler: async (ctx, input) => {
+      handler: async (ctx: PluginContext, input: Record<string, unknown>) => {
         const { title, startAt, endAt, isAllDay, location, description, category, color } = input as {
           title: string;
           startAt: string;
@@ -99,7 +99,7 @@ const plugin: PluginDefinition = {
         },
         required: ['eventId'],
       },
-      handler: async (ctx, input) => {
+      handler: async (ctx: PluginContext, input: Record<string, unknown>) => {
         return updateEvent(ctx, input as Parameters<typeof updateEvent>[1]);
       },
     },
@@ -117,7 +117,7 @@ const plugin: PluginDefinition = {
         },
         required: ['eventId'],
       },
-      handler: async (ctx, input) => {
+      handler: async (ctx: PluginContext, input: Record<string, unknown>) => {
         const { eventId } = input as { eventId: string };
         return deleteEvent(ctx, eventId);
       },
@@ -156,7 +156,7 @@ const plugin: PluginDefinition = {
         },
         required: [],
       },
-      handler: async (ctx, input) => {
+      handler: async (ctx: PluginContext, input: Record<string, unknown>) => {
         return listEvents(ctx, input as Parameters<typeof listEvents>[1]);
       },
     },
@@ -170,7 +170,7 @@ const plugin: PluginDefinition = {
         },
         required: ['eventId'],
       },
-      handler: async (ctx, input) => {
+      handler: async (ctx: PluginContext, input: Record<string, unknown>) => {
         const { eventId } = input as { eventId: string };
         return getEvent(ctx, eventId);
       },
@@ -197,7 +197,7 @@ const plugin: PluginDefinition = {
         },
         required: ['eventId', 'response'],
       },
-      handler: async (ctx, input) => {
+      handler: async (ctx: PluginContext, input: Record<string, unknown>) => {
         return respondToEvent(ctx, input as RespondToEventInput);
       },
     },
@@ -218,7 +218,7 @@ const plugin: PluginDefinition = {
         },
         required: ['subject', 'start', 'end'],
       },
-      handler: async (ctx, input) => {
+      handler: async (ctx: PluginContext, input: Record<string, unknown>) => {
         return outlookCreateEvent(ctx, input as OutlookCreateEventInput);
       },
     },
@@ -241,7 +241,7 @@ const plugin: PluginDefinition = {
         },
         required: ['eventId'],
       },
-      handler: async (ctx, input) => {
+      handler: async (ctx: PluginContext, input: Record<string, unknown>) => {
         return outlookUpdateEvent(ctx, input as OutlookUpdateEventInput);
       },
     },
@@ -255,7 +255,7 @@ const plugin: PluginDefinition = {
         },
         required: ['eventId'],
       },
-      handler: async (ctx, input) => {
+      handler: async (ctx: PluginContext, input: Record<string, unknown>) => {
         const { eventId } = input as { eventId: string };
         return outlookDeleteEvent(ctx, eventId);
       },
@@ -273,7 +273,7 @@ const plugin: PluginDefinition = {
         },
         required: [],
       },
-      handler: async (ctx, input) => {
+      handler: async (ctx: PluginContext, input: Record<string, unknown>) => {
         const { startDateTime, endDateTime, top } = input as { startDateTime?: string; endDateTime?: string; top?: number };
         return outlookListEvents(ctx, { startDateTime, endDateTime, top });
       },
@@ -288,7 +288,7 @@ const plugin: PluginDefinition = {
         },
         required: ['eventId'],
       },
-      handler: async (ctx, input) => {
+      handler: async (ctx: PluginContext, input: Record<string, unknown>) => {
         const { eventId } = input as { eventId: string };
         return outlookGetEvent(ctx, eventId);
       },
@@ -305,7 +305,7 @@ const plugin: PluginDefinition = {
         },
         required: ['startDateTime', 'endDateTime'],
       },
-      handler: async (ctx, input) => {
+      handler: async (ctx: PluginContext, input: Record<string, unknown>) => {
         const { startDateTime, endDateTime, durationMinutes } = input as {
           startDateTime: string;
           endDateTime: string;
@@ -322,7 +322,7 @@ const plugin: PluginDefinition = {
         properties: {},
         required: [],
       },
-      handler: async (ctx) => {
+      handler: async (ctx: PluginContext) => {
         return outlookListCalendars(ctx);
       },
     },
@@ -334,7 +334,7 @@ const plugin: PluginDefinition = {
         properties: {},
         required: [],
       },
-      handler: async (ctx) => {
+      handler: async (ctx: PluginContext) => {
         void (async () => {
           try {
             await Promise.allSettled([syncOutlookCalendars(ctx), syncGoogleCalendars(ctx)]);
@@ -347,8 +347,8 @@ const plugin: PluginDefinition = {
       },
     },
   ],
-  register: async (ctx) => ({
-    onSettingsChange: async (pluginName) => {
+  register: async (ctx: PluginContext) => ({
+    onSettingsChange: async (pluginName: string) => {
       if (pluginName === 'calendar') {
         stopSyncTimer();
         try {
@@ -362,7 +362,7 @@ const plugin: PluginDefinition = {
       }
     },
   }),
-  start: async (ctx) => {
+  start: async (ctx: PluginContext) => {
     void (async () => {
       try {
         await Promise.allSettled([syncOutlookCalendars(ctx), syncGoogleCalendars(ctx)]);

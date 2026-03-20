@@ -76,7 +76,7 @@ describe('outlookCreateEvent', () => {
       attendees: ['alice@example.com'],
     });
 
-    const body = mockGraphFetch.mock.calls[0][2].body;
+    const body = mockGraphFetch.mock.calls[0]![2].body;
     expect(body.attendees).toEqual([{ emailAddress: { address: 'alice@example.com' }, type: 'required' }]);
   });
 
@@ -103,7 +103,7 @@ describe('outlookCreateEvent', () => {
       timeZone: 'Europe/London',
     });
 
-    const body = mockGraphFetch.mock.calls[0][2].body;
+    const body = mockGraphFetch.mock.calls[0]![2].body;
     expect(body.start.timeZone).toBe('Europe/London');
     expect(body.end.timeZone).toBe('Europe/London');
   });
@@ -124,7 +124,7 @@ describe('outlookCreateEvent', () => {
       body: 'Meeting notes here',
     });
 
-    const body = mockGraphFetch.mock.calls[0][2].body;
+    const body = mockGraphFetch.mock.calls[0]![2].body;
     expect(body.body).toEqual({ contentType: 'text', content: 'Meeting notes here' });
   });
 

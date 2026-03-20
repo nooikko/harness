@@ -60,6 +60,9 @@ uploads/
 .playwright-mcp
 screenshots/
 
+# PM2 logs
+logs/
+
 # Playwright E2E
 **/e2e/test-results/
 **/playwright-report/

@@ -50,7 +50,7 @@ describe('graphFetch', () => {
 
     await graphFetch(ctx, '/me/events', { params: { $top: '10' } });
 
-    const calledUrl = mockFetch.mock.calls[0][0] as string;
+    const calledUrl = mockFetch.mock.calls[0]![0] as string;
     expect(calledUrl).toContain('%24top=10');
   });
 

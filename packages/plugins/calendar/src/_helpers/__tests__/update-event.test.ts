@@ -114,7 +114,7 @@ describe('updateEvent', () => {
 
     await updateEvent(ctx, { eventId: 'evt-2', title: 'New Subject', description: 'New body text' });
 
-    const body = mockGraphFetch.mock.calls[0][2].body;
+    const body = mockGraphFetch.mock.calls[0]![2].body;
     expect(body.subject).toBe('New Subject');
     expect(body.body).toEqual({ contentType: 'text', content: 'New body text' });
   });

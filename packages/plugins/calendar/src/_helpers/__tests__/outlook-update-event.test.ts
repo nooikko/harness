@@ -64,7 +64,7 @@ describe('outlookUpdateEvent', () => {
 
     await outlookUpdateEvent(ctx, { eventId: 'evt-1', location: 'Room B' });
 
-    const body = mockGraphFetch.mock.calls[0][2].body;
+    const body = mockGraphFetch.mock.calls[0]![2].body;
     expect(body.location).toEqual({ displayName: 'Room B' });
     expect(body.subject).toBeUndefined();
   });
@@ -87,7 +87,7 @@ describe('outlookUpdateEvent', () => {
 
     await outlookUpdateEvent(ctx, { eventId: 'evt-2', attendees: ['alice@example.com'] });
 
-    const body = mockGraphFetch.mock.calls[0][2].body;
+    const body = mockGraphFetch.mock.calls[0]![2].body;
     expect(body.attendees).toEqual([{ emailAddress: { address: 'alice@example.com' }, type: 'required' }]);
   });
 
