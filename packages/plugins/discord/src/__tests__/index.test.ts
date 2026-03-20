@@ -232,6 +232,16 @@ describe('discord plugin', () => {
       expect(ctx.logger.error).toHaveBeenCalledWith(expect.stringContaining('failed to connect'));
     });
 
+    it('handles login failure with non-Error value', async () => {
+      mockLogin.mockRejectedValue('token-rejected');
+      const ctx = createMockContext({ discordToken: 'bad-token' });
+
+      await plugin.start?.(ctx);
+
+      expect(ctx.logger.error).toHaveBeenCalledWith(expect.stringContaining('token-rejected'));
+      expect(ctx.reportStatus).toHaveBeenCalledWith('error', expect.stringContaining('token-rejected'));
+    });
+
     it('fires ClientReady handler to set connected state', async () => {
       mockLogin.mockResolvedValue('token');
       const ctx = createMockContext({ discordToken: 'test-token' });
@@ -1013,6 +1023,24 @@ describe('discord plugin', () => {
       });
 
       expect(ctx.logger.error).toHaveBeenCalledWith(expect.stringContaining('delivery failed'));
+    });
+
+    it('logs non-Error objects from sendDiscordReply via String()', async () => {
+      const ctx = createMockContext({ discordToken: 'test-token' });
+      const hooks = await plugin.register(ctx);
+      mockLogin.mockResolvedValue('test-token');
+      await plugin.start!(ctx);
+
+      const readyHandler = findHandler<(client: { user: { tag: string } }) => void>(mockOnce, 'ready');
+      readyHandler?.({ user: { tag: 'TestBot#1234' } });
+
+      mockSendDiscordReply.mockRejectedValueOnce('string-error');
+
+      await hooks.onBroadcast!('pipeline:complete', {
+        threadId: 'thread-1',
+      });
+
+      expect(ctx.logger.error).toHaveBeenCalledWith(expect.stringContaining('string-error'));
     });
 
     it('skips onBroadcast delivery after ShardDisconnect fires', async () => {

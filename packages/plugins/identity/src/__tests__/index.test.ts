@@ -434,6 +434,29 @@ describe('identity plugin', () => {
     });
   });
 
+  describe('onSettingsChange', () => {
+    it('reloads settings when pluginName is identity', async () => {
+      const ctx = createMockContext();
+      const hooks = await plugin.register(ctx);
+
+      await hooks.onSettingsChange?.('identity');
+
+      // getSettings called once during register, once during reload
+      expect(ctx.getSettings).toHaveBeenCalledTimes(2);
+      expect(ctx.logger.info).toHaveBeenCalledWith('Identity plugin: settings reloaded');
+    });
+
+    it('skips reload when pluginName is not identity', async () => {
+      const ctx = createMockContext();
+      const hooks = await plugin.register(ctx);
+
+      await hooks.onSettingsChange?.('cron');
+
+      // getSettings called only once during register
+      expect(ctx.getSettings).toHaveBeenCalledTimes(1);
+    });
+  });
+
   describe('tools', () => {
     it('exposes an update_self tool', () => {
       expect(plugin.tools).toHaveLength(1);
