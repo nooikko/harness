@@ -6,7 +6,6 @@ import Markdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import { getCharacterColor } from './_helpers/character-color-map';
 import { detectDialogueBlock } from './_helpers/detect-dialogue-block';
-import { isActionParagraph } from './_helpers/is-action-paragraph';
 import { CodeBlock } from './code-block';
 import { safeHref } from './markdown-content';
 
@@ -17,6 +16,18 @@ type NarrativeContentProps = {
 type NarrativeContentComponent = (props: NarrativeContentProps) => React.ReactNode;
 
 type SpeakerRef = { current: string | null };
+
+// Checks if a markdown AST paragraph node contains only emphasis (italic) children.
+// This is more reliable than inspecting the React element tree because react-markdown
+// replaces native elements with custom component overrides before the p handler runs.
+type IsAstActionParagraph = (node: { children?: Array<{ type?: string }> }) => boolean;
+const isAstActionParagraph: IsAstActionParagraph = (node) => {
+  const kids = node.children;
+  if (!kids || kids.length === 0) {
+    return false;
+  }
+  return kids.every((child) => child.type === 'emphasis' || child.type === 'text');
+};
 
 // Creates per-render components that share a lastSpeaker ref.
 // When a dialogue block is rendered, lastSpeaker is set to that character.
@@ -42,7 +53,7 @@ const createComponents: CreateComponents = (speakerRef) => ({
       </code>
     );
   },
-  p: ({ children, ...props }) => {
+  p: ({ children, node, ...props }) => {
     // Check for dialogue first
     const dialogue = detectDialogueBlock(children);
     if (dialogue.isDialogue) {
@@ -59,8 +70,9 @@ const createComponents: CreateComponents = (speakerRef) => ({
       );
     }
 
-    // Check for action beat (fully italic paragraph)
-    if (isActionParagraph(children) && speakerRef.current) {
+    // Check for action beat via the markdown AST node (not the React tree).
+    // A paragraph whose AST children are all 'emphasis' nodes is an action beat.
+    if (speakerRef.current && node && isAstActionParagraph(node as { children?: Array<{ type?: string }> })) {
       const color = getCharacterColor(speakerRef.current);
       return (
         <p className='pl-3 border-l-[3px] my-3' style={{ borderColor: color, opacity: 0.7 }} {...props}>
