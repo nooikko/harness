@@ -13,7 +13,12 @@ vi.mock('@harness/plugin-contract', () => ({
   isKnownModel: vi.fn().mockReturnValue(true),
 }));
 
+vi.mock('../persist-delegation-activity', () => ({
+  persistDelegationActivity: vi.fn().mockResolvedValue(undefined),
+}));
+
 import { invokeSubAgent } from '../invoke-sub-agent';
+import { persistDelegationActivity } from '../persist-delegation-activity';
 
 type CreateMockContext = () => PluginContext;
 
@@ -54,7 +59,7 @@ describe('invokeSubAgent', () => {
       model: 'claude-opus-4-20250514',
       threadId: 'thread-1',
       timeout: expect.any(Number),
-      onMessage: undefined,
+      onMessage: expect.any(Function),
       traceId: undefined,
       taskId: 'task-1',
     });
@@ -69,7 +74,7 @@ describe('invokeSubAgent', () => {
       model: undefined,
       threadId: 'thread-1',
       timeout: expect.any(Number),
-      onMessage: undefined,
+      onMessage: expect.any(Function),
       traceId: undefined,
       taskId: 'task-1',
     });
@@ -130,35 +135,55 @@ describe('invokeSubAgent', () => {
     expect(names).toContain('token.cost');
   });
 
-  it('passes onMessage callback to invoke', async () => {
+  it('wraps onMessage callback to collect events and forward to caller', async () => {
     const ctx = createMockContext();
-    const onMessage = vi.fn();
+    const callerOnMessage = vi.fn();
 
-    await invokeSubAgent(ctx, 'Do work', 'task-1', 'thread-1', undefined, onMessage);
-
-    expect(ctx.invoker.invoke).toHaveBeenCalledWith('Do work', {
-      model: undefined,
-      threadId: 'thread-1',
-      timeout: 30000,
-      onMessage,
-      traceId: undefined,
-      taskId: 'task-1',
+    // Make invoke call the onMessage callback with test events
+    (ctx.invoker.invoke as ReturnType<typeof vi.fn>).mockImplementation(async (_prompt, opts) => {
+      opts?.onMessage?.({ type: 'thinking', content: 'Hmm', timestamp: 1000 });
+      opts?.onMessage?.({ type: 'tool_call', toolName: 'Bash', timestamp: 2000 });
+      return { output: 'Done', durationMs: 1500, exitCode: 0 };
     });
+
+    await invokeSubAgent(ctx, 'Do work', 'task-1', 'thread-1', undefined, callerOnMessage);
+
+    // Caller's callback should have been called for each event
+    expect(callerOnMessage).toHaveBeenCalledTimes(2);
+    expect(callerOnMessage).toHaveBeenCalledWith(expect.objectContaining({ type: 'thinking' }));
+    expect(callerOnMessage).toHaveBeenCalledWith(expect.objectContaining({ type: 'tool_call' }));
+
+    // persistDelegationActivity should have received the collected events
+    expect(persistDelegationActivity).toHaveBeenCalledWith(
+      ctx,
+      'thread-1',
+      expect.arrayContaining([expect.objectContaining({ type: 'thinking' }), expect.objectContaining({ type: 'tool_call' })]),
+      expect.objectContaining({ output: 'Done' }),
+      undefined,
+    );
   });
 
-  it('passes traceId to invoke options', async () => {
+  it('calls persistDelegationActivity even without caller onMessage', async () => {
+    const ctx = createMockContext();
+
+    await invokeSubAgent(ctx, 'Do work', 'task-1', 'thread-1', undefined);
+
+    expect(persistDelegationActivity).toHaveBeenCalledWith(
+      ctx,
+      'thread-1',
+      [], // no events emitted
+      expect.objectContaining({ output: 'Agent output here' }),
+      undefined,
+    );
+  });
+
+  it('passes traceId to invoke options and persistDelegationActivity', async () => {
     const ctx = createMockContext();
 
     await invokeSubAgent(ctx, 'Do work', 'task-1', 'thread-1', undefined, undefined, 'trace-abc-123');
 
-    expect(ctx.invoker.invoke).toHaveBeenCalledWith('Do work', {
-      model: undefined,
-      threadId: 'thread-1',
-      timeout: 30000,
-      onMessage: undefined,
-      traceId: 'trace-abc-123',
-      taskId: 'task-1',
-    });
+    expect(ctx.invoker.invoke).toHaveBeenCalledWith('Do work', expect.objectContaining({ traceId: 'trace-abc-123' }));
+    expect(persistDelegationActivity).toHaveBeenCalledWith(ctx, 'thread-1', expect.any(Array), expect.anything(), 'trace-abc-123');
   });
 
   it('passes taskId through InvokeOptions', async () => {
@@ -167,5 +192,19 @@ describe('invokeSubAgent', () => {
     await invokeSubAgent(ctx, 'Do work', 'task-1', 'thread-1', undefined);
 
     expect(ctx.invoker.invoke).toHaveBeenCalledWith('Do work', expect.objectContaining({ taskId: 'task-1' }));
+  });
+
+  it('does not throw if persistDelegationActivity fails', async () => {
+    const ctx = createMockContext();
+    (persistDelegationActivity as ReturnType<typeof vi.fn>).mockRejectedValueOnce(new Error('DB write failed'));
+
+    // Should not throw — persistence failure is caught and logged
+    const result = await invokeSubAgent(ctx, 'Do work', 'task-1', 'thread-1', undefined);
+
+    expect(result.output).toBe('Agent output here');
+    expect(ctx.logger.warn).toHaveBeenCalledWith(
+      'delegation: failed to persist activity records',
+      expect.objectContaining({ threadId: 'thread-1', taskId: 'task-1' }),
+    );
   });
 });

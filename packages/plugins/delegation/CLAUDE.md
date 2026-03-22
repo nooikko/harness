@@ -56,7 +56,7 @@ Cost is bounded by the per-task cost cap and the concurrency semaphore (`maxConc
 
 `sendThreadNotification` is called once per delegation loop: at the end, whether the task succeeded or failed. Intermediate iterations (within the invoke-validate loop) are visible only in the task's own thread. The parent sees a single structured notification summarizing the outcome. If the task completes, the summary is the first 200 characters of the sub-agent's final output.
 
-Sub-agents can call the `checkin` MCP tool at any point during their work to send an interim message to the parent. This uses `ctx.sendToThread` on the parent thread, not `sendThreadNotification`. The message appears as `[Check-in from task thread <id>]: <message>`.
+Sub-agents can call the `checkin` MCP tool at any point during their work to post a progress update to the parent thread. The checkin handler writes a system message directly to the parent thread's DB (`ctx.db.message.create`) and broadcasts `task:checkin` for real-time UI updates. It does NOT call `ctx.sendToThread` — check-ins are for user visibility only, not parent agent evaluation. This is intentional to avoid expensive pipeline runs for every progress update. The message appears as `[Check-in from task thread <id>]: <message>`.
 
 ## Backoff and failure categorization
 

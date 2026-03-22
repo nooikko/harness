@@ -1,6 +1,7 @@
 // Invokes a sub-agent and persists the output, run record, and token usage metrics
 
 import type { InvokeResult, InvokeStreamEvent, PluginContext } from '@harness/plugin-contract';
+import { persistDelegationActivity } from './persist-delegation-activity';
 import { recordAgentRun } from './record-agent-run';
 
 type OnStreamEvent = (event: InvokeStreamEvent) => void;
@@ -16,7 +17,31 @@ type InvokeSubAgent = (
 ) => Promise<InvokeResult>;
 
 export const invokeSubAgent: InvokeSubAgent = async (ctx, prompt, taskId, threadId, model, onMessage, traceId) => {
-  const result = await ctx.invoker.invoke(prompt, { model, threadId, timeout: ctx.config.claudeTimeout, onMessage, traceId, taskId });
+  // Collect stream events for persistence while forwarding to the caller's callback
+  const collectedEvents: InvokeStreamEvent[] = [];
+  const wrappedOnMessage: OnStreamEvent | undefined = (event) => {
+    collectedEvents.push(event);
+    onMessage?.(event);
+  };
+
+  const result = await ctx.invoker.invoke(prompt, {
+    model,
+    threadId,
+    timeout: ctx.config.claudeTimeout,
+    onMessage: wrappedOnMessage,
+    traceId,
+    taskId,
+  });
+
+  // Persist pipeline activity (start/complete status + thinking/tool_call/tool_result records)
+  // so the delegated thread view can render full activity like the main pipeline
+  await persistDelegationActivity(ctx, threadId, collectedEvents, result, traceId).catch((err) => {
+    ctx.logger.warn('delegation: failed to persist activity records', {
+      error: err instanceof Error ? err.message : String(err),
+      threadId,
+      taskId,
+    });
+  });
 
   // Persist non-empty sub-agent output as a message in the task thread
   // (failed invocations often return empty output — don't pollute history)
