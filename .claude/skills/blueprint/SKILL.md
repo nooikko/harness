@@ -32,7 +32,7 @@ Blueprint runs a 5-phase pipeline:
 
 1. **Research** — Pre-flight checks (git, gh auth, remote, default branch), then reads project structure, existing plans, and memory files to gather context.
 2. **Design** — Breaks the objective into one-PR-sized steps (3–12 typical). Assigns dependency edges, parallel/serial ordering, model tier (strongest vs default), and rollback strategy per step.
-3. **Draft** — Writes a self-contained Markdown plan file to `plans/`. Every step includes a context brief, task list, verification commands, and exit criteria — so a fresh agent can execute any step without reading prior steps.
+3. **Draft** — Writes a self-contained Markdown plan file to `AI_RESEARCH/plans/`. Every step includes a context brief, task list, verification commands, and exit criteria — so a fresh agent can execute any step without reading prior steps.
 4. **Review** — Delegates adversarial review to a strongest-model sub-agent (e.g., Opus) against a checklist and anti-pattern catalog. Fixes all critical findings before finalizing.
 5. **Register** — Saves the plan, updates memory index, and presents the step count and parallelism summary to the user.
 
@@ -46,7 +46,7 @@ Blueprint detects git/gh availability automatically. With git + GitHub CLI, it g
 /blueprint myapp "migrate database to PostgreSQL"
 ```
 
-Produces `plans/myapp-migrate-database-to-postgresql.md` with steps like:
+Produces `AI_RESEARCH/plans/myapp-migrate-database-to-postgresql.md` with steps like:
 - Step 1: Add PostgreSQL driver and connection config
 - Step 2: Create migration scripts for each table
 - Step 3: Update repository layer to use new driver

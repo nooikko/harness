@@ -1,6 +1,6 @@
 ---
 id: write-tool-comprehensive-plans
-trigger: when planning multiple features or systems for the project, use Write tool to create full plan documents in .claude/plan/ directory
+trigger: when planning multiple features or systems for the project, use Write tool to create full plan documents in AI_RESEARCH/plans/ directory
 confidence: 0.85
 domain: workflow
 source: session-observation
@@ -12,12 +12,12 @@ project_name: harness
 # Write Tool for Comprehensive Plans
 
 ## Action
-Create full plan documents in one Write call to `.claude/plan/` directory instead of incremental edits or split files.
+Create full plan documents in one Write call to `AI_RESEARCH/plans/` directory instead of incremental edits or split files.
 
 ## Evidence
 - Observed 9 consecutive plan creations in session 2464ac8f (2026-03-14)
 - Pattern: user writes complete feature plans (Microsoft Graph, File Uploads, Rich Response, Project Area, Search Bar, Cron/Calendar, Morning News, Agent Malleable) as single comprehensive documents via Write tool
-- Directory convention: `.claude/plan/<kebab-case-description>.md`
+- Directory convention: `AI_RESEARCH/plans/<kebab-case-description>.md`
 - Each plan includes: Summary, Design Decisions, Architecture/Schema, Implementation Steps sections
 - Last observed: 2026-03-14T09:25:36Z
 
