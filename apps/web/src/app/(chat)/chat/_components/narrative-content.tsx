@@ -90,7 +90,7 @@ const createComponents: CreateComponents = (speakerRef) => ({
     if (speakerRef.current && node && isHastActionParagraph(node as { children?: HastChild[] })) {
       const color = getCharacterColor(speakerRef.current);
       return (
-        <p className='pl-3 border-l border-dashed my-1' style={{ borderColor: color }} {...props}>
+        <p className='pl-3 border-l-[3px] my-1 text-muted-foreground' style={{ borderColor: color }} {...props}>
           {children}
         </p>
       );
@@ -101,7 +101,7 @@ const createComponents: CreateComponents = (speakerRef) => ({
     return <p {...props}>{children}</p>;
   },
   em: ({ children, ...props }) => (
-    <em className='text-muted-foreground' {...props}>
+    <em className='italic' {...props}>
       {children}
     </em>
   ),
