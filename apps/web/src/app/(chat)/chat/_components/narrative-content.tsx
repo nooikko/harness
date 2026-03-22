@@ -17,16 +17,28 @@ type NarrativeContentComponent = (props: NarrativeContentProps) => React.ReactNo
 
 type SpeakerRef = { current: string | null };
 
-// Checks if a markdown AST paragraph node contains only emphasis (italic) children.
-// This is more reliable than inspecting the React element tree because react-markdown
-// replaces native elements with custom component overrides before the p handler runs.
-type IsAstActionParagraph = (node: { children?: Array<{ type?: string }> }) => boolean;
-const isAstActionParagraph: IsAstActionParagraph = (node) => {
+// Checks if a hast paragraph node contains only <em> children (plus whitespace text).
+// react-markdown passes hast nodes (not mdast), so italic elements have tagName 'em'.
+// Text nodes have type 'text' with a value field — only whitespace text is allowed.
+type HastChild = { type?: string; tagName?: string; value?: string };
+type IsHastActionParagraph = (node: { children?: HastChild[] }) => boolean;
+const isHastActionParagraph: IsHastActionParagraph = (node) => {
   const kids = node.children;
   if (!kids || kids.length === 0) {
     return false;
   }
-  return kids.every((child) => child.type === 'emphasis' || child.type === 'text');
+  let hasEm = false;
+  for (const child of kids) {
+    if (child.type === 'element' && child.tagName === 'em') {
+      hasEm = true;
+      continue;
+    }
+    if (child.type === 'text' && (!child.value || child.value.trim() === '')) {
+      continue;
+    }
+    return false;
+  }
+  return hasEm;
 };
 
 // Creates per-render components that share a lastSpeaker ref.
@@ -72,7 +84,7 @@ const createComponents: CreateComponents = (speakerRef) => ({
 
     // Check for action beat via the markdown AST node (not the React tree).
     // A paragraph whose AST children are all 'emphasis' nodes is an action beat.
-    if (speakerRef.current && node && isAstActionParagraph(node as { children?: Array<{ type?: string }> })) {
+    if (speakerRef.current && node && isHastActionParagraph(node as { children?: Array<{ type?: string }> })) {
       const color = getCharacterColor(speakerRef.current);
       return (
         <p className='pl-3 border-l-[3px] my-3' style={{ borderColor: color, opacity: 0.7 }} {...props}>
