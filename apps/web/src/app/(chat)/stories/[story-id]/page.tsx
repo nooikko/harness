@@ -1,6 +1,8 @@
 import { prisma } from '@harness/database';
-import { Badge, Skeleton } from '@harness/ui';
+import { Badge, Button, Skeleton } from '@harness/ui';
+import { BookOpen, GitBranch } from 'lucide-react';
 import type { Metadata } from 'next';
+import Link from 'next/link';
 import { notFound } from 'next/navigation';
 import { Suspense } from 'react';
 import { StoryCharacterGrid } from '../_components/story-character-grid';
@@ -45,6 +47,20 @@ const StoryDetailPage = async ({ params }: StoryDetailProps) => {
           )}
         </div>
         {story.premise && <p className='text-sm text-muted-foreground'>{story.premise}</p>}
+        <div className='flex items-center gap-2'>
+          <Link href={`/stories/${storyId}/moments`}>
+            <Button variant='outline' size='sm'>
+              <BookOpen className='h-4 w-4 mr-1.5' />
+              Moments
+            </Button>
+          </Link>
+          <Link href={`/stories/${storyId}/arcs`}>
+            <Button variant='outline' size='sm'>
+              <GitBranch className='h-4 w-4 mr-1.5' />
+              Story Arcs
+            </Button>
+          </Link>
+        </div>
       </div>
 
       {/* Chapters (Threads) */}
