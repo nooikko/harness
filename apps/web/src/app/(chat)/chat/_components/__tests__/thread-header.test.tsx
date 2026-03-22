@@ -21,6 +21,7 @@ const baseProps = {
   displayName: 'My Thread',
   currentName: 'My Thread',
   currentModel: null,
+  currentEffort: null,
   currentInstructions: null,
   currentProjectId: null,
   projects: [],

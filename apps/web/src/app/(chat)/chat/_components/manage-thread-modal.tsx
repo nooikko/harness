@@ -18,6 +18,7 @@ import {
 } from '@harness/ui';
 import { useRef, useState, useTransition } from 'react';
 import { renameThread } from '../_actions/rename-thread';
+import { updateThreadEffort } from '../_actions/update-thread-effort';
 import { updateThreadInstructions } from '../_actions/update-thread-instructions';
 import { updateThreadModel } from '../_actions/update-thread-model';
 import { updateThreadProject } from '../_actions/update-thread-project';
@@ -33,6 +34,7 @@ type ManageThreadModalProps = {
   threadId: string;
   currentName: string | null;
   currentModel: string | null;
+  currentEffort: string | null;
   currentInstructions: string | null;
   currentProjectId: string | null;
   projects: ProjectOption[];
@@ -47,6 +49,17 @@ const MODEL_OPTIONS: { value: string; label: string; description?: string }[] = 
   { value: 'claude-opus-4-6', label: 'Opus' },
 ];
 
+// Sentinel value for the default effort option — Radix Select forbids empty string values.
+const EFFORT_DEFAULT_SENTINEL = 'default';
+
+const EFFORT_OPTIONS: { value: string; label: string; description?: string }[] = [
+  { value: EFFORT_DEFAULT_SENTINEL, label: 'Default', description: 'Model-based' },
+  { value: 'low', label: 'Low' },
+  { value: 'medium', label: 'Medium' },
+  { value: 'high', label: 'High' },
+  { value: 'max', label: 'Max' },
+];
+
 type ManageThreadModalComponent = (props: ManageThreadModalProps) => React.ReactNode;
 
 // Sentinel value for the "no project" option — Radix Select forbids empty string values.
@@ -58,6 +71,7 @@ export const ManageThreadModal: ManageThreadModalComponent = ({
   threadId,
   currentName,
   currentModel,
+  currentEffort,
   currentInstructions,
   currentProjectId,
   projects,
@@ -65,6 +79,7 @@ export const ManageThreadModal: ManageThreadModalComponent = ({
   const [isPending, startTransition] = useTransition();
   const nameRef = useRef<HTMLInputElement>(null);
   const modelRef = useRef<string>(currentModel ?? MODEL_DEFAULT_SENTINEL);
+  const effortRef = useRef<string>(currentEffort ?? EFFORT_DEFAULT_SENTINEL);
   const projectRef = useRef<string>(currentProjectId ?? PROJECT_NONE_SENTINEL);
   const [customInstructions, setCustomInstructions] = useState(currentInstructions ?? '');
 
@@ -72,12 +87,16 @@ export const ManageThreadModal: ManageThreadModalComponent = ({
     startTransition(async () => {
       const newName = nameRef.current?.value ?? '';
       const newModelValue = modelRef.current;
-      // Convert sentinel back to null (no model override = use default Haiku)
-      const newModel = newModelValue === MODEL_DEFAULT_SENTINEL ? null : newModelValue;
+      // Convert sentinel to 'haiku' — explicit default prevents project model from overriding
+      const newModel = newModelValue === MODEL_DEFAULT_SENTINEL ? 'haiku' : newModelValue;
+      const newEffortValue = effortRef.current;
+      // Convert sentinel back to null (no effort override = use model default)
+      const newEffort = newEffortValue === EFFORT_DEFAULT_SENTINEL ? null : newEffortValue;
       const newProjectId = projectRef.current === PROJECT_NONE_SENTINEL ? null : projectRef.current;
 
       const nameChanged = newName.trim() !== (currentName ?? '').trim() && newName.trim() !== '';
       const modelChanged = newModel !== currentModel;
+      const effortChanged = newEffort !== currentEffort;
       const instructionsChanged = customInstructions !== (currentInstructions ?? '');
       const projectChanged = newProjectId !== currentProjectId;
 
@@ -86,6 +105,9 @@ export const ManageThreadModal: ManageThreadModalComponent = ({
       }
       if (modelChanged) {
         await updateThreadModel(threadId, newModel);
+      }
+      if (effortChanged) {
+        await updateThreadEffort(threadId, newEffort);
       }
       if (instructionsChanged) {
         await updateThreadInstructions(threadId, customInstructions);
@@ -124,6 +146,28 @@ export const ManageThreadModal: ManageThreadModalComponent = ({
               </SelectTrigger>
               <SelectContent>
                 {MODEL_OPTIONS.map((opt) => (
+                  <SelectItem key={opt.value} value={opt.value}>
+                    {opt.label}
+                    {opt.description ? <span className='ml-1 text-muted-foreground'>({opt.description})</span> : null}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+
+          <div className='flex flex-col gap-1.5'>
+            <Label htmlFor='thread-effort'>Thinking Effort</Label>
+            <Select
+              defaultValue={currentEffort ?? EFFORT_DEFAULT_SENTINEL}
+              onValueChange={(val) => {
+                effortRef.current = val;
+              }}
+            >
+              <SelectTrigger id='thread-effort'>
+                <SelectValue placeholder='Select effort' />
+              </SelectTrigger>
+              <SelectContent>
+                {EFFORT_OPTIONS.map((opt) => (
                   <SelectItem key={opt.value} value={opt.value}>
                     {opt.label}
                     {opt.description ? <span className='ml-1 text-muted-foreground'>({opt.description})</span> : null}

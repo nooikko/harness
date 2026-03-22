@@ -4,6 +4,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 const mockRenameThread = vi.fn().mockResolvedValue(undefined);
 const mockUpdateThreadModel = vi.fn().mockResolvedValue(undefined);
+const mockUpdateThreadEffort = vi.fn().mockResolvedValue(undefined);
 const mockUpdateThreadInstructions = vi.fn().mockResolvedValue(undefined);
 const mockUpdateThreadProject = vi.fn().mockResolvedValue(undefined);
 
@@ -13,6 +14,10 @@ vi.mock('../../_actions/rename-thread', () => ({
 
 vi.mock('../../_actions/update-thread-model', () => ({
   updateThreadModel: (...args: unknown[]) => mockUpdateThreadModel(...args),
+}));
+
+vi.mock('../../_actions/update-thread-effort', () => ({
+  updateThreadEffort: (...args: unknown[]) => mockUpdateThreadEffort(...args),
 }));
 
 vi.mock('../../_actions/update-thread-instructions', () => ({
@@ -31,6 +36,7 @@ const defaultProps = {
   threadId: 'thread-1',
   currentName: 'My Thread',
   currentModel: null,
+  currentEffort: null,
   currentInstructions: null,
   currentProjectId: null,
   projects: [
@@ -179,6 +185,22 @@ describe('ManageThreadModal', () => {
 
     await waitFor(() => {
       expect(mockUpdateThreadProject).not.toHaveBeenCalled();
+    });
+  });
+
+  it('renders the thinking effort selector', () => {
+    render(<ManageThreadModal {...defaultProps} />);
+    expect(screen.getByLabelText('Thinking Effort')).toBeInTheDocument();
+  });
+
+  it('does not call updateThreadEffort when effort is unchanged', async () => {
+    const user = userEvent.setup();
+    render(<ManageThreadModal {...defaultProps} currentEffort={null} />);
+
+    await user.click(screen.getByRole('button', { name: 'Save' }));
+
+    await waitFor(() => {
+      expect(mockUpdateThreadEffort).not.toHaveBeenCalled();
     });
   });
 });

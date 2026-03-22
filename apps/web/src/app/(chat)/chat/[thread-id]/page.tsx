@@ -42,6 +42,7 @@ const ThreadPage: ThreadPageComponent = async ({ params }) => {
         displayName={displayName}
         currentName={thread.name}
         currentModel={thread.model}
+        currentEffort={thread.effort}
         currentInstructions={thread.customInstructions}
         currentProjectId={thread.projectId}
         projects={projects}

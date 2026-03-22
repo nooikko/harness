@@ -60,6 +60,7 @@ const makeThread: MakeThread = (overrides) => ({
   status: 'active',
   sessionId: null,
   model: null,
+  effort: null,
   customInstructions: null,
   parentThreadId: null,
   agentId: null,

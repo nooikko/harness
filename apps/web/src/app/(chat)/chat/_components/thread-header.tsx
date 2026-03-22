@@ -16,6 +16,7 @@ type ThreadHeaderProps = {
   displayName: string;
   currentName: string | null;
   currentModel: string | null;
+  currentEffort: string | null;
   currentInstructions: string | null;
   currentProjectId: string | null;
   projects: ProjectOption[];
@@ -28,6 +29,7 @@ export const ThreadHeader: ThreadHeaderComponent = ({
   displayName,
   currentName,
   currentModel,
+  currentEffort,
   currentInstructions,
   currentProjectId,
   projects,
@@ -69,6 +71,7 @@ export const ThreadHeader: ThreadHeaderComponent = ({
         threadId={threadId}
         currentName={currentName}
         currentModel={currentModel}
+        currentEffort={currentEffort}
         currentInstructions={currentInstructions}
         currentProjectId={currentProjectId}
         projects={projects}
