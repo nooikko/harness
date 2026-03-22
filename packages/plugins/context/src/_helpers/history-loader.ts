@@ -13,15 +13,20 @@ export type HistoryResult = {
   threadId: string;
 };
 
-type LoadHistory = (db: PrismaClient, threadId: string, limit?: number) => Promise<HistoryResult>;
+type LoadHistory = (db: PrismaClient, threadId: string, limit?: number, after?: Date) => Promise<HistoryResult>;
 
 const DEFAULT_HISTORY_LIMIT = 50;
 
-export const loadHistory: LoadHistory = async (db, threadId, limit) => {
+export const loadHistory: LoadHistory = async (db, threadId, limit, after) => {
   const effectiveLimit = limit ?? DEFAULT_HISTORY_LIMIT;
 
+  const where: Record<string, unknown> = { threadId, kind: 'text' };
+  if (after) {
+    where.createdAt = { gt: after };
+  }
+
   const messages = await db.message.findMany({
-    where: { threadId, kind: 'text' },
+    where,
     orderBy: { createdAt: 'desc' },
     take: effectiveLimit,
     select: {

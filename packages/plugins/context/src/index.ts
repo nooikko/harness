@@ -102,14 +102,18 @@ const register = async (ctx: PluginContext): Promise<PluginHooks> => {
         const summaries = rawSummaries.filter((s) => s.content != null && s.content.length > 0);
 
         const hasSummaries = summaries.length > 0;
-        const rawLimit = hasSummaries ? histLimitWithSummary : histLimitDefault;
 
         if (hasSummaries) {
           summarySection = formatSummarySection([...summaries].reverse());
+          // Hard cutoff: only load messages created AFTER the most recent summary.
+          // The summary replaces everything before it — no duplicate context.
+          const mostRecentSummary = summaries[0]!;
+          const historyResult = await loadHistory(ctx.db, threadId, histLimitWithSummary, mostRecentSummary.createdAt);
+          historySection = formatHistorySection(historyResult);
+        } else {
+          const historyResult = await loadHistory(ctx.db, threadId, histLimitDefault);
+          historySection = formatHistorySection(historyResult);
         }
-
-        const historyResult = await loadHistory(ctx.db, threadId, rawLimit);
-        historySection = formatHistorySection(historyResult);
       }
 
       return buildPrompt([
