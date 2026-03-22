@@ -59,6 +59,7 @@ export type InvokeOptions = {
   traceId?: string; // Trace ID for correlating main-thread invocations with sub-agent invocations
   taskId?: string; // Delegation task ID — flows to tool handlers via per-invocation context
   pendingBlocks?: ContentBlock[][]; // Per-invocation content block queue — tool handlers push, onMessage shifts
+  effort?: 'low' | 'medium' | 'high' | 'max'; // Thinking effort level — overrides model-aware defaults
 };
 
 export type InvokeResult = {

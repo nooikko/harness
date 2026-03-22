@@ -21,6 +21,7 @@ model Thread {
   status         String     @default("active")
   sessionId           String?
   model               String?
+  effort              String?
   customInstructions  String?
   parentThreadId      String?
   parentThread   Thread?    @relation("ThreadChildren", fields: [parentThreadId], references: [id])
