@@ -114,8 +114,8 @@ describe('MessageListInternal', () => {
     await MessageListInternal({ threadId: 'thread-1' });
 
     expect(mockFileFindMany).toHaveBeenCalledWith({
-      where: { threadId: 'thread-1', messageId: { not: null } },
-      select: { id: true, name: true, mimeType: true, size: true, messageId: true },
+      where: { threadId: 'thread-1' },
+      select: { id: true, name: true, mimeType: true, size: true, messageId: true, createdAt: true },
     });
   });
 

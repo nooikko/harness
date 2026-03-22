@@ -8,6 +8,7 @@ import { NotificationMessage } from './notification-message';
 import type { ActivityMessageProps } from './pipeline-step';
 import { PipelineStep } from './pipeline-step';
 import { StatusLine } from './status-line';
+import { SummaryBlock } from './summary-block';
 import { ThinkingBlock } from './thinking-block';
 import { ToolCallBlock } from './tool-call-block';
 import { ToolResultBlock } from './tool-result-block';
@@ -70,15 +71,23 @@ export const MessageItem: MessageItemComponent = ({ message, files }) => {
 
   switch (kind) {
     case 'thinking':
-      return <ThinkingBlock content={message.content} />;
+      return <ThinkingBlock content={message.content} durationMs={typeof metadata?.durationMs === 'number' ? metadata.durationMs : null} />;
     case 'tool_call':
-      return <ToolCallBlock content={message.content} metadata={metadata} />;
+      return (
+        <ToolCallBlock
+          content={message.content}
+          metadata={metadata}
+          durationMs={typeof metadata?.durationMs === 'number' ? metadata.durationMs : null}
+        />
+      );
     case 'tool_result':
       return <ToolResultBlock content={message.content} metadata={metadata} />;
     case 'pipeline_step':
       return <PipelineStep message={message as ActivityMessageProps['message']} />;
     case 'status':
       return <StatusLine content={message.content} metadata={metadata} />;
+    case 'summary':
+      return <SummaryBlock content={message.content} metadata={metadata} />;
     // 'text' and unknown kinds fall through to existing role-based rendering
   }
 

@@ -37,17 +37,47 @@ export const getActiveDelegations: GetActiveDelegations = async (parentThreadId)
     orderBy: { createdAt: 'desc' },
   });
 
-  return tasks.map((t) => ({
-    taskId: t.id,
-    threadId: t.threadId,
-    parentThreadId,
-    prompt: t.prompt.slice(0, 2000),
-    status: t.status,
-    iteration: t.currentIteration,
-    maxIterations: t.maxIterations,
-    thinkingCount: 0,
-    toolCallCount: 0,
-    createdAt: t.createdAt,
-    updatedAt: t.updatedAt,
-  }));
+  if (tasks.length === 0) {
+    return [];
+  }
+
+  // Query actual thinking/tool_call counts from each task thread's messages
+  const threadIds = tasks.map((t) => t.threadId);
+  const counts = await prisma.message.groupBy({
+    by: ['threadId', 'kind'],
+    where: {
+      threadId: { in: threadIds },
+      kind: { in: ['thinking', 'tool_call'] },
+    },
+    _count: { id: true },
+  });
+
+  // Build a lookup: threadId -> { thinkingCount, toolCallCount }
+  const countMap = new Map<string, { thinkingCount: number; toolCallCount: number }>();
+  for (const row of counts) {
+    const entry = countMap.get(row.threadId) ?? { thinkingCount: 0, toolCallCount: 0 };
+    if (row.kind === 'thinking') {
+      entry.thinkingCount = row._count.id;
+    } else if (row.kind === 'tool_call') {
+      entry.toolCallCount = row._count.id;
+    }
+    countMap.set(row.threadId, entry);
+  }
+
+  return tasks.map((t) => {
+    const taskCounts = countMap.get(t.threadId) ?? { thinkingCount: 0, toolCallCount: 0 };
+    return {
+      taskId: t.id,
+      threadId: t.threadId,
+      parentThreadId,
+      prompt: t.prompt.slice(0, 2000),
+      status: t.status,
+      iteration: t.currentIteration,
+      maxIterations: t.maxIterations,
+      thinkingCount: taskCounts.thinkingCount,
+      toolCallCount: taskCounts.toolCallCount,
+      createdAt: t.createdAt,
+      updatedAt: t.updatedAt,
+    };
+  });
 };

@@ -17,19 +17,45 @@ export const MessageListInternal = async ({ threadId }: MessageListProps) => {
       orderBy: { createdAt: 'asc' },
     }),
     prisma.file.findMany({
-      where: { threadId, messageId: { not: null } },
-      select: { id: true, name: true, mimeType: true, size: true, messageId: true },
+      where: { threadId },
+      select: { id: true, name: true, mimeType: true, size: true, messageId: true, createdAt: true },
     }),
   ]);
 
+  // Group files by messageId. Files without a messageId (plugin-uploaded via ctx.uploadFile)
+  // are attached to the nearest preceding assistant text message based on creation time.
   const filesByMessage = new Map<string, typeof files>();
+  const linkedFiles: typeof files = [];
+  const unlinkedFiles: typeof files = [];
+
   for (const file of files) {
-    if (!file.messageId) {
-      continue;
+    if (file.messageId) {
+      linkedFiles.push(file);
+    } else {
+      unlinkedFiles.push(file);
     }
-    const existing = filesByMessage.get(file.messageId) ?? [];
+  }
+
+  for (const file of linkedFiles) {
+    const existing = filesByMessage.get(file.messageId!) ?? [];
     existing.push(file);
-    filesByMessage.set(file.messageId, existing);
+    filesByMessage.set(file.messageId!, existing);
+  }
+
+  // Attach unlinked files to the first assistant text message AFTER the file was created.
+  // Plugin tools upload files during the pipeline, but the assistant response message is
+  // written after the pipeline completes — so the response always has a later createdAt.
+  if (unlinkedFiles.length > 0) {
+    const assistantMessages = messages.filter((m) => m.role === 'assistant' && (m.kind === 'text' || m.kind === null));
+
+    for (const file of unlinkedFiles) {
+      const target = assistantMessages.find((msg) => msg.createdAt >= file.createdAt);
+      if (target) {
+        const existing = filesByMessage.get(target.id) ?? [];
+        existing.push(file);
+        filesByMessage.set(target.id, existing);
+      }
+    }
   }
 
   if (messages.length === 0) {
