@@ -76,7 +76,7 @@ const createComponents: CreateComponents = (speakerRef) => ({
       speakerRef.current = dialogue.speaker;
       const color = getCharacterColor(dialogue.speaker);
       return (
-        <div className='pl-3 border-l-[3px] my-1' style={{ borderColor: color }}>
+        <div className='pl-3 border-l-[3px] my-1 text-foreground' style={{ borderColor: color }}>
           <span className='text-sm font-semibold' style={{ color }}>
             {dialogue.speaker}
           </span>
