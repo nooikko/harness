@@ -1,6 +1,6 @@
 import { prisma } from '@harness/database';
 import { Badge, Button, Skeleton } from '@harness/ui';
-import { BookOpen, FileText, GitBranch } from 'lucide-react';
+import { BookOpen, FileText, GitBranch, Layout } from 'lucide-react';
 import type { Metadata } from 'next';
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
@@ -65,6 +65,12 @@ const StoryDetailPage = async ({ params }: StoryDetailProps) => {
             <Button variant='outline' size='sm'>
               <FileText className='h-4 w-4 mr-1.5' />
               Transcripts
+            </Button>
+          </Link>
+          <Link href={`/stories/${storyId}/workspace`}>
+            <Button size='sm'>
+              <Layout className='h-4 w-4 mr-1.5' />
+              Open Workspace
             </Button>
           </Link>
         </div>

@@ -54,6 +54,7 @@
     "react-dom": "^19.2.4",
     "react-hook-form": "^7.71.2",
     "react-markdown": "^10.1.0",
+    "react-virtuoso": "^4.18.3",
     "remark-gfm": "^4.0.1",
     "sonner": "^2.0.7",
     "ssh2": "^1.16.0",

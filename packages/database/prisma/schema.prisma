@@ -689,6 +689,7 @@ model StoryTranscript {
   processedThrough Int?
   totalChunks      Int?
   messageCount     Int?
+  sortOrder        Int                     @default(0)
   moments          StoryMoment[]
   annotations      TranscriptAnnotation[]
   createdAt        DateTime                @default(now())
