@@ -16,6 +16,11 @@ const prisma = new PrismaClient({ datasourceUrl: requireTestDatabaseUrl() });
 
 beforeEach(async () => {
   await resetDatabase(prisma);
+  // Reset delegation module singleton state between tests to prevent stale hooks
+  // from a previous test's harness leaking into the next test.
+  delegationState.setHooks = null;
+  delegationState.currentHooks = null;
+  delegationState.getSettings = null;
 });
 
 afterAll(async () => {
