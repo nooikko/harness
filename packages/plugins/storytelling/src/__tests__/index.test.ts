@@ -6,6 +6,18 @@ vi.mock('../_helpers/extract-story-state', () => ({
   extractStoryState: vi.fn().mockResolvedValue(undefined),
 }));
 
+vi.mock('../_helpers/tool-import-characters', () => ({
+  handleImportCharacters: vi.fn().mockResolvedValue('Created 2 characters: Violet, Kai.'),
+}));
+
+vi.mock('../_helpers/tool-import-document', () => ({
+  handleImportDocument: vi.fn().mockResolvedValue('Processed 1 section(s). Extracted 5 moments.'),
+}));
+
+vi.mock('../_helpers/tool-import-transcript', () => ({
+  handleImportTranscript: vi.fn().mockResolvedValue('Processed 3 chunk(s) from "Chat 1".'),
+}));
+
 vi.mock('../_helpers/build-cast-injection', () => ({
   buildCastInjection: vi.fn().mockResolvedValue(''),
 }));
@@ -98,9 +110,9 @@ describe('storytelling plugin', () => {
     expect(plugin.version).toBe('1.0.0');
   });
 
-  it('has tools array with 6 entries', () => {
+  it('has tools array with 9 entries', () => {
     expect(plugin.tools).toBeDefined();
-    expect(plugin.tools).toHaveLength(6);
+    expect(plugin.tools).toHaveLength(9);
   });
 
   it('each tool has name, description, schema, and handler', () => {
@@ -114,7 +126,17 @@ describe('storytelling plugin', () => {
 
   it('tools have expected names', () => {
     const names = (plugin.tools ?? []).map((t) => t.name);
-    expect(names).toEqual(['update_character', 'record_moment', 'advance_time', 'add_location', 'character_knowledge', 'get_character']);
+    expect(names).toEqual([
+      'update_character',
+      'record_moment',
+      'advance_time',
+      'add_location',
+      'character_knowledge',
+      'get_character',
+      'import_characters',
+      'import_document',
+      'import_transcript',
+    ]);
   });
 
   it('tool handler returns error when thread has no cached storyId', async () => {
@@ -130,6 +152,73 @@ describe('storytelling plugin', () => {
     );
 
     expect(result).toBe('This thread is not part of a story.');
+  });
+
+  it('onMessage falls back to DB lookup when storyCache is cold', async () => {
+    const ctx = createMockContext({ storyId: 'story-cold' });
+    vi.mocked(ctx.db.thread.findUnique).mockResolvedValue({ storyId: 'story-cold' } as never);
+    const hooks = await plugin.register(ctx);
+
+    // Call onMessage WITHOUT calling onBeforeInvoke first (cold cache)
+    await hooks.onMessage?.('cold-cache-thread', 'user', 'not an OOC message');
+
+    // Should have looked up the thread in DB
+    expect(ctx.db.thread.findUnique).toHaveBeenCalledWith(expect.objectContaining({ where: { id: 'cold-cache-thread' } }));
+  });
+
+  it('onMessage with cold cache returns early for non-story thread', async () => {
+    const ctx = createMockContext();
+    vi.mocked(ctx.db.thread.findUnique).mockResolvedValue({ storyId: null } as never);
+    const hooks = await plugin.register(ctx);
+
+    // Should not throw
+    await hooks.onMessage?.('non-story-thread', 'user', '// rename Violet to Vi');
+  });
+
+  it('import tool handler returns error when thread has no story (DB fallback)', async () => {
+    const ctx = createMockContext();
+    vi.mocked(ctx.db.thread.findUnique).mockResolvedValue({ storyId: null } as never);
+
+    const importTool = plugin.tools?.find((t) => t.name === 'import_characters');
+    const result = await importTool?.handler(ctx, { text: 'profiles' }, { threadId: 'no-story-thread', traceId: 'test' });
+
+    expect(result).toBe('This thread is not part of a story.');
+  });
+
+  it('import_characters delegates to handler when story found', async () => {
+    const ctx = createMockContext({ storyId: 'story-1' });
+    vi.mocked(ctx.db.thread.findUnique).mockResolvedValue({ storyId: 'story-1' } as never);
+
+    const tool = plugin.tools?.find((t) => t.name === 'import_characters');
+    const result = await tool?.handler(ctx, { text: 'Violet profiles' }, { threadId: 'import-thread', traceId: 'test' });
+
+    expect(result).toContain('Created 2 characters');
+  });
+
+  it('import_document delegates to handler when story found', async () => {
+    const ctx = createMockContext({ storyId: 'story-1' });
+    vi.mocked(ctx.db.thread.findUnique).mockResolvedValue({ storyId: 'story-1' } as never);
+
+    const tool = plugin.tools?.find((t) => t.name === 'import_document');
+    const result = await tool?.handler(ctx, { text: 'Day 1 events' }, { threadId: 'import-thread', traceId: 'test' });
+
+    expect(result).toContain('Extracted 5 moments');
+  });
+
+  it('import_transcript delegates to handler when story found', async () => {
+    const ctx = createMockContext({ storyId: 'story-1' });
+    vi.mocked(ctx.db.thread.findUnique).mockResolvedValue({ storyId: 'story-1' } as never);
+
+    const tool = plugin.tools?.find((t) => t.name === 'import_transcript');
+    const result = await tool?.handler(ctx, { transcriptId: 'tx-1' }, { threadId: 'import-thread', traceId: 'test' });
+
+    expect(result).toContain('Chat 1');
+  });
+
+  it('stop clears all caches', async () => {
+    expect(plugin.stop).toBeDefined();
+    await plugin.stop?.({} as PluginContext);
+    // After stop, cache is cleared — tool should fall back to DB
   });
 
   it('registers and returns onBeforeInvoke hook', async () => {

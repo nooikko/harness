@@ -5,10 +5,14 @@ import { extractStoryState } from './_helpers/extract-story-state';
 import { formatStorytellingInstructions } from './_helpers/format-storytelling-instructions';
 import { handleOocCommand } from './_helpers/handle-ooc-command';
 import { parseOocCommand } from './_helpers/parse-ooc-command';
+import { resolveStoryId } from './_helpers/resolve-story-id';
 import { handleAddLocation } from './_helpers/tool-add-location';
 import { handleAdvanceTime } from './_helpers/tool-advance-time';
 import { handleCharacterKnowledge } from './_helpers/tool-character-knowledge';
 import { handleGetCharacter } from './_helpers/tool-get-character';
+import { handleImportCharacters } from './_helpers/tool-import-characters';
+import { handleImportDocument } from './_helpers/tool-import-document';
+import { handleImportTranscript } from './_helpers/tool-import-transcript';
 import { handleRecordMoment } from './_helpers/tool-record-moment';
 import { handleUpdateCharacter } from './_helpers/tool-update-character';
 import { wrapOocContent } from './_helpers/wrap-ooc-content';
@@ -317,6 +321,65 @@ const storytellingTools: PluginTool[] = [
         return 'This thread is not part of a story.';
       }
       return handleGetCharacter(ctx.db, storyId, input as { name: string });
+    },
+  },
+  {
+    name: 'import_characters',
+    description: 'Bulk-import character profiles from pasted text. Uses Sonnet for high-fidelity extraction.',
+    schema: {
+      type: 'object',
+      properties: {
+        text: { type: 'string', description: 'Text containing character profiles (any format — the AI will parse it)' },
+      },
+      required: ['text'],
+    },
+    handler: async (ctx, input, meta) => {
+      const storyId = await resolveStoryId(meta.threadId, storyCache, ctx.db as never);
+      if (!storyId) {
+        return 'This thread is not part of a story.';
+      }
+      return handleImportCharacters(ctx, storyId, input as { text: string });
+    },
+  },
+  {
+    name: 'import_document',
+    description:
+      'Process a summary document to extract moments, locations, and character developments. Stores the document and extracts at emotional-beat granularity.',
+    schema: {
+      type: 'object',
+      properties: {
+        text: { type: 'string', description: 'The summary document text to process' },
+        label: { type: 'string', description: 'Label for this document (e.g., "Days 1-3", "Day 10 Part 1")' },
+      },
+      required: ['text'],
+    },
+    handler: async (ctx, input, meta) => {
+      const storyId = await resolveStoryId(meta.threadId, storyCache, ctx.db as never);
+      if (!storyId) {
+        return 'This thread is not part of a story.';
+      }
+      return handleImportDocument(ctx, storyId, input as { text: string; label?: string });
+    },
+  },
+  {
+    name: 'import_transcript',
+    description: 'Process a stored Claude.ai transcript. The transcript must be stored first via the web UI. Supports resume on failure.',
+    schema: {
+      type: 'object',
+      properties: {
+        transcriptId: {
+          type: 'string',
+          description: 'ID of a StoryTranscript record already stored in the database',
+        },
+      },
+      required: ['transcriptId'],
+    },
+    handler: async (ctx, input, meta) => {
+      const storyId = await resolveStoryId(meta.threadId, storyCache, ctx.db as never);
+      if (!storyId) {
+        return 'This thread is not part of a story.';
+      }
+      return handleImportTranscript(ctx, storyId, input as { transcriptId: string });
     },
   },
 ];
