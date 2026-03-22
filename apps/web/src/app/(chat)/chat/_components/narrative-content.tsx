@@ -17,9 +17,17 @@ type NarrativeContentComponent = (props: NarrativeContentProps) => React.ReactNo
 
 type SpeakerRef = { current: string | null };
 
+// Pre-scans markdown text for the first **NAME**: "..." dialogue pattern.
+// Used to initialize speakerRef so action beats before the first dialogue
+// are correctly attributed to the opening speaker.
+const FIRST_SPEAKER_RE = /\*\*([A-Z][A-Z0-9 ]+)\*\*\s*(?:\*\([^)]+\)\*\s*)?:\s*"/;
+type FindFirstSpeaker = (content: string) => string | null;
+const findFirstSpeaker: FindFirstSpeaker = (content) => {
+  const match = FIRST_SPEAKER_RE.exec(content);
+  return match?.[1] ?? null;
+};
+
 // Checks if a hast paragraph node contains only <em> children (plus whitespace text).
-// react-markdown passes hast nodes (not mdast), so italic elements have tagName 'em'.
-// Text nodes have type 'text' with a value field — only whitespace text is allowed.
 type HastChild = { type?: string; tagName?: string; value?: string };
 type IsHastActionParagraph = (node: { children?: HastChild[] }) => boolean;
 const isHastActionParagraph: IsHastActionParagraph = (node) => {
@@ -41,10 +49,6 @@ const isHastActionParagraph: IsHastActionParagraph = (node) => {
   return hasEm;
 };
 
-// Creates per-render components that share a lastSpeaker ref.
-// When a dialogue block is rendered, lastSpeaker is set to that character.
-// When a fully-italic action paragraph follows, it inherits the speaker's color.
-// Plain narration (non-italic, non-dialogue) clears the speaker.
 type CreateComponents = (speakerRef: SpeakerRef) => Components;
 
 const createComponents: CreateComponents = (speakerRef) => ({
@@ -72,7 +76,7 @@ const createComponents: CreateComponents = (speakerRef) => ({
       speakerRef.current = dialogue.speaker;
       const color = getCharacterColor(dialogue.speaker);
       return (
-        <div className='pl-3 border-l-[3px] my-3' style={{ borderColor: color }}>
+        <div className='pl-3 border-l-[3px] my-1' style={{ borderColor: color }}>
           <span className='text-sm font-semibold' style={{ color }}>
             {dialogue.speaker}
           </span>
@@ -82,19 +86,18 @@ const createComponents: CreateComponents = (speakerRef) => ({
       );
     }
 
-    // Check for action beat via the markdown AST node (not the React tree).
-    // A paragraph whose AST children are all 'emphasis' nodes is an action beat.
-    if (speakerRef.current && node && isHastActionParagraph(node as { children?: Array<{ type?: string }> })) {
+    // Check for action beat via the hast node.
+    if (speakerRef.current && node && isHastActionParagraph(node as { children?: HastChild[] })) {
       const color = getCharacterColor(speakerRef.current);
       return (
-        <p className='pl-3 border-l-[3px] my-3' style={{ borderColor: color, opacity: 0.7 }} {...props}>
+        <p className='pl-3 border-l-[3px] my-1' style={{ borderColor: color, opacity: 0.7 }} {...props}>
           {children}
         </p>
       );
     }
 
-    // Plain narration — clear speaker context (scene-level text, not character-bound)
-    speakerRef.current = null;
+    // Non-italic narration — keep speaker (don't clear) so action beats
+    // on the other side of narration still get attributed correctly.
     return <p {...props}>{children}</p>;
   },
   em: ({ children, ...props }) => (
@@ -102,9 +105,9 @@ const createComponents: CreateComponents = (speakerRef) => ({
       {children}
     </em>
   ),
-  blockquote: ({ children }) => <div className='pl-4 border-l-2 border-muted text-muted-foreground/80 italic mb-4'>{children}</div>,
+  blockquote: ({ children }) => <div className='pl-4 border-l-2 border-muted text-muted-foreground/80 italic my-1'>{children}</div>,
   hr: () => (
-    <div className='flex items-center gap-4 py-4' aria-hidden='true'>
+    <div className='flex items-center gap-4 py-3' aria-hidden='true'>
       <div className='flex-1 h-px bg-border' />
       <span className='text-xs text-muted-foreground/50'>&#10022;</span>
       <div className='flex-1 h-px bg-border' />
@@ -114,13 +117,13 @@ const createComponents: CreateComponents = (speakerRef) => ({
 
 export const NarrativeContent: NarrativeContentComponent = ({ content }) => {
   const speakerRef = useRef<string | null>(null);
-  // Reset speaker tracking on each render (new message content)
-  speakerRef.current = null;
+  // Pre-scan for first speaker so action beats before the first dialogue get colored
+  speakerRef.current = findFirstSpeaker(content);
 
   const components = useMemo(() => createComponents(speakerRef), []);
 
   return (
-    <div className='prose prose-sm prose-stone max-w-none prose-p:my-3 prose-p:leading-snug prose-headings:font-semibold prose-headings:tracking-tight prose-headings:mt-5 prose-headings:mb-2 prose-pre:bg-transparent prose-pre:p-0 prose-pre:my-3 prose-li:my-0 prose-li:leading-snug prose-ul:my-2 prose-ol:my-2 [&>hr:first-child]:hidden [&>*:first-child]:mt-0 [&>hr:first-child+*]:mt-0'>
+    <div className='prose prose-sm prose-stone max-w-none prose-p:my-1 prose-p:leading-snug prose-headings:font-semibold prose-headings:tracking-tight prose-headings:mt-4 prose-headings:mb-1 prose-pre:bg-transparent prose-pre:p-0 prose-pre:my-2 prose-li:my-0 prose-li:leading-snug prose-ul:my-1 prose-ol:my-1 [&>hr:first-child]:hidden [&>*:first-child]:mt-0 [&>hr:first-child+*]:mt-0'>
       <Markdown remarkPlugins={[remarkGfm]} components={components}>
         {content}
       </Markdown>
