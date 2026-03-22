@@ -23,6 +23,7 @@
   "dependencies": {
     "@harness/database": "workspace:*",
     "@harness/plugin-contract": "workspace:*",
+    "@harness/vector-search": "workspace:*",
     "zod": "^4.3.6"
   },
   "devDependencies": {

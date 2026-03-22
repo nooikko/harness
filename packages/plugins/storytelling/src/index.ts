@@ -566,6 +566,33 @@ export const plugin: PluginDefinition = {
   name: 'storytelling',
   version: '1.0.0',
   register: createRegister(),
+  start: async (ctx) => {
+    // Ensure Qdrant collection exists for character similarity search
+    const { ensureCharacterCollection } = await import('./_helpers/ensure-character-collection.js');
+    const ready = await ensureCharacterCollection();
+    if (ready) {
+      ctx.logger.info('storytelling: character similarity collection ready');
+
+      // Backfill existing characters that aren't indexed yet
+      const { indexCharacter } = await import('./_helpers/index-character.js');
+      const characters = await ctx.db.storyCharacter.findMany({
+        select: { id: true, name: true, personality: true, storyId: true },
+        take: 500,
+      });
+
+      for (const char of characters) {
+        void indexCharacter(
+          (char as { id: string }).id,
+          (char as { name: string }).name,
+          (char as { personality?: string }).personality ?? '',
+          (char as { storyId: string }).storyId,
+        );
+      }
+      ctx.logger.info(`storytelling: backfilling ${characters.length} characters into Qdrant`);
+    } else {
+      ctx.logger.info('storytelling: Qdrant unavailable, character similarity disabled');
+    }
+  },
   stop: async () => {
     storyCache.clear();
     handledOocCommands.clear();

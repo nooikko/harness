@@ -1,6 +1,9 @@
 import { z } from 'zod';
+import { findSimilarCharacters } from './find-similar-characters';
+import { indexCharacter } from './index-character';
 import { isValidCharacterName } from './is-valid-character-name';
 import type { ExtractionResult } from './parse-extraction-result';
+import { resolveCharacterIdentity } from './resolve-character-identity';
 
 type PrismaClient = {
   storyCharacter: {
@@ -43,6 +46,47 @@ export const applyExtraction: ApplyExtraction = async (result, db, storyId) => {
       continue;
     }
 
+    // Search Qdrant for similar existing characters
+    const description = char.fields.personality ?? char.fields.appearance ?? '';
+    const nameAndDesc = description ? `${char.name}: ${description}` : char.name;
+    const similar = await findSimilarCharacters(nameAndDesc, storyId);
+    const resolution = resolveCharacterIdentity(similar);
+
+    if (resolution.action === 'merge') {
+      // Add this name as an alias to the existing character
+      const existing = await db.storyCharacter.findFirst({
+        where: { id: resolution.targetId },
+        select: { id: true, aliases: true },
+      });
+      if (existing) {
+        const currentAliases = new Set(existing.aliases);
+        if (!currentAliases.has(char.name)) {
+          await db.storyCharacter.update({
+            where: { id: existing.id },
+            data: { aliases: { push: char.name } },
+          });
+        }
+        // Update any null fields on the existing record
+        const mergeFields: Record<string, string> = {};
+        for (const key of CHARACTER_FIELDS) {
+          const value = char.fields[key];
+          if (value !== undefined) {
+            mergeFields[key] = value;
+          }
+        }
+        if (Object.keys(mergeFields).length > 0) {
+          await db.storyCharacter.update({
+            where: { id: existing.id },
+            data: mergeFields,
+          });
+        }
+        characterNameToId.set(char.name, existing.id);
+        continue;
+      }
+    }
+    // For 'judge' action, fall through to create (LLM judge wired at higher level later)
+    // For 'create' action, proceed with upsert below
+
     const updateFields: Record<string, string> = {};
     for (const key of CHARACTER_FIELDS) {
       const value = char.fields[key];
@@ -58,6 +102,9 @@ export const applyExtraction: ApplyExtraction = async (result, db, storyId) => {
       select: { id: true },
     });
     characterNameToId.set(char.name, upserted.id);
+
+    // Index in Qdrant for future similarity searches
+    void indexCharacter(upserted.id, char.name, description, storyId);
   }
 
   // 2. Process aliases

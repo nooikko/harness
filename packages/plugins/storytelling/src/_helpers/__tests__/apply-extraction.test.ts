@@ -1,6 +1,16 @@
-import { describe, expect, it, vi } from 'vitest';
+import { describe, expect, it, type Mock, vi } from 'vitest';
 import { applyExtraction } from '../apply-extraction';
 import type { ExtractionResult } from '../parse-extraction-result';
+
+vi.mock('../find-similar-characters', () => ({
+  findSimilarCharacters: vi.fn().mockResolvedValue([]),
+}));
+vi.mock('../resolve-character-identity', () => ({
+  resolveCharacterIdentity: vi.fn().mockReturnValue({ action: 'create' }),
+}));
+vi.mock('../index-character', () => ({
+  indexCharacter: vi.fn().mockResolvedValue(undefined),
+}));
 
 type MockDb = {
   storyCharacter: {
@@ -395,6 +405,105 @@ describe('applyExtraction', () => {
     // characterId should not be present since character wasn't found
     const call = db.characterInMoment.create.mock.calls[0]?.[0] as { data: Record<string, unknown> };
     expect(call.data).not.toHaveProperty('characterId');
+  });
+
+  it('merges character when resolution returns merge action', async () => {
+    const { resolveCharacterIdentity } = await import('../resolve-character-identity');
+    (resolveCharacterIdentity as Mock).mockReturnValueOnce({
+      action: 'merge',
+      targetId: 'existing-char-id',
+      targetName: 'Sir Aldric',
+    });
+
+    const db = createMockDb();
+    db.storyCharacter.findFirst.mockResolvedValueOnce({
+      id: 'existing-char-id',
+      aliases: ['the knight'],
+    });
+
+    const result: ExtractionResult = {
+      ...EMPTY_RESULT,
+      characters: [
+        {
+          action: 'create',
+          name: 'Aldric the Brave',
+          fields: { personality: 'courageous' },
+        },
+      ],
+    };
+
+    await applyExtraction(result, db as unknown as Parameters<typeof applyExtraction>[1], 'story-1');
+
+    // Should NOT call upsert — merged into existing
+    expect(db.storyCharacter.upsert).not.toHaveBeenCalled();
+
+    // Should add alias
+    expect(db.storyCharacter.update).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: { id: 'existing-char-id' },
+        data: { aliases: { push: 'Aldric the Brave' } },
+      }),
+    );
+
+    // Should update fields on existing record
+    expect(db.storyCharacter.update).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: { id: 'existing-char-id' },
+        data: { personality: 'courageous' },
+      }),
+    );
+  });
+
+  it('indexes character in Qdrant after creation', async () => {
+    const { indexCharacter } = await import('../index-character');
+    const db = createMockDb();
+    db.storyCharacter.upsert.mockResolvedValue({ id: 'new-char-id' });
+
+    const result: ExtractionResult = {
+      ...EMPTY_RESULT,
+      characters: [
+        {
+          action: 'create',
+          name: 'Elena',
+          fields: { personality: 'wise healer' },
+        },
+      ],
+    };
+
+    await applyExtraction(result, db as unknown as Parameters<typeof applyExtraction>[1], 'story-1');
+
+    expect(indexCharacter).toHaveBeenCalledWith('new-char-id', 'Elena', 'wise healer', 'story-1');
+  });
+
+  it('skips alias push when name already in aliases during merge', async () => {
+    const { resolveCharacterIdentity } = await import('../resolve-character-identity');
+    (resolveCharacterIdentity as Mock).mockReturnValueOnce({
+      action: 'merge',
+      targetId: 'existing-char-id',
+      targetName: 'Sir Aldric',
+    });
+
+    const db = createMockDb();
+    db.storyCharacter.findFirst.mockResolvedValueOnce({
+      id: 'existing-char-id',
+      aliases: ['Sir Aldric', 'Aldric the Brave'],
+    });
+
+    const result: ExtractionResult = {
+      ...EMPTY_RESULT,
+      characters: [
+        {
+          action: 'create',
+          name: 'Aldric the Brave',
+          fields: {},
+        },
+      ],
+    };
+
+    await applyExtraction(result, db as unknown as Parameters<typeof applyExtraction>[1], 'story-1');
+
+    // Should NOT push alias since it already exists, and no fields to update
+    expect(db.storyCharacter.update).not.toHaveBeenCalled();
   });
 
   it('skips updating currentScene when scene data fails Zod validation', async () => {
