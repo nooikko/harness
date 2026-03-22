@@ -29,14 +29,17 @@ export const buildCastInjection: BuildCastInjection = async (storyId, currentSce
             },
           },
           orderBy: { moment: { importance: 'desc' } },
+          take: 10,
         },
       },
       orderBy: { updatedAt: 'desc' },
+      take: 50,
     }),
     db.storyMoment.findMany({
       where: { storyId },
       select: { id: true, summary: true, importance: true },
       orderBy: { importance: 'desc' },
+      take: 200,
     }),
     db.storyLocation.findMany({
       where: { storyId },
@@ -45,6 +48,7 @@ export const buildCastInjection: BuildCastInjection = async (storyId, currentSce
           include: { to: { select: { name: true } } },
         },
       },
+      take: 100,
     }),
   ]);
 

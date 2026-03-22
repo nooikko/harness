@@ -10,12 +10,14 @@ export const extractStoryState: ExtractStoryState = async (ctx, storyId, threadI
   const characters = await ctx.db.storyCharacter.findMany({
     where: { storyId, status: 'active' },
     select: { id: true, name: true },
+    take: 50,
   });
 
   // 2. Query existing locations
   const locations = await ctx.db.storyLocation.findMany({
     where: { storyId },
     select: { id: true, name: true, parent: { select: { name: true } } },
+    take: 100,
   });
 
   const locationRefs = locations.map((l: { id: string; name: string; parent: { name: string } | null }) => ({

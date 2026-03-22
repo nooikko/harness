@@ -6,7 +6,7 @@ type HandleOocCommand = (
   command: OocCommand,
   db: {
     storyCharacter: {
-      findFirst: (args: Record<string, unknown>) => Promise<{ id: string; name: string; aliases: string[] } | null>;
+      findFirst: (args: Record<string, unknown>) => Promise<{ id: string; name: string; aliases: string[]; personality?: string | null } | null>;
       update: (args: Record<string, unknown>) => Promise<unknown>;
     };
     storyLocation: {
@@ -28,7 +28,7 @@ export const handleOocCommand: HandleOocCommand = async (command, db, storyId) =
       }
 
       const character = await db.storyCharacter.findFirst({
-        where: { storyId, name: from },
+        where: { storyId, name: { equals: from, mode: 'insensitive' } },
         select: { id: true, name: true, aliases: true },
       });
 
@@ -61,17 +61,18 @@ export const handleOocCommand: HandleOocCommand = async (command, db, storyId) =
 
       const character = await db.storyCharacter.findFirst({
         where: { storyId, name: { contains: charName, mode: 'insensitive' } },
-        select: { id: true, name: true, aliases: true },
+        select: { id: true, name: true, aliases: true, personality: true },
       });
 
       if (!character) {
         return `Character matching "${charName}" not found in this story.`;
       }
 
+      const existing = character.personality ?? '';
       await db.storyCharacter.update({
         where: { id: character.id },
         data: {
-          personality: { append: `\nAuthor direction: ${trait}.` },
+          personality: `${existing}\nAuthor direction: ${trait}.`,
         },
       });
 

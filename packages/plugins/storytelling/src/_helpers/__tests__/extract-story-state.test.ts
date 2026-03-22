@@ -141,4 +141,22 @@ describe('extractStoryState', () => {
     const prompt = vi.mocked(ctx.invoker.invoke).mock.calls[0]?.[0] as string;
     expect(prompt).toContain('Dawn');
   });
+
+  it('handles null story time gracefully', async () => {
+    const ctx = createMockContext();
+    vi.mocked(ctx.db.story.findUnique).mockResolvedValue({ storyTime: null } as never);
+
+    await extractStoryState(ctx, 'story-1', 'thread-1', 'Hello');
+
+    expect(ctx.invoker.invoke).toHaveBeenCalled();
+  });
+
+  it('handles null story record gracefully', async () => {
+    const ctx = createMockContext();
+    vi.mocked(ctx.db.story.findUnique).mockResolvedValue(null);
+
+    await extractStoryState(ctx, 'story-1', 'thread-1', 'Hello');
+
+    expect(ctx.invoker.invoke).toHaveBeenCalled();
+  });
 });

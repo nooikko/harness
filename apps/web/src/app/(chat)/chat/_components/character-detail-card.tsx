@@ -68,18 +68,24 @@ export const CharacterDetailCard: CharacterDetailCardComponent = ({ character, o
 
       {isExpanded && (
         <div className='flex flex-col gap-3 border-t px-3 py-3'>
-          {EDITABLE_FIELDS.map(({ key, label }) => (
-            <label key={key} className='flex flex-col gap-1'>
-              <span className='text-[11px] font-medium uppercase tracking-wide text-muted-foreground'>{label}</span>
-              <Textarea
-                defaultValue={character[key] ?? ''}
-                onBlur={(e) => handleBlur(key, e.target.value)}
-                rows={2}
-                className='text-xs'
-                placeholder={`No ${label.toLowerCase()} yet...`}
-              />
-            </label>
-          ))}
+          {EDITABLE_FIELDS.map(({ key, label }) => {
+            const fieldId = `char-${character.id}-${key}`;
+            return (
+              <div key={key} className='flex flex-col gap-1'>
+                <label htmlFor={fieldId} className='text-[11px] font-medium uppercase tracking-wide text-muted-foreground'>
+                  {label}
+                </label>
+                <Textarea
+                  id={fieldId}
+                  defaultValue={character[key] ?? ''}
+                  onBlur={(e) => handleBlur(key, e.target.value)}
+                  rows={2}
+                  className='text-xs'
+                  placeholder={`No ${label.toLowerCase()} yet...`}
+                />
+              </div>
+            );
+          })}
         </div>
       )}
     </div>

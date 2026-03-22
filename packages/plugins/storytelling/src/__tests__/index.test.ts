@@ -1,6 +1,6 @@
 import type { PluginContext } from '@harness/plugin-contract';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { plugin } from '../index';
+import { _resetCaches, plugin } from '../index';
 
 vi.mock('../_helpers/extract-story-state', () => ({
   extractStoryState: vi.fn().mockResolvedValue(undefined),
@@ -85,8 +85,12 @@ const createMockContext: CreateMockContext = (overrides = {}) => {
 };
 
 describe('storytelling plugin', () => {
-  beforeEach(() => {
+  beforeEach(async () => {
     vi.clearAllMocks();
+    _resetCaches();
+    // Restore default mock implementation (previous tests may have overridden with mockImplementation)
+    const { extractStoryState } = await import('../_helpers/extract-story-state');
+    vi.mocked(extractStoryState).mockResolvedValue(undefined);
   });
 
   it('has correct name and version', () => {
@@ -266,39 +270,47 @@ describe('storytelling plugin', () => {
     it('skips extraction within 60-second dedup window', async () => {
       const ctx = createMockContext({
         threadKind: 'storytelling',
-        storyId: 'story-1',
-        storyUpdatedAt: new Date(), // just now — within dedup window
+        storyId: 'story-dedup',
       });
       const hooks = await plugin.register(ctx);
 
       // Prime the storyCache
-      await hooks.onBeforeInvoke?.('thread-1', 'prompt');
+      await hooks.onBeforeInvoke?.('thread-dedup', 'prompt');
 
-      await hooks.onAfterInvoke?.('thread-1', {
-        output: 'Some response',
+      // First call — should extract
+      await hooks.onAfterInvoke?.('thread-dedup', {
+        output: 'First response',
         durationMs: 100,
         exitCode: 0,
       });
 
       const { extractStoryState } = await import('../_helpers/extract-story-state');
-      expect(extractStoryState).not.toHaveBeenCalled();
+      expect(extractStoryState).toHaveBeenCalledTimes(1);
+
+      // Second call immediately — should be deduped by in-memory guard
+      await hooks.onAfterInvoke?.('thread-dedup', {
+        output: 'Second response',
+        durationMs: 100,
+        exitCode: 0,
+      });
+
+      expect(extractStoryState).toHaveBeenCalledTimes(1); // not called again
     });
 
     it('logs error but does not throw on extraction failure', async () => {
       const ctx = createMockContext({
         threadKind: 'storytelling',
-        storyId: 'story-1',
-        storyUpdatedAt: new Date(0),
+        storyId: 'story-error-test',
       });
 
       const { extractStoryState } = await import('../_helpers/extract-story-state');
       vi.mocked(extractStoryState).mockRejectedValueOnce(new Error('DB connection lost'));
 
       const hooks = await plugin.register(ctx);
-      await hooks.onBeforeInvoke?.('thread-1', 'prompt');
+      await hooks.onBeforeInvoke?.('thread-error-test', 'prompt');
 
       // Should not throw
-      await hooks.onAfterInvoke?.('thread-1', {
+      await hooks.onAfterInvoke?.('thread-error-test', {
         output: 'Some response',
         durationMs: 100,
         exitCode: 0,
@@ -307,8 +319,8 @@ describe('storytelling plugin', () => {
       expect(ctx.logger.error).toHaveBeenCalledWith(
         'storytelling: extraction failed',
         expect.objectContaining({
-          storyId: 'story-1',
-          threadId: 'thread-1',
+          storyId: 'story-error-test',
+          threadId: 'thread-error-test',
           error: 'DB connection lost',
         }),
       );
@@ -317,8 +329,7 @@ describe('storytelling plugin', () => {
     it('onAfterInvoke is blocking (awaited, not fire-and-forget)', async () => {
       const ctx = createMockContext({
         threadKind: 'storytelling',
-        storyId: 'story-1',
-        storyUpdatedAt: new Date(0),
+        storyId: 'story-blocking',
       });
 
       const callOrder: string[] = [];
@@ -331,9 +342,9 @@ describe('storytelling plugin', () => {
       });
 
       const hooks = await plugin.register(ctx);
-      await hooks.onBeforeInvoke?.('thread-1', 'prompt');
+      await hooks.onBeforeInvoke?.('thread-blocking', 'prompt');
 
-      await hooks.onAfterInvoke?.('thread-1', {
+      await hooks.onAfterInvoke?.('thread-blocking', {
         output: 'Response',
         durationMs: 100,
         exitCode: 0,
@@ -348,15 +359,14 @@ describe('storytelling plugin', () => {
     it('caches storyId from onBeforeInvoke for use in onAfterInvoke', async () => {
       const ctx = createMockContext({
         threadKind: 'storytelling',
-        storyId: 'story-1',
-        storyUpdatedAt: new Date(0),
+        storyId: 'story-cache-test',
       });
       const hooks = await plugin.register(ctx);
 
       // Must call onBeforeInvoke first to prime the cache
-      await hooks.onBeforeInvoke?.('thread-1', 'prompt');
+      await hooks.onBeforeInvoke?.('thread-cache-test', 'prompt');
 
-      await hooks.onAfterInvoke?.('thread-1', {
+      await hooks.onAfterInvoke?.('thread-cache-test', {
         output: 'Response',
         durationMs: 100,
         exitCode: 0,

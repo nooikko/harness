@@ -67,6 +67,40 @@ describe('handleGetCharacter', () => {
     expect(result).toContain('not found');
   });
 
+  it('handles moments with null location', async () => {
+    const db = createMockDb({
+      character: {
+        id: 'char-1',
+        name: 'Elena',
+        appearance: null,
+        personality: 'Brave',
+        mannerisms: null,
+        motives: null,
+        backstory: null,
+        relationships: null,
+        moments: [
+          {
+            momentId: 'm-1',
+            perspective: 'Felt lost',
+            emotionalImpact: 'Confusion',
+            knowledgeGained: null,
+            moment: {
+              storyTime: 'Day 1',
+              summary: 'Wandering',
+              location: null,
+            },
+          },
+        ],
+      },
+      allMoments: [{ id: 'm-1', summary: 'Wandering', importance: 3 }],
+    });
+
+    const result = await handleGetCharacter(db, 'story-1', { name: 'Elena' });
+
+    expect(result).toContain('### Elena');
+    expect(result).toContain('Wandering');
+  });
+
   it('handles character with no moments', async () => {
     const db = createMockDb({
       character: {

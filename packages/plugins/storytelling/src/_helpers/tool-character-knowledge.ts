@@ -23,11 +23,14 @@ export const handleCharacterKnowledge: HandleCharacterKnowledge = async (db, sto
       momentId: true,
       knowledgeGained: true,
     },
+    take: 200,
   });
 
   const allMoments = await db.storyMoment.findMany({
     where: { storyId },
     select: { id: true, summary: true, importance: true },
+    orderBy: { importance: 'desc' },
+    take: 200,
   });
 
   const knowledge = deriveCharacterKnowledge(character.id, characterMoments, allMoments);

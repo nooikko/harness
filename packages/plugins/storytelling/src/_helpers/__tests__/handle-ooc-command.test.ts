@@ -143,11 +143,12 @@ describe('handleOocCommand', () => {
   });
 
   describe('personality', () => {
-    it('appends personality direction to character', async () => {
+    it('appends personality direction to character with existing personality', async () => {
       db.storyCharacter.findFirst.mockResolvedValue({
         id: 'char-3',
         name: 'Elena',
         aliases: [],
+        personality: 'Kind and thoughtful',
       });
 
       const result = await handleOocCommand({ type: 'personality', params: { character: 'Elena', trait: 'more aggressive' } }, db, 'story-1');
@@ -156,7 +157,26 @@ describe('handleOocCommand', () => {
       expect(db.storyCharacter.update).toHaveBeenCalledWith({
         where: { id: 'char-3' },
         data: {
-          personality: { append: '\nAuthor direction: more aggressive.' },
+          personality: 'Kind and thoughtful\nAuthor direction: more aggressive.',
+        },
+      });
+    });
+
+    it('sets personality direction when character has no existing personality', async () => {
+      db.storyCharacter.findFirst.mockResolvedValue({
+        id: 'char-3',
+        name: 'Elena',
+        aliases: [],
+        personality: null,
+      });
+
+      const result = await handleOocCommand({ type: 'personality', params: { character: 'Elena', trait: 'more cautious' } }, db, 'story-1');
+
+      expect(result).toContain('more cautious');
+      expect(db.storyCharacter.update).toHaveBeenCalledWith({
+        where: { id: 'char-3' },
+        data: {
+          personality: '\nAuthor direction: more cautious.',
         },
       });
     });
