@@ -26,6 +26,18 @@ vi.mock('../_helpers/tool-correct-moment', () => ({
   handleCorrectMoment: vi.fn().mockResolvedValue('Corrected "Moment X": Updated fields.'),
 }));
 
+vi.mock('../_helpers/tool-create-arc', () => ({
+  handleCreateArc: vi.fn().mockResolvedValue('Created arc "Suki\'s Mother" with 3 seed moment(s).'),
+}));
+
+vi.mock('../_helpers/tool-discover-arc-moments', () => ({
+  handleDiscoverArcMoments: vi.fn().mockResolvedValue('Found 5 related moment(s) for arc "Suki\'s Mother".'),
+}));
+
+vi.mock('../_helpers/tool-annotate-moment', () => ({
+  handleAnnotateMoment: vi.fn().mockResolvedValue('"Violet joined": Annotation updated, linked to 1 arc(s).'),
+}));
+
 vi.mock('../_helpers/tool-import-document', () => ({
   handleImportDocument: vi.fn().mockResolvedValue('Processed 1 section(s). Extracted 5 moments.'),
 }));
@@ -126,9 +138,9 @@ describe('storytelling plugin', () => {
     expect(plugin.version).toBe('1.0.0');
   });
 
-  it('has tools array with 13 entries', () => {
+  it('has tools array with 16 entries', () => {
     expect(plugin.tools).toBeDefined();
-    expect(plugin.tools).toHaveLength(13);
+    expect(plugin.tools).toHaveLength(16);
   });
 
   it('each tool has name, description, schema, and handler', () => {
@@ -156,6 +168,9 @@ describe('storytelling plugin', () => {
       'merge_moments',
       'restore_moment',
       'correct_moment',
+      'create_arc',
+      'discover_arc_moments',
+      'annotate_moment',
     ]);
   });
 
@@ -273,6 +288,30 @@ describe('storytelling plugin', () => {
     const result = await tool?.handler(ctx, { momentId: 'x', corrections: { summary: 'fixed' } }, { threadId: 'import-thread', traceId: 'test' });
 
     expect(result).toContain('Corrected');
+  });
+
+  it('create_arc delegates to handler when story found', async () => {
+    const ctx = createMockContext({ storyId: 'story-1' });
+    vi.mocked(ctx.db.thread.findUnique).mockResolvedValue({ storyId: 'story-1' } as never);
+    const tool = plugin.tools?.find((t) => t.name === 'create_arc');
+    const result = await tool?.handler(ctx, { name: "Suki's Mother" }, { threadId: 'import-thread', traceId: 'test' });
+    expect(result).toContain('Created arc');
+  });
+
+  it('discover_arc_moments delegates to handler when story found', async () => {
+    const ctx = createMockContext({ storyId: 'story-1' });
+    vi.mocked(ctx.db.thread.findUnique).mockResolvedValue({ storyId: 'story-1' } as never);
+    const tool = plugin.tools?.find((t) => t.name === 'discover_arc_moments');
+    const result = await tool?.handler(ctx, { arcId: 'arc-1' }, { threadId: 'import-thread', traceId: 'test' });
+    expect(result).toContain('related moment');
+  });
+
+  it('annotate_moment delegates to handler when story found', async () => {
+    const ctx = createMockContext({ storyId: 'story-1' });
+    vi.mocked(ctx.db.thread.findUnique).mockResolvedValue({ storyId: 'story-1' } as never);
+    const tool = plugin.tools?.find((t) => t.name === 'annotate_moment');
+    const result = await tool?.handler(ctx, { momentId: 'mom-1', annotation: 'This matters' }, { threadId: 'import-thread', traceId: 'test' });
+    expect(result).toContain('Annotation updated');
   });
 
   it('stop clears all caches', async () => {

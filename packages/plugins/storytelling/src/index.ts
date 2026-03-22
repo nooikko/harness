@@ -8,9 +8,12 @@ import { parseOocCommand } from './_helpers/parse-ooc-command';
 import { resolveStoryId } from './_helpers/resolve-story-id';
 import { handleAddLocation } from './_helpers/tool-add-location';
 import { handleAdvanceTime } from './_helpers/tool-advance-time';
+import { handleAnnotateMoment } from './_helpers/tool-annotate-moment';
 import { handleCharacterKnowledge } from './_helpers/tool-character-knowledge';
 import { handleCorrectMoment } from './_helpers/tool-correct-moment';
+import { handleCreateArc } from './_helpers/tool-create-arc';
 import { handleDetectDuplicates } from './_helpers/tool-detect-duplicates';
+import { handleDiscoverArcMoments } from './_helpers/tool-discover-arc-moments';
 import { handleGetCharacter } from './_helpers/tool-get-character';
 import { handleImportCharacters } from './_helpers/tool-import-characters';
 import { handleImportDocument } from './_helpers/tool-import-document';
@@ -491,6 +494,70 @@ const storytellingTools: PluginTool[] = [
           addCharacters?: { name: string; role: string }[];
         },
       );
+    },
+  },
+  {
+    name: 'create_arc',
+    description: 'Create a named story arc and optionally seed it with moments. Arcs connect related moments across time.',
+    schema: {
+      type: 'object',
+      properties: {
+        name: { type: 'string', description: 'Arc name (e.g., "Suki\'s Mother", "The Team Learning Trust")' },
+        description: { type: 'string', description: 'What this arc is about' },
+        momentIds: { type: 'array', items: { type: 'string' }, description: 'Moment IDs to seed the arc with' },
+        annotation: { type: 'string', description: 'User notes on why this arc matters' },
+      },
+      required: ['name'],
+    },
+    handler: async (ctx, input, meta) => {
+      const storyId = await resolveStoryId(meta.threadId, storyCache, ctx.db as never);
+      if (!storyId) {
+        return 'This thread is not part of a story.';
+      }
+      return handleCreateArc(ctx, storyId, input as { name: string; description?: string; momentIds?: string[]; annotation?: string });
+    },
+  },
+  {
+    name: 'discover_arc_moments',
+    description: 'Search extracted moments for ones related to a story arc. Seeds the arc with examples first, then run this to find more.',
+    schema: {
+      type: 'object',
+      properties: {
+        arcId: { type: 'string', description: 'ID of the arc to expand' },
+        guidance: { type: 'string', description: 'Optional guidance for the search (e.g., "look for references to her mother")' },
+        deepScan: {
+          type: 'boolean',
+          description: 'If true, also scan raw transcripts (slow — 20-45 min). Default: false (fast search of extracted moments only).',
+        },
+      },
+      required: ['arcId'],
+    },
+    handler: async (ctx, input, meta) => {
+      const storyId = await resolveStoryId(meta.threadId, storyCache, ctx.db as never);
+      if (!storyId) {
+        return 'This thread is not part of a story.';
+      }
+      return handleDiscoverArcMoments(ctx, storyId, input as { arcId: string; guidance?: string; deepScan?: boolean });
+    },
+  },
+  {
+    name: 'annotate_moment',
+    description: 'Add a user annotation to a moment and/or link it to story arcs by name.',
+    schema: {
+      type: 'object',
+      properties: {
+        momentId: { type: 'string', description: 'ID of the moment to annotate' },
+        annotation: { type: 'string', description: 'User notes on this moment' },
+        arcNames: { type: 'array', items: { type: 'string' }, description: 'Arc names to link this moment to' },
+      },
+      required: ['momentId'],
+    },
+    handler: async (ctx, input, meta) => {
+      const storyId = await resolveStoryId(meta.threadId, storyCache, ctx.db as never);
+      if (!storyId) {
+        return 'This thread is not part of a story.';
+      }
+      return handleAnnotateMoment(ctx, storyId, input as { momentId: string; annotation?: string; arcNames?: string[] });
     },
   },
 ];
