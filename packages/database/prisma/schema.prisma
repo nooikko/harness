@@ -516,6 +516,13 @@ model SshCommandLog {
 
 // ── Storytelling Models ──────────────────────────────────────────────────
 
+enum ArcStatus {
+  building
+  climaxed
+  resolved
+  dormant
+}
+
 model Story {
   id           String           @id @default(cuid())
   name         String
@@ -528,6 +535,8 @@ model Story {
   characters   StoryCharacter[]
   moments      StoryMoment[]
   locations    StoryLocation[]
+  arcs         StoryArc[]
+  transcripts  StoryTranscript[]
   createdAt    DateTime         @default(now())
   updatedAt    DateTime         @updatedAt
 
@@ -548,6 +557,7 @@ model StoryCharacter {
   relationships String?           @db.Text
   color        String?
   status       String             @default("active")
+  importNotes  String?            @db.Text
   firstSeenAt  DateTime           @default(now())
   updatedAt    DateTime           @updatedAt
   moments      CharacterInMoment[]
@@ -588,24 +598,34 @@ model LocationRelationship {
 }
 
 model StoryMoment {
-  id          String             @id @default(cuid())
-  storyId     String
-  story       Story              @relation(fields: [storyId], references: [id], onDelete: Cascade)
-  summary     String             @db.Text
-  description String?            @db.Text
-  storyTime   String?
-  locationId  String?
-  location    StoryLocation?     @relation(fields: [locationId], references: [id], onDelete: SetNull)
-  kind        String
-  importance  Int                @default(5)
-  messageId   String?
-  message     Message?           @relation(fields: [messageId], references: [id], onDelete: SetNull)
-  characters  CharacterInMoment[]
-  createdAt   DateTime           @default(now())
+  id                 String             @id @default(cuid())
+  storyId            String
+  story              Story              @relation(fields: [storyId], references: [id], onDelete: Cascade)
+  summary            String             @db.Text
+  description        String?            @db.Text
+  storyTime          String?
+  locationId         String?
+  location           StoryLocation?     @relation(fields: [locationId], references: [id], onDelete: SetNull)
+  kind               String
+  importance         Int                @default(5)
+  messageId          String?
+  message            Message?           @relation(fields: [messageId], references: [id], onDelete: SetNull)
+  characters         CharacterInMoment[]
+  arcs               MomentInArc[]
+  sourceTranscriptId String?
+  sourceTranscript   StoryTranscript?   @relation(fields: [sourceTranscriptId], references: [id], onDelete: SetNull)
+  sourceChunkIndex   Int?
+  sourceNotes        String?            @db.Text
+  annotation         String?            @db.Text
+  deletedAt          DateTime?
+  mergedIntoId       String?
+  createdAt          DateTime           @default(now())
 
   @@index([storyId, createdAt])
   @@index([storyId, importance])
   @@index([locationId])
+  @@index([sourceTranscriptId, sourceChunkIndex])
+  @@index([deletedAt])
 }
 
 model CharacterInMoment {
@@ -617,10 +637,60 @@ model CharacterInMoment {
   moment          StoryMoment     @relation(fields: [momentId], references: [id], onDelete: Cascade)
   role            String
   perspective     String?         @db.Text
-  emotionalImpact String?         @db.Text
-  knowledgeGained String?         @db.Text
+  emotionalImpact     String?         @db.Text
+  knowledgeGained     String?         @db.Text
+  relationshipContext String?         @db.Text
 
   @@unique([characterId, momentId])
   @@index([characterId])
   @@index([momentId])
+}
+
+model StoryArc {
+  id          String      @id @default(cuid())
+  storyId     String
+  story       Story       @relation(fields: [storyId], references: [id], onDelete: Cascade)
+  name        String
+  description String?     @db.Text
+  status      ArcStatus   @default(building)
+  importance  Int         @default(5)
+  annotation  String?     @db.Text
+  moments     MomentInArc[]
+  createdAt   DateTime    @default(now())
+  updatedAt   DateTime    @updatedAt
+
+  @@unique([storyId, name])
+  @@index([storyId, status])
+}
+
+model MomentInArc {
+  id       String      @id @default(cuid())
+  arcId    String
+  arc      StoryArc    @relation(fields: [arcId], references: [id], onDelete: Cascade)
+  momentId String
+  moment   StoryMoment @relation(fields: [momentId], references: [id], onDelete: Cascade)
+  position Float       @default(0)
+  note     String?     @db.Text
+
+  @@unique([arcId, momentId])
+  @@index([arcId, position])
+  @@index([momentId])
+}
+
+model StoryTranscript {
+  id               String        @id @default(cuid())
+  storyId          String
+  story            Story         @relation(fields: [storyId], references: [id], onDelete: Cascade)
+  label            String
+  sourceType       String        @default("claude")
+  rawContent       String        @db.Text
+  processed        Boolean       @default(false)
+  processedThrough Int?
+  totalChunks      Int?
+  messageCount     Int?
+  moments          StoryMoment[]
+  createdAt        DateTime      @default(now())
+  updatedAt        DateTime      @updatedAt
+
+  @@index([storyId])
 }
