@@ -4,7 +4,7 @@ import type { InvokeOptions, InvokeResult, PluginContext } from '@harness/plugin
 import { createSession } from './_helpers/create-session';
 import { extractResult } from './_helpers/extract-result';
 import { mapStreamEvent } from './_helpers/map-stream-event';
-import type { SessionConfig } from './_helpers/session-pool';
+import type { SessionConfig, ThinkingConfig } from './_helpers/session-pool';
 import { createSessionPool } from './_helpers/session-pool';
 
 export type SdkInvokerConfig = {
@@ -55,13 +55,43 @@ export const createSdkInvoker: CreateSdkInvoker = (config) => {
   // Late-bound PluginContext — set after orchestrator creation via setPluginContext()
   let pluginContext: PluginContext | null = null;
 
+  // Resolve model-aware thinking defaults, allowing explicit effort to override
+  type ResolveThinkingConfig = (
+    model: string,
+    effort?: InvokeOptions['effort'],
+  ) => { thinking?: ThinkingConfig; effort?: 'low' | 'medium' | 'high' | 'max' };
+  const resolveThinkingConfig: ResolveThinkingConfig = (model, effort) => {
+    // Explicit effort always wins over model-aware defaults
+    if (effort !== undefined) {
+      return { effort };
+    }
+    if (model.includes('haiku')) {
+      return { thinking: { type: 'disabled' } };
+    }
+    if (model.includes('sonnet')) {
+      return { effort: 'medium' };
+    }
+    if (model.includes('opus')) {
+      return { effort: 'high' };
+    }
+    return {};
+  };
+
   const invoke = async (prompt: string, options?: InvokeOptions): Promise<InvokeResult> => {
     const model = options?.model ?? config.defaultModel;
-    const poolKey = options?.threadId ?? options?.sessionId ?? 'default';
+    const resolvedThinking = resolveThinkingConfig(model, options?.effort);
+    // Encode effort/thinking into the pool key so sessions with different configs don't share a warm session
+    const effortSuffix = resolvedThinking.effort
+      ? `:effort:${resolvedThinking.effort}`
+      : resolvedThinking.thinking?.type === 'disabled'
+        ? ':thinking:disabled'
+        : '';
+    const baseKey = options?.threadId ?? options?.sessionId ?? 'default';
+    const poolKey = `${baseKey}${effortSuffix}`;
     const timeout = options?.timeout ?? config.defaultTimeout;
     const startTime = Date.now();
 
-    const session = pool.get(poolKey, model);
+    const session = pool.get(poolKey, model, resolvedThinking);
 
     // Construct per-invocation meta — flows to the session's contextRef via drainQueue
     const meta = {
@@ -95,7 +125,7 @@ export const createSdkInvoker: CreateSdkInvoker = (config) => {
 
       if (isStaleSession) {
         try {
-          const freshSession = pool.get(poolKey, model);
+          const freshSession = pool.get(poolKey, model, resolvedThinking);
           const retryResult = await withTimeout(freshSession.send(prompt, sendOptions), timeout);
           return { ...extractResult(retryResult, Date.now() - startTime), traceId: options?.traceId };
         } catch (retryErr) {

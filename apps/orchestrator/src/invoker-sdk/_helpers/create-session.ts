@@ -88,6 +88,8 @@ export const createSession: CreateSession = (model, config) => {
       allowDangerouslySkipPermissions: true,
       env,
       ...(config?.mcpServerFactory ? { mcpServers: config.mcpServerFactory(contextRef) } : {}),
+      ...(config?.thinking ? { thinking: config.thinking } : {}),
+      ...(config?.effort ? { effort: config.effort } : {}),
     },
   });
 

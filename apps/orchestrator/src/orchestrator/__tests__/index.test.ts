@@ -789,7 +789,7 @@ describe('createOrchestrator', () => {
 
       expect(deps.db.thread.findUnique as ReturnType<typeof vi.fn>).toHaveBeenCalledWith({
         where: { id: 'thread-123' },
-        select: { sessionId: true, model: true, kind: true, name: true, customInstructions: true, projectId: true },
+        select: { sessionId: true, model: true, effort: true, kind: true, name: true, customInstructions: true, projectId: true },
       });
     });
 
@@ -967,6 +967,48 @@ describe('createOrchestrator', () => {
       await orchestrator.handleMessage('thread-1', 'user', 'hi');
 
       expect(deps.db.project.findUnique as ReturnType<typeof vi.fn>).not.toHaveBeenCalled();
+    });
+
+    it('passes thread effort to invoke when set on thread', async () => {
+      const invokeResult = makeInvokeResult({ output: 'response' });
+      const deps = makeDeps({
+        invoker: { invoke: vi.fn().mockResolvedValue(invokeResult) } as unknown as Invoker,
+      });
+      (deps.db.thread.findUnique as ReturnType<typeof vi.fn>).mockResolvedValue({
+        sessionId: null,
+        model: null,
+        effort: 'max',
+        kind: 'general',
+        name: 'Thread',
+        customInstructions: null,
+        projectId: null,
+      });
+      const orchestrator = createOrchestrator(deps);
+
+      await orchestrator.handleMessage('thread-1', 'user', 'hi');
+
+      expect(deps.invoker.invoke).toHaveBeenCalledWith(expect.any(String), expect.objectContaining({ effort: 'max' }));
+    });
+
+    it('passes undefined effort to invoke when thread effort is null (use model default)', async () => {
+      const invokeResult = makeInvokeResult({ output: 'response' });
+      const deps = makeDeps({
+        invoker: { invoke: vi.fn().mockResolvedValue(invokeResult) } as unknown as Invoker,
+      });
+      (deps.db.thread.findUnique as ReturnType<typeof vi.fn>).mockResolvedValue({
+        sessionId: null,
+        model: null,
+        effort: null,
+        kind: 'general',
+        name: 'Thread',
+        customInstructions: null,
+        projectId: null,
+      });
+      const orchestrator = createOrchestrator(deps);
+
+      await orchestrator.handleMessage('thread-1', 'user', 'hi');
+
+      expect(deps.invoker.invoke).toHaveBeenCalledWith(expect.any(String), expect.objectContaining({ effort: undefined }));
     });
   });
 });

@@ -114,16 +114,18 @@ describe('createSdkInvoker', () => {
 
     await invoker.invoke('hello');
 
-    expect(mockPool.get).toHaveBeenCalledWith('default', 'haiku');
+    // haiku default → thinking:disabled suffix
+    expect(mockPool.get).toHaveBeenCalledWith('default:thinking:disabled', 'haiku', { thinking: { type: 'disabled' } });
     expect(mockSession.send).toHaveBeenCalledWith('hello', expect.objectContaining({ meta: expect.any(Object) }));
   });
 
   it('uses model from options when provided', async () => {
     const invoker = createSdkInvoker({ defaultModel: 'haiku', defaultTimeout: 300000 });
 
+    // 'sonnet' contains 'sonnet' → effort:medium suffix
     await invoker.invoke('hello', { model: 'sonnet' });
 
-    expect(mockPool.get).toHaveBeenCalledWith('default', 'sonnet');
+    expect(mockPool.get).toHaveBeenCalledWith('default:effort:medium', 'sonnet', { effort: 'medium' });
   });
 
   it('falls back to sessionId as pool key when threadId is absent', async () => {
@@ -131,7 +133,7 @@ describe('createSdkInvoker', () => {
 
     await invoker.invoke('hello', { sessionId: 'thread-123' });
 
-    expect(mockPool.get).toHaveBeenCalledWith('thread-123', 'haiku');
+    expect(mockPool.get).toHaveBeenCalledWith('thread-123:thinking:disabled', 'haiku', { thinking: { type: 'disabled' } });
   });
 
   it('uses threadId as pool key when provided, ignoring sessionId', async () => {
@@ -139,7 +141,7 @@ describe('createSdkInvoker', () => {
 
     await invoker.invoke('hello', { threadId: 'thread-stable', sessionId: 'sess-changes-every-time' });
 
-    expect(mockPool.get).toHaveBeenCalledWith('thread-stable', 'haiku');
+    expect(mockPool.get).toHaveBeenCalledWith('thread-stable:thinking:disabled', 'haiku', { thinking: { type: 'disabled' } });
   });
 
   it('returns extracted result on success', async () => {
@@ -162,7 +164,8 @@ describe('createSdkInvoker', () => {
     expect(result.output).toBe('');
     expect(result.error).toBe('Connection lost');
     expect(result.exitCode).toBe(1);
-    expect(mockPool.evict).toHaveBeenCalledWith('thread-1');
+    // sessionId-based key also gets the haiku thinking:disabled suffix
+    expect(mockPool.evict).toHaveBeenCalledWith('thread-1:thinking:disabled');
   });
 
   it('evicts using threadId when provided', async () => {
@@ -171,7 +174,7 @@ describe('createSdkInvoker', () => {
 
     await invoker.invoke('hello', { threadId: 'thread-stable', sessionId: 'sess-xyz' });
 
-    expect(mockPool.evict).toHaveBeenCalledWith('thread-stable');
+    expect(mockPool.evict).toHaveBeenCalledWith('thread-stable:thinking:disabled');
   });
 
   it('returns timeout error and evicts session when send exceeds timeout', async () => {
@@ -190,7 +193,7 @@ describe('createSdkInvoker', () => {
 
     expect(result.error).toBe('Timed out after 5000ms');
     expect(result.exitCode).toBe(1);
-    expect(mockPool.evict).toHaveBeenCalledWith('default');
+    expect(mockPool.evict).toHaveBeenCalledWith('default:thinking:disabled');
 
     vi.useRealTimers();
   });
@@ -237,11 +240,12 @@ describe('createSdkInvoker', () => {
     expect(sendCall?.[1]?.onMessage).toBeUndefined();
   });
 
-  it('prewarm creates a session in the pool', () => {
+  it('prewarm creates a session in the pool using raw threadId', () => {
     const invoker = createSdkInvoker({ defaultModel: 'haiku', defaultTimeout: 300000 });
 
     invoker.prewarm({ threadId: 'thread-warm', model: 'sonnet' });
 
+    // prewarm does not apply effort encoding — it uses the raw threadId
     expect(mockPool.get).toHaveBeenCalledWith('thread-warm', 'sonnet');
     expect(mockSession.send).not.toHaveBeenCalled();
   });
@@ -254,15 +258,15 @@ describe('createSdkInvoker', () => {
     expect(mockPool.get).toHaveBeenCalledWith('thread-warm-default', 'haiku');
   });
 
-  it('prewarm and invoke use the same pool key for the same threadId', async () => {
+  it('prewarm uses raw threadId as pool key; invoke appends the effort suffix', async () => {
     const invoker = createSdkInvoker({ defaultModel: 'haiku', defaultTimeout: 300000 });
 
     invoker.prewarm({ threadId: 'thread-abc' });
     await invoker.invoke('hello', { threadId: 'thread-abc' });
 
     const calls = vi.mocked(mockPool.get).mock.calls;
-    expect(calls[0]![0]).toBe('thread-abc'); // prewarm call
-    expect(calls[1]![0]).toBe('thread-abc'); // invoke call — same key
+    expect(calls[0]![0]).toBe('thread-abc'); // prewarm uses raw key (no effort known at prewarm time)
+    expect(calls[1]![0]).toBe('thread-abc:thinking:disabled'); // invoke encodes haiku default
   });
 
   it('passes threadId, traceId, and taskId in send meta', async () => {
@@ -395,5 +399,74 @@ describe('createSdkInvoker', () => {
     const durationMs = extractCall[1];
     expect(typeof durationMs).toBe('number');
     expect(durationMs).toBeGreaterThanOrEqual(0);
+  });
+
+  describe('model-aware thinking defaults', () => {
+    it('appends :thinking:disabled suffix to pool key for haiku models', async () => {
+      const invoker = createSdkInvoker({ defaultModel: 'haiku', defaultTimeout: 300000 });
+
+      await invoker.invoke('hello', { threadId: 'thread-1' });
+
+      expect(mockPool.get).toHaveBeenCalledWith('thread-1:thinking:disabled', 'haiku', { thinking: { type: 'disabled' } });
+    });
+
+    it('appends :effort:medium suffix to pool key for sonnet models', async () => {
+      const invoker = createSdkInvoker({ defaultModel: 'haiku', defaultTimeout: 300000 });
+
+      await invoker.invoke('hello', { threadId: 'thread-1', model: 'claude-sonnet-4-6' });
+
+      expect(mockPool.get).toHaveBeenCalledWith('thread-1:effort:medium', 'claude-sonnet-4-6', { effort: 'medium' });
+    });
+
+    it('appends :effort:high suffix to pool key for opus models', async () => {
+      const invoker = createSdkInvoker({ defaultModel: 'haiku', defaultTimeout: 300000 });
+
+      await invoker.invoke('hello', { threadId: 'thread-1', model: 'claude-opus-4-5' });
+
+      expect(mockPool.get).toHaveBeenCalledWith('thread-1:effort:high', 'claude-opus-4-5', { effort: 'high' });
+    });
+
+    it('applies no suffix for unknown model names', async () => {
+      const invoker = createSdkInvoker({ defaultModel: 'haiku', defaultTimeout: 300000 });
+
+      await invoker.invoke('hello', { threadId: 'thread-1', model: 'custom-model' });
+
+      expect(mockPool.get).toHaveBeenCalledWith('thread-1', 'custom-model', {});
+    });
+
+    it('explicit effort overrides model-aware default and encodes into pool key', async () => {
+      const invoker = createSdkInvoker({ defaultModel: 'haiku', defaultTimeout: 300000 });
+
+      // haiku default would be thinking:disabled, but explicit effort:high overrides it
+      await invoker.invoke('hello', { threadId: 'thread-1', model: 'claude-haiku-4-5', effort: 'high' });
+
+      expect(mockPool.get).toHaveBeenCalledWith('thread-1:effort:high', 'claude-haiku-4-5', { effort: 'high' });
+    });
+
+    it('explicit effort:low uses effort:low suffix', async () => {
+      const invoker = createSdkInvoker({ defaultModel: 'haiku', defaultTimeout: 300000 });
+
+      await invoker.invoke('hello', { threadId: 'thread-1', model: 'claude-sonnet-4-6', effort: 'low' });
+
+      expect(mockPool.get).toHaveBeenCalledWith('thread-1:effort:low', 'claude-sonnet-4-6', { effort: 'low' });
+    });
+
+    it('uses effort-keyed pool key for eviction on stale session retry', async () => {
+      const freshSession: Session = {
+        send: vi.fn().mockResolvedValue(successResult),
+        close: vi.fn(),
+        isAlive: true,
+        lastActivity: Date.now(),
+      };
+      vi.mocked(mockSession.send).mockRejectedValueOnce(new Error('Session is closed'));
+      vi.mocked(mockPool.get).mockReturnValueOnce(mockSession).mockReturnValueOnce(freshSession);
+
+      const invoker = createSdkInvoker({ defaultModel: 'haiku', defaultTimeout: 300000 });
+      await invoker.invoke('hello', { threadId: 'thread-1', model: 'claude-sonnet-4-6' });
+
+      // Both evict and retry get should use the effort-encoded key
+      expect(mockPool.evict).toHaveBeenCalledWith('thread-1:effort:medium');
+      expect(mockPool.get).toHaveBeenNthCalledWith(2, 'thread-1:effort:medium', 'claude-sonnet-4-6', { effort: 'medium' });
+    });
   });
 });

@@ -24,8 +24,12 @@ export type Session = {
   lastActivity: number;
 };
 
+export type ThinkingConfig = { type: 'disabled' } | { type: 'enabled'; budgetTokens?: number } | { type: 'adaptive' };
+
 export type SessionConfig = {
   mcpServerFactory?: (contextRef: ToolContextRef) => Record<string, McpServerConfig>;
+  thinking?: ThinkingConfig;
+  effort?: 'low' | 'medium' | 'high' | 'max';
 };
 
 export type SessionFactory = (model: string, config?: SessionConfig) => Session;
@@ -36,7 +40,7 @@ export type SessionPoolConfig = {
 };
 
 export type SessionPool = {
-  get: (threadId: string, model: string) => Session;
+  get: (threadId: string, model: string, overrideConfig?: SessionConfig) => Session;
   evict: (threadId: string) => void;
   closeAll: () => void;
   size: () => number;
@@ -83,7 +87,7 @@ export const createSessionPool: CreateSessionPool = (config, factory, sessionCon
     }
   };
 
-  const get = (threadId: string, model: string): Session => {
+  const get = (threadId: string, model: string, overrideConfig?: SessionConfig): Session => {
     const existing = sessions.get(threadId);
 
     if (existing?.session.isAlive && existing.model === model) {
@@ -101,7 +105,10 @@ export const createSessionPool: CreateSessionPool = (config, factory, sessionCon
       evictOldest();
     }
 
-    const session = factory(model, sessionConfig);
+    // Merge base sessionConfig with per-invocation overrides (thinking/effort)
+    const mergedConfig: SessionConfig | undefined = overrideConfig !== undefined ? { ...sessionConfig, ...overrideConfig } : sessionConfig;
+
+    const session = factory(model, mergedConfig);
     // Defensive: if another caller inserted a session while factory() ran, discard this duplicate
     const winner = sessions.get(threadId);
     if (winner?.session.isAlive && winner.model === model) {

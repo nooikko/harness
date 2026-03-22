@@ -263,14 +263,16 @@ export const createOrchestrator: CreateOrchestrator = (deps) => {
     // Step 0: Look up thread for session resumption and model override
     const thread = await deps.db.thread.findUnique({
       where: { id: threadId },
-      select: { sessionId: true, model: true, kind: true, name: true, customInstructions: true, projectId: true },
+      select: { sessionId: true, model: true, effort: true, kind: true, name: true, customInstructions: true, projectId: true },
     });
 
     // Step 1: Fire onMessage hooks (notification — no modification)
     log.info(`Pipeline: onMessage [role=${role}]`);
     const onMessagePlugins = plugins.filter((p) => p.hooks.onMessage).map((p) => p.definition.name);
+    const onMessageStart = Date.now();
     await runNotifyHooks(hooks, 'onMessage', (h) => h.onMessage?.(threadId, role, content), log, names);
-    const onMessageMeta = { plugins: onMessagePlugins };
+    const onMessageDurationMs = Date.now() - onMessageStart;
+    const onMessageMeta = { plugins: onMessagePlugins, durationMs: onMessageDurationMs };
     pipelineSteps.push({ step: 'onMessage', detail: onMessagePlugins.join(', ') || 'none', metadata: onMessageMeta, timestamp: Date.now() });
     await context.broadcast('pipeline:step', {
       threadId,
@@ -293,9 +295,11 @@ export const createOrchestrator: CreateOrchestrator = (deps) => {
     log.info('Pipeline: onBeforeInvoke');
     const onBeforePlugins = plugins.filter((p) => p.hooks.onBeforeInvoke).map((p) => p.definition.name);
     const promptBefore = basePrompt.length;
+    const onBeforeStart = Date.now();
     const prompt = await runChainHooks(hooks, threadId, basePrompt, log, names);
+    const onBeforeDurationMs = Date.now() - onBeforeStart;
     const promptAfter = prompt.length;
-    const onBeforeMeta = { plugins: onBeforePlugins, promptBefore, promptAfter };
+    const onBeforeMeta = { plugins: onBeforePlugins, promptBefore, promptAfter, durationMs: onBeforeDurationMs };
     const onBeforeDetail = `${onBeforePlugins.join(', ') || 'none'} | ${promptBefore.toLocaleString()} → ${promptAfter.toLocaleString()} chars`;
     pipelineSteps.push({ step: 'onBeforeInvoke', detail: onBeforeDetail, metadata: onBeforeMeta, timestamp: Date.now() });
     await context.broadcast('pipeline:step', {
@@ -320,8 +324,15 @@ export const createOrchestrator: CreateOrchestrator = (deps) => {
     log.info(`Pipeline: invoking Claude [promptLength=${prompt.length}, model=${model ?? 'default'}, sessionId=${sessionId ?? 'none'}]`);
     const invokingMeta = { model: model ?? 'default', promptLength: prompt.length };
     const invokingDetail = `${model ?? 'default'} | ${prompt.length.toLocaleString()} chars`;
-    pipelineSteps.push({ step: 'invoking', detail: invokingDetail, metadata: invokingMeta, timestamp: Date.now() });
-    await context.broadcast('pipeline:step', { threadId, step: 'invoking', detail: invokingDetail, metadata: invokingMeta, timestamp: Date.now() });
+    const invokingTimestamp = Date.now();
+    pipelineSteps.push({ step: 'invoking', detail: invokingDetail, metadata: invokingMeta, timestamp: invokingTimestamp });
+    await context.broadcast('pipeline:step', {
+      threadId,
+      step: 'invoking',
+      detail: invokingDetail,
+      metadata: invokingMeta,
+      timestamp: invokingTimestamp,
+    });
     // Heartbeat: broadcast every 10s during invocation so the frontend knows the agent is alive
     const heartbeatInterval = setInterval(() => {
       void context.broadcast('pipeline:heartbeat', { threadId, elapsedMs: Date.now() - (pipelineSteps[0]?.timestamp ?? Date.now()) });
@@ -335,6 +346,7 @@ export const createOrchestrator: CreateOrchestrator = (deps) => {
         threadId,
         traceId,
         pendingBlocks,
+        effort: (thread?.effort ?? undefined) as 'low' | 'medium' | 'high' | 'max' | undefined,
         onMessage: (event) => {
           if (event.type === 'tool_use_summary') {
             const blocks = pendingBlocks.shift();
@@ -350,6 +362,13 @@ export const createOrchestrator: CreateOrchestrator = (deps) => {
       });
     } finally {
       clearInterval(heartbeatInterval);
+    }
+
+    // Update invoking step with actual duration now that invoke is complete
+    const invokeDurationMs = Date.now() - invokingTimestamp;
+    const invokingStep = pipelineSteps.find((s) => s.step === 'invoking');
+    if (invokingStep) {
+      invokingStep.metadata = { ...invokingStep.metadata, durationMs: invokeDurationMs };
     }
 
     log.info(
@@ -369,11 +388,14 @@ export const createOrchestrator: CreateOrchestrator = (deps) => {
     }
 
     // Step 5: Fire onAfterInvoke hooks (notification)
+    const onAfterStart = Date.now();
     await runNotifyHooks(hooks, 'onAfterInvoke', (h) => h.onAfterInvoke?.(threadId, invokeResult), log, names);
+    const onAfterDurationMs = Date.now() - onAfterStart;
     const onAfterMeta = {
       inputTokens: invokeResult.inputTokens ?? null,
       outputTokens: invokeResult.outputTokens ?? null,
-      durationMs: invokeResult.durationMs,
+      durationMs: onAfterDurationMs,
+      invokeDurationMs: invokeResult.durationMs,
       model: invokeResult.model ?? null,
     };
     const afterDetail = `${invokeResult.inputTokens ?? 0} in / ${invokeResult.outputTokens ?? 0} out | ${invokeResult.durationMs}ms`;

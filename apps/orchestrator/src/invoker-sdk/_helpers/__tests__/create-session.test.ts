@@ -426,4 +426,40 @@ describe('createSession', () => {
 
     session.close();
   });
+
+  it('passes thinking config to query() when provided in SessionConfig', async () => {
+    const session = createSession('sonnet', { thinking: { type: 'disabled' } });
+    await tick();
+
+    expect(lastQueryOptions).toEqual(
+      expect.objectContaining({
+        thinking: { type: 'disabled' },
+      }),
+    );
+
+    session.close();
+  });
+
+  it('passes effort to query() when provided in SessionConfig', async () => {
+    const session = createSession('sonnet', { effort: 'high' });
+    await tick();
+
+    expect(lastQueryOptions).toEqual(
+      expect.objectContaining({
+        effort: 'high',
+      }),
+    );
+
+    session.close();
+  });
+
+  it('does not include thinking or effort in query() options when not provided', async () => {
+    const session = createSession('sonnet');
+    await tick();
+
+    expect(lastQueryOptions).not.toHaveProperty('thinking');
+    expect(lastQueryOptions).not.toHaveProperty('effort');
+
+    session.close();
+  });
 });
