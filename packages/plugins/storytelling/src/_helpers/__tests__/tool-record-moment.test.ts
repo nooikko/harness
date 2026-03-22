@@ -1,3 +1,4 @@
+import type { PrismaClient } from '@harness/database';
 import { describe, expect, it, vi } from 'vitest';
 import { handleRecordMoment } from '../tool-record-moment';
 
@@ -16,7 +17,7 @@ const createMockDb = (opts: { existingLocation?: { id: string } | null; characte
     characterInMoment: {
       create: vi.fn().mockResolvedValue({}),
     },
-  }) as never;
+  }) as unknown as PrismaClient;
 
 describe('handleRecordMoment', () => {
   it('creates a moment with character perspectives', async () => {

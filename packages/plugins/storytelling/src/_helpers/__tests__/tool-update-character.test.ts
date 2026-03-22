@@ -1,3 +1,4 @@
+import type { PrismaClient } from '@harness/database';
 import { describe, expect, it, vi } from 'vitest';
 import { handleUpdateCharacter } from '../tool-update-character';
 
@@ -7,7 +8,7 @@ const createMockDb = (character: { id: string; name: string } | null = null) =>
       findFirst: vi.fn().mockResolvedValue(character),
       update: vi.fn().mockResolvedValue({}),
     },
-  }) as never;
+  }) as unknown as PrismaClient;
 
 describe('handleUpdateCharacter', () => {
   it('updates a valid field on an existing character', async () => {

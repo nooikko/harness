@@ -10,6 +10,30 @@ vi.mock('../_helpers/build-cast-injection', () => ({
   buildCastInjection: vi.fn().mockResolvedValue(''),
 }));
 
+vi.mock('../_helpers/tool-update-character', () => ({
+  handleUpdateCharacter: vi.fn().mockResolvedValue("Updated Elena's appearance."),
+}));
+
+vi.mock('../_helpers/tool-record-moment', () => ({
+  handleRecordMoment: vi.fn().mockResolvedValue('Recorded moment: "The knight arrived" (action, importance 7) with 1 character(s).'),
+}));
+
+vi.mock('../_helpers/tool-advance-time', () => ({
+  handleAdvanceTime: vi.fn().mockResolvedValue('Story time advanced from "Dawn" to "Dusk".'),
+}));
+
+vi.mock('../_helpers/tool-add-location', () => ({
+  handleAddLocation: vi.fn().mockResolvedValue('Added location "The Cave".'),
+}));
+
+vi.mock('../_helpers/tool-character-knowledge', () => ({
+  handleCharacterKnowledge: vi.fn().mockResolvedValue('# Elena — Knowledge State\n\nNo knowledge tracked yet.'),
+}));
+
+vi.mock('../_helpers/tool-get-character', () => ({
+  handleGetCharacter: vi.fn().mockResolvedValue('# Elena\n\nA fierce warrior.'),
+}));
+
 type CreateMockContext = (overrides?: {
   threadKind?: string;
   storyId?: string | null;
@@ -56,6 +80,7 @@ const createMockContext: CreateMockContext = (overrides = {}) => {
     getSettings: vi.fn().mockResolvedValue({}),
     notifySettingsChange: vi.fn().mockResolvedValue(undefined),
     reportStatus: vi.fn(),
+    uploadFile: vi.fn().mockResolvedValue({ fileId: 'test', relativePath: 'test' }),
   };
 };
 
@@ -339,6 +364,222 @@ describe('storytelling plugin', () => {
 
       const { extractStoryState } = await import('../_helpers/extract-story-state');
       expect(extractStoryState).toHaveBeenCalled();
+    });
+
+    it('skips extraction when storyCache has no entry for threadId (onBeforeInvoke never called)', async () => {
+      const ctx = createMockContext({ threadKind: 'storytelling', storyId: 'story-1', storyUpdatedAt: new Date(0) });
+      const hooks = await plugin.register(ctx);
+
+      // Do NOT call onBeforeInvoke — storyCache has no entry for 'never-primed-thread'
+      await hooks.onAfterInvoke?.('never-primed-thread', {
+        output: 'Some response',
+        durationMs: 100,
+        exitCode: 0,
+      });
+
+      const { extractStoryState } = await import('../_helpers/extract-story-state');
+      expect(extractStoryState).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('onBeforeInvoke — commandSummary branch', () => {
+    it('injects author direction when onMessage processed an OOC command before invoke', async () => {
+      // Use a unique threadId to avoid storyCache pollution from other tests
+      const threadId = 'ooc-cmd-thread-unique';
+
+      const ctx = {
+        db: {
+          thread: {
+            findUnique: vi.fn().mockResolvedValue({ kind: 'storytelling', storyId: 'ooc-story' }),
+          },
+          message: {
+            findFirst: vi.fn().mockResolvedValue(null),
+          },
+          story: {
+            findUnique: vi.fn().mockResolvedValue({ updatedAt: new Date(0), currentScene: null }),
+            update: vi.fn().mockResolvedValue({}),
+          },
+          storyCharacter: {
+            findFirst: vi.fn().mockResolvedValue({ id: 'char-1', name: 'Elena', aliases: [] }),
+            update: vi.fn().mockResolvedValue({}),
+          },
+          storyLocation: {
+            upsert: vi.fn().mockResolvedValue({ id: 'loc-1' }),
+          },
+        } as never,
+        invoker: { invoke: vi.fn() },
+        config: {} as never,
+        logger: { info: vi.fn(), warn: vi.fn(), error: vi.fn(), debug: vi.fn() },
+        sendToThread: vi.fn(),
+        broadcast: vi.fn().mockResolvedValue(undefined),
+        getSettings: vi.fn().mockResolvedValue({}),
+        notifySettingsChange: vi.fn().mockResolvedValue(undefined),
+        reportStatus: vi.fn(),
+        uploadFile: vi.fn().mockResolvedValue({ fileId: 'test', relativePath: 'test' }),
+      } as unknown as PluginContext;
+
+      const hooks = await plugin.register(ctx);
+
+      // Prime the storyCache with a valid storyId for this thread
+      await hooks.onBeforeInvoke?.(threadId, 'initial prompt');
+
+      // Fire a time OOC command via onMessage — this gets processed and stored in handledOocCommands
+      await hooks.onMessage?.(threadId, 'user', "// it's now Midnight");
+
+      // Now call onBeforeInvoke — it should inject the command summary as author direction
+      const result = await hooks.onBeforeInvoke?.(threadId, 'The story continues');
+
+      expect(result).toContain('Author direction');
+      expect(result).toContain('Continue the story');
+    });
+  });
+
+  describe('onBeforeInvoke — castInjection branch', () => {
+    it('prepends cast injection when buildCastInjection returns non-empty string', async () => {
+      const { buildCastInjection } = await import('../_helpers/build-cast-injection');
+      vi.mocked(buildCastInjection).mockResolvedValueOnce('## Cast Sheet\n\nElena: tall warrior');
+
+      const ctx = createMockContext({
+        threadKind: 'storytelling',
+        storyId: 'story-1',
+      });
+
+      // story.findUnique for cast injection
+      (ctx.db as unknown as { story: { findUnique: ReturnType<typeof vi.fn> } }).story = {
+        findUnique: vi.fn().mockResolvedValue({ updatedAt: new Date(0), currentScene: null }),
+      };
+
+      const hooks = await plugin.register(ctx);
+
+      const result = await hooks.onBeforeInvoke?.('thread-cast', 'Tell me the story');
+
+      expect(result).toContain('## Cast Sheet');
+      expect(result).toContain('Elena: tall warrior');
+      expect(result).toContain('Tell me the story');
+    });
+  });
+
+  describe('tool happy paths (with primed storyCache)', () => {
+    const primeCache = async (ctx: PluginContext, threadId: string, storyId: string) => {
+      // Prime via onBeforeInvoke which sets storyCache for the threadId
+      const hooks = await plugin.register(ctx);
+      await hooks.onBeforeInvoke?.(threadId, 'priming prompt');
+      return hooks;
+    };
+
+    it('update_character delegates to handleUpdateCharacter when storyId is cached', async () => {
+      const ctx = createMockContext({ threadKind: 'storytelling', storyId: 'story-1' });
+      (ctx.db as unknown as { story: { findUnique: ReturnType<typeof vi.fn> } }).story = {
+        findUnique: vi.fn().mockResolvedValue({ updatedAt: new Date(0), currentScene: null }),
+      };
+      await primeCache(ctx, 'thread-tool', 'story-1');
+
+      const tool = plugin.tools?.find((t) => t.name === 'update_character');
+      const result = await tool?.handler(ctx, { name: 'Elena', field: 'appearance', value: 'tall' }, { threadId: 'thread-tool' });
+
+      const { handleUpdateCharacter } = await import('../_helpers/tool-update-character');
+      expect(handleUpdateCharacter).toHaveBeenCalledWith(ctx.db, 'story-1', { name: 'Elena', field: 'appearance', value: 'tall' });
+      expect(result).toBe("Updated Elena's appearance.");
+    });
+
+    it('record_moment delegates to handleRecordMoment when storyId is cached', async () => {
+      const ctx = createMockContext({ threadKind: 'storytelling', storyId: 'story-2' });
+      (ctx.db as unknown as { story: { findUnique: ReturnType<typeof vi.fn> } }).story = {
+        findUnique: vi.fn().mockResolvedValue({ updatedAt: new Date(0), currentScene: null }),
+      };
+      await primeCache(ctx, 'thread-rm', 'story-2');
+
+      const tool = plugin.tools?.find((t) => t.name === 'record_moment');
+      const input = { summary: 'The knight arrived', kind: 'action', importance: 7, characters: [] };
+      const result = await tool?.handler(ctx, input, { threadId: 'thread-rm' });
+
+      const { handleRecordMoment } = await import('../_helpers/tool-record-moment');
+      expect(handleRecordMoment).toHaveBeenCalledWith(ctx.db, 'story-2', input);
+      expect(result).toContain('Recorded moment');
+    });
+
+    it('advance_time delegates to handleAdvanceTime when storyId is cached', async () => {
+      const ctx = createMockContext({ threadKind: 'storytelling', storyId: 'story-3' });
+      (ctx.db as unknown as { story: { findUnique: ReturnType<typeof vi.fn> } }).story = {
+        findUnique: vi.fn().mockResolvedValue({ updatedAt: new Date(0), currentScene: null }),
+      };
+      await primeCache(ctx, 'thread-at', 'story-3');
+
+      const tool = plugin.tools?.find((t) => t.name === 'advance_time');
+      const input = { storyTime: 'Dusk' };
+      const result = await tool?.handler(ctx, input, { threadId: 'thread-at' });
+
+      const { handleAdvanceTime } = await import('../_helpers/tool-advance-time');
+      expect(handleAdvanceTime).toHaveBeenCalledWith(ctx.db, 'story-3', input);
+      expect(result).toContain('Story time advanced');
+    });
+
+    it('add_location delegates to handleAddLocation when storyId is cached', async () => {
+      const ctx = createMockContext({ threadKind: 'storytelling', storyId: 'story-4' });
+      (ctx.db as unknown as { story: { findUnique: ReturnType<typeof vi.fn> } }).story = {
+        findUnique: vi.fn().mockResolvedValue({ updatedAt: new Date(0), currentScene: null }),
+      };
+      await primeCache(ctx, 'thread-al', 'story-4');
+
+      const tool = plugin.tools?.find((t) => t.name === 'add_location');
+      const input = { name: 'The Cave' };
+      const result = await tool?.handler(ctx, input, { threadId: 'thread-al' });
+
+      const { handleAddLocation } = await import('../_helpers/tool-add-location');
+      expect(handleAddLocation).toHaveBeenCalledWith(ctx.db, 'story-4', input);
+      expect(result).toContain('Added location');
+    });
+
+    it('character_knowledge delegates to handleCharacterKnowledge when storyId is cached', async () => {
+      const ctx = createMockContext({ threadKind: 'storytelling', storyId: 'story-5' });
+      (ctx.db as unknown as { story: { findUnique: ReturnType<typeof vi.fn> } }).story = {
+        findUnique: vi.fn().mockResolvedValue({ updatedAt: new Date(0), currentScene: null }),
+      };
+      await primeCache(ctx, 'thread-ck', 'story-5');
+
+      const tool = plugin.tools?.find((t) => t.name === 'character_knowledge');
+      const input = { name: 'Elena' };
+      const result = await tool?.handler(ctx, input, { threadId: 'thread-ck' });
+
+      const { handleCharacterKnowledge } = await import('../_helpers/tool-character-knowledge');
+      expect(handleCharacterKnowledge).toHaveBeenCalledWith(ctx.db, 'story-5', input);
+      expect(result).toContain('Knowledge State');
+    });
+
+    it('get_character delegates to handleGetCharacter when storyId is cached', async () => {
+      const ctx = createMockContext({ threadKind: 'storytelling', storyId: 'story-6' });
+      (ctx.db as unknown as { story: { findUnique: ReturnType<typeof vi.fn> } }).story = {
+        findUnique: vi.fn().mockResolvedValue({ updatedAt: new Date(0), currentScene: null }),
+      };
+      await primeCache(ctx, 'thread-gc', 'story-6');
+
+      const tool = plugin.tools?.find((t) => t.name === 'get_character');
+      const input = { name: 'Elena' };
+      const result = await tool?.handler(ctx, input, { threadId: 'thread-gc' });
+
+      const { handleGetCharacter } = await import('../_helpers/tool-get-character');
+      expect(handleGetCharacter).toHaveBeenCalledWith(ctx.db, 'story-6', input);
+      expect(result).toContain('Elena');
+    });
+
+    it('each tool returns "not part of a story" when storyId is null in cache', async () => {
+      // Verify for all 6 tools that a null storyId (cached from a non-story thread) returns the error
+      const ctx = createMockContext({ threadKind: 'storytelling', storyId: null });
+      (ctx.db as unknown as { story: { findUnique: ReturnType<typeof vi.fn> } }).story = {
+        findUnique: vi.fn().mockResolvedValue(null),
+      };
+      const hooks = await plugin.register(ctx);
+      // Prime cache with null storyId
+      await hooks.onBeforeInvoke?.('null-story-thread', 'prompt');
+
+      for (const tool of plugin.tools ?? []) {
+        const result = await tool.handler(
+          ctx,
+          { name: 'X', field: 'appearance', value: 'v', storyTime: 't', summary: 's', kind: 'k', importance: 1, characters: [] },
+          { threadId: 'null-story-thread' },
+        );
+        expect(result).toBe('This thread is not part of a story.');
+      }
     });
   });
 });

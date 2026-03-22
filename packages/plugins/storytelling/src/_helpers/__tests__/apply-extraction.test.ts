@@ -68,7 +68,7 @@ describe('applyExtraction', () => {
       ],
     };
 
-    await applyExtraction(result, db, 'story-1');
+    await applyExtraction(result, db as unknown as Parameters<typeof applyExtraction>[1], 'story-1');
 
     expect(db.storyCharacter.upsert).toHaveBeenCalledWith(
       expect.objectContaining({
@@ -96,7 +96,7 @@ describe('applyExtraction', () => {
       ],
     };
 
-    await applyExtraction(result, db, 'story-1');
+    await applyExtraction(result, db as unknown as Parameters<typeof applyExtraction>[1], 'story-1');
 
     expect(db.storyCharacter.upsert).toHaveBeenCalledWith(
       expect.objectContaining({
@@ -117,7 +117,7 @@ describe('applyExtraction', () => {
       aliases: [{ alias: 'the knight', resolvedName: 'Sir Aldric' }],
     };
 
-    await applyExtraction(result, db, 'story-1');
+    await applyExtraction(result, db as unknown as Parameters<typeof applyExtraction>[1], 'story-1');
 
     expect(db.storyCharacter.findFirst).toHaveBeenCalledWith(
       expect.objectContaining({
@@ -144,7 +144,7 @@ describe('applyExtraction', () => {
       aliases: [{ alias: 'the knight', resolvedName: 'Sir Aldric' }],
     };
 
-    await applyExtraction(result, db, 'story-1');
+    await applyExtraction(result, db as unknown as Parameters<typeof applyExtraction>[1], 'story-1');
 
     expect(db.storyCharacter.update).not.toHaveBeenCalled();
   });
@@ -165,7 +165,7 @@ describe('applyExtraction', () => {
       ],
     };
 
-    await applyExtraction(result, db, 'story-1');
+    await applyExtraction(result, db as unknown as Parameters<typeof applyExtraction>[1], 'story-1');
 
     expect(db.storyLocation.findFirst).toHaveBeenCalledWith(
       expect.objectContaining({
@@ -208,7 +208,7 @@ describe('applyExtraction', () => {
       ],
     };
 
-    await applyExtraction(result, db, 'story-1');
+    await applyExtraction(result, db as unknown as Parameters<typeof applyExtraction>[1], 'story-1');
 
     expect(db.storyMoment.create).toHaveBeenCalledWith(
       expect.objectContaining({
@@ -254,7 +254,7 @@ describe('applyExtraction', () => {
       ],
     };
 
-    await applyExtraction(result, db, 'story-1');
+    await applyExtraction(result, db as unknown as Parameters<typeof applyExtraction>[1], 'story-1');
 
     // Location upsert for the new location
     expect(db.storyLocation.upsert).toHaveBeenCalledWith(
@@ -288,7 +288,7 @@ describe('applyExtraction', () => {
       },
     };
 
-    await applyExtraction(result, db, 'story-1');
+    await applyExtraction(result, db as unknown as Parameters<typeof applyExtraction>[1], 'story-1');
 
     expect(db.story.update).toHaveBeenCalledWith(
       expect.objectContaining({
@@ -308,7 +308,7 @@ describe('applyExtraction', () => {
   it('does not update story when nothing to update', async () => {
     const db = createMockDb();
 
-    await applyExtraction(EMPTY_RESULT, db, 'story-1');
+    await applyExtraction(EMPTY_RESULT, db as unknown as Parameters<typeof applyExtraction>[1], 'story-1');
 
     expect(db.story.update).not.toHaveBeenCalled();
   });
@@ -323,7 +323,7 @@ describe('applyExtraction', () => {
       ],
     };
 
-    await applyExtraction(result, db, 'story-1');
+    await applyExtraction(result, db as unknown as Parameters<typeof applyExtraction>[1], 'story-1');
 
     expect(db.story.update).toHaveBeenCalledWith(
       expect.objectContaining({
@@ -332,5 +332,86 @@ describe('applyExtraction', () => {
         }),
       }),
     );
+  });
+
+  it('creates moment without optional description field', async () => {
+    const db = createMockDb();
+    const result: ExtractionResult = {
+      ...EMPTY_RESULT,
+      moments: [
+        {
+          summary: 'A quiet moment',
+          kind: 'reflection',
+          importance: 3,
+          characters: [],
+          // no description, no storyTime
+        },
+      ],
+    };
+
+    await applyExtraction(result, db as unknown as Parameters<typeof applyExtraction>[1], 'story-1');
+
+    expect(db.storyMoment.create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({
+          summary: 'A quiet moment',
+          kind: 'reflection',
+          importance: 3,
+        }),
+      }),
+    );
+    // description should not be in the data
+    const call = db.storyMoment.create.mock.calls[0]?.[0] as { data: Record<string, unknown> };
+    expect(call.data).not.toHaveProperty('description');
+  });
+
+  it('creates CharacterInMoment without characterId when character not found in DB', async () => {
+    const db = createMockDb();
+    // findFirst returns null — character not in DB and not in characterNameToId map
+    db.storyCharacter.findFirst.mockResolvedValue(null);
+
+    const result: ExtractionResult = {
+      ...EMPTY_RESULT,
+      moments: [
+        {
+          summary: 'An unknown character appears',
+          kind: 'action',
+          importance: 5,
+          characters: [{ name: 'Mystery Figure', role: 'antagonist' }],
+        },
+      ],
+    };
+
+    await applyExtraction(result, db as unknown as Parameters<typeof applyExtraction>[1], 'story-1');
+
+    expect(db.characterInMoment.create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({
+          characterName: 'Mystery Figure',
+          role: 'antagonist',
+        }),
+      }),
+    );
+    // characterId should not be present since character wasn't found
+    const call = db.characterInMoment.create.mock.calls[0]?.[0] as { data: Record<string, unknown> };
+    expect(call.data).not.toHaveProperty('characterId');
+  });
+
+  it('skips updating currentScene when scene data fails Zod validation', async () => {
+    const db = createMockDb();
+    const result: ExtractionResult = {
+      ...EMPTY_RESULT,
+      scene: {
+        // characters must be string[], passing numbers will fail the schema
+        characters: [123, 456] as unknown as string[],
+        location: 'Somewhere',
+        storyTime: null,
+      },
+    };
+
+    await applyExtraction(result, db as unknown as Parameters<typeof applyExtraction>[1], 'story-1');
+
+    // story.update should not have been called since scene validation failed and no storyTime
+    expect(db.story.update).not.toHaveBeenCalled();
   });
 });

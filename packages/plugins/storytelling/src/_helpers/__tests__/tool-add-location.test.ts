@@ -1,8 +1,9 @@
+import type { PrismaClient } from '@harness/database';
 import { describe, expect, it, vi } from 'vitest';
 import { handleAddLocation } from '../tool-add-location';
 
-const createMockDb = (parentLocation: { id: string } | null = null) =>
-  ({
+const createMockDb = (parentLocation: { id: string } | null = null) => {
+  const mock = {
     storyLocation: {
       findUnique: vi.fn().mockResolvedValue(parentLocation),
       create: vi.fn().mockResolvedValue({ id: 'loc-new' }),
@@ -10,7 +11,9 @@ const createMockDb = (parentLocation: { id: string } | null = null) =>
     locationRelationship: {
       create: vi.fn().mockResolvedValue({}),
     },
-  }) as never;
+  };
+  return mock as unknown as PrismaClient & typeof mock;
+};
 
 describe('handleAddLocation', () => {
   it('creates a standalone location', async () => {

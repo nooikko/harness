@@ -14,23 +14,26 @@ type MockDb = {
   };
 };
 
-type CreateMockDb = () => MockDb;
+type HandleOocDb = Parameters<typeof handleOocCommand>[1];
 
-const createMockDb: CreateMockDb = () => ({
-  storyCharacter: {
-    findFirst: vi.fn().mockResolvedValue(null),
-    update: vi.fn().mockResolvedValue({}),
-  },
-  storyLocation: {
-    upsert: vi.fn().mockResolvedValue({}),
-  },
-  story: {
-    update: vi.fn().mockResolvedValue({}),
-  },
-});
+type CreateMockDb = () => MockDb & HandleOocDb;
+
+const createMockDb: CreateMockDb = () =>
+  ({
+    storyCharacter: {
+      findFirst: vi.fn().mockResolvedValue(null),
+      update: vi.fn().mockResolvedValue({}),
+    },
+    storyLocation: {
+      upsert: vi.fn().mockResolvedValue({}),
+    },
+    story: {
+      update: vi.fn().mockResolvedValue({}),
+    },
+  }) as unknown as MockDb & HandleOocDb;
 
 describe('handleOocCommand', () => {
-  let db: MockDb;
+  let db: MockDb & HandleOocDb;
 
   beforeEach(() => {
     db = createMockDb();

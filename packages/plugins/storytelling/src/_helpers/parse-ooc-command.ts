@@ -2,7 +2,7 @@ type OocCommandType = 'rename' | 'knowledge' | 'personality' | 'remove' | 'color
 
 type OocCommand = {
   type: OocCommandType;
-  params: Record<string, string>;
+  params: Record<string, string | undefined>;
 };
 
 type ParseOocCommand = (content: string) => OocCommand;

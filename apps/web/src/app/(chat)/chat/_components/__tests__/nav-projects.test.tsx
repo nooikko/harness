@@ -50,6 +50,7 @@ const makeThread = (overrides: Partial<Thread> = {}): Thread => ({
   parentThreadId: null,
   agentId: null,
   projectId: 'proj-1',
+  storyId: null,
   lastActivity: new Date('2026-01-01T10:00:00Z'),
   createdAt: new Date('2026-01-01T10:00:00Z'),
   updatedAt: new Date('2026-01-01T10:00:00Z'),

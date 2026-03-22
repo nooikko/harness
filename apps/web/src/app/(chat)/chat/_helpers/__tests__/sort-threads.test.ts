@@ -18,6 +18,7 @@ const makeThread: MakeThread = (overrides) => ({
   parentThreadId: null,
   agentId: null,
   projectId: null,
+  storyId: null,
   lastActivity: new Date('2025-01-15T12:00:00Z'),
   createdAt: new Date('2025-01-10T10:00:00Z'),
   updatedAt: new Date('2025-01-15T12:00:00Z'),

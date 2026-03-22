@@ -173,7 +173,7 @@ export const applyExtraction: ApplyExtraction = async (result, db, storyId) => {
   }
 
   // Use scene storyTime or the latest moment's storyTime
-  const newStoryTime = result.scene?.storyTime ?? result.moments.findLast((m) => m.storyTime)?.storyTime;
+  const newStoryTime = result.scene?.storyTime ?? [...result.moments].reverse().find((m) => m.storyTime)?.storyTime;
   if (newStoryTime) {
     storyUpdate.storyTime = newStoryTime;
   }

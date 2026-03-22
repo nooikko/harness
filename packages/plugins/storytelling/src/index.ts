@@ -42,7 +42,7 @@ const createRegister: CreateRegister = () => {
         }
 
         try {
-          const summary = await handleOocCommand(command, ctx.db, storyId);
+          const summary = await handleOocCommand(command, ctx.db as unknown as Parameters<typeof handleOocCommand>[1], storyId);
           if (summary) {
             handledOocCommands.set(threadId, summary);
           }
@@ -75,7 +75,7 @@ const createRegister: CreateRegister = () => {
             where: { id: thread.storyId },
             select: { currentScene: true },
           });
-          castInjection = await buildCastInjection(thread.storyId, story?.currentScene ?? null, ctx.db);
+          castInjection = await buildCastInjection(thread.storyId, (story?.currentScene as Parameters<typeof buildCastInjection>[1]) ?? null, ctx.db);
         }
 
         const latestUserMessage = await ctx.db.message.findFirst({

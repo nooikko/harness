@@ -1,3 +1,4 @@
+import type { PrismaClient } from '@harness/database';
 import { describe, expect, it, vi } from 'vitest';
 import { handleAdvanceTime } from '../tool-advance-time';
 
@@ -7,7 +8,7 @@ const createMockDb = (story: { storyTime: string | null } | null = null) =>
       findUnique: vi.fn().mockResolvedValue(story),
       update: vi.fn().mockResolvedValue({}),
     },
-  }) as never;
+  }) as unknown as PrismaClient;
 
 describe('handleAdvanceTime', () => {
   it('advances time and reports previous value', async () => {

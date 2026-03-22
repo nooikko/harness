@@ -81,14 +81,14 @@ describe('createStoryThread', () => {
       }),
     });
 
-    const createCall = mockMessageCreate.mock.calls[0][0];
+    const createCall = mockMessageCreate.mock.calls[0]![0];
     expect(createCall.data.content).toContain('Story Recap');
   });
 
   it('includes story premise in the recap', async () => {
     await createStoryThread('story-1');
 
-    const createCall = mockMessageCreate.mock.calls[0][0];
+    const createCall = mockMessageCreate.mock.calls[0]![0];
     expect(createCall.data.content).toContain('A dark fantasy tale');
   });
 
@@ -97,7 +97,7 @@ describe('createStoryThread', () => {
 
     await createStoryThread('story-1');
 
-    const createCall = mockMessageCreate.mock.calls[0][0];
+    const createCall = mockMessageCreate.mock.calls[0]![0];
     expect(createCall.data.content).toContain('Elena');
   });
 
@@ -112,7 +112,7 @@ describe('createStoryThread', () => {
 
     await createStoryThread('story-1');
 
-    const createCall = mockMessageCreate.mock.calls[0][0];
+    const createCall = mockMessageCreate.mock.calls[0]![0];
     expect(createCall.data.content).toContain('The great battle began');
   });
 
@@ -138,7 +138,7 @@ describe('createStoryThread', () => {
       }),
     );
 
-    const createCall = mockMessageCreate.mock.calls[0][0];
+    const createCall = mockMessageCreate.mock.calls[0]![0];
     expect(createCall.data.content).toContain('The door creaked open.');
   });
 
@@ -153,7 +153,7 @@ describe('createStoryThread', () => {
     const result = await createStoryThread('story-1');
 
     expect(result).toEqual({ threadId: 'new-thread-1' });
-    const createCall = mockMessageCreate.mock.calls[0][0];
+    const createCall = mockMessageCreate.mock.calls[0]![0];
     expect(createCall.data.content).toContain('No story context available yet.');
   });
 
