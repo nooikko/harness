@@ -330,27 +330,27 @@ describe('runDelegationLoop', () => {
       parentThreadId: 'parent-1',
     });
 
-    // Should have user message (prompt) and assistant message (output)
+    // Should have user message, pipeline activity records, and assistant message
     const messageCalls = mockDb.message.create.mock.calls;
-    expect(messageCalls.length).toBeGreaterThanOrEqual(2);
+    const messageData = messageCalls.map((c: unknown[]) => (c[0] as { data: Record<string, unknown> }).data);
 
-    // First call is the user prompt message
-    expect(messageCalls[0]?.[0]).toEqual({
-      data: expect.objectContaining({
+    // User prompt message should exist
+    expect(messageData).toContainEqual(
+      expect.objectContaining({
         threadId: 'thread-task-1',
         role: 'user',
         content: 'Do work',
       }),
-    });
+    );
 
-    // Second call is the assistant response
-    expect(messageCalls[1]?.[0]).toEqual({
-      data: expect.objectContaining({
+    // Assistant response should exist
+    expect(messageData).toContainEqual(
+      expect.objectContaining({
         threadId: 'thread-task-1',
         role: 'assistant',
         content: 'Task completed successfully',
       }),
-    });
+    );
   });
 
   it('fires onTaskComplete hooks after invocation', async () => {
@@ -988,6 +988,28 @@ describe('runDelegationLoop', () => {
     const costCapEvent = broadcastCalls.find((call) => call[0] === 'task:cost-cap');
     expect(costCapEvent).toBeDefined();
     expect(costCapEvent?.[1]).toMatchObject({ spent: 6.0, cap: 5 });
+  });
+
+  it('notifies parent thread when task is cancelled via abort signal', async () => {
+    const hooks: PluginHooks[] = [];
+    const controller = new AbortController();
+    controller.abort();
+
+    const result = await runDelegationLoop(mockCtx, hooks, {
+      prompt: 'Cancellable task',
+      parentThreadId: 'parent-1',
+      signal: controller.signal,
+    });
+
+    expect(result.status).toBe('failed');
+    expect(result.iterations).toBe(0);
+
+    expect(mockDb.orchestratorTask.update).toHaveBeenCalledWith({
+      where: { id: 'task-1' },
+      data: { status: 'cancelled' },
+    });
+
+    expect(mockCtx.sendToThread).toHaveBeenCalledWith('parent-1', expect.stringContaining('cancelled'));
   });
 
   it('propagates error when orchestratorTask.update throws mid-loop', async () => {

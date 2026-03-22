@@ -136,11 +136,30 @@ export const createApp: CreateApp = ({ ctx, logger, onChatMessage }) => {
     }
   });
 
+  // POST /api/tasks/:taskId/cancel — cancel a running delegation task
+  app.post('/api/tasks/:taskId/cancel', async (req: Request, res: Response) => {
+    const { taskId } = req.params as { taskId: string };
+
+    if (!taskId) {
+      res.status(400).json({ error: 'Missing taskId' });
+      return;
+    }
+
+    try {
+      await ctx.broadcast('task:cancel-requested', { taskId });
+      res.json({ success: true, taskId });
+    } catch (err) {
+      const message = err instanceof Error ? err.message : String(err);
+      logger.error('Task cancel endpoint error', { taskId, error: message });
+      res.status(500).json({ error: 'Internal server error' });
+    }
+  });
+
   // POST /api/broadcast — generic event broadcast to WebSocket clients
   // Blocklist: events that trigger destructive plugin side effects via onBroadcast hooks.
   // These have dedicated endpoints (e.g., POST /api/audit-delete) and must not be reachable
   // through the generic broadcast path.
-  const BLOCKED_BROADCAST_EVENTS = new Set(['audit:requested']);
+  const BLOCKED_BROADCAST_EVENTS = new Set(['audit:requested', 'task:cancel-requested']);
 
   app.post('/api/broadcast', async (req: Request, res: Response) => {
     const body = req.body as Partial<{ event: string; data: unknown }>;

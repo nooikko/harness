@@ -86,7 +86,7 @@ describe('delegation plugin', () => {
     const ctx = createMockContext();
     const hooks = await plugin.register(ctx);
 
-    expect(hooks).toEqual({ onSettingsChange: expect.any(Function) });
+    expect(hooks).toEqual({ onSettingsChange: expect.any(Function), onBroadcast: expect.any(Function) });
   });
 
   it('reloads settings when onSettingsChange fires for delegation', async () => {

@@ -36,6 +36,15 @@ const createRegister: CreateRegister = () => {
         settings = await ctx.getSettings(settingsSchema);
         ctx.logger.info('Delegation plugin: settings reloaded');
       },
+      onBroadcast: async (event: string, data: unknown) => {
+        if (event === 'task:cancel-requested') {
+          const { taskId } = data as { taskId: string };
+          const cancelled = cancelTask(taskId);
+          if (cancelled) {
+            ctx.logger.info(`Delegation: cancel requested for task ${taskId}`);
+          }
+        }
+      },
     };
   };
 
@@ -49,6 +58,22 @@ export type DelegationPluginState = {
   currentHooks: PluginHooks[] | null;
   getSettings: (() => { maxIterations?: number; costCapUsd?: number }) | null;
   semaphore: ReturnType<typeof createDelegationSemaphore>;
+  abortControllers: Map<string, AbortController>;
+  cancelTask: (taskId: string) => boolean;
+};
+
+const abortControllers = new Map<string, AbortController>();
+
+type CancelTask = (taskId: string) => boolean;
+
+const cancelTask: CancelTask = (taskId) => {
+  const controller = abortControllers.get(taskId);
+  if (!controller) {
+    return false;
+  }
+  controller.abort();
+  abortControllers.delete(taskId);
+  return true;
 };
 
 const state: DelegationPluginState = {
@@ -56,6 +81,8 @@ const state: DelegationPluginState = {
   currentHooks: null,
   getSettings: null,
   semaphore,
+  abortControllers,
+  cancelTask,
 };
 
 export { state };
@@ -96,6 +123,9 @@ const delegateTools: PluginTool[] = [
 
       const pluginSettings = state.getSettings?.() ?? {};
 
+      // Create an AbortController for this task — stored by taskId after setup
+      const abortController = new AbortController();
+
       runDelegationLoop(ctx, state.currentHooks ?? [], {
         prompt,
         parentThreadId: meta.threadId,
@@ -103,6 +133,10 @@ const delegateTools: PluginTool[] = [
         maxIterations: (input.maxIterations as number | undefined) ?? pluginSettings.maxIterations,
         costCapUsd: pluginSettings.costCapUsd,
         traceId: meta.traceId,
+        signal: abortController.signal,
+        onTaskCreated: (taskId) => {
+          abortControllers.set(taskId, abortController);
+        },
       })
         .catch((err) => {
           ctx.logger.error(`Delegation tool failed: ${err instanceof Error ? err.message : String(err)}`);

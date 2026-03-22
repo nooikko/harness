@@ -28,7 +28,7 @@ export const sendThreadNotification: SendThreadNotification = async (ctx, input)
     data: {
       threadId: input.parentThreadId,
       role: 'system',
-      kind: 'text',
+      kind: 'notification',
       content,
       metadata: {
         type: 'cross-thread-notification',
@@ -39,7 +39,18 @@ export const sendThreadNotification: SendThreadNotification = async (ctx, input)
     },
   });
 
-  await ctx.sendToThread(input.parentThreadId, content);
+  // sendToThread runs the full pipeline (invokes Claude on the parent thread).
+  // If this fails (timeout, Claude error), we still want the notification broadcast
+  // to fire so the UI updates. The system message above is already persisted.
+  try {
+    await ctx.sendToThread(input.parentThreadId, content);
+  } catch (err) {
+    ctx.logger.error(`Delegation: sendToThread failed for ${statusLabel} notification`, {
+      parentThreadId: input.parentThreadId,
+      taskId: input.taskId,
+      error: err instanceof Error ? err.message : String(err),
+    });
+  }
 
   ctx.logger.info(`Delegation: sent ${statusLabel} notification to thread ${input.parentThreadId} for task ${input.taskId}`);
 

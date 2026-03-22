@@ -33,11 +33,49 @@ export const runDelegationLoop: RunDelegationLoop = async (ctx, allHooks, option
 
   const { threadId, taskId } = await setupDelegationTask(ctx, allHooks, options);
 
+  // Notify the caller so it can register the abort controller by taskId
+  options.onTaskCreated?.(taskId);
+
+  const signal = options.signal;
+
   // Delegation loop — invoke and validate
   let feedback: string | undefined;
   let iterations = 0;
 
   while (iterations < maxIterations) {
+    // Check for cancellation before starting a new iteration
+    if (signal?.aborted) {
+      ctx.logger.info(`Delegation: task ${taskId} cancelled before iteration ${iterations + 1}`);
+      await ctx.db.orchestratorTask.update({
+        where: { id: taskId },
+        data: { status: 'cancelled' },
+      });
+      await ctx.db.thread.update({
+        where: { id: threadId },
+        data: { status: 'cancelled', lastActivity: new Date() },
+      });
+      await ctx.broadcast('task:cancelled', {
+        taskId,
+        threadId,
+        parentThreadId: options.parentThreadId,
+      });
+      await sendThreadNotification(ctx, {
+        parentThreadId: options.parentThreadId,
+        taskThreadId: threadId,
+        taskId,
+        status: 'failed',
+        summary: 'Task was cancelled by user',
+        iterations,
+      });
+      return {
+        taskId,
+        threadId,
+        status: 'failed',
+        result: null,
+        iterations,
+      };
+    }
+
     iterations++;
 
     // Update task status to running

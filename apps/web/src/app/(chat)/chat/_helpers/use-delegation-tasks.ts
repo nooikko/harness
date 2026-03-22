@@ -271,6 +271,22 @@ export const useDelegationTasks: UseDelegationTasks = (parentThreadId) => {
       }),
     );
 
+    // task:cancelled
+    unsubs.push(
+      wsCtx.subscribe('task:cancelled', (data) => {
+        const event = data as { taskId: string; parentThreadId: string };
+        if (event.parentThreadId !== parentThreadId) {
+          return;
+        }
+        updateTask(event.taskId, (prev) => ({
+          ...prev,
+          status: 'failed',
+          error: 'Task cancelled',
+          updatedAt: new Date(),
+        }));
+      }),
+    );
+
     return () => {
       for (const unsub of unsubs) {
         unsub();

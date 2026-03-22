@@ -11,6 +11,8 @@ export type DelegationOptions = {
   costCapUsd?: number;
   model?: string;
   traceId?: string;
+  signal?: AbortSignal;
+  onTaskCreated?: (taskId: string) => void;
 };
 
 export type SetupDelegationTaskResult = {

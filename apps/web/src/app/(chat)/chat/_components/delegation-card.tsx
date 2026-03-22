@@ -1,8 +1,10 @@
 'use client';
 
 import { Badge, Progress } from '@harness/ui';
-import { AlertCircle, Brain, ExternalLink, Hammer, X } from 'lucide-react';
+import { AlertCircle, Brain, ExternalLink, Hammer, Loader2, X } from 'lucide-react';
 import Link from 'next/link';
+import { useCallback, useState, useTransition } from 'react';
+import { cancelDelegation } from '../_actions/cancel-delegation';
 import type { DelegationTask } from '../_helpers/use-delegation-tasks';
 import { CollapsibleBlock } from './collapsible-block';
 
@@ -34,6 +36,25 @@ export const DelegationCard: DelegationCardComponent = ({ task, onDismiss }) => 
   const progressValue = task.maxIterations > 0 ? task.iteration / task.maxIterations : 0;
   const promptPreview = task.prompt ? task.prompt.slice(0, PROMPT_PREVIEW_LENGTH) : undefined;
   const hasMorePrompt = task.prompt ? task.prompt.length > PROMPT_PREVIEW_LENGTH : false;
+  const isTerminal = task.status === 'completed' || task.status === 'failed';
+  const [isPending, startTransition] = useTransition();
+  const [cancelError, setCancelError] = useState<string | null>(null);
+
+  const handleCancel = useCallback(() => {
+    if (isTerminal) {
+      // Already done — just dismiss the card
+      onDismiss(task.taskId);
+      return;
+    }
+
+    startTransition(async () => {
+      setCancelError(null);
+      const result = await cancelDelegation(task.taskId);
+      if ('error' in result) {
+        setCancelError(result.error);
+      }
+    });
+  }, [task.taskId, isTerminal, onDismiss]);
 
   return (
     <div className='rounded-lg border border-border/60 bg-muted/30 text-sm'>
@@ -69,14 +90,16 @@ export const DelegationCard: DelegationCardComponent = ({ task, onDismiss }) => 
           View
         </Link>
 
-        {/* Dismiss button */}
+        {/* Cancel / Dismiss button */}
         <button
           type='button'
-          onClick={() => onDismiss(task.taskId)}
-          className='inline-flex items-center justify-center rounded p-0.5 text-muted-foreground hover:text-foreground hover:bg-muted/50 transition-colors'
-          aria-label='Dismiss delegation card'
+          onClick={handleCancel}
+          disabled={isPending}
+          className='inline-flex items-center justify-center rounded p-0.5 text-muted-foreground hover:text-foreground hover:bg-muted/50 transition-colors disabled:opacity-50'
+          aria-label={isTerminal ? 'Dismiss delegation card' : 'Cancel delegation task'}
+          title={isTerminal ? 'Dismiss' : 'Cancel task'}
         >
-          <X className='h-3.5 w-3.5' />
+          {isPending ? <Loader2 className='h-3.5 w-3.5 animate-spin' /> : <X className='h-3.5 w-3.5' />}
         </button>
       </div>
 
@@ -128,10 +151,10 @@ export const DelegationCard: DelegationCardComponent = ({ task, onDismiss }) => 
       )}
 
       {/* Error message */}
-      {task.error && (
+      {(task.error || cancelError) && (
         <div className='mx-3 mb-2 flex items-start gap-1.5 rounded border border-destructive/20 bg-destructive/5 px-2.5 py-1.5 text-xs text-destructive'>
           <AlertCircle className='mt-0.5 h-3 w-3 shrink-0' />
-          <span>{task.error}</span>
+          <span>{cancelError ?? task.error}</span>
         </div>
       )}
     </div>

@@ -147,13 +147,22 @@ describe('sendThreadNotification', () => {
     });
   });
 
-  it('propagates error when sendToThread rejects', async () => {
+  it('logs error and continues when sendToThread rejects', async () => {
     const ctx = createMockContext();
     (ctx.sendToThread as ReturnType<typeof vi.fn>).mockRejectedValue(new Error('Parent thread deleted'));
 
     const input = makeInput();
 
-    await expect(sendThreadNotification(ctx, input)).rejects.toThrow('Parent thread deleted');
+    // Should not throw — sendToThread failure is caught and logged
+    await sendThreadNotification(ctx, input);
+
+    expect(ctx.logger.error).toHaveBeenCalledWith(
+      expect.stringContaining('sendToThread failed'),
+      expect.objectContaining({ error: 'Parent thread deleted' }),
+    );
+
+    // broadcast should still fire
+    expect(ctx.broadcast).toHaveBeenCalledWith('thread:notification', expect.any(Object));
   });
 
   it('propagates error when broadcast rejects', async () => {
