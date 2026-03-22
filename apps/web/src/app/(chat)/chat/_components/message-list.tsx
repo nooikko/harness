@@ -11,7 +11,7 @@ type MessageListProps = {
 
 /** @internal Exported for testing only — consumers should use MessageList. */
 export const MessageListInternal = async ({ threadId }: MessageListProps) => {
-  const [messages, files, thread] = await Promise.all([
+  const [messages, files, thread, annotations] = await Promise.all([
     prisma.message.findMany({
       where: { threadId },
       orderBy: { createdAt: 'asc' },
@@ -24,9 +24,19 @@ export const MessageListInternal = async ({ threadId }: MessageListProps) => {
       where: { id: threadId },
       select: { kind: true },
     }),
+    prisma.messageAnnotation.findMany({
+      where: { message: { threadId } },
+      select: { messageId: true, content: true },
+    }),
   ]);
 
   const threadKind = thread?.kind ?? 'general';
+
+  // Build annotation lookup by messageId
+  const annotationByMessage = new Map<string, string>();
+  for (const ann of annotations) {
+    annotationByMessage.set(ann.messageId, ann.content);
+  }
 
   // Group files by messageId. Files without a messageId (plugin-uploaded via ctx.uploadFile)
   // are attached to the nearest preceding assistant text message based on creation time.
@@ -112,7 +122,15 @@ export const MessageListInternal = async ({ threadId }: MessageListProps) => {
           );
         }
 
-        return <MessageItem key={group.message.id} message={group.message} files={filesByMessage.get(group.message.id)} threadKind={threadKind} />;
+        return (
+          <MessageItem
+            key={group.message.id}
+            message={group.message}
+            files={filesByMessage.get(group.message.id)}
+            threadKind={threadKind}
+            annotation={annotationByMessage.get(group.message.id)}
+          />
+        );
       })}
       <div data-scroll-anchor aria-hidden='true' />
     </>

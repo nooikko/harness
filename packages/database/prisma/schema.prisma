@@ -76,11 +76,25 @@ model Message {
   metadata      Json?
   files         File[]
   storyMoments  StoryMoment[]
+  annotation    MessageAnnotation?
   createdAt     DateTime @default(now())
 
   @@index([threadId, createdAt])
   @@index([threadId, kind])
   @@index([threadId, source])
+}
+
+model MessageAnnotation {
+  id        String   @id @default(cuid())
+  messageId String   @unique
+  message   Message  @relation(fields: [messageId], references: [id], onDelete: Cascade)
+  agentId   String?
+  agent     Agent?   @relation(fields: [agentId], references: [id], onDelete: SetNull)
+  content   String   @db.Text
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([agentId])
 }
 
 model OrchestratorTask {
@@ -237,6 +251,7 @@ model Agent {
   cronJobs    CronJob[]
   files       File[]
   stories     Story[]
+  annotations MessageAnnotation[]
 
   @@index([slug])
   @@index([enabled])

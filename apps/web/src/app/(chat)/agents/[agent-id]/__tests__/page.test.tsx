@@ -23,6 +23,11 @@ vi.mock('../../../chat/_actions/list-agent-memories', () => ({
   listAgentMemories: (...args: unknown[]) => mockListAgentMemories(...args),
 }));
 
+const mockListAgentAnnotations = vi.fn().mockResolvedValue([]);
+vi.mock('../../../chat/_actions/list-agent-annotations', () => ({
+  listAgentAnnotations: (...args: unknown[]) => mockListAgentAnnotations(...args),
+}));
+
 const mockNotFound = vi.fn(() => {
   throw new Error('NEXT_NOT_FOUND');
 });
@@ -40,6 +45,10 @@ vi.mock('../../_components/agent-memory-browser', () => ({
 
 vi.mock('../../_components/agent-scheduled-tasks', () => ({
   AgentScheduledTasks: () => <div data-testid='scheduled-tasks' />,
+}));
+
+vi.mock('../../_components/agent-annotations-browser', () => ({
+  AgentAnnotationsBrowser: () => <div data-testid='annotations-browser' />,
 }));
 
 const { default: AgentEditPage, generateMetadata } = await import('../page');

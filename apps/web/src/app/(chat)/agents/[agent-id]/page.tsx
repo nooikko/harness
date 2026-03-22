@@ -1,7 +1,9 @@
 import { prisma } from '@harness/database';
 import type { Metadata } from 'next';
 import { notFound } from 'next/navigation';
+import { listAgentAnnotations } from '../../chat/_actions/list-agent-annotations';
 import { listAgentMemories } from '../../chat/_actions/list-agent-memories';
+import { AgentAnnotationsBrowser } from '../_components/agent-annotations-browser';
 import { AgentMemoryBrowser } from '../_components/agent-memory-browser';
 import { AgentScheduledTasks } from '../_components/agent-scheduled-tasks';
 import { EditAgentForm } from '../_components/edit-agent-form';
@@ -21,7 +23,7 @@ export const generateMetadata = async ({ params }: AgentEditPageProps): Promise<
 const AgentEditPage = async ({ params }: AgentEditPageProps) => {
   const { 'agent-id': agentId } = await params;
 
-  const [agent, memories, agentConfig, cronJobs] = await Promise.all([
+  const [agent, memories, agentConfig, cronJobs, annotations] = await Promise.all([
     prisma.agent.findUnique({
       where: { id: agentId },
       select: {
@@ -59,6 +61,7 @@ const AgentEditPage = async ({ params }: AgentEditPageProps) => {
         nextRunAt: true,
       },
     }),
+    listAgentAnnotations(agentId),
   ]);
 
   if (!agent) {
@@ -68,6 +71,7 @@ const AgentEditPage = async ({ params }: AgentEditPageProps) => {
   return (
     <div className='mx-auto flex w-full max-w-5xl flex-col gap-10 px-6 py-8'>
       <EditAgentForm agent={agent} agentConfig={agentConfig} />
+      <AgentAnnotationsBrowser agentId={agentId} annotations={annotations} />
       <AgentMemoryBrowser agentId={agentId} memories={memories} />
       <AgentScheduledTasks tasks={cronJobs} agentId={agentId} />
     </div>

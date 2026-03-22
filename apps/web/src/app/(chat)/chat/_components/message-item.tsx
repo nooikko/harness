@@ -3,6 +3,7 @@ import { Info } from 'lucide-react';
 import { formatMessageTime } from '../_helpers/format-message-time';
 import { isCrossThreadNotification } from '../_helpers/is-cross-thread-notification';
 import { MarkdownContent } from './markdown-content';
+import { MessageAnnotationButton } from './message-annotation-button';
 import { MessageFiles } from './message-files';
 import { NarrativeContent } from './narrative-content';
 import { NotificationMessage } from './notification-message';
@@ -20,6 +21,7 @@ export type MessageItemProps = {
   message: Message;
   files?: FileRef[];
   threadKind?: string;
+  annotation?: string;
 };
 
 // Splits message content into text and /slash-command tokens, rendering
@@ -62,7 +64,7 @@ const renderUserContent: RenderUserContent = (content) => {
 
 type MessageItemComponent = (props: MessageItemProps) => React.ReactNode;
 
-export const MessageItem: MessageItemComponent = ({ message, files, threadKind }) => {
+export const MessageItem: MessageItemComponent = ({ message, files, threadKind, annotation }) => {
   if (isCrossThreadNotification(message)) {
     return <NotificationMessage message={message} />;
   }
@@ -137,7 +139,7 @@ export const MessageItem: MessageItemComponent = ({ message, files, threadKind }
   if (message.role === 'assistant') {
     const ContentRenderer = threadKind === 'storytelling' ? NarrativeContent : MarkdownContent;
     return (
-      <div data-message-id={message.id}>
+      <div data-message-id={message.id} className='annotation-host'>
         <article
           aria-label='Assistant'
           style={{
@@ -152,9 +154,28 @@ export const MessageItem: MessageItemComponent = ({ message, files, threadKind }
             {files && files.length > 0 && <MessageFiles files={files} />}
           </div>
         </article>
-        <span style={{ fontSize: 11, color: 'var(--text-muted)', opacity: 0.6, marginTop: 2, display: 'inline-block' }}>
-          {formatMessageTime(message.createdAt)}
-        </span>
+        {annotation && (
+          <div
+            style={{
+              margin: '4px 0 0 8px',
+              padding: '6px 10px',
+              fontSize: 12,
+              color: 'var(--text-secondary)',
+              background: 'var(--accent-subtle)',
+              border: '1px solid var(--border-subtle)',
+              borderRadius: 'var(--radius-md)',
+              lineHeight: 1.5,
+              whiteSpace: 'pre-wrap',
+            }}
+          >
+            <span style={{ fontWeight: 600, marginRight: 6, color: 'var(--accent)' }}>Note:</span>
+            {annotation}
+          </div>
+        )}
+        <div style={{ display: 'flex', alignItems: 'center', gap: 4, marginTop: 2 }}>
+          <span style={{ fontSize: 11, color: 'var(--text-muted)', opacity: 0.6 }}>{formatMessageTime(message.createdAt)}</span>
+          <MessageAnnotationButton messageId={message.id} existingAnnotation={annotation} />
+        </div>
       </div>
     );
   }
