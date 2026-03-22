@@ -1,10 +1,12 @@
 'use client';
 
+import { useMemo, useRef } from 'react';
 import type { Components } from 'react-markdown';
 import Markdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import { getCharacterColor } from './_helpers/character-color-map';
 import { detectDialogueBlock } from './_helpers/detect-dialogue-block';
+import { isActionParagraph } from './_helpers/is-action-paragraph';
 import { CodeBlock } from './code-block';
 import { safeHref } from './markdown-content';
 
@@ -14,7 +16,15 @@ type NarrativeContentProps = {
 
 type NarrativeContentComponent = (props: NarrativeContentProps) => React.ReactNode;
 
-const components: Components = {
+type SpeakerRef = { current: string | null };
+
+// Creates per-render components that share a lastSpeaker ref.
+// When a dialogue block is rendered, lastSpeaker is set to that character.
+// When a fully-italic action paragraph follows, it inherits the speaker's color.
+// Plain narration (non-italic, non-dialogue) clears the speaker.
+type CreateComponents = (speakerRef: SpeakerRef) => Components;
+
+const createComponents: CreateComponents = (speakerRef) => ({
   a: ({ href, children, ...props }) => (
     <a href={safeHref(href)} target='_blank' rel='noopener noreferrer' {...props}>
       {children}
@@ -33,11 +43,13 @@ const components: Components = {
     );
   },
   p: ({ children, ...props }) => {
+    // Check for dialogue first
     const dialogue = detectDialogueBlock(children);
     if (dialogue.isDialogue) {
+      speakerRef.current = dialogue.speaker;
       const color = getCharacterColor(dialogue.speaker);
       return (
-        <div className='pl-3 border-l-[3px] mb-4' style={{ borderColor: color }}>
+        <div className='pl-3 border-l-[3px] my-3' style={{ borderColor: color }}>
           <span className='text-sm font-semibold' style={{ color }}>
             {dialogue.speaker}
           </span>
@@ -46,6 +58,19 @@ const components: Components = {
         </div>
       );
     }
+
+    // Check for action beat (fully italic paragraph)
+    if (isActionParagraph(children) && speakerRef.current) {
+      const color = getCharacterColor(speakerRef.current);
+      return (
+        <p className='pl-3 border-l-[3px] my-3' style={{ borderColor: `${color}40` }} {...props}>
+          {children}
+        </p>
+      );
+    }
+
+    // Plain narration — clear speaker context (scene-level text, not character-bound)
+    speakerRef.current = null;
     return <p {...props}>{children}</p>;
   },
   em: ({ children, ...props }) => (
@@ -61,12 +86,20 @@ const components: Components = {
       <div className='flex-1 h-px bg-border' />
     </div>
   ),
-};
+});
 
-export const NarrativeContent: NarrativeContentComponent = ({ content }) => (
-  <div className='prose prose-sm prose-stone max-w-none prose-p:my-3 prose-p:leading-snug prose-headings:font-semibold prose-headings:tracking-tight prose-headings:mt-5 prose-headings:mb-2 prose-pre:bg-transparent prose-pre:p-0 prose-pre:my-3 prose-li:my-0 prose-li:leading-snug prose-ul:my-2 prose-ol:my-2 [&>hr:first-child]:hidden [&>*:first-child]:mt-0 [&>hr:first-child+*]:mt-0'>
-    <Markdown remarkPlugins={[remarkGfm]} components={components}>
-      {content}
-    </Markdown>
-  </div>
-);
+export const NarrativeContent: NarrativeContentComponent = ({ content }) => {
+  const speakerRef = useRef<string | null>(null);
+  // Reset speaker tracking on each render (new message content)
+  speakerRef.current = null;
+
+  const components = useMemo(() => createComponents(speakerRef), []);
+
+  return (
+    <div className='prose prose-sm prose-stone max-w-none prose-p:my-3 prose-p:leading-snug prose-headings:font-semibold prose-headings:tracking-tight prose-headings:mt-5 prose-headings:mb-2 prose-pre:bg-transparent prose-pre:p-0 prose-pre:my-3 prose-li:my-0 prose-li:leading-snug prose-ul:my-2 prose-ol:my-2 [&>hr:first-child]:hidden [&>*:first-child]:mt-0 [&>hr:first-child+*]:mt-0'>
+      <Markdown remarkPlugins={[remarkGfm]} components={components}>
+        {content}
+      </Markdown>
+    </div>
+  );
+};
