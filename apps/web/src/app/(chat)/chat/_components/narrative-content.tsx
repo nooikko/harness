@@ -63,7 +63,7 @@ const createComponents: CreateComponents = (speakerRef) => ({
     if (isActionParagraph(children) && speakerRef.current) {
       const color = getCharacterColor(speakerRef.current);
       return (
-        <p className='pl-3 border-l-[3px] my-3' style={{ borderColor: `${color}40` }} {...props}>
+        <p className='pl-3 border-l-[3px] my-3' style={{ borderColor: color, opacity: 0.7 }} {...props}>
           {children}
         </p>
       );
