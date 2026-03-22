@@ -1,5 +1,6 @@
 import type { PluginDefinition } from '@harness/plugin-contract';
 import { findUnsubscribeLinks } from './_helpers/find-unsubscribe-links';
+import { listFolderEmails } from './_helpers/list-folder-emails';
 import { listFolders } from './_helpers/list-folders';
 import { listRecent } from './_helpers/list-recent';
 import { moveEmail } from './_helpers/move-email';
@@ -176,6 +177,32 @@ const plugin: PluginDefinition = {
       },
       handler: async (ctx) => {
         return listFolders(ctx);
+      },
+    },
+    {
+      name: 'list_folder_emails',
+      description: 'List emails from a folder with pagination. Returns basic metadata (sender, subject, date, ID, unsubscribe flag) per email.',
+      schema: {
+        type: 'object',
+        properties: {
+          folder: {
+            type: 'string',
+            description: 'Folder name (default: inbox). Options: inbox, sent, drafts, archive, trash, junk, or a custom folder name',
+          },
+          skip: {
+            type: 'number',
+            description: 'Number of emails to skip (offset). Default: 0',
+          },
+          take: {
+            type: 'number',
+            description: 'Number of emails to return (default 20, max 50)',
+          },
+        },
+        required: [],
+      },
+      handler: async (ctx, input) => {
+        const { folder, skip, take } = input as { folder?: string; skip?: number; take?: number };
+        return listFolderEmails(ctx, folder, skip, take);
       },
     },
     {
