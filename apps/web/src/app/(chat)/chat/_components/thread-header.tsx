@@ -1,7 +1,7 @@
 'use client';
 
 import { Button } from '@harness/ui';
-import { Paperclip, Settings2 } from 'lucide-react';
+import { Paperclip, Settings2, Users } from 'lucide-react';
 import { useState } from 'react';
 import { ManageThreadModal } from './manage-thread-modal';
 import { ThreadAttachmentsPanel } from './thread-attachments-panel';
@@ -20,6 +20,9 @@ type ThreadHeaderProps = {
   currentInstructions: string | null;
   currentProjectId: string | null;
   projects: ProjectOption[];
+  storyId?: string | null;
+  onToggleCharacters?: () => void;
+  isCharacterPanelOpen?: boolean;
 };
 
 type ThreadHeaderComponent = (props: ThreadHeaderProps) => React.ReactNode;
@@ -33,6 +36,9 @@ export const ThreadHeader: ThreadHeaderComponent = ({
   currentInstructions,
   currentProjectId,
   projects,
+  storyId,
+  onToggleCharacters,
+  isCharacterPanelOpen,
 }) => {
   const [isManageOpen, setIsManageOpen] = useState(false);
   const [isAttachmentsOpen, setIsAttachmentsOpen] = useState(false);
@@ -43,6 +49,17 @@ export const ThreadHeader: ThreadHeaderComponent = ({
         <div className='mx-auto flex max-w-4xl items-center justify-between px-4 py-3 sm:px-6'>
           <h1 className='truncate text-sm font-medium text-foreground/80'>{displayName}</h1>
           <div className='flex items-center gap-1'>
+            {storyId && onToggleCharacters && (
+              <Button
+                variant='ghost'
+                size='sm'
+                className={`h-7 w-7 shrink-0 p-0 ${isCharacterPanelOpen ? 'text-foreground' : 'text-muted-foreground hover:text-foreground'}`}
+                onClick={onToggleCharacters}
+                aria-label='Toggle character panel'
+              >
+                <Users className='h-3.5 w-3.5' />
+              </Button>
+            )}
             <Button
               variant='ghost'
               size='sm'

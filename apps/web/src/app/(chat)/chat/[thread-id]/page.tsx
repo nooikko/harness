@@ -3,6 +3,7 @@ import { notFound } from 'next/navigation';
 import { ChatArea } from '../_components/chat-area';
 import { MessageList } from '../_components/message-list';
 import { PrewarmTrigger } from '../_components/prewarm-trigger';
+import { StoryThreadLayout } from '../_components/story-thread-layout';
 import { ThreadHeader } from '../_components/thread-header';
 
 type ThreadPageProps = {
@@ -11,11 +12,6 @@ type ThreadPageProps = {
 
 type ThreadPageComponent = (props: ThreadPageProps) => Promise<React.ReactNode>;
 
-/**
- * Thread detail page. Async to resolve params and verify thread exists
- * (notFound must fire before streaming begins for correct 404 status).
- * Header renders synchronously; messages stream in via Suspense.
- */
 const ThreadPage: ThreadPageComponent = async ({ params }) => {
   const { 'thread-id': threadId } = await params;
 
@@ -35,18 +31,19 @@ const ThreadPage: ThreadPageComponent = async ({ params }) => {
 
   const displayName = thread.name ?? `${thread.source}/${thread.sourceId}`;
 
-  return (
-    <div className='flex h-full flex-col'>
-      <ThreadHeader
-        threadId={threadId}
-        displayName={displayName}
-        currentName={thread.name}
-        currentModel={thread.model}
-        currentEffort={thread.effort}
-        currentInstructions={thread.customInstructions}
-        currentProjectId={thread.projectId}
-        projects={projects}
-      />
+  const headerProps = {
+    threadId,
+    displayName,
+    currentName: thread.name,
+    currentModel: thread.model,
+    currentEffort: thread.effort,
+    currentInstructions: thread.customInstructions,
+    currentProjectId: thread.projectId,
+    projects,
+  };
+
+  const chatContent = (
+    <>
       <PrewarmTrigger threadId={threadId} />
       <ChatArea
         threadId={threadId}
@@ -56,6 +53,21 @@ const ThreadPage: ThreadPageComponent = async ({ params }) => {
       >
         <MessageList threadId={threadId} />
       </ChatArea>
+    </>
+  );
+
+  if (thread.storyId) {
+    return (
+      <StoryThreadLayout storyId={thread.storyId} headerProps={headerProps}>
+        {chatContent}
+      </StoryThreadLayout>
+    );
+  }
+
+  return (
+    <div className='flex h-full flex-col'>
+      <ThreadHeader {...headerProps} />
+      {chatContent}
     </div>
   );
 };
