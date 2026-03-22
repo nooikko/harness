@@ -1,6 +1,7 @@
 type CharacterRef = {
   id: string;
   name: string;
+  aliases?: string[];
   personality?: string | null;
 };
 
@@ -32,7 +33,13 @@ export const buildImportExtractionPrompt: BuildImportExtractionPrompt = (input) 
 
   const characterList =
     characters.length > 0
-      ? characters.map((c) => `- ${c.name} (id: ${c.id})${c.personality ? ` — ${c.personality.slice(0, 100)}` : ''}`).join('\n')
+      ? characters
+          .map((c) => {
+            const aliasStr = c.aliases && c.aliases.length > 0 ? ` (aliases: ${c.aliases.map((a) => `"${a}"`).join(', ')})` : '';
+            const personalityStr = c.personality ? ` — ${c.personality.slice(0, 100)}` : '';
+            return `- ${c.name}${aliasStr} (id: ${c.id})${personalityStr}`;
+          })
+          .join('\n')
       : '(none yet)';
 
   const locationList =
@@ -75,6 +82,13 @@ ${content}
 
 Extract the following as a JSON object. This is an IMPORT operation — be thorough. Extract EVERY significant moment, not just the most important ones.
 
+### Character Name Rules (STRICT)
+
+- Character names MUST be 1-4 words — a proper name, nickname, or short descriptor (e.g., "Quinn", "The Expander", "CIS 405 Guy")
+- NEVER use a sentence, status description, or role description as a name (e.g., "mentioned; not present" is NOT a name)
+- If you cannot determine a proper name or nickname for someone, OMIT them entirely — do NOT create a character record
+- Do NOT create a character record for someone who is only vaguely referenced without any identifying name or nickname
+
 ### Extraction Priority Rules
 
 1. **Emotional-beat granularity**: Extract moments at the level of emotional shifts, not plot summaries. "During practice, Kai noticed Violet struggling and quietly showed her the grip without making a big deal of it" is ONE moment — not "the team practiced."
@@ -100,7 +114,7 @@ Extract the following as a JSON object. This is an IMPORT operation — be thoro
   "characters": [
     {
       "action": "create" | "update",
-      "name": "string",
+      "name": "string (1-4 words max — proper name, nickname, or short descriptor. NEVER a sentence or description)",
       "fields": { "appearance?": "", "personality?": "", "mannerisms?": "", "motives?": "", "backstory?": "", "relationships?": "", "color?": "", "status?": "" }
     }
   ],

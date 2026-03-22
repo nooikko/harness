@@ -1,5 +1,6 @@
 import type { PluginContext } from '@harness/plugin-contract';
 import { buildImportCharacterPrompt } from './build-import-character-prompt';
+import { isValidCharacterName } from './is-valid-character-name';
 import { parseImportCharacterResult } from './parse-import-result';
 
 const CHARACTER_FIELDS = ['appearance', 'personality', 'mannerisms', 'motives', 'backstory', 'relationships', 'color', 'status'] as const;
@@ -41,8 +42,20 @@ export const handleImportCharacters: HandleImportCharacters = async (ctx, storyI
 
   const created: string[] = [];
   const updated: string[] = [];
+  const skipped: string[] = [];
 
   for (const char of parsed.characters) {
+    const validation = isValidCharacterName(char.name);
+    if (!validation.valid) {
+      ctx.logger.warn(`storytelling: skipping invalid character name "${char.name}": ${validation.reason}`, {
+        storyId,
+        name: char.name,
+        reason: validation.reason,
+      });
+      skipped.push(char.name);
+      continue;
+    }
+
     const updateFields: Record<string, string> = {};
     for (const key of CHARACTER_FIELDS) {
       const value = char.fields[key];
@@ -87,6 +100,9 @@ export const handleImportCharacters: HandleImportCharacters = async (ctx, storyI
   }
   if (updated.length > 0) {
     parts.push(`Updated ${updated.length} characters: ${updated.join(', ')}`);
+  }
+  if (skipped.length > 0) {
+    parts.push(`Skipped ${skipped.length} invalid names: ${skipped.join(', ')}`);
   }
 
   return parts.length > 0 ? `${parts.join('. ')}.` : 'No characters found in the provided text.';

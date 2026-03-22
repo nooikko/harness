@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { isValidCharacterName } from './is-valid-character-name';
 import type { ExtractionResult } from './parse-extraction-result';
 
 type PrismaClient = {
@@ -37,6 +38,11 @@ export const applyExtraction: ApplyExtraction = async (result, db, storyId) => {
   const characterNameToId = new Map<string, string>();
 
   for (const char of result.characters) {
+    const validation = isValidCharacterName(char.name);
+    if (!validation.valid) {
+      continue;
+    }
+
     const updateFields: Record<string, string> = {};
     for (const key of CHARACTER_FIELDS) {
       const value = char.fields[key];

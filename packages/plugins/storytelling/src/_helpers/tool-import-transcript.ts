@@ -47,7 +47,7 @@ export const handleImportTranscript: HandleImportTranscript = async (ctx, storyI
   const [characters, locations, story] = await Promise.all([
     ctx.db.storyCharacter.findMany({
       where: { storyId, status: 'active' },
-      select: { id: true, name: true, personality: true },
+      select: { id: true, name: true, aliases: true, personality: true },
       take: 50,
     }),
     ctx.db.storyLocation.findMany({

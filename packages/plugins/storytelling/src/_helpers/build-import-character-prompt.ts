@@ -31,10 +31,12 @@ ${text}
 Extract each character as a JSON object. For characters that already exist (name match or alias match), use action "update" to enrich their profile. For new characters, use action "create".
 
 ### Rules
-1. **Preserve texture**: If a profile says "she hides vulnerability behind sarcasm but melts when someone sees through it" — keep that EXACT phrasing in the personality field. Do not rephrase as "sarcastic but vulnerable."
-2. **All fields are optional**: Only include fields that have content in the source material.
-3. **Relationships are specific**: "Close to Kai" is less useful than "Kai is the first person she let see her cry — they share a quiet understanding that doesn't need words."
-4. **Aliases**: If the profile mentions nicknames or alternate names, include them.
+1. **Character names MUST be 1-4 words** — a proper name, nickname, or short descriptor (e.g., "Quinn", "The Expander", "CIS 405 Guy"). NEVER use a sentence, status description, or role description as a name.
+2. **Omit unidentifiable characters**: If you cannot determine a proper name or nickname, do NOT create a character record. Do not invent names for vaguely referenced people.
+3. **Preserve texture**: If a profile says "she hides vulnerability behind sarcasm but melts when someone sees through it" — keep that EXACT phrasing in the personality field. Do not rephrase as "sarcastic but vulnerable."
+4. **All fields are optional**: Only include fields that have content in the source material.
+5. **Relationships are specific**: "Close to Kai" is less useful than "Kai is the first person she let see her cry — they share a quiet understanding that doesn't need words."
+6. **Aliases**: If the profile mentions nicknames or alternate names, include them.
 
 ### JSON Schema
 
@@ -43,7 +45,7 @@ Extract each character as a JSON object. For characters that already exist (name
   "characters": [
     {
       "action": "create" | "update",
-      "name": "canonical name",
+      "name": "canonical name (1-4 words max — proper name, nickname, or short descriptor. NEVER a sentence)",
       "aliases": ["nickname", "short name"],
       "fields": {
         "appearance": "physical description",
