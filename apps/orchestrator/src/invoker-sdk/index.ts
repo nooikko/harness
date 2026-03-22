@@ -80,18 +80,22 @@ export const createSdkInvoker: CreateSdkInvoker = (config) => {
   const invoke = async (prompt: string, options?: InvokeOptions): Promise<InvokeResult> => {
     const model = options?.model ?? config.defaultModel;
     const resolvedThinking = resolveThinkingConfig(model, options?.effort);
-    // Encode effort/thinking into the pool key so sessions with different configs don't share a warm session
+    // Encode effort/thinking + disallowedTools into the pool key so sessions with different configs don't share a warm session
     const effortSuffix = resolvedThinking.effort
       ? `:effort:${resolvedThinking.effort}`
       : resolvedThinking.thinking?.type === 'disabled'
         ? ':thinking:disabled'
         : '';
+    const toolsSuffix = options?.disallowedTools?.length ? `:dt:${options.disallowedTools.length}` : '';
     const baseKey = options?.threadId ?? options?.sessionId ?? 'default';
-    const poolKey = `${baseKey}${effortSuffix}`;
+    const poolKey = `${baseKey}${effortSuffix}${toolsSuffix}`;
     const timeout = options?.timeout ?? config.defaultTimeout;
     const startTime = Date.now();
 
-    const session = pool.get(poolKey, model, resolvedThinking);
+    const session = pool.get(poolKey, model, {
+      ...resolvedThinking,
+      ...(options?.disallowedTools?.length ? { disallowedTools: options.disallowedTools } : {}),
+    });
 
     // Construct per-invocation meta — flows to the session's contextRef via drainQueue
     const meta = {
@@ -125,7 +129,10 @@ export const createSdkInvoker: CreateSdkInvoker = (config) => {
 
       if (isStaleSession) {
         try {
-          const freshSession = pool.get(poolKey, model, resolvedThinking);
+          const freshSession = pool.get(poolKey, model, {
+            ...resolvedThinking,
+            ...(options?.disallowedTools?.length ? { disallowedTools: options.disallowedTools } : {}),
+          });
           const retryResult = await withTimeout(freshSession.send(prompt, sendOptions), timeout);
           return { ...extractResult(retryResult, Date.now() - startTime), traceId: options?.traceId };
         } catch (retryErr) {

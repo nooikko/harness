@@ -90,6 +90,7 @@ export const createSession: CreateSession = (model, config) => {
       ...(config?.mcpServerFactory ? { mcpServers: config.mcpServerFactory(contextRef) } : {}),
       ...(config?.thinking ? { thinking: config.thinking } : {}),
       ...(config?.effort ? { effort: config.effort } : {}),
+      ...(config?.disallowedTools?.length ? { disallowedTools: config.disallowedTools } : {}),
     },
   });
 

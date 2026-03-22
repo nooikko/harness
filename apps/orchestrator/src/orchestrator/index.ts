@@ -17,6 +17,7 @@ import type {
   PluginStatusLevel,
   SettingsFieldDefs,
 } from '@harness/plugin-contract';
+import { computeDisallowedTools } from './_helpers/compute-disallowed-tools';
 import { createScopedDb } from './_helpers/create-scoped-db';
 import { getPluginSettings } from './_helpers/get-plugin-settings';
 import { createPluginStatusRegistry } from './_helpers/plugin-status-registry';
@@ -40,6 +41,7 @@ export type OrchestratorDeps = {
   invoker: Invoker;
   config: OrchestratorConfig;
   logger: Logger;
+  toolNames?: string[]; // All registered MCP tool qualified names — used to compute disallowedTools per thread kind
 };
 
 export type HandleMessageResult = {
@@ -340,6 +342,8 @@ export const createOrchestrator: CreateOrchestrator = (deps) => {
 
     let invokeResult: InvokeResult;
     try {
+      const threadKind = (thread?.kind as string) ?? 'general';
+      const disallowedTools = deps.toolNames ? computeDisallowedTools(threadKind, deps.toolNames) : undefined;
       invokeResult = await deps.invoker.invoke(prompt, {
         model,
         sessionId,
@@ -347,6 +351,7 @@ export const createOrchestrator: CreateOrchestrator = (deps) => {
         traceId,
         pendingBlocks,
         effort: (thread?.effort ?? undefined) as 'low' | 'medium' | 'high' | 'max' | undefined,
+        disallowedTools,
         onMessage: (event) => {
           if (event.type === 'tool_use_summary') {
             const blocks = pendingBlocks.shift();

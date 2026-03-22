@@ -30,6 +30,7 @@ export type SessionConfig = {
   mcpServerFactory?: (contextRef: ToolContextRef) => Record<string, McpServerConfig>;
   thinking?: ThinkingConfig;
   effort?: 'low' | 'medium' | 'high' | 'max';
+  disallowedTools?: string[];
 };
 
 export type SessionFactory = (model: string, config?: SessionConfig) => Session;

@@ -38,13 +38,11 @@ const components: Components = {
       const color = getCharacterColor(dialogue.speaker);
       return (
         <div className='pl-3 border-l-[3px] mb-4' style={{ borderColor: color }}>
-          <div className='flex items-center gap-2 mb-1'>
-            <span className='text-sm font-semibold' style={{ color }}>
-              {dialogue.speaker}
-            </span>
-            {dialogue.emotion && <span className='text-xs text-muted-foreground italic'>({dialogue.emotion})</span>}
-          </div>
-          <div>{dialogue.restChildren}</div>
+          <span className='text-sm font-semibold' style={{ color }}>
+            {dialogue.speaker}
+          </span>
+          {dialogue.emotion && <span className='text-xs text-muted-foreground italic ml-1'>({dialogue.emotion})</span>}
+          {dialogue.restChildren}
         </div>
       );
     }

@@ -58,6 +58,7 @@ export type InvokeOptions = {
   onMessage?: (event: InvokeStreamEvent) => void;
   traceId?: string; // Trace ID for correlating main-thread invocations with sub-agent invocations
   taskId?: string; // Delegation task ID — flows to tool handlers via per-invocation context
+  disallowedTools?: string[]; // MCP tool names to exclude from the session (flows to SDK query options)
   pendingBlocks?: ContentBlock[][]; // Per-invocation content block queue — tool handlers push, onMessage shifts
   effort?: 'low' | 'medium' | 'high' | 'max'; // Thinking effort level — overrides model-aware defaults
 };

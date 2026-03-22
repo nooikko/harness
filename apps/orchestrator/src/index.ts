@@ -84,6 +84,7 @@ export const boot: Boot = async () => {
     invoker,
     config,
     logger,
+    toolNames: allTools.map((t) => t.qualifiedName),
   });
 
   // Late-bind PluginContext to the invoker so per-invocation meta includes ctx

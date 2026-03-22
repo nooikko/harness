@@ -17,6 +17,14 @@ const DEDUP_GUARD_MS = 60_000;
 
 const storyCache = new Map<string, string | null>();
 const handledOocCommands = new Map<string, string>(); // threadId → summary of handled command
+const lastExtractionAt = new Map<string, number>(); // storyId → timestamp of last extraction
+
+/** @internal Test-only: clears module-level caches between test runs */
+export const _resetCaches = (): void => {
+  storyCache.clear();
+  handledOocCommands.clear();
+  lastExtractionAt.clear();
+};
 
 type CreateRegister = () => PluginDefinition['register'];
 
@@ -26,7 +34,17 @@ const createRegister: CreateRegister = () => {
 
     return {
       onMessage: async (threadId, _role, content) => {
-        const storyId = storyCache.get(threadId);
+        // storyCache may be empty on the first message (onMessage runs before onBeforeInvoke).
+        // Fall back to a DB lookup so the first OOC command in a thread is not silently dropped.
+        let storyId = storyCache.get(threadId);
+        if (storyId === undefined) {
+          const thread = await ctx.db.thread.findUnique({
+            where: { id: threadId },
+            select: { storyId: true },
+          });
+          storyId = thread?.storyId ?? null;
+          storyCache.set(threadId, storyId);
+        }
         if (!storyId) {
           return;
         }
@@ -75,7 +93,11 @@ const createRegister: CreateRegister = () => {
             where: { id: thread.storyId },
             select: { currentScene: true },
           });
-          castInjection = await buildCastInjection(thread.storyId, (story?.currentScene as Parameters<typeof buildCastInjection>[1]) ?? null, ctx.db);
+          // Safely extract currentScene — it's a JSON field that may not match the expected shape
+          const raw = story?.currentScene;
+          const currentScene =
+            raw && typeof raw === 'object' && !Array.isArray(raw) ? (raw as { characters?: string[]; locationName?: string }) : null;
+          castInjection = await buildCastInjection(thread.storyId, currentScene, ctx.db);
         }
 
         const latestUserMessage = await ctx.db.message.findFirst({
@@ -115,17 +137,15 @@ const createRegister: CreateRegister = () => {
           return;
         }
 
-        // 60-second dedup guard
-        const story = await ctx.db.story.findUnique({
-          where: { id: storyId },
-          select: { updatedAt: true },
-        });
-
-        if (story && Date.now() - new Date(story.updatedAt).getTime() < DEDUP_GUARD_MS) {
+        // 60-second dedup guard — uses in-memory timestamp, not story.updatedAt
+        // (story.updatedAt is bumped by tool calls like advance_time, which would falsely skip extraction)
+        const lastExtraction = lastExtractionAt.get(storyId) ?? 0;
+        if (Date.now() - lastExtraction < DEDUP_GUARD_MS) {
           return;
         }
 
         try {
+          lastExtractionAt.set(storyId, Date.now());
           await extractStoryState(ctx, storyId, threadId, result.output);
         } catch (err) {
           const e = err instanceof Error ? err : new Error(String(err));
@@ -305,5 +325,10 @@ export const plugin: PluginDefinition = {
   name: 'storytelling',
   version: '1.0.0',
   register: createRegister(),
+  stop: async () => {
+    storyCache.clear();
+    handledOocCommands.clear();
+    lastExtractionAt.clear();
+  },
   tools: storytellingTools,
 };
