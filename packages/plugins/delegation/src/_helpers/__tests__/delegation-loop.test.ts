@@ -1047,4 +1047,69 @@ describe('runDelegationLoop', () => {
       }),
     ).rejects.toThrow('SDK subprocess crashed');
   });
+
+  it('detects cancellation immediately after invoke completes', async () => {
+    const controller = new AbortController();
+
+    // Abort the signal during the invoke call (simulates cancel arriving during long invocation)
+    (mockCtx.invoker.invoke as ReturnType<typeof vi.fn>).mockImplementation(async () => {
+      controller.abort();
+      return { output: 'Done', durationMs: 1000, exitCode: 0 };
+    });
+
+    const hooks: PluginHooks[] = [];
+    const result = await runDelegationLoop(mockCtx, hooks, {
+      prompt: 'Long running task',
+      parentThreadId: 'parent-1',
+      signal: controller.signal,
+    });
+
+    expect(result.status).toBe('failed');
+    expect(result.iterations).toBe(1);
+
+    expect(mockDb.orchestratorTask.update).toHaveBeenCalledWith({
+      where: { id: 'task-1' },
+      data: { status: 'cancelled' },
+    });
+  });
+
+  it('detects cancellation during backoff sleep', async () => {
+    const controller = new AbortController();
+
+    // First invoke fails (non-zero exit) to trigger backoff
+    (mockCtx.invoker.invoke as ReturnType<typeof vi.fn>).mockResolvedValue({
+      output: '',
+      durationMs: 100,
+      exitCode: 1,
+      error: 'timed out',
+    });
+
+    // Mock calculateBackoffMs to return a long wait so we can abort during it
+    const { calculateBackoffMs } = await import('../calculate-backoff-ms');
+    vi.mocked(calculateBackoffMs).mockReturnValue(5000);
+
+    // Abort after a short delay (while sleep is in progress)
+    setTimeout(() => controller.abort(), 50);
+
+    const hooks: PluginHooks[] = [];
+    const startTime = Date.now();
+    const result = await runDelegationLoop(mockCtx, hooks, {
+      prompt: 'Backoff task',
+      parentThreadId: 'parent-1',
+      signal: controller.signal,
+    });
+
+    const elapsed = Date.now() - startTime;
+
+    // Should have exited quickly (< 1s), not waited the full 5s backoff
+    expect(elapsed).toBeLessThan(1000);
+    expect(result.status).toBe('failed');
+
+    // Task should have been failed (cancelled during backoff breaks the loop,
+    // falls through to the "max iterations exhausted" cleanup)
+    expect(mockDb.orchestratorTask.update).toHaveBeenCalledWith({
+      where: { id: 'task-1' },
+      data: { status: 'failed' },
+    });
+  });
 });

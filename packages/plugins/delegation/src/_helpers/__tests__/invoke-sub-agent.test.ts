@@ -207,4 +207,46 @@ describe('invokeSubAgent', () => {
       expect.objectContaining({ threadId: 'thread-1', taskId: 'task-1' }),
     );
   });
+
+  it('does not throw if assistant message persistence fails', async () => {
+    const ctx = createMockContext();
+    const messageCreate = (ctx.db as unknown as { message: { create: ReturnType<typeof vi.fn> } }).message.create;
+    messageCreate.mockRejectedValueOnce(new Error('DB connection lost'));
+
+    const result = await invokeSubAgent(ctx, 'Do work', 'task-1', 'thread-1', undefined);
+
+    expect(result.output).toBe('Agent output here');
+    expect(ctx.logger.warn).toHaveBeenCalledWith(
+      'delegation: failed to persist assistant message',
+      expect.objectContaining({ threadId: 'thread-1', taskId: 'task-1' }),
+    );
+  });
+
+  it('does not throw if recordAgentRun fails', async () => {
+    const ctx = createMockContext();
+    const agentRunCreate = (ctx.db as unknown as { agentRun: { create: ReturnType<typeof vi.fn> } }).agentRun.create;
+    agentRunCreate.mockRejectedValueOnce(new Error('Constraint violation'));
+
+    const result = await invokeSubAgent(ctx, 'Do work', 'task-1', 'thread-1', undefined);
+
+    expect(result.output).toBe('Agent output here');
+    expect(ctx.logger.warn).toHaveBeenCalledWith(
+      'delegation: failed to record agent run',
+      expect.objectContaining({ threadId: 'thread-1', taskId: 'task-1' }),
+    );
+  });
+
+  it('returns invoke result even when all post-invoke persistence fails', async () => {
+    const ctx = createMockContext();
+    (persistDelegationActivity as ReturnType<typeof vi.fn>).mockRejectedValueOnce(new Error('fail'));
+    const db = ctx.db as unknown as { message: { create: ReturnType<typeof vi.fn> }; agentRun: { create: ReturnType<typeof vi.fn> } };
+    db.message.create.mockRejectedValueOnce(new Error('fail'));
+    db.agentRun.create.mockRejectedValueOnce(new Error('fail'));
+
+    const result = await invokeSubAgent(ctx, 'Do work', 'task-1', 'thread-1', undefined);
+
+    // Invoke result is returned regardless of persistence failures
+    expect(result.output).toBe('Agent output here');
+    expect(result.exitCode).toBe(0);
+  });
 });

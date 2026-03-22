@@ -33,8 +33,9 @@ export const invokeSubAgent: InvokeSubAgent = async (ctx, prompt, taskId, thread
     taskId,
   });
 
-  // Persist pipeline activity (start/complete status + thinking/tool_call/tool_result records)
-  // so the delegated thread view can render full activity like the main pipeline
+  // Post-invoke persistence — all guarded with .catch() so a DB failure here
+  // cannot throw into the delegation loop and orphan the task in 'running' state.
+  // The invoke result is always returned regardless of persistence success.
   await persistDelegationActivity(ctx, threadId, collectedEvents, result, traceId).catch((err) => {
     ctx.logger.warn('delegation: failed to persist activity records', {
       error: err instanceof Error ? err.message : String(err),
@@ -43,19 +44,24 @@ export const invokeSubAgent: InvokeSubAgent = async (ctx, prompt, taskId, thread
     });
   });
 
-  // Persist non-empty sub-agent output as a message in the task thread
-  // (failed invocations often return empty output — don't pollute history)
   if (result.output) {
-    await ctx.db.message.create({
-      data: {
-        threadId,
-        role: 'assistant',
-        content: result.output,
-      },
-    });
+    await ctx.db.message
+      .create({
+        data: {
+          threadId,
+          role: 'assistant',
+          content: result.output,
+        },
+      })
+      .catch((err) => {
+        ctx.logger.warn('delegation: failed to persist assistant message', {
+          error: err instanceof Error ? err.message : String(err),
+          threadId,
+          taskId,
+        });
+      });
   }
 
-  // Record the agent run with token usage and cost tracking
   await recordAgentRun(ctx, {
     taskId,
     threadId,
@@ -63,6 +69,12 @@ export const invokeSubAgent: InvokeSubAgent = async (ctx, prompt, taskId, thread
     prompt,
     invokeResult: result,
     traceId,
+  }).catch((err) => {
+    ctx.logger.warn('delegation: failed to record agent run', {
+      error: err instanceof Error ? err.message : String(err),
+      threadId,
+      taskId,
+    });
   });
 
   return result;
