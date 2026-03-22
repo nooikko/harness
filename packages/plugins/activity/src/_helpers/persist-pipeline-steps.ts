@@ -5,6 +5,9 @@ type PersistPipelineSteps = (db: PrismaClient, threadId: string, steps: Pipeline
 
 const persistPipelineSteps: PersistPipelineSteps = async (db, threadId, steps, traceId) => {
   for (const step of steps) {
+    // durationMs is computed by the orchestrator and included in step.metadata
+    const durationMs = (step.metadata?.durationMs as number | undefined) ?? null;
+
     await db.message.create({
       data: {
         threadId,
@@ -12,7 +15,7 @@ const persistPipelineSteps: PersistPipelineSteps = async (db, threadId, steps, t
         kind: 'pipeline_step',
         source: 'pipeline',
         content: step.step,
-        metadata: { step: step.step, detail: step.detail ?? null, ...(step.metadata ?? {}), ...(traceId ? { traceId } : {}) },
+        metadata: { step: step.step, detail: step.detail ?? null, durationMs, ...(step.metadata ?? {}), ...(traceId ? { traceId } : {}) },
       },
     });
   }

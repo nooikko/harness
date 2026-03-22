@@ -20,6 +20,7 @@ describe('persistStreamEvents', () => {
         kind: 'thinking',
         source: 'builtin',
         content: 'Let me think.',
+        metadata: { durationMs: null },
       },
     });
   });
@@ -47,6 +48,7 @@ describe('persistStreamEvents', () => {
           toolName: 'delegation__delegate',
           toolUseId: 'tu-1',
           input: { task: 'do something' },
+          durationMs: null,
         },
       },
     });
@@ -70,7 +72,7 @@ describe('persistStreamEvents', () => {
         kind: 'tool_result',
         source: 'builtin',
         content: 'Listed 5 files',
-        metadata: { toolUseId: 'tu-2', toolName: null },
+        metadata: { toolUseId: 'tu-2', toolName: null, durationMs: null },
       },
     });
   });
@@ -118,6 +120,7 @@ describe('persistStreamEvents', () => {
           toolUseId: 'tu-3',
           toolName: 'outlook__list_emails',
           blocks,
+          durationMs: null,
         },
       },
     });
@@ -140,6 +143,7 @@ describe('persistStreamEvents', () => {
     expect(calledData.metadata).toEqual({
       toolUseId: 'tu-4',
       toolName: 'cron__schedule_task',
+      durationMs: null,
     });
   });
 
@@ -193,6 +197,7 @@ describe('persistStreamEvents', () => {
       toolName: 'Read',
       toolUseId: null,
       input: null,
+      durationMs: null,
     });
   });
 
@@ -210,6 +215,7 @@ describe('persistStreamEvents', () => {
     expect(calledData.metadata).toEqual({
       toolUseId: null,
       toolName: null,
+      durationMs: null,
     });
   });
 
@@ -230,7 +236,42 @@ describe('persistStreamEvents', () => {
       toolUseId: null,
       toolName: null,
       blocks,
+      durationMs: null,
     });
+  });
+
+  it('computes durationMs as difference between consecutive persisted event timestamps', async () => {
+    const db = makeDb();
+    const events: InvokeStreamEvent[] = [
+      { type: 'thinking', content: 'Let me think.', timestamp: 1000 },
+      { type: 'tool_call', toolName: 'Read', timestamp: 1800 },
+      { type: 'tool_use_summary', content: 'Done', toolUseId: 'tu-1', timestamp: 2500 },
+    ];
+
+    await persistStreamEvents(db as never, 'thread-1', events);
+
+    expect(db.message.create).toHaveBeenCalledTimes(3);
+    const calls = db.message.create.mock.calls;
+    expect((calls[0]![0].data as { metadata: Record<string, unknown> }).metadata.durationMs).toBe(800);
+    expect((calls[1]![0].data as { metadata: Record<string, unknown> }).metadata.durationMs).toBe(700);
+    expect((calls[2]![0].data as { metadata: Record<string, unknown> }).metadata.durationMs).toBeNull();
+  });
+
+  it('excludes skipped events from duration computation (only persisted events counted)', async () => {
+    const db = makeDb();
+    const events: InvokeStreamEvent[] = [
+      { type: 'thinking', content: 'Thinking...', timestamp: 1000 },
+      { type: 'unknown_type', timestamp: 1500 }, // skipped — should not affect duration
+      { type: 'tool_call', toolName: 'Read', timestamp: 2000 },
+    ];
+
+    await persistStreamEvents(db as never, 'thread-1', events);
+
+    expect(db.message.create).toHaveBeenCalledTimes(2);
+    const calls = db.message.create.mock.calls;
+    // Duration from thinking (1000) to tool_call (2000), skipping the unknown_type
+    expect((calls[0]![0].data as { metadata: Record<string, unknown> }).metadata.durationMs).toBe(1000);
+    expect((calls[1]![0].data as { metadata: Record<string, unknown> }).metadata.durationMs).toBeNull();
   });
 
   it('propagates create errors to caller', async () => {

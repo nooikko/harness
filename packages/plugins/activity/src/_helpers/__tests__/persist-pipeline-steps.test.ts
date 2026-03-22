@@ -10,8 +10,8 @@ describe('persistPipelineSteps', () => {
   it('creates a pipeline_step message per step', async () => {
     const db = makeDb();
     const steps: PipelineStep[] = [
-      { step: 'onMessage', timestamp: 1000 },
-      { step: 'invoking', detail: 'claude-sonnet-4-6 | 3,000 chars', timestamp: 2000 },
+      { step: 'onMessage', metadata: { durationMs: 50 }, timestamp: 1000 },
+      { step: 'invoking', detail: 'claude-sonnet-4-6 | 3,000 chars', metadata: { durationMs: 8000 }, timestamp: 2000 },
     ];
 
     await persistPipelineSteps(db as never, 'thread-1', steps);
@@ -24,7 +24,7 @@ describe('persistPipelineSteps', () => {
         kind: 'pipeline_step',
         source: 'pipeline',
         content: 'onMessage',
-        metadata: { step: 'onMessage', detail: null },
+        metadata: { step: 'onMessage', detail: null, durationMs: 50 },
       },
     });
     expect(db.message.create).toHaveBeenCalledWith({
@@ -34,7 +34,7 @@ describe('persistPipelineSteps', () => {
         kind: 'pipeline_step',
         source: 'pipeline',
         content: 'invoking',
-        metadata: { step: 'invoking', detail: 'claude-sonnet-4-6 | 3,000 chars' },
+        metadata: { step: 'invoking', detail: 'claude-sonnet-4-6 | 3,000 chars', durationMs: 8000 },
       },
     });
   });
@@ -45,7 +45,7 @@ describe('persistPipelineSteps', () => {
       {
         step: 'invoking',
         detail: 'claude-sonnet-4-6 | 3,000 chars',
-        metadata: { model: 'claude-sonnet-4-6', promptLength: 3000 },
+        metadata: { model: 'claude-sonnet-4-6', promptLength: 3000, durationMs: 5000 },
         timestamp: 1000,
       },
     ];
@@ -58,6 +58,7 @@ describe('persistPipelineSteps', () => {
           step: 'invoking',
           model: 'claude-sonnet-4-6',
           promptLength: 3000,
+          durationMs: 5000,
         }),
       }),
     });
@@ -74,9 +75,9 @@ describe('persistPipelineSteps', () => {
     db.message.create.mockResolvedValueOnce({}).mockRejectedValueOnce(new Error('write failed'));
 
     const steps: PipelineStep[] = [
-      { step: 'onMessage', timestamp: 1000 },
-      { step: 'invoking', timestamp: 2000 },
-      { step: 'onAfterInvoke', timestamp: 3000 },
+      { step: 'onMessage', metadata: { durationMs: 100 }, timestamp: 1000 },
+      { step: 'invoking', metadata: { durationMs: 5000 }, timestamp: 2000 },
+      { step: 'onAfterInvoke', metadata: { durationMs: 10 }, timestamp: 3000 },
     ];
 
     await expect(persistPipelineSteps(db as never, 'thread-1', steps)).rejects.toThrow('write failed');
@@ -84,9 +85,35 @@ describe('persistPipelineSteps', () => {
     expect(db.message.create).toHaveBeenCalledTimes(2);
   });
 
-  it('includes traceId in metadata when provided', async () => {
+  it('reads durationMs from step metadata', async () => {
+    const db = makeDb();
+    const steps: PipelineStep[] = [
+      { step: 'onMessage', metadata: { durationMs: 50 }, timestamp: 1000 },
+      { step: 'onBeforeInvoke', metadata: { durationMs: 200 }, timestamp: 1250 },
+      { step: 'invoking', metadata: { durationMs: 8500 }, timestamp: 2500 },
+    ];
+
+    await persistPipelineSteps(db as never, 'thread-1', steps);
+
+    const calls = db.message.create.mock.calls;
+    expect((calls[0]![0].data as { metadata: Record<string, unknown> }).metadata.durationMs).toBe(50);
+    expect((calls[1]![0].data as { metadata: Record<string, unknown> }).metadata.durationMs).toBe(200);
+    expect((calls[2]![0].data as { metadata: Record<string, unknown> }).metadata.durationMs).toBe(8500);
+  });
+
+  it('sets durationMs to null when metadata has no durationMs', async () => {
     const db = makeDb();
     const steps: PipelineStep[] = [{ step: 'onMessage', timestamp: 1000 }];
+
+    await persistPipelineSteps(db as never, 'thread-1', steps);
+
+    const calledData = db.message.create.mock.calls[0]![0].data as { metadata: Record<string, unknown> };
+    expect(calledData.metadata.durationMs).toBeNull();
+  });
+
+  it('includes traceId in metadata when provided', async () => {
+    const db = makeDb();
+    const steps: PipelineStep[] = [{ step: 'onMessage', metadata: { durationMs: 50 }, timestamp: 1000 }];
 
     await persistPipelineSteps(db as never, 'thread-1', steps, 'trace-abc');
 
@@ -99,7 +126,7 @@ describe('persistPipelineSteps', () => {
 
   it('omits traceId from metadata when not provided', async () => {
     const db = makeDb();
-    const steps: PipelineStep[] = [{ step: 'onMessage', timestamp: 1000 }];
+    const steps: PipelineStep[] = [{ step: 'onMessage', metadata: { durationMs: 50 }, timestamp: 1000 }];
 
     await persistPipelineSteps(db as never, 'thread-1', steps);
 
