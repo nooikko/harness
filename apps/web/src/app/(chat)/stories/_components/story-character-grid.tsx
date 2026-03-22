@@ -21,17 +21,15 @@ export const StoryCharacterGrid: StoryCharacterGridComponent = async ({ storyId 
     <div className='grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3'>
       {characters.map((char) => (
         <div key={char.id} className='flex items-start gap-3 overflow-hidden rounded-lg border p-3'>
-          <div className='mt-1 h-3 w-3 shrink-0 rounded-full' style={{ backgroundColor: char.color ?? '#888' }} />
-          <div className='flex min-w-0 flex-col gap-1 overflow-hidden'>
-            <div className='flex items-center gap-2 overflow-hidden'>
-              <span className='truncate text-sm font-medium'>{char.name}</span>
-              {char.status !== 'active' && (
-                <Badge variant='secondary' className='text-[10px]'>
-                  {char.status}
-                </Badge>
-              )}
-            </div>
-            {char.personality && <p className='line-clamp-1 text-xs text-muted-foreground'>{char.personality}</p>}
+          <div className='mt-0.5 h-3 w-3 shrink-0 rounded-full' style={{ backgroundColor: char.color ?? '#888' }} />
+          <div className='flex min-w-0 flex-col gap-0.5 overflow-hidden'>
+            <span className='truncate text-sm font-medium leading-tight'>{char.name}</span>
+            {char.status !== 'active' && (
+              <Badge variant='secondary' className='w-fit text-[10px]'>
+                {char.status}
+              </Badge>
+            )}
+            {char.personality && <p className='line-clamp-2 text-xs text-muted-foreground'>{char.personality}</p>}
           </div>
         </div>
       ))}
