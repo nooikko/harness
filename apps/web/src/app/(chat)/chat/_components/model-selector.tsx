@@ -12,11 +12,9 @@ type ModelSelectorProps = {
 };
 
 const getModelLabel = (model: string | null): string => {
-  if (!model) {
-    return 'Haiku';
-  }
-  const option = MODEL_OPTIONS.find((o) => o.value === model);
-  return option?.label ?? model;
+  const resolved = model ?? 'haiku';
+  const option = MODEL_OPTIONS.find((o) => o.value === resolved);
+  return option?.label ?? resolved;
 };
 
 type ModelSelectorComponent = (props: ModelSelectorProps) => React.ReactNode;
@@ -47,7 +45,7 @@ export const ModelSelector: ModelSelectorComponent = ({ threadId, currentModel }
               {opt.label}
               {opt.description ? <span className='ml-1 text-muted-foreground'>({opt.description})</span> : null}
             </span>
-            {(currentModel ?? '') === opt.value && <Check className='h-3 w-3 shrink-0' />}
+            {(currentModel ?? 'haiku') === opt.value && <Check className='h-3 w-3 shrink-0' />}
           </DropdownMenuItem>
         ))}
       </DropdownMenuContent>

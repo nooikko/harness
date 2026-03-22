@@ -4,6 +4,10 @@ import type { Message } from '@harness/database';
 import { ChevronDown, ChevronRight, Loader2 } from 'lucide-react';
 import { useState } from 'react';
 
+type FormatDuration = (ms: number) => string;
+
+const formatDuration: FormatDuration = (ms) => (ms >= 1000 ? `${(ms / 1000).toFixed(1)}s` : `${ms}ms`);
+
 // Shared prop type for all kind-specific message rendering components
 export type ActivityMessageProps = {
   message: Message & { metadata?: Record<string, unknown> | null };
@@ -14,7 +18,6 @@ export const STEP_LABELS: Record<string, string> = {
   onBeforeInvoke: 'Assembling context',
   invoking: 'Calling Claude',
   onAfterInvoke: 'Processing response',
-  commands: 'Running commands',
 };
 
 // Extracts typed values from raw JSON metadata (all fields are unknown from JSON)
@@ -55,11 +58,6 @@ const StepDetailView: StepDetailViewComponent = ({ meta }) => {
     rows.push({ label: 'Output tokens', value: outputTokens.toLocaleString() });
   }
 
-  const durationMs = typeof meta.durationMs === 'number' ? meta.durationMs : undefined;
-  if (durationMs !== undefined) {
-    rows.push({ label: 'Duration', value: `${durationMs.toLocaleString()}ms` });
-  }
-
   if (rows.length === 0) {
     return null;
   }
@@ -95,6 +93,7 @@ export const PipelineStep: PipelineStepComponent = ({ message }) => {
   const step = (raw.step as string | undefined) ?? message.content;
   const label = STEP_LABELS[step] ?? step;
   const canExpand = hasExpandableDetail(raw);
+  const durationMs = typeof raw.durationMs === 'number' ? raw.durationMs : null;
 
   return (
     <div className='text-xs text-muted-foreground/70'>
@@ -107,12 +106,14 @@ export const PipelineStep: PipelineStepComponent = ({ message }) => {
           {isExpanded ? <ChevronDown className='h-3 w-3 shrink-0 opacity-50' /> : <ChevronRight className='h-3 w-3 shrink-0 opacity-50' />}
           <span className='inline-block h-3 w-3 text-center leading-3 shrink-0'>✓</span>
           <span className='font-medium'>{label}</span>
+          {durationMs != null && <span className='text-muted-foreground/40 tabular-nums ml-1'>{formatDuration(durationMs)}</span>}
         </button>
       ) : (
         <div className='flex items-center gap-1.5'>
           <span className='h-3 w-3 shrink-0' />
           <span className='inline-block h-3 w-3 text-center leading-3 shrink-0'>✓</span>
           <span className='font-medium'>{label}</span>
+          {durationMs != null && <span className='text-muted-foreground/40 tabular-nums ml-1'>{formatDuration(durationMs)}</span>}
         </div>
       )}
       {isExpanded && canExpand && <StepDetailView meta={raw} />}
@@ -132,11 +133,12 @@ export type LiveStepData = {
 type LivePipelineStepProps = {
   stepData: LiveStepData;
   isLatest: boolean;
+  durationMs?: number | null;
 };
 
 type LivePipelineStepComponent = (props: LivePipelineStepProps) => React.ReactNode;
 
-export const LivePipelineStep: LivePipelineStepComponent = ({ stepData, isLatest }) => {
+export const LivePipelineStep: LivePipelineStepComponent = ({ stepData, isLatest, durationMs }) => {
   const [isExpanded, setIsExpanded] = useState(false);
 
   const label = STEP_LABELS[stepData.step] ?? stepData.step;
@@ -160,12 +162,14 @@ export const LivePipelineStep: LivePipelineStepComponent = ({ stepData, isLatest
           {isExpanded ? <ChevronDown className='h-3 w-3 shrink-0 opacity-50' /> : <ChevronRight className='h-3 w-3 shrink-0 opacity-50' />}
           {statusIcon}
           <span className='font-medium'>{label}</span>
+          {!isLatest && durationMs != null && <span className='text-muted-foreground/40 tabular-nums ml-1'>{formatDuration(durationMs)}</span>}
         </button>
       ) : (
         <div className='flex items-center gap-1.5 py-1'>
           <span className='h-3 w-3 shrink-0' />
           {statusIcon}
           <span className='font-medium'>{label}</span>
+          {!isLatest && durationMs != null && <span className='text-muted-foreground/40 tabular-nums ml-1'>{formatDuration(durationMs)}</span>}
         </div>
       )}
       {isExpanded && canExpand && <StepDetailView meta={meta} />}

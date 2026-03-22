@@ -54,14 +54,14 @@ describe('ModelSelector', () => {
     expect(updateThreadModel).toHaveBeenCalledWith('t1', 'claude-sonnet-4-6');
   });
 
-  it('calls updateThreadModel with null when selecting the default option', async () => {
+  it('calls updateThreadModel with haiku when selecting the default option', async () => {
     const user = userEvent.setup();
     render(<ModelSelector threadId='t1' currentModel='claude-sonnet-4-6' />);
 
     await user.click(screen.getByLabelText('Select model'));
     await user.click(screen.getByRole('menuitem', { name: /Default/i }));
 
-    expect(updateThreadModel).toHaveBeenCalledWith('t1', null);
+    expect(updateThreadModel).toHaveBeenCalledWith('t1', 'haiku');
   });
 
   it('renders all four model options in the open dropdown', async () => {

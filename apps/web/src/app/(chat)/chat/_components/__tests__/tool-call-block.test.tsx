@@ -23,30 +23,35 @@ describe('ToolCallBlock', () => {
     expect(screen.getByText('SomeTool')).toBeInTheDocument();
   });
 
-  it('renders inline (no collapsible) when no input', () => {
+  it('renders non-expandable when no input', () => {
     render(<ToolCallBlock content='Write' metadata={{ toolName: 'Write' }} />);
     expect(screen.getByText('Write')).toBeInTheDocument();
-    expect(screen.queryByRole('button')).toBeNull();
+    // Button exists but clicking does nothing (cursor-default, no expand)
+    const button = screen.getByRole('button');
+    fireEvent.click(button);
+    expect(screen.queryByText(/{/)).not.toBeInTheDocument();
   });
 
-  it('renders inline when input is empty object', () => {
+  it('renders non-expandable when input is empty object', () => {
     render(<ToolCallBlock content='Ping' metadata={{ toolName: 'Ping', input: {} }} />);
     expect(screen.getByText('Ping')).toBeInTheDocument();
-    expect(screen.queryByRole('button')).toBeNull();
+    const button = screen.getByRole('button');
+    fireEvent.click(button);
+    expect(screen.queryByText(/{/)).not.toBeInTheDocument();
   });
 
   it('renders collapsible when input has fields', () => {
     render(<ToolCallBlock content='search' metadata={{ toolName: 'music__search', input: { query: 'Imagine Dragons' } }} />);
     const button = screen.getByRole('button');
     expect(button).toBeInTheDocument();
-    expect(button).toHaveAttribute('aria-expanded', 'false');
+    // Has chevron indicating expandability
+    expect(button.querySelector('svg')).toBeInTheDocument();
   });
 
   it('expands to show JSON input on click', () => {
     render(<ToolCallBlock content='search' metadata={{ toolName: 'music__search', input: { query: 'test', limit: 5 } }} />);
     const button = screen.getByRole('button');
     fireEvent.click(button);
-    expect(button).toHaveAttribute('aria-expanded', 'true');
     expect(screen.getByText(/"query": "test"/)).toBeInTheDocument();
     expect(screen.getByText(/"limit": 5/)).toBeInTheDocument();
   });

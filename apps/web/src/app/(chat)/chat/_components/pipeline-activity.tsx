@@ -148,11 +148,13 @@ export const PipelineActivity: PipelineActivityComponent = ({ threadId, isActive
     const evt = data.event;
     let label = '';
     if (evt.type === 'thinking') {
-      label = 'Thinking';
+      label = 'Reasoning';
     } else if (evt.type === 'tool_call') {
       label = evt.toolName ? `Tool: ${evt.toolName}` : 'Tool call';
     } else if (evt.type === 'tool_use_summary') {
       label = evt.toolName ? `Result: ${evt.toolName}` : 'Tool result';
+    } else if (evt.type === 'tool_progress') {
+      label = evt.toolName ? `Working: ${evt.toolName}` : 'Working';
     } else {
       return;
     }
@@ -225,12 +227,16 @@ export const PipelineActivity: PipelineActivityComponent = ({ threadId, isActive
         <div className={`border-t ${hasError ? 'border-red-500/20' : 'border-border/40'} px-3 py-2`}>
           {steps.map((s, i) => {
             const isLatest = i === steps.length - 1 && streamActivity.length === 0;
-            return <LivePipelineStep key={`${s.step}-${s.timestamp}-${i}`} stepData={s} isLatest={isLatest} />;
+            const nextStep = steps[i + 1];
+            const durationMs = !isLatest && nextStep != null ? nextStep.timestamp - s.timestamp : null;
+            return <LivePipelineStep key={`${s.step}-${s.timestamp}-${i}`} stepData={s} isLatest={isLatest} durationMs={durationMs} />;
           })}
           {streamActivity.length > 0 && (
             <div className='mt-1 border-t border-border/20 pt-1'>
               {streamActivity.map((sa, i) => {
                 const isLatest = i === streamActivity.length - 1 && !hasError;
+                const nextSa = streamActivity[i + 1];
+                const durationMs = !isLatest && nextSa != null ? nextSa.timestamp - sa.timestamp : null;
                 return (
                   <div
                     key={`stream-${sa.timestamp}-${i}`}
@@ -243,6 +249,11 @@ export const PipelineActivity: PipelineActivityComponent = ({ threadId, isActive
                       <span className='inline-block h-3 w-3 text-center leading-3 shrink-0'>✓</span>
                     )}
                     <span className='font-medium'>{sa.label}</span>
+                    {!isLatest && durationMs != null && (
+                      <span className='text-muted-foreground/40 tabular-nums ml-1'>
+                        {durationMs >= 1000 ? `${(durationMs / 1000).toFixed(1)}s` : `${durationMs}ms`}
+                      </span>
+                    )}
                   </div>
                 );
               })}

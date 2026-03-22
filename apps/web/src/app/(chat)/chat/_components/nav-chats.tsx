@@ -37,6 +37,7 @@ export const NavChats: NavChatsComponent = ({ threads, projects }) => {
                   sourceId: thread.sourceId,
                   kind: thread.kind,
                   model: thread.model,
+                  effort: thread.effort,
                   customInstructions: thread.customInstructions,
                   projectId: thread.projectId,
                   lastActivity: thread.lastActivity,

@@ -10,8 +10,8 @@ describe('MODEL_OPTIONS', () => {
     expect(MODEL_OPTIONS).toHaveLength(4);
   });
 
-  it('first entry is the default Haiku option with empty value', () => {
-    expect(MODEL_OPTIONS[0]).toEqual({ value: '', label: 'Haiku', description: 'Default' });
+  it('first entry is the default Haiku option', () => {
+    expect(MODEL_OPTIONS[0]).toEqual({ value: 'haiku', label: 'Haiku', description: 'Default' });
   });
 
   it('includes claude-sonnet-4-6', () => {

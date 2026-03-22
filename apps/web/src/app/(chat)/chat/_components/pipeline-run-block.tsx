@@ -86,7 +86,7 @@ export const PipelineRunBlock: PipelineRunBlockComponent = ({ startMessage, comp
       summaryParts.push(`${toolCount} tool ${toolCount === 1 ? 'call' : 'calls'}`);
     }
     if (thinkingCount > 0) {
-      summaryParts.push(`${thinkingCount} thinking`);
+      summaryParts.push(`${thinkingCount} reasoning`);
     }
 
     summaryText = summaryParts.length > 0 ? summaryParts.join(' · ') : `${activityMessages.filter((m) => m.kind === 'pipeline_step').length} steps`;

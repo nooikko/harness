@@ -113,8 +113,8 @@ describe('PipelineStep', () => {
     expect(screen.getByText('1,200')).toBeInTheDocument();
     expect(screen.getByText('Output tokens')).toBeInTheDocument();
     expect(screen.getByText('300')).toBeInTheDocument();
-    expect(screen.getByText('Duration')).toBeInTheDocument();
-    expect(screen.getByText('4,200ms')).toBeInTheDocument();
+    // Duration is shown inline next to the label, not in the detail grid
+    expect(screen.getByText('4.2s')).toBeInTheDocument();
   });
 });
 

@@ -1,7 +1,12 @@
 import type { Message } from '@harness/database';
 import { render, screen } from '@testing-library/react';
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import type { CrossThreadMetadata } from '../../_helpers/is-cross-thread-notification';
+
+vi.mock('../markdown-content', () => ({
+  MarkdownContent: ({ content }: { content: string }) => <div data-testid='markdown-content'>{content}</div>,
+}));
+
 import { NotificationMessage } from '../notification-message';
 
 type NotificationMsg = Message & { metadata: CrossThreadMetadata };

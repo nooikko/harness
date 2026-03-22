@@ -3,9 +3,14 @@
 import { ChevronRight, Terminal } from 'lucide-react';
 import { useState } from 'react';
 
+type FormatDuration = (ms: number) => string;
+
+const formatDuration: FormatDuration = (ms) => (ms >= 1000 ? `${(ms / 1000).toFixed(1)}s` : `${ms}ms`);
+
 type ToolCallBlockProps = {
   content: string;
   metadata?: Record<string, unknown> | null;
+  durationMs?: number | null;
 };
 
 type GetDisplayName = (toolName: string) => string;
@@ -17,7 +22,7 @@ const getDisplayName: GetDisplayName = (toolName) => {
 
 type ToolCallBlockComponent = (props: ToolCallBlockProps) => React.ReactNode;
 
-export const ToolCallBlock: ToolCallBlockComponent = ({ content, metadata }) => {
+export const ToolCallBlock: ToolCallBlockComponent = ({ content, metadata, durationMs }) => {
   const [isExpanded, setIsExpanded] = useState(false);
   const toolName = (metadata?.toolName as string | undefined) ?? content;
   const displayName = getDisplayName(toolName);
@@ -35,6 +40,7 @@ export const ToolCallBlock: ToolCallBlockComponent = ({ content, metadata }) => 
         {hasExpandableContent && <ChevronRight className={`h-3 w-3 shrink-0 transition-transform ${isExpanded ? 'rotate-90' : ''}`} />}
         <Terminal className='h-3 w-3 shrink-0' />
         <span>{displayName}</span>
+        {durationMs != null && <span className='text-muted-foreground/40 tabular-nums ml-1'>{formatDuration(durationMs)}</span>}
         {inputPreview !== undefined && !isExpanded && <span className='truncate opacity-60'>{String(inputPreview).slice(0, 80)}</span>}
       </button>
       {isExpanded && hasExpandableContent && (

@@ -39,6 +39,7 @@ const makeThread = (
   name: 'Test Thread',
   kind: 'general',
   model: null,
+  effort: null,
   customInstructions: null,
   projectId: null,
   parentThreadId: null,

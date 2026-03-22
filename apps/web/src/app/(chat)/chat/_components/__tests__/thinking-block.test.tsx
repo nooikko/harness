@@ -4,9 +4,9 @@ import { describe, expect, it } from 'vitest';
 import { ThinkingBlock } from '../thinking-block';
 
 describe('ThinkingBlock', () => {
-  it('renders collapsed by default with Thinking header', () => {
+  it('renders collapsed by default with Reasoning header', () => {
     render(<ThinkingBlock content='Deep reasoning here' />);
-    expect(screen.getByText(/thinking/i)).toBeInTheDocument();
+    expect(screen.getByText(/reasoning/i)).toBeInTheDocument();
     expect(screen.queryByText('Deep reasoning here')).not.toBeInTheDocument();
   });
 

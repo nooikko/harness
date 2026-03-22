@@ -20,6 +20,7 @@ type ThreadListItemProps = {
     sourceId: string;
     kind: string;
     model: string | null;
+    effort: string | null;
     customInstructions: string | null;
     projectId: string | null;
     lastActivity: Date;
@@ -71,6 +72,7 @@ export const ThreadListItem: ThreadListItemComponent = ({ thread, isActive, proj
         threadId={thread.id}
         currentName={thread.name}
         currentModel={thread.model}
+        currentEffort={thread.effort}
         currentInstructions={thread.customInstructions ?? null}
         currentProjectId={thread.projectId}
         projects={projects}
