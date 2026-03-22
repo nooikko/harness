@@ -3,7 +3,7 @@
 import type { PluginContext } from '@harness/plugin-contract';
 
 const DEFAULT_PROMPT =
-  'Please provide a concise summary of this conversation that captures the key points, decisions, and context needed to continue the conversation effectively:';
+  'Summarize this conversation into a brief, structured overview. Focus on: key decisions made, important context established, and any pending action items. Do NOT repeat or echo individual messages — synthesize them into a compact summary. Keep it under 300 words. Output only the summary, no preamble:';
 
 const DEFAULT_MODEL = 'claude-haiku-4-5-20251001';
 

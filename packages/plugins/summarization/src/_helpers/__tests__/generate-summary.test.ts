@@ -56,7 +56,7 @@ describe('generateSummary', () => {
     const ctx = createMockContext();
     await generateSummary(ctx, 'thread-1', 3);
 
-    expect(ctx.invoker.invoke).toHaveBeenCalledWith(expect.stringContaining('concise summary'), { model: 'claude-haiku-4-5-20251001' });
+    expect(ctx.invoker.invoke).toHaveBeenCalledWith(expect.stringContaining('Summarize this conversation'), { model: 'claude-haiku-4-5-20251001' });
   });
 
   it('formats history as [role]: content pairs in the prompt', async () => {
@@ -99,7 +99,7 @@ describe('generateSummary', () => {
     await generateSummary(ctx, 'thread-empty', 0);
 
     const [prompt] = (ctx.invoker.invoke as ReturnType<typeof vi.fn>).mock.calls[0] as [string];
-    expect(prompt).toContain('concise summary');
+    expect(prompt).toContain('Summarize this conversation');
     expect(prompt).not.toContain('[user]');
     expect(prompt).not.toContain('[assistant]');
   });
@@ -110,7 +110,7 @@ describe('generateSummary', () => {
 
     const [prompt] = (ctx.invoker.invoke as ReturnType<typeof vi.fn>).mock.calls[0] as [string];
     expect(prompt).toContain('CUSTOM PROMPT:');
-    expect(prompt).not.toContain('concise summary');
+    expect(prompt).not.toContain('Summarize this conversation');
   });
 
   it('uses configured model when provided', async () => {
