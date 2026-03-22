@@ -167,6 +167,7 @@ export const MomentBrowser = ({ storyId }: MomentBrowserProps) => {
   const [total, setTotal] = useState(0);
   const [search, setSearch] = useState('');
   const [characterFilter, setCharacterFilter] = useState('');
+  const [characterPairFilter, setCharacterPairFilter] = useState('');
   const [showFilters, setShowFilters] = useState(false);
   const [isPending, startTransition] = useTransition();
 
@@ -176,12 +177,20 @@ export const MomentBrowser = ({ storyId }: MomentBrowserProps) => {
         storyId,
         search: search || undefined,
         characterName: characterFilter || undefined,
-        limit: 100,
+        limit: 200,
       });
-      setMoments(result.moments);
+
+      // Client-side pair filter (both characters must be present)
+      let filtered = result.moments;
+      if (characterPairFilter.trim()) {
+        const pairName = characterPairFilter.trim().toLowerCase();
+        filtered = filtered.filter((m) => m.characters.some((c) => c.characterName.toLowerCase().includes(pairName)));
+      }
+
+      setMoments(filtered);
       setTotal(result.total);
     });
-  }, [storyId, search, characterFilter]);
+  }, [storyId, search, characterFilter, characterPairFilter]);
 
   useEffect(() => {
     loadMoments();
@@ -215,7 +224,13 @@ export const MomentBrowser = ({ storyId }: MomentBrowserProps) => {
           <Input
             value={characterFilter}
             onChange={(e) => setCharacterFilter(e.target.value)}
-            placeholder='Filter by character name...'
+            placeholder='Filter by character...'
+            className='text-sm max-w-xs'
+          />
+          <Input
+            value={characterPairFilter}
+            onChange={(e) => setCharacterPairFilter(e.target.value)}
+            placeholder='+ second character (pair filter)...'
             className='text-sm max-w-xs'
           />
         </div>

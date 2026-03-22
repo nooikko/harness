@@ -1,6 +1,6 @@
 import { prisma } from '@harness/database';
 import { Badge, Button, Skeleton } from '@harness/ui';
-import { BookOpen, GitBranch } from 'lucide-react';
+import { BookOpen, FileText, GitBranch } from 'lucide-react';
 import type { Metadata } from 'next';
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
@@ -8,6 +8,7 @@ import { Suspense } from 'react';
 import { StoryCharacterGrid } from '../_components/story-character-grid';
 import { StoryLocationList } from '../_components/story-location-list';
 import { StoryThreadList } from '../_components/story-thread-list';
+import { ImportDashboard } from './_components/import-dashboard';
 
 type StoryDetailProps = {
   params: Promise<{ 'story-id': string }>;
@@ -60,8 +61,20 @@ const StoryDetailPage = async ({ params }: StoryDetailProps) => {
               Story Arcs
             </Button>
           </Link>
+          <Link href={`/stories/${storyId}/transcripts`}>
+            <Button variant='outline' size='sm'>
+              <FileText className='h-4 w-4 mr-1.5' />
+              Transcripts
+            </Button>
+          </Link>
         </div>
       </div>
+
+      {/* Import Progress */}
+      <section className='flex flex-col gap-3'>
+        <h2 className='text-sm font-medium'>Import Progress</h2>
+        <ImportDashboard storyId={storyId} />
+      </section>
 
       {/* Chapters (Threads) */}
       <section className='flex flex-col gap-3'>

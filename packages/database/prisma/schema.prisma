@@ -611,8 +611,9 @@ model StoryMoment {
   messageId          String?
   message            Message?           @relation(fields: [messageId], references: [id], onDelete: SetNull)
   characters         CharacterInMoment[]
-  arcs               MomentInArc[]
-  sourceTranscriptId String?
+  arcs                    MomentInArc[]
+  transcriptAnnotations   TranscriptAnnotation[]
+  sourceTranscriptId      String?
   sourceTranscript   StoryTranscript?   @relation(fields: [sourceTranscriptId], references: [id], onDelete: SetNull)
   sourceChunkIndex   Int?
   sourceNotes        String?            @db.Text
@@ -678,19 +679,36 @@ model MomentInArc {
 }
 
 model StoryTranscript {
-  id               String        @id @default(cuid())
+  id               String                  @id @default(cuid())
   storyId          String
-  story            Story         @relation(fields: [storyId], references: [id], onDelete: Cascade)
+  story            Story                   @relation(fields: [storyId], references: [id], onDelete: Cascade)
   label            String
-  sourceType       String        @default("claude")
-  rawContent       String        @db.Text
-  processed        Boolean       @default(false)
+  sourceType       String                  @default("claude")
+  rawContent       String                  @db.Text
+  processed        Boolean                 @default(false)
   processedThrough Int?
   totalChunks      Int?
   messageCount     Int?
   moments          StoryMoment[]
-  createdAt        DateTime      @default(now())
-  updatedAt        DateTime      @updatedAt
+  annotations      TranscriptAnnotation[]
+  createdAt        DateTime                @default(now())
+  updatedAt        DateTime                @updatedAt
 
   @@index([storyId])
+}
+
+model TranscriptAnnotation {
+  id           String          @id @default(cuid())
+  transcriptId String
+  transcript   StoryTranscript @relation(fields: [transcriptId], references: [id], onDelete: Cascade)
+  messageIndex Int
+  content      String          @db.Text
+  kind         String          @default("note")
+  momentId     String?
+  moment       StoryMoment?    @relation(fields: [momentId], references: [id], onDelete: SetNull)
+  createdAt    DateTime        @default(now())
+  updatedAt    DateTime        @updatedAt
+
+  @@index([transcriptId, messageIndex])
+  @@index([momentId])
 }
