@@ -15,6 +15,29 @@ import { type DelegationOptions, setupDelegationTask } from './setup-delegation-
 // Default cost cap — overridden via plugin settings (costCapUsd in admin UI)
 const DEFAULT_COST_CAP_USD = 5;
 
+// Signal-aware sleep — resolves early if the signal fires during the wait
+type SignalAwareSleep = (ms: number, signal: AbortSignal | undefined) => Promise<boolean>;
+
+export const signalAwareSleep: SignalAwareSleep = (ms, signal) => {
+  if (!signal || ms <= 0) {
+    return ms > 0 ? new Promise((resolve) => setTimeout(() => resolve(false), ms)) : Promise.resolve(false);
+  }
+  if (signal.aborted) {
+    return Promise.resolve(true);
+  }
+  return new Promise((resolve) => {
+    const timer = setTimeout(() => {
+      signal.removeEventListener('abort', onAbort);
+      resolve(false);
+    }, ms);
+    const onAbort = () => {
+      clearTimeout(timer);
+      resolve(true);
+    };
+    signal.addEventListener('abort', onAbort, { once: true });
+  });
+};
+
 export type DelegationResult = {
   taskId: string;
   threadId: string;
@@ -117,6 +140,40 @@ export const runDelegationLoop: RunDelegationLoop = async (ctx, allHooks, option
     };
     const invokeResult = await invokeSubAgent(ctx, iterationPrompt, taskId, threadId, options.model, onMessage, options.traceId);
 
+    // Check for cancellation immediately after invoke completes — avoids waiting
+    // for the next loop iteration when cancellation arrived during a long invocation
+    if (signal?.aborted) {
+      ctx.logger.info(`Delegation: task ${taskId} cancelled after iteration ${iterations}`);
+      await ctx.db.orchestratorTask.update({
+        where: { id: taskId },
+        data: { status: 'cancelled' },
+      });
+      await ctx.db.thread.update({
+        where: { id: threadId },
+        data: { status: 'cancelled', lastActivity: new Date() },
+      });
+      await ctx.broadcast('task:cancelled', {
+        taskId,
+        threadId,
+        parentThreadId: options.parentThreadId,
+      });
+      await sendThreadNotification(ctx, {
+        parentThreadId: options.parentThreadId,
+        taskThreadId: threadId,
+        taskId,
+        status: 'failed',
+        summary: 'Task was cancelled by user',
+        iterations,
+      });
+      return {
+        taskId,
+        threadId,
+        status: 'failed',
+        result: null,
+        iterations,
+      };
+    }
+
     // Check for invocation failure
     if (invokeResult.exitCode !== 0 && invokeResult.exitCode !== null) {
       const category = categorizeFailure(invokeResult.error);
@@ -139,7 +196,12 @@ export const runDelegationLoop: RunDelegationLoop = async (ctx, allHooks, option
       const waitMs = calculateBackoffMs(iterations, category);
       if (waitMs > 0) {
         ctx.logger.info(`Delegation: backing off ${waitMs}ms before retry`, { iteration: iterations, category });
-        await new Promise((resolve) => setTimeout(resolve, waitMs));
+        const abortedDuringSleep = await signalAwareSleep(waitMs, signal);
+        if (abortedDuringSleep) {
+          ctx.logger.info(`Delegation: task ${taskId} cancelled during backoff`);
+          feedback = 'Task was cancelled by user during backoff';
+          break;
+        }
       }
 
       // Cost cap check before retrying

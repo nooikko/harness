@@ -10,6 +10,22 @@ vi.mock('../_helpers/tool-import-characters', () => ({
   handleImportCharacters: vi.fn().mockResolvedValue('Created 2 characters: Violet, Kai.'),
 }));
 
+vi.mock('../_helpers/tool-detect-duplicates', () => ({
+  handleDetectDuplicates: vi.fn().mockResolvedValue('Found 2 potential duplicate(s).'),
+}));
+
+vi.mock('../_helpers/tool-merge-moments', () => ({
+  handleMergeMoments: vi.fn().mockResolvedValue('Merged: kept "A", soft-deleted "B".'),
+}));
+
+vi.mock('../_helpers/tool-restore-moment', () => ({
+  handleRestoreMoment: vi.fn().mockResolvedValue('Restored: "Moment X".'),
+}));
+
+vi.mock('../_helpers/tool-correct-moment', () => ({
+  handleCorrectMoment: vi.fn().mockResolvedValue('Corrected "Moment X": Updated fields.'),
+}));
+
 vi.mock('../_helpers/tool-import-document', () => ({
   handleImportDocument: vi.fn().mockResolvedValue('Processed 1 section(s). Extracted 5 moments.'),
 }));
@@ -110,9 +126,9 @@ describe('storytelling plugin', () => {
     expect(plugin.version).toBe('1.0.0');
   });
 
-  it('has tools array with 9 entries', () => {
+  it('has tools array with 13 entries', () => {
     expect(plugin.tools).toBeDefined();
-    expect(plugin.tools).toHaveLength(9);
+    expect(plugin.tools).toHaveLength(13);
   });
 
   it('each tool has name, description, schema, and handler', () => {
@@ -136,6 +152,10 @@ describe('storytelling plugin', () => {
       'import_characters',
       'import_document',
       'import_transcript',
+      'detect_duplicates',
+      'merge_moments',
+      'restore_moment',
+      'correct_moment',
     ]);
   });
 
@@ -213,6 +233,46 @@ describe('storytelling plugin', () => {
     const result = await tool?.handler(ctx, { transcriptId: 'tx-1' }, { threadId: 'import-thread', traceId: 'test' });
 
     expect(result).toContain('Chat 1');
+  });
+
+  it('detect_duplicates delegates to handler when story found', async () => {
+    const ctx = createMockContext({ storyId: 'story-1' });
+    vi.mocked(ctx.db.thread.findUnique).mockResolvedValue({ storyId: 'story-1' } as never);
+
+    const tool = plugin.tools?.find((t) => t.name === 'detect_duplicates');
+    const result = await tool?.handler(ctx, {}, { threadId: 'import-thread', traceId: 'test' });
+
+    expect(result).toContain('duplicate');
+  });
+
+  it('merge_moments delegates to handler when story found', async () => {
+    const ctx = createMockContext({ storyId: 'story-1' });
+    vi.mocked(ctx.db.thread.findUnique).mockResolvedValue({ storyId: 'story-1' } as never);
+
+    const tool = plugin.tools?.find((t) => t.name === 'merge_moments');
+    const result = await tool?.handler(ctx, { keepId: 'a', discardId: 'b' }, { threadId: 'import-thread', traceId: 'test' });
+
+    expect(result).toContain('Merged');
+  });
+
+  it('restore_moment delegates to handler when story found', async () => {
+    const ctx = createMockContext({ storyId: 'story-1' });
+    vi.mocked(ctx.db.thread.findUnique).mockResolvedValue({ storyId: 'story-1' } as never);
+
+    const tool = plugin.tools?.find((t) => t.name === 'restore_moment');
+    const result = await tool?.handler(ctx, { momentId: 'x' }, { threadId: 'import-thread', traceId: 'test' });
+
+    expect(result).toContain('Restored');
+  });
+
+  it('correct_moment delegates to handler when story found', async () => {
+    const ctx = createMockContext({ storyId: 'story-1' });
+    vi.mocked(ctx.db.thread.findUnique).mockResolvedValue({ storyId: 'story-1' } as never);
+
+    const tool = plugin.tools?.find((t) => t.name === 'correct_moment');
+    const result = await tool?.handler(ctx, { momentId: 'x', corrections: { summary: 'fixed' } }, { threadId: 'import-thread', traceId: 'test' });
+
+    expect(result).toContain('Corrected');
   });
 
   it('stop clears all caches', async () => {

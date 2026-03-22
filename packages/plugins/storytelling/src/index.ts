@@ -9,11 +9,15 @@ import { resolveStoryId } from './_helpers/resolve-story-id';
 import { handleAddLocation } from './_helpers/tool-add-location';
 import { handleAdvanceTime } from './_helpers/tool-advance-time';
 import { handleCharacterKnowledge } from './_helpers/tool-character-knowledge';
+import { handleCorrectMoment } from './_helpers/tool-correct-moment';
+import { handleDetectDuplicates } from './_helpers/tool-detect-duplicates';
 import { handleGetCharacter } from './_helpers/tool-get-character';
 import { handleImportCharacters } from './_helpers/tool-import-characters';
 import { handleImportDocument } from './_helpers/tool-import-document';
 import { handleImportTranscript } from './_helpers/tool-import-transcript';
+import { handleMergeMoments } from './_helpers/tool-merge-moments';
 import { handleRecordMoment } from './_helpers/tool-record-moment';
+import { handleRestoreMoment } from './_helpers/tool-restore-moment';
 import { handleUpdateCharacter } from './_helpers/tool-update-character';
 import { wrapOocContent } from './_helpers/wrap-ooc-content';
 
@@ -380,6 +384,113 @@ const storytellingTools: PluginTool[] = [
         return 'This thread is not part of a story.';
       }
       return handleImportTranscript(ctx, storyId, input as { transcriptId: string });
+    },
+  },
+  {
+    name: 'detect_duplicates',
+    description: 'Scan moments for duplicates and drift — events that appear to describe the same thing. Auto-paginates for large moment sets.',
+    schema: {
+      type: 'object',
+      properties: {
+        scope: {
+          type: 'string',
+          description: 'Optional: "all", a character name, or a storyTime range. Defaults to paginated full scan.',
+        },
+      },
+    },
+    handler: async (ctx, input, meta) => {
+      const storyId = await resolveStoryId(meta.threadId, storyCache, ctx.db as never);
+      if (!storyId) {
+        return 'This thread is not part of a story.';
+      }
+      return handleDetectDuplicates(ctx, storyId, input as { scope?: string });
+    },
+  },
+  {
+    name: 'merge_moments',
+    description:
+      'Merge two duplicate moments. Soft-deletes the discarded one (recoverable via restore_moment). Transfers perspectives and reassigns arc links.',
+    schema: {
+      type: 'object',
+      properties: {
+        keepId: { type: 'string', description: 'ID of the moment to keep (canonical version)' },
+        discardId: { type: 'string', description: 'ID of the moment to discard (drift/duplicate)' },
+        transferPerspectives: { type: 'boolean', description: 'Transfer character perspectives from discarded to kept (default: true)' },
+      },
+      required: ['keepId', 'discardId'],
+    },
+    handler: async (ctx, input, meta) => {
+      const storyId = await resolveStoryId(meta.threadId, storyCache, ctx.db as never);
+      if (!storyId) {
+        return 'This thread is not part of a story.';
+      }
+      return handleMergeMoments(ctx, storyId, input as { keepId: string; discardId: string; transferPerspectives?: boolean });
+    },
+  },
+  {
+    name: 'restore_moment',
+    description: 'Restore a soft-deleted moment (undo a merge). Transferred perspectives are NOT reversed.',
+    schema: {
+      type: 'object',
+      properties: {
+        momentId: { type: 'string', description: 'ID of the deleted moment to restore' },
+      },
+      required: ['momentId'],
+    },
+    handler: async (ctx, input, meta) => {
+      const storyId = await resolveStoryId(meta.threadId, storyCache, ctx.db as never);
+      if (!storyId) {
+        return 'This thread is not part of a story.';
+      }
+      return handleRestoreMoment(ctx, storyId, input as { momentId: string });
+    },
+  },
+  {
+    name: 'correct_moment',
+    description: 'Fix specific details on a moment — update fields, remove phantom characters, add missing characters.',
+    schema: {
+      type: 'object',
+      properties: {
+        momentId: { type: 'string', description: 'ID of the moment to correct' },
+        corrections: {
+          type: 'object',
+          description: 'Field corrections (summary, description, storyTime, kind, importance, annotation)',
+        },
+        removeCharacters: {
+          type: 'array',
+          items: { type: 'string' },
+          description: 'Character names to remove from this moment (phantom characters)',
+        },
+        addCharacters: {
+          type: 'array',
+          items: {
+            type: 'object',
+            properties: {
+              name: { type: 'string' },
+              role: { type: 'string' },
+            },
+            required: ['name', 'role'],
+          },
+          description: 'Characters to add to this moment',
+        },
+      },
+      required: ['momentId'],
+    },
+    handler: async (ctx, input, meta) => {
+      const storyId = await resolveStoryId(meta.threadId, storyCache, ctx.db as never);
+      if (!storyId) {
+        return 'This thread is not part of a story.';
+      }
+      return handleCorrectMoment(
+        ctx,
+        storyId,
+        input as {
+          momentId: string;
+          corrections?: Record<string, string | number>;
+          removeCharacters?: string[];
+          addCharacters?: { name: string; role: string }[];
+        },
+      );
     },
   },
 ];
