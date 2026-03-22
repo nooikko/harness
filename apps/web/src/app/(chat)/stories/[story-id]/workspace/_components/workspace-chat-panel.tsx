@@ -19,11 +19,38 @@ type WorkspaceChatPanelProps = {
   threadId: string;
 };
 
+type QuickAction = {
+  label: string;
+  prompt: string;
+};
+
+const QUICK_ACTIONS: QuickAction[] = [
+  {
+    label: 'Scan Characters',
+    prompt: 'Scan all uploaded documents and transcripts to identify every unique character name. Present a summary of who you found.',
+  },
+  {
+    label: 'Process All',
+    prompt:
+      'Process all unprocessed transcripts in order (by sort order). For each one, extract moments, identify characters, and note any significant events. Show progress as you go.',
+  },
+  {
+    label: 'Find Duplicates',
+    prompt: 'Run duplicate detection across all extracted moments. Identify potential duplicates and present them for review.',
+  },
+  {
+    label: 'Discover Arcs',
+    prompt: 'Discover story arcs from the existing moments. Look for narrative patterns, character development threads, and recurring themes.',
+  },
+];
+
 export const WorkspaceChatPanel = ({ storyId: _storyId, threadId }: WorkspaceChatPanelProps) => {
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [input, setInput] = useState('');
   const [isPending, startTransition] = useTransition();
+  const [isProcessing, setIsProcessing] = useState(false);
   const scrollRef = useRef<HTMLDivElement>(null);
+  const prevMessageCountRef = useRef(0);
   const { selection } = useWorkspaceSelection();
 
   // Load chat messages
@@ -31,21 +58,43 @@ export const WorkspaceChatPanel = ({ storyId: _storyId, threadId }: WorkspaceCha
     const res = await fetch(`/api/messages?threadId=${threadId}&limit=50`);
     if (res.ok) {
       const data = await res.json();
-      setMessages(data.messages ?? []);
+      const incoming: ChatMessage[] = data.messages ?? [];
+      setMessages(incoming);
+
+      // Detect new assistant message to clear processing state
+      const assistantCount = incoming.filter((m) => m.kind === 'text' && m.role === 'assistant').length;
+      const prevAssistantCount = prevMessageCountRef.current;
+      if (assistantCount > prevAssistantCount && prevAssistantCount > 0) {
+        setIsProcessing(false);
+      }
+      prevMessageCountRef.current = assistantCount;
     }
   }, [threadId]);
 
+  // Adaptive polling: fast when processing, slow when idle
   useEffect(() => {
     loadMessages();
-    // Poll for new messages every 3 seconds (simple approach; WebSocket is better)
-    const interval = setInterval(loadMessages, 3000);
+    const interval = setInterval(loadMessages, isProcessing ? 1000 : 5000);
     return () => clearInterval(interval);
-  }, [loadMessages]);
+  }, [loadMessages, isProcessing]);
 
   useEffect(() => {
     // Auto-scroll to bottom on new messages
     scrollRef.current?.scrollTo({ top: scrollRef.current.scrollHeight, behavior: 'smooth' });
   }, [messages.length]);
+
+  // Shared send helper — accepts the final prompt string
+  const sendToThread = useCallback(
+    (prompt: string) => {
+      setIsProcessing(true);
+      startTransition(async () => {
+        await sendMessage(threadId, prompt);
+        // Reload once immediately for the user message echo
+        setTimeout(loadMessages, 500);
+      });
+    },
+    [threadId, loadMessages],
+  );
 
   const handleSend = useCallback(() => {
     if (!input.trim()) {
@@ -60,15 +109,16 @@ export const WorkspaceChatPanel = ({ storyId: _storyId, threadId }: WorkspaceCha
       enrichedInput = `${selectedPart}[Context: Message #${selection.messageIndex} from the transcript]\n"${selection.messageContent.slice(0, 500)}"\n\n${input}`;
     }
 
-    startTransition(async () => {
-      await sendMessage(threadId, enrichedInput);
-      setInput('');
-      // Reload messages after a short delay for the pipeline to process
-      setTimeout(loadMessages, 1000);
-      setTimeout(loadMessages, 3000);
-      setTimeout(loadMessages, 8000);
-    });
-  }, [input, threadId, selection, loadMessages]);
+    sendToThread(enrichedInput);
+    setInput('');
+  }, [input, selection, sendToThread]);
+
+  const sendQuickAction = useCallback(
+    (prompt: string) => {
+      sendToThread(prompt);
+    },
+    [sendToThread],
+  );
 
   const handleKeyDown = useCallback(
     (e: React.KeyboardEvent) => {
@@ -95,6 +145,31 @@ export const WorkspaceChatPanel = ({ storyId: _storyId, threadId }: WorkspaceCha
             Msg #{selection.messageIndex}
           </Badge>
           {selection.selectedText && <span className='text-[10px] text-muted-foreground truncate'>"{selection.selectedText.slice(0, 50)}"</span>}
+        </div>
+      )}
+
+      {/* Quick actions */}
+      <div className='flex items-center gap-1.5 border-b px-3 py-2 overflow-x-auto'>
+        <span className='text-[10px] text-muted-foreground shrink-0'>Quick:</span>
+        {QUICK_ACTIONS.map((action) => (
+          <Button
+            key={action.label}
+            variant='outline'
+            size='sm'
+            className='h-6 text-[10px] shrink-0'
+            disabled={isProcessing || isPending}
+            onClick={() => sendQuickAction(action.prompt)}
+          >
+            {action.label}
+          </Button>
+        ))}
+      </div>
+
+      {/* Processing indicator */}
+      {isProcessing && (
+        <div className='flex items-center gap-2 px-3 py-1.5 bg-muted/30 border-b'>
+          <Loader2 className='h-3 w-3 animate-spin text-muted-foreground' />
+          <span className='text-[10px] text-muted-foreground'>Processing...</span>
         </div>
       )}
 

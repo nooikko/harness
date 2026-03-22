@@ -1,6 +1,7 @@
 'use server';
 
 import { prisma } from '@harness/database';
+import { revalidatePath } from 'next/cache';
 import { logServerError } from '@/lib/log-server-error';
 
 type StoreStoryTranscriptInput = {
@@ -8,6 +9,7 @@ type StoreStoryTranscriptInput = {
   label: string;
   rawContent: string;
   sourceType?: string;
+  sortOrder?: number;
 };
 
 type StoreStoryTranscriptResult = { transcriptId: string } | { error: string };
@@ -26,15 +28,19 @@ export const storeStoryTranscript: StoreStoryTranscript = async (input) => {
   }
 
   try {
+    const sortOrder = input.sortOrder ?? (await prisma.storyTranscript.count({ where: { storyId: input.storyId } }));
+
     const transcript = await prisma.storyTranscript.create({
       data: {
         storyId: input.storyId,
         label: input.label.trim(),
         sourceType: input.sourceType ?? 'claude',
         rawContent: input.rawContent,
+        sortOrder,
       },
     });
 
+    revalidatePath(`/stories/${input.storyId}/workspace`);
     return { transcriptId: transcript.id };
   } catch (err) {
     logServerError({ action: 'storeStoryTranscript', error: err, context: { storyId: input.storyId } });
