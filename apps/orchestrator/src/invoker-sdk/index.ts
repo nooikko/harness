@@ -91,8 +91,9 @@ export const createSdkInvoker: CreateSdkInvoker = (config) => {
         ? ':thinking:disabled'
         : '';
     const toolsSuffix = options?.disallowedTools?.length ? `:dt:${options.disallowedTools.length}` : '';
+    const agentSuffix = options?.systemPrompt ? ':agent' : '';
     const baseKey = options?.threadId ?? options?.sessionId ?? 'default';
-    const poolKey = `${baseKey}${effortSuffix}${toolsSuffix}`;
+    const poolKey = `${baseKey}${effortSuffix}${toolsSuffix}${agentSuffix}`;
     const timeout = options?.timeout ?? config.defaultTimeout;
     const startTime = Date.now();
 
@@ -100,6 +101,8 @@ export const createSdkInvoker: CreateSdkInvoker = (config) => {
     const session = pool.get(poolKey, model, {
       ...resolvedThinking,
       ...(options?.disallowedTools?.length ? { disallowedTools: options.disallowedTools } : {}),
+      ...(options?.systemPrompt ? { systemPrompt: options.systemPrompt } : {}),
+      ...(options?.maxTurns ? { maxTurns: options.maxTurns } : {}),
     });
     log.info(`invoker: session acquired, sending prompt [promptLength=${prompt.length}]`);
 

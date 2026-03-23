@@ -31,6 +31,8 @@ export type SessionConfig = {
   thinking?: ThinkingConfig;
   effort?: 'low' | 'medium' | 'high' | 'max';
   disallowedTools?: string[];
+  systemPrompt?: string;
+  maxTurns?: number;
 };
 
 export type SessionFactory = (model: string, config?: SessionConfig) => Session;

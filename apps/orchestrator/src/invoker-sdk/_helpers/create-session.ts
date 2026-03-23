@@ -76,6 +76,20 @@ export const createSession: CreateSession = (model, config) => {
   delete env.CLAUDECODE;
   delete env.ANTHROPIC_API_KEY;
 
+  // If a systemPrompt is provided, define an inline agent with that prompt
+  const agentConfig = config?.systemPrompt
+    ? {
+        agent: 'harness-agent',
+        agents: {
+          'harness-agent': {
+            description: 'Harness orchestrator agent',
+            prompt: config.systemPrompt,
+            ...(config?.maxTurns ? { maxTurns: config.maxTurns } : {}),
+          },
+        },
+      }
+    : {};
+
   const q = query({
     prompt: messageStream(),
     options: {
@@ -91,6 +105,8 @@ export const createSession: CreateSession = (model, config) => {
       ...(config?.thinking ? { thinking: config.thinking } : {}),
       ...(config?.effort ? { effort: config.effort } : {}),
       ...(config?.disallowedTools?.length ? { disallowedTools: config.disallowedTools } : {}),
+      ...(config?.maxTurns && !config?.systemPrompt ? { maxTurns: config.maxTurns } : {}),
+      ...agentConfig,
     },
   });
 

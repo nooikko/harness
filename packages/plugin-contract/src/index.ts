@@ -61,6 +61,8 @@ export type InvokeOptions = {
   disallowedTools?: string[]; // MCP tool names to exclude from the session (flows to SDK query options)
   pendingBlocks?: ContentBlock[][]; // Per-invocation content block queue — tool handlers push, onMessage shifts
   effort?: 'low' | 'medium' | 'high' | 'max'; // Thinking effort level — overrides model-aware defaults
+  systemPrompt?: string; // System prompt — frames the agent's role (flows to SDK agent definition)
+  maxTurns?: number; // Maximum agentic turns before stopping (flows to SDK query options)
 };
 
 export type InvokeResult = {
