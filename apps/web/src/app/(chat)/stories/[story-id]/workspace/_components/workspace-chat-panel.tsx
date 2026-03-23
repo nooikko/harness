@@ -49,6 +49,8 @@ export const WorkspaceChatPanel = ({ storyId: _storyId, threadId }: WorkspaceCha
   const [input, setInput] = useState('');
   const [isPending, startTransition] = useTransition();
   const [isProcessing, setIsProcessing] = useState(false);
+  const [_processingStartedAt, setProcessingStartedAt] = useState<number | null>(null);
+  const [elapsedSeconds, setElapsedSeconds] = useState(0);
   const scrollRef = useRef<HTMLDivElement>(null);
   const prevMessageCountRef = useRef(0);
   const { selection } = useWorkspaceSelection();
@@ -77,6 +79,20 @@ export const WorkspaceChatPanel = ({ storyId: _storyId, threadId }: WorkspaceCha
     const interval = setInterval(loadMessages, isProcessing ? 1000 : 5000);
     return () => clearInterval(interval);
   }, [loadMessages, isProcessing]);
+
+  // Elapsed time counter while processing
+  useEffect(() => {
+    if (isProcessing) {
+      setProcessingStartedAt(Date.now());
+      setElapsedSeconds(0);
+      const timer = setInterval(() => {
+        setElapsedSeconds((prev) => prev + 1);
+      }, 1000);
+      return () => clearInterval(timer);
+    }
+    setProcessingStartedAt(null);
+    setElapsedSeconds(0);
+  }, [isProcessing]);
 
   useEffect(() => {
     // Auto-scroll to bottom on new messages
@@ -168,8 +184,29 @@ export const WorkspaceChatPanel = ({ storyId: _storyId, threadId }: WorkspaceCha
       {/* Processing indicator */}
       {isProcessing && (
         <div className='flex items-center gap-2 px-3 py-1.5 bg-muted/30 border-b'>
-          <Loader2 className='h-3 w-3 animate-spin text-muted-foreground' />
-          <span className='text-[10px] text-muted-foreground'>Processing...</span>
+          <Loader2 className='h-3 w-3 animate-spin text-muted-foreground shrink-0' />
+          <span className='text-[10px] text-muted-foreground'>
+            {(() => {
+              const statusMsgs = messages.filter((m) => m.kind === 'pipeline_step' || m.kind === 'status');
+              const latest = statusMsgs[statusMsgs.length - 1];
+              const stepLabels: Record<string, string> = {
+                onMessage: 'Received message...',
+                onBeforeInvoke: 'Preparing prompt...',
+                invoking: 'Claude is thinking...',
+                onAfterInvoke: 'Processing response...',
+                'Pipeline started': 'Starting pipeline...',
+                'Pipeline completed': 'Done',
+              };
+              const label = latest ? (stepLabels[latest.content] ?? latest.content) : 'Processing...';
+              const elapsed = elapsedSeconds > 0 ? ` (${Math.floor(elapsedSeconds / 60)}:${String(elapsedSeconds % 60).padStart(2, '0')})` : '';
+              return `${label}${elapsed}`;
+            })()}
+          </span>
+          {elapsedSeconds > 60 && (
+            <Button variant='ghost' size='sm' className='h-5 shrink-0 text-[10px] text-muted-foreground' onClick={() => setIsProcessing(false)}>
+              Dismiss
+            </Button>
+          )}
         </div>
       )}
 
