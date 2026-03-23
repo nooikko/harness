@@ -101,6 +101,14 @@ describe('scoreAndWriteMemory', () => {
     expect(ctx.db.agentMemory.create).not.toHaveBeenCalled();
   });
 
+  it('handles null userFact from Haiku without throwing ZodError', async () => {
+    const ctx = makeCtx('{"importance": 7, "userFact": null}', '{"summary": "Summary.", "scope": "AGENT"}');
+    await scoreAndWriteMemory(ctx as never, 'agent-1', 'Aria', 'thread-1', 'Output mentioning user context.');
+    // Should NOT fail — null userFact should be treated as absent
+    expect(ctx.db.agentMemory.create).toHaveBeenCalledWith(expect.objectContaining({ data: expect.objectContaining({ importance: 7 }) }));
+    expect(ctx.logger.warn).not.toHaveBeenCalled();
+  });
+
   it('does not write memory when importance score is NaN', async () => {
     const ctx = makeCtx('not-a-number', 'Summary.');
     await scoreAndWriteMemory(ctx as never, 'agent-1', 'Aria', 'thread-1', 'Some output.');

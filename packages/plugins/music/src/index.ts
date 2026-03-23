@@ -13,6 +13,7 @@ import { formatLikedSongs } from './_helpers/format-liked-songs';
 import { formatPlaylists } from './_helpers/format-playlists';
 import { formatQueueState } from './_helpers/format-queue-state';
 import { formatSearchResults } from './_helpers/format-search-results';
+import { createInnertubeApi } from './_helpers/innertube-api';
 import { createOAuthRoutes } from './_helpers/oauth-routes';
 import {
   addToQueue,
@@ -43,6 +44,20 @@ type MusicSettings = {
   radioEnabled?: boolean;
   audioQuality?: string;
   deviceAliases?: Record<string, string>;
+};
+
+const getAuthenticatedApi = (settings: MusicSettings) => {
+  const auth = settings.youtubeAuth;
+  if (!auth?.accessToken || !auth?.refreshToken) {
+    return null;
+  }
+  return createInnertubeApi({
+    credentials: {
+      accessToken: auth.accessToken,
+      refreshToken: auth.refreshToken,
+      expiresAt: auth.expiresAt ?? new Date().toISOString(),
+    },
+  });
 };
 
 const loadAndApplySettings = async (ctx: PluginContext): Promise<MusicSettings> => {
@@ -107,10 +122,16 @@ const musicPlugin: PluginDefinition = {
         },
         required: ['query'],
       },
-      handler: async (_ctx, input) => {
+      handler: async (ctx, input) => {
         const { query, limit } = input as { query: string; limit?: number };
-        const results = await searchSongs(query, limit ?? 5);
-        return formatSearchResults(results, query);
+        try {
+          const results = await searchSongs(query, limit ?? 5);
+          return formatSearchResults(results, query);
+        } catch (err) {
+          const msg = err instanceof Error ? err.message : String(err);
+          ctx.logger.error('music: search failed', { error: msg, query });
+          return `search failed: ${msg}`;
+        }
       },
     },
 
@@ -134,7 +155,7 @@ const musicPlugin: PluginDefinition = {
         },
         required: [],
       },
-      handler: async (_ctx, input) => {
+      handler: async (ctx, input) => {
         const { query, videoId, deviceName, radio } = input as {
           query?: string;
           videoId?: string;
@@ -146,34 +167,40 @@ const musicPlugin: PluginDefinition = {
           return 'Please provide either a search query or a videoId.';
         }
 
-        // Resolve the track
-        let track: MusicTrack | undefined;
-        if (videoId) {
-          // Search by videoId to get metadata
-          const results = await searchSongs(videoId, 1);
-          track = results[0];
-          if (!track) {
-            // Fall back to minimal track info
-            track = {
-              videoId,
-              title: 'Unknown',
-              artist: 'Unknown',
-              album: undefined,
-              durationSeconds: undefined,
-              durationText: undefined,
-              thumbnailUrl: undefined,
-            };
+        try {
+          // Resolve the track
+          let track: MusicTrack | undefined;
+          if (videoId) {
+            // Search by videoId to get metadata
+            const results = await searchSongs(videoId, 1);
+            track = results[0];
+            if (!track) {
+              // Fall back to minimal track info
+              track = {
+                videoId,
+                title: 'Unknown',
+                artist: 'Unknown',
+                album: undefined,
+                durationSeconds: undefined,
+                durationText: undefined,
+                thumbnailUrl: undefined,
+              };
+            }
+          } else {
+            const results = await searchSongs(query!, 1);
+            track = results[0];
+            if (!track) {
+              return `No results found for "${query}". Try a different search query.`;
+            }
           }
-        } else {
-          const results = await searchSongs(query!, 1);
-          track = results[0];
-          if (!track) {
-            return `No results found for "${query}". Try a different search query.`;
-          }
-        }
 
-        const device = resolveDevice(deviceName);
-        return playTrack(device, track, radio);
+          const device = resolveDevice(deviceName);
+          return await playTrack(device, track, radio);
+        } catch (err) {
+          const msg = err instanceof Error ? err.message : String(err);
+          ctx.logger.error('music: play failed', { error: msg, query, videoId, deviceName });
+          return `play failed: ${msg}`;
+        }
       },
     },
 
@@ -187,10 +214,16 @@ const musicPlugin: PluginDefinition = {
         },
         required: [],
       },
-      handler: async (_ctx, input) => {
+      handler: async (ctx, input) => {
         const { deviceName } = input as { deviceName?: string };
-        const device = resolveDevice(deviceName);
-        return pausePlayback(device);
+        try {
+          const device = resolveDevice(deviceName);
+          return await pausePlayback(device);
+        } catch (err) {
+          const msg = err instanceof Error ? err.message : String(err);
+          ctx.logger.error('music: pause failed', { error: msg, deviceName });
+          return `pause failed: ${msg}`;
+        }
       },
     },
 
@@ -204,10 +237,16 @@ const musicPlugin: PluginDefinition = {
         },
         required: [],
       },
-      handler: async (_ctx, input) => {
+      handler: async (ctx, input) => {
         const { deviceName } = input as { deviceName?: string };
-        const device = resolveDevice(deviceName);
-        return resumePlayback(device);
+        try {
+          const device = resolveDevice(deviceName);
+          return await resumePlayback(device);
+        } catch (err) {
+          const msg = err instanceof Error ? err.message : String(err);
+          ctx.logger.error('music: resume failed', { error: msg, deviceName });
+          return `resume failed: ${msg}`;
+        }
       },
     },
 
@@ -221,10 +260,16 @@ const musicPlugin: PluginDefinition = {
         },
         required: [],
       },
-      handler: async (_ctx, input) => {
+      handler: async (ctx, input) => {
         const { deviceName } = input as { deviceName?: string };
-        const device = resolveDevice(deviceName);
-        return stopPlayback(device);
+        try {
+          const device = resolveDevice(deviceName);
+          return await stopPlayback(device);
+        } catch (err) {
+          const msg = err instanceof Error ? err.message : String(err);
+          ctx.logger.error('music: stop failed', { error: msg, deviceName });
+          return `stop failed: ${msg}`;
+        }
       },
     },
 
@@ -238,10 +283,16 @@ const musicPlugin: PluginDefinition = {
         },
         required: [],
       },
-      handler: async (_ctx, input) => {
+      handler: async (ctx, input) => {
         const { deviceName } = input as { deviceName?: string };
-        const device = resolveDevice(deviceName);
-        return skipTrack(device);
+        try {
+          const device = resolveDevice(deviceName);
+          return await skipTrack(device);
+        } catch (err) {
+          const msg = err instanceof Error ? err.message : String(err);
+          ctx.logger.error('music: skip failed', { error: msg, deviceName });
+          return `skip failed: ${msg}`;
+        }
       },
     },
 
@@ -257,7 +308,7 @@ const musicPlugin: PluginDefinition = {
         },
         required: [],
       },
-      handler: async (_ctx, input) => {
+      handler: async (ctx, input) => {
         const { query, videoId, deviceName } = input as {
           query?: string;
           videoId?: string;
@@ -268,28 +319,34 @@ const musicPlugin: PluginDefinition = {
           return 'Please provide either a search query or a videoId.';
         }
 
-        let track: MusicTrack | undefined;
-        if (videoId) {
-          const results = await searchSongs(videoId, 1);
-          track = results[0] ?? {
-            videoId,
-            title: 'Unknown',
-            artist: 'Unknown',
-            album: undefined,
-            durationSeconds: undefined,
-            durationText: undefined,
-            thumbnailUrl: undefined,
-          };
-        } else {
-          const results = await searchSongs(query!, 1);
-          track = results[0];
-          if (!track) {
-            return `No results found for "${query}".`;
+        try {
+          let track: MusicTrack | undefined;
+          if (videoId) {
+            const results = await searchSongs(videoId, 1);
+            track = results[0] ?? {
+              videoId,
+              title: 'Unknown',
+              artist: 'Unknown',
+              album: undefined,
+              durationSeconds: undefined,
+              durationText: undefined,
+              thumbnailUrl: undefined,
+            };
+          } else {
+            const results = await searchSongs(query!, 1);
+            track = results[0];
+            if (!track) {
+              return `No results found for "${query}".`;
+            }
           }
-        }
 
-        const device = resolveDevice(deviceName);
-        return addToQueue(device, track);
+          const device = resolveDevice(deviceName);
+          return await addToQueue(device, track);
+        } catch (err) {
+          const msg = err instanceof Error ? err.message : String(err);
+          ctx.logger.error('music: queue_add failed', { error: msg, query, videoId });
+          return `queue_add failed: ${msg}`;
+        }
       },
     },
 
@@ -303,16 +360,22 @@ const musicPlugin: PluginDefinition = {
         },
         required: [],
       },
-      handler: async (_ctx, input) => {
+      handler: async (ctx, input) => {
         const { deviceName } = input as { deviceName?: string };
-        const device = resolveDevice(deviceName);
-        const state = getQueueState(device);
+        try {
+          const device = resolveDevice(deviceName);
+          const state = getQueueState(device);
 
-        if (!state) {
-          return `No active session on "${device.name}".`;
+          if (!state) {
+            return `No active session on "${device.name}".`;
+          }
+
+          return formatQueueState(state);
+        } catch (err) {
+          const msg = err instanceof Error ? err.message : String(err);
+          ctx.logger.error('music: queue_view failed', { error: msg, deviceName });
+          return `queue_view failed: ${msg}`;
         }
-
-        return formatQueueState(state);
       },
     },
 
@@ -327,10 +390,16 @@ const musicPlugin: PluginDefinition = {
         },
         required: ['level'],
       },
-      handler: async (_ctx, input) => {
+      handler: async (ctx, input) => {
         const { level, deviceName } = input as { level: number; deviceName?: string };
-        const device = resolveDevice(deviceName);
-        return setVolume(device, level / 100); // Convert 0-100 to 0.0-1.0
+        try {
+          const device = resolveDevice(deviceName);
+          return await setVolume(device, level / 100); // Convert 0-100 to 0.0-1.0
+        } catch (err) {
+          const msg = err instanceof Error ? err.message : String(err);
+          ctx.logger.error('music: set_volume failed', { error: msg, level, deviceName });
+          return `set_volume failed: ${msg}`;
+        }
       },
     },
 
@@ -361,29 +430,43 @@ const musicPlugin: PluginDefinition = {
         properties: {},
         required: [],
       },
-      handler: async () => {
-        const client = getRawClient();
-        if (!client) {
-          return 'YouTube Music client not initialized.';
-        }
-        if (!client.session.logged_in) {
-          return 'Not authenticated. Connect your YouTube Music account in the admin settings.';
-        }
-
+      handler: async (ctx) => {
         try {
+          const settings = (await ctx.getSettings(settingsSchema)) as MusicSettings;
+          const api = getAuthenticatedApi(settings);
+          if (api) {
+            const playlists = await api.getPlaylists();
+            if (playlists.length === 0) {
+              return 'No playlists found in your library.';
+            }
+            return formatPlaylists(playlists.map((p) => ({ title: p.title, id: p.playlistId })));
+          }
+
+          // Fallback to youtubei.js client (cookie auth)
+          const client = getRawClient();
+          if (!client) {
+            return 'YouTube Music client not initialized.';
+          }
+          if (!client.session.logged_in) {
+            return 'Not authenticated. Connect your YouTube Music account in the admin settings.';
+          }
+
           const library = await client.music.getLibrary();
-          const playlists = library?.contents ?? [];
-          if (playlists.length === 0) {
+          const items = library?.contents ?? [];
+          if (items.length === 0) {
             return 'No playlists found in your library.';
           }
 
-          const items = (playlists as unknown as Record<string, unknown>[]).map((p) => ({
-            title: String((p.title as { toString?: () => string })?.toString?.() ?? 'Untitled'),
-            id: String(p.playlist_id ?? p.id ?? ''),
-          }));
-          return formatPlaylists(items);
+          return formatPlaylists(
+            (items as unknown as Record<string, unknown>[]).map((p) => ({
+              title: String((p.title as { toString?: () => string })?.toString?.() ?? 'Untitled'),
+              id: String(p.playlist_id ?? p.id ?? ''),
+            })),
+          );
         } catch (err) {
-          return `Failed to fetch playlists: ${err instanceof Error ? err.message : String(err)}`;
+          const msg = err instanceof Error ? err.message : String(err);
+          ctx.logger.error('music: my_playlists failed', { error: msg });
+          return `Failed to fetch playlists: ${msg}`;
         }
       },
     },
@@ -398,34 +481,105 @@ const musicPlugin: PluginDefinition = {
         },
         required: [],
       },
-      handler: async (_ctx, input) => {
+      handler: async (ctx, input) => {
         const { limit } = input as { limit?: number };
-        const client = getRawClient();
-        if (!client) {
-          return 'YouTube Music client not initialized.';
-        }
-        if (!client.session.logged_in) {
-          return 'Not authenticated. Connect your YouTube Music account in the admin settings.';
-        }
+        const maxItems = limit ?? 20;
 
         try {
+          const settings = (await ctx.getSettings(settingsSchema)) as MusicSettings;
+          const api = getAuthenticatedApi(settings);
+          if (api) {
+            const result = await api.getLikedSongs(maxItems);
+            if (result.tracks.length === 0) {
+              return 'No liked songs found.';
+            }
+            return formatLikedSongs(result.tracks.map((t) => ({ title: t.title, artist: t.artist, videoId: t.videoId })));
+          }
+
+          // Fallback to youtubei.js client (cookie auth)
+          const client = getRawClient();
+          if (!client) {
+            return 'YouTube Music client not initialized.';
+          }
+          if (!client.session.logged_in) {
+            return 'Not authenticated. Connect your YouTube Music account in the admin settings.';
+          }
+
           const playlist = await client.music.getPlaylist('LM');
           const items = playlist?.contents ?? [];
-          const maxItems = limit ?? 20;
           const tracks = items.slice(0, maxItems);
 
           if (tracks.length === 0) {
             return 'No liked songs found.';
           }
 
-          const songs = (tracks as unknown as Record<string, unknown>[]).map((item) => ({
-            title: String((item.title as { toString?: () => string })?.toString?.() ?? 'Unknown'),
-            artist: String(((item.artists as Array<{ name: string }>) ?? [])[0]?.name ?? item.author ?? 'Unknown'),
-            videoId: String((item.video_id as string) ?? (item.id as string) ?? ''),
-          }));
-          return formatLikedSongs(songs);
+          return formatLikedSongs(
+            (tracks as unknown as Record<string, unknown>[]).map((item) => ({
+              title: String((item.title as { toString?: () => string })?.toString?.() ?? 'Unknown'),
+              artist: String(((item.artists as Array<{ name: string }>) ?? [])[0]?.name ?? item.author ?? 'Unknown'),
+              videoId: String((item.video_id as string) ?? (item.id as string) ?? ''),
+            })),
+          );
         } catch (err) {
-          return `Failed to fetch liked songs: ${err instanceof Error ? err.message : String(err)}`;
+          const msg = err instanceof Error ? err.message : String(err);
+          ctx.logger.error('music: liked_songs failed', { error: msg });
+          return `Failed to fetch liked songs: ${msg}`;
+        }
+      },
+    },
+
+    {
+      name: 'like_song',
+      description: 'Like a song on YouTube Music. Adds it to your Liked Music playlist. Requires account to be connected.',
+      schema: {
+        type: 'object',
+        properties: {
+          videoId: { type: 'string', description: 'YouTube Music video ID of the song to like' },
+        },
+        required: ['videoId'],
+      },
+      handler: async (ctx, input) => {
+        const { videoId } = input as { videoId: string };
+        try {
+          const settings = (await ctx.getSettings(settingsSchema)) as MusicSettings;
+          const api = getAuthenticatedApi(settings);
+          if (!api) {
+            return 'Not authenticated. Connect your YouTube Music account in the admin settings.';
+          }
+          await api.likeSong(videoId);
+          return `Liked song (videoId: ${videoId}). It has been added to your Liked Music.`;
+        } catch (err) {
+          const msg = err instanceof Error ? err.message : String(err);
+          ctx.logger.error('music: like_song failed', { error: msg, videoId });
+          return `like_song failed: ${msg}`;
+        }
+      },
+    },
+
+    {
+      name: 'unlike_song',
+      description: 'Remove a like from a song on YouTube Music. Requires account to be connected.',
+      schema: {
+        type: 'object',
+        properties: {
+          videoId: { type: 'string', description: 'YouTube Music video ID of the song to unlike' },
+        },
+        required: ['videoId'],
+      },
+      handler: async (ctx, input) => {
+        const { videoId } = input as { videoId: string };
+        try {
+          const settings = (await ctx.getSettings(settingsSchema)) as MusicSettings;
+          const api = getAuthenticatedApi(settings);
+          if (!api) {
+            return 'Not authenticated. Connect your YouTube Music account in the admin settings.';
+          }
+          await api.unlikeSong(videoId);
+          return `Removed like from song (videoId: ${videoId}).`;
+        } catch (err) {
+          const msg = err instanceof Error ? err.message : String(err);
+          ctx.logger.error('music: unlike_song failed', { error: msg, videoId });
+          return `unlike_song failed: ${msg}`;
         }
       },
     },

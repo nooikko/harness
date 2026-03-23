@@ -81,10 +81,7 @@ export const getRawClient = (): InnertubeClient | null => innertube;
 
 // --- Search ---
 
-export const searchSongs = async (query: string, limit = 10): Promise<MusicTrack[]> => {
-  const yt = getClient();
-  const results = await yt.music.search(query, { type: 'song' });
-
+const parseSearchResults = (results: Awaited<ReturnType<InnertubeClient['music']['search']>>, limit: number): MusicTrack[] => {
   const items = results.songs?.contents ?? [];
   const tracks: MusicTrack[] = [];
 
@@ -111,6 +108,31 @@ export const searchSongs = async (query: string, limit = 10): Promise<MusicTrack
   return tracks;
 };
 
+export const searchSongs = async (query: string, limit = 10): Promise<MusicTrack[]> => {
+  const yt = getClient();
+
+  try {
+    const results = await yt.music.search(query, { type: 'song' });
+    return parseSearchResults(results, limit);
+  } catch (err) {
+    // Authenticated clients can get 400s from YouTube's search endpoint.
+    // Fall back to an anonymous client for search — it doesn't need auth.
+    if (!yt.session.logged_in) {
+      throw err; // Already anonymous, no fallback possible
+    }
+
+    const anonymous = await Innertube.create({
+      cache: new UniversalCache(true),
+      generate_session_locally: false,
+      retrieve_player: true,
+      lang: 'en',
+      location: 'US',
+    });
+    const results = await anonymous.music.search(query, { type: 'song' });
+    return parseSearchResults(results, limit);
+  }
+};
+
 // --- Stream URL ---
 
 export type AudioStream = {
@@ -120,10 +142,9 @@ export type AudioStream = {
   durationMs: number | undefined;
 };
 
-export const getAudioStreamUrl = async (videoId: string): Promise<AudioStream> => {
-  const yt = getClient();
-  const info = await yt.music.getInfo(videoId);
+type ExtractStreamFromInfo = (info: Awaited<ReturnType<InnertubeClient['music']['getInfo']>>, videoId: string) => Promise<AudioStream>;
 
+const extractStreamFromInfo: ExtractStreamFromInfo = async (info, videoId) => {
   const adaptiveFormats = info.streaming_data?.adaptive_formats ?? [];
   const audioFormats = adaptiveFormats.filter((f) => f.has_audio && !f.has_video);
 
@@ -160,11 +181,54 @@ export const getAudioStreamUrl = async (videoId: string): Promise<AudioStream> =
   };
 };
 
+export const getAudioStreamUrl = async (videoId: string): Promise<AudioStream> => {
+  const yt = getClient();
+
+  try {
+    const info = await yt.music.getInfo(videoId);
+    return extractStreamFromInfo(info, videoId);
+  } catch (err) {
+    // Authenticated clients get 400s from the player endpoint because OAuth
+    // TV tokens are incompatible with WEB_REMIX client context.
+    // Fall back to an anonymous client — stream URLs don't need auth.
+    if (!yt.session.logged_in) {
+      throw err;
+    }
+
+    const anonymous = await Innertube.create({
+      cache: new UniversalCache(true),
+      generate_session_locally: true,
+      retrieve_player: true,
+      lang: 'en',
+      location: 'US',
+    });
+    const info = await anonymous.music.getInfo(videoId);
+    return extractStreamFromInfo(info, videoId);
+  }
+};
+
 // --- Radio / Up Next ---
 
 export const getUpNextTracks = async (videoId: string, limit = 10): Promise<MusicTrack[]> => {
   const yt = getClient();
-  const info = await yt.music.getInfo(videoId);
+
+  let info: Awaited<ReturnType<InnertubeClient['music']['getInfo']>>;
+  try {
+    info = await yt.music.getInfo(videoId);
+  } catch (err) {
+    if (!yt.session.logged_in) {
+      throw err;
+    }
+    const anonymous = await Innertube.create({
+      cache: new UniversalCache(true),
+      generate_session_locally: true,
+      retrieve_player: true,
+      lang: 'en',
+      location: 'US',
+    });
+    info = await anonymous.music.getInfo(videoId);
+  }
+
   const upNext = await info.getUpNext();
 
   if (!upNext?.contents) {

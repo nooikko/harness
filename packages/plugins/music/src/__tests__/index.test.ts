@@ -102,7 +102,7 @@ const createMockContext = (): PluginContext => {
     },
     sendToThread: vi.fn(),
     broadcast: vi.fn(),
-    getSettings: vi.fn(),
+    getSettings: vi.fn().mockResolvedValue({}),
     notifySettingsChange: vi.fn(),
     reportStatus: vi.fn(),
     uploadFile: vi.fn().mockResolvedValue({ fileId: 'test', relativePath: 'test' }),
@@ -121,8 +121,8 @@ describe('music plugin', () => {
     expect(hooks.onSettingsChange).toBeDefined();
   });
 
-  it('exposes 14 MCP tools', () => {
-    expect(musicPlugin.tools).toHaveLength(14);
+  it('exposes 16 MCP tools', () => {
+    expect(musicPlugin.tools).toHaveLength(16);
     const toolNames = musicPlugin.tools!.map((t) => t.name);
     expect(toolNames).toEqual([
       'search',
@@ -137,6 +137,8 @@ describe('music plugin', () => {
       'list_devices',
       'my_playlists',
       'liked_songs',
+      'like_song',
+      'unlike_song',
       'get_playback_settings',
       'update_playback_settings',
     ]);
@@ -431,6 +433,76 @@ describe('music plugin', () => {
       const result = await getTool().handler(createMockContext(), {}, meta);
       expect(result).toContain('unknown model');
       expect(result).toContain('Mystery Device');
+    });
+  });
+
+  describe('tool: search (error handling)', () => {
+    const meta = { threadId: 't1', traceId: 'tr1' };
+
+    it('returns friendly error and logs when searchSongs throws', async () => {
+      const { searchSongs } = await import('../_helpers/youtube-music-client');
+      vi.mocked(searchSongs).mockRejectedValueOnce(new Error('Request failed with status 400'));
+      const ctx = createMockContext();
+      const tool = musicPlugin.tools!.find((t) => t.name === 'search')!;
+
+      const result = await tool.handler(ctx, { query: 'test' }, meta);
+      expect(result).toContain('search failed');
+      expect(result).toContain('400');
+      expect(ctx.logger.error).toHaveBeenCalledWith(expect.stringContaining('music'), expect.objectContaining({ error: expect.any(String) }));
+    });
+  });
+
+  describe('tool: play (error handling)', () => {
+    const meta = { threadId: 't1', traceId: 'tr1' };
+
+    it('returns friendly error when searchSongs throws during play', async () => {
+      const { searchSongs } = await import('../_helpers/youtube-music-client');
+      vi.mocked(searchSongs).mockRejectedValueOnce(new Error('Network timeout'));
+      const ctx = createMockContext();
+      const tool = musicPlugin.tools!.find((t) => t.name === 'play')!;
+
+      const result = await tool.handler(ctx, { query: 'test song' }, meta);
+      expect(result).toContain('play failed');
+      expect(result).toContain('Network timeout');
+      expect(ctx.logger.error).toHaveBeenCalled();
+    });
+
+    it('returns friendly error when playTrack throws', async () => {
+      const { playTrack: playTrackMock } = await import('../_helpers/playback-controller');
+      vi.mocked(playTrackMock).mockReset().mockRejectedValueOnce(new Error('Cast device unreachable'));
+      const ctx = createMockContext();
+      const tool = musicPlugin.tools!.find((t) => t.name === 'play')!;
+
+      const result = await tool.handler(ctx, { query: 'test song' }, meta);
+      expect(result).toContain('play failed');
+      expect(result).toContain('Cast device unreachable');
+      expect(ctx.logger.error).toHaveBeenCalled();
+    });
+  });
+
+  describe('tool: pause (error handling)', () => {
+    it('returns friendly error when pausePlayback throws', async () => {
+      const { pausePlayback: pauseMock } = await import('../_helpers/playback-controller');
+      vi.mocked(pauseMock).mockReset().mockRejectedValueOnce(new Error('Not playing'));
+      const ctx = createMockContext();
+      const tool = musicPlugin.tools!.find((t) => t.name === 'pause')!;
+
+      const result = await tool.handler(ctx, {}, { threadId: 't1', traceId: 'tr1' });
+      expect(result).toContain('pause failed');
+      expect(ctx.logger.error).toHaveBeenCalled();
+    });
+  });
+
+  describe('tool: queue_add (error handling)', () => {
+    it('returns friendly error when searchSongs throws during queue_add', async () => {
+      const { searchSongs } = await import('../_helpers/youtube-music-client');
+      vi.mocked(searchSongs).mockRejectedValueOnce(new Error('API unavailable'));
+      const ctx = createMockContext();
+      const tool = musicPlugin.tools!.find((t) => t.name === 'queue_add')!;
+
+      const result = await tool.handler(ctx, { query: 'test' }, { threadId: 't1', traceId: 'tr1' });
+      expect(result).toContain('queue_add failed');
+      expect(ctx.logger.error).toHaveBeenCalled();
     });
   });
 

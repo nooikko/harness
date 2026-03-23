@@ -377,6 +377,43 @@ describe('youtube-music-client', () => {
     });
   });
 
+  describe('searchSongs fallback to anonymous client', () => {
+    it('retries with anonymous client when authenticated client returns 400', async () => {
+      const anonymousSearch = vi.fn().mockResolvedValue({
+        songs: { contents: [{ id: 'v1', title: 'Fallback Song', artists: [{ name: 'Artist' }] }] },
+      });
+      // First call: set up authenticated client that fails search
+      mockCreate.mockResolvedValueOnce({
+        music: { search: mockMusicSearch, getInfo: mockMusicGetInfo },
+        session: { logged_in: true },
+      });
+      await initYouTubeMusicClient();
+
+      mockMusicSearch.mockRejectedValueOnce(new Error('Request failed with status code 400'));
+      // Second call: anonymous fallback client
+      mockCreate.mockResolvedValueOnce({
+        music: { search: anonymousSearch, getInfo: vi.fn() },
+      });
+
+      const results = await searchSongs('test query', 5);
+      expect(results).toHaveLength(1);
+      expect(results[0]?.title).toBe('Fallback Song');
+      expect(mockCreate).toHaveBeenCalledTimes(2); // original + fallback
+    });
+
+    it('throws if anonymous client also fails (no fallback loop)', async () => {
+      mockCreate.mockResolvedValueOnce({
+        music: { search: mockMusicSearch, getInfo: mockMusicGetInfo },
+        session: { logged_in: false },
+      });
+      await initYouTubeMusicClient();
+
+      mockMusicSearch.mockRejectedValueOnce(new Error('400 bad request'));
+
+      await expect(searchSongs('test')).rejects.toThrow('400 bad request');
+    });
+  });
+
   describe('searchSongs edge cases', () => {
     it('returns empty array when songs.contents is undefined', async () => {
       setupMockClient();
@@ -672,6 +709,52 @@ describe('youtube-music-client', () => {
 
       const stream = await getAudioStreamUrl('vid1');
       expect(stream.durationMs).toBeUndefined();
+    });
+
+    it('falls back to anonymous client when authenticated client fails getInfo', async () => {
+      const anonymousGetInfo = vi.fn().mockResolvedValue({
+        streaming_data: {
+          adaptive_formats: [
+            {
+              has_audio: true,
+              has_video: false,
+              url: 'https://anonymous-stream.url',
+              mime_type: 'audio/webm; codecs="opus"',
+              average_bitrate: 128000,
+              approx_duration_ms: 210000,
+            },
+          ],
+        },
+      });
+
+      // First call: authenticated client that fails getInfo
+      mockCreate.mockResolvedValueOnce({
+        music: { search: mockMusicSearch, getInfo: mockMusicGetInfo },
+        session: { logged_in: true },
+      });
+      await initYouTubeMusicClient();
+
+      mockMusicGetInfo.mockRejectedValueOnce(new Error('Request failed with status code 400'));
+      // Second call: anonymous fallback client
+      mockCreate.mockResolvedValueOnce({
+        music: { search: vi.fn(), getInfo: anonymousGetInfo },
+      });
+
+      const stream = await getAudioStreamUrl('vid1');
+      expect(stream.url).toBe('https://anonymous-stream.url');
+      expect(mockCreate).toHaveBeenCalledTimes(2);
+    });
+
+    it('throws original error when already anonymous and getInfo fails', async () => {
+      mockCreate.mockResolvedValueOnce({
+        music: { search: mockMusicSearch, getInfo: mockMusicGetInfo },
+        session: { logged_in: false },
+      });
+      await initYouTubeMusicClient();
+
+      mockMusicGetInfo.mockRejectedValueOnce(new Error('Request failed with status code 400'));
+
+      await expect(getAudioStreamUrl('vid1')).rejects.toThrow('Request failed with status code 400');
     });
 
     it('sorts candidates by bitrate descending and picks highest', async () => {
