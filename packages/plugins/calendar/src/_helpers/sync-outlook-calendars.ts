@@ -135,7 +135,7 @@ const syncOutlookCalendarsInner = async (ctx: PluginContext): Promise<void> => {
         create: {
           source: 'OUTLOOK',
           externalId: evt.id,
-          title: evt.subject,
+          title: evt.subject || '(No subject)',
           startAt: new Date(`${evt.start.dateTime}Z`),
           endAt: new Date(`${evt.end.dateTime}Z`),
           isAllDay: evt.isAllDay,
@@ -155,7 +155,7 @@ const syncOutlookCalendarsInner = async (ctx: PluginContext): Promise<void> => {
           description: evt.body?.content ?? undefined,
         },
         update: {
-          title: evt.subject,
+          title: evt.subject || '(No subject)',
           startAt: new Date(`${evt.start.dateTime}Z`),
           endAt: new Date(`${evt.end.dateTime}Z`),
           isAllDay: evt.isAllDay,
