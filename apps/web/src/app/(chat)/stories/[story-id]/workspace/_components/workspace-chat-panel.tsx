@@ -1,9 +1,11 @@
 'use client';
 
 import { Badge, Button, cn, Textarea } from '@harness/ui';
-import { Loader2, Send } from 'lucide-react';
-import { useCallback, useEffect, useRef, useState, useTransition } from 'react';
+import { Loader2, Send, Trash2 } from 'lucide-react';
+import { useCallback, useContext, useEffect, useRef, useState, useTransition } from 'react';
+import { WsContext } from '@/app/_components/ws-provider';
 import { sendMessage } from '@/app/(chat)/chat/_actions/send-message';
+import { clearThreadMessages } from '../../_actions/clear-thread-messages';
 import { useWorkspaceSelection } from './workspace-context';
 
 type ChatMessage = {
@@ -98,6 +100,52 @@ export const WorkspaceChatPanel = ({ storyId: _storyId, threadId, transcripts: t
     return () => clearInterval(interval);
   }, [loadMessages, isProcessing]);
 
+  // WebSocket for live pipeline status
+  const [pipelineStep, setPipelineStep] = useState<string | null>(null);
+  const wsCtx = useContext(WsContext);
+  useEffect(() => {
+    if (!wsCtx) {
+      return;
+    }
+    const stepLabels: Record<string, string> = {
+      onMessage: 'Received message...',
+      onBeforeInvoke: 'Preparing prompt...',
+      invoking: 'Claude is thinking...',
+      onAfterInvoke: 'Processing response...',
+    };
+    const unsubStep = wsCtx.subscribe('pipeline:step', (data) => {
+      const d = data as { threadId?: string; step?: string };
+      if (d.threadId === threadId) {
+        setPipelineStep(stepLabels[d.step ?? ''] ?? d.step ?? null);
+      }
+    });
+    const unsubComplete = wsCtx.subscribe('pipeline:complete', (data) => {
+      const d = data as { threadId?: string };
+      if (d.threadId === threadId) {
+        setIsProcessing(false);
+        setPipelineStep(null);
+        loadMessages();
+      }
+    });
+    return () => {
+      unsubStep();
+      unsubComplete();
+    };
+  }, [wsCtx, threadId, loadMessages]);
+
+  // Clear chat
+  const handleClear = useCallback(() => {
+    startTransition(async () => {
+      const result = await clearThreadMessages({ threadId, storyId: _storyId });
+      if ('success' in result) {
+        setMessages([]);
+        prevMessageCountRef.current = 0;
+        setIsProcessing(false);
+        setPipelineStep(null);
+      }
+    });
+  }, [threadId, _storyId]);
+
   // Elapsed time counter while processing
   useEffect(() => {
     if (isProcessing) {
@@ -168,8 +216,20 @@ export const WorkspaceChatPanel = ({ storyId: _storyId, threadId, transcripts: t
     <div className='flex h-full flex-col'>
       {/* Chat header */}
       <div className='flex items-center gap-2 border-b px-3 py-2'>
-        <span className='text-xs font-medium'>AI Assistant</span>
+        <span className='flex-1 text-xs font-medium'>AI Assistant</span>
         {isPending && <Loader2 className='h-3 w-3 animate-spin text-muted-foreground' />}
+        {messages.length > 0 && (
+          <Button
+            variant='ghost'
+            size='icon'
+            className='h-6 w-6 p-0 text-muted-foreground'
+            title='Clear chat history'
+            onClick={handleClear}
+            disabled={isPending}
+          >
+            <Trash2 className='h-3 w-3' />
+          </Button>
+        )}
       </div>
 
       {/* Selection context indicator */}
@@ -204,21 +264,8 @@ export const WorkspaceChatPanel = ({ storyId: _storyId, threadId, transcripts: t
         <div className='flex items-center gap-2 px-3 py-1.5 bg-muted/30 border-b'>
           <Loader2 className='h-3 w-3 animate-spin text-muted-foreground shrink-0' />
           <span className='text-[10px] text-muted-foreground'>
-            {(() => {
-              const statusMsgs = messages.filter((m) => m.kind === 'pipeline_step' || m.kind === 'status');
-              const latest = statusMsgs[statusMsgs.length - 1];
-              const stepLabels: Record<string, string> = {
-                onMessage: 'Received message...',
-                onBeforeInvoke: 'Preparing prompt...',
-                invoking: 'Claude is thinking...',
-                onAfterInvoke: 'Processing response...',
-                'Pipeline started': 'Starting pipeline...',
-                'Pipeline completed': 'Done',
-              };
-              const label = latest ? (stepLabels[latest.content] ?? latest.content) : 'Processing...';
-              const elapsed = elapsedSeconds > 0 ? ` (${Math.floor(elapsedSeconds / 60)}:${String(elapsedSeconds % 60).padStart(2, '0')})` : '';
-              return `${label}${elapsed}`;
-            })()}
+            {pipelineStep ?? 'Starting pipeline...'}
+            {elapsedSeconds > 0 && ` (${Math.floor(elapsedSeconds / 60)}:${String(elapsedSeconds % 60).padStart(2, '0')})`}
           </span>
           {elapsedSeconds > 60 && (
             <Button variant='ghost' size='sm' className='h-5 shrink-0 text-[10px] text-muted-foreground' onClick={() => setIsProcessing(false)}>
