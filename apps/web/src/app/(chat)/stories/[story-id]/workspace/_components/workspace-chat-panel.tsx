@@ -1,6 +1,6 @@
 'use client';
 
-import { Badge, Button, cn, ScrollArea, Textarea } from '@harness/ui';
+import { Badge, Button, cn, Textarea } from '@harness/ui';
 import { Loader2, Send } from 'lucide-react';
 import { useCallback, useEffect, useRef, useState, useTransition } from 'react';
 import { sendMessage } from '@/app/(chat)/chat/_actions/send-message';
@@ -214,7 +214,7 @@ export const WorkspaceChatPanel = ({ storyId: _storyId, threadId }: WorkspaceCha
       )}
 
       {/* Messages */}
-      <ScrollArea className='flex-1' ref={scrollRef}>
+      <div className='min-h-0 flex-1 overflow-y-auto' ref={scrollRef}>
         <div className='flex flex-col gap-2 p-3'>
           {messages.length === 0 && (
             <div className='py-8 text-center text-xs text-muted-foreground'>
@@ -234,7 +234,7 @@ export const WorkspaceChatPanel = ({ storyId: _storyId, threadId }: WorkspaceCha
               </div>
             ))}
         </div>
-      </ScrollArea>
+      </div>
 
       {/* Input */}
       <div className='border-t p-3'>
