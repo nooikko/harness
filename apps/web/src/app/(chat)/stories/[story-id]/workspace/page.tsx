@@ -39,9 +39,16 @@ const WorkspacePage = async ({ params }: WorkspacePageProps) => {
 
   // Find or create the import thread for the chat panel
   let importThread = await prisma.thread.findFirst({
-    where: { storyId, kind: 'story-import' },
-    select: { id: true },
+    where: { storyId, source: 'web', sourceId: `import-${storyId}` },
+    select: { id: true, kind: true },
   });
+
+  if (importThread && importThread.kind !== 'story-import') {
+    await prisma.thread.update({
+      where: { id: importThread.id },
+      data: { kind: 'story-import' },
+    });
+  }
 
   if (!importThread) {
     importThread = await prisma.thread.create({
@@ -54,7 +61,7 @@ const WorkspacePage = async ({ params }: WorkspacePageProps) => {
         status: 'active',
         lastActivity: new Date(),
       },
-      select: { id: true },
+      select: { id: true, kind: true },
     });
   }
 
