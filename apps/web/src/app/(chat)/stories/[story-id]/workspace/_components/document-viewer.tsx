@@ -1,10 +1,12 @@
 'use client';
 
-import { Badge, Button, cn, Input } from '@harness/ui';
-import { ArrowUpDown, BookmarkPlus, Check, Flag, Plus } from 'lucide-react';
+import { Badge, Button, cn, Input, Textarea } from '@harness/ui';
+import { ArrowUpDown, BookmarkPlus, Check, Flag, Pencil, Plus, Trash2 } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import { useCallback, useEffect, useState, useTransition } from 'react';
 import { Virtuoso } from 'react-virtuoso';
+import { deleteTranscriptMessage } from '../../_actions/delete-transcript-message';
+import { editTranscriptMessage } from '../../_actions/edit-transcript-message';
 import { getStoryTranscript } from '../../_actions/get-story-transcript';
 import { updateTranscriptSortOrder } from '../../_actions/update-transcript-sort-order';
 import { UploadPanel } from './upload-panel';
@@ -47,6 +49,9 @@ export const DocumentViewer = ({ storyId: _storyId, storyName, transcripts }: Do
   const [isPending, startTransition] = useTransition();
   const [showReorder, setShowReorder] = useState(false);
   const [showUpload, setShowUpload] = useState(false);
+  const [confirmDeleteIndex, setConfirmDeleteIndex] = useState<number | null>(null);
+  const [editingIndex, setEditingIndex] = useState<number | null>(null);
+  const [editContent, setEditContent] = useState('');
   const [isReordering, startReorderTransition] = useTransition();
   const router = useRouter();
   const { selection, setSelection } = useWorkspaceSelection();
@@ -106,6 +111,50 @@ export const DocumentViewer = ({ storyId: _storyId, storyName, transcripts }: Do
       });
     },
     [_storyId, router],
+  );
+
+  const handleDelete = useCallback(
+    (messageIndex: number) => {
+      if (!activeTab) {
+        return;
+      }
+      startTransition(async () => {
+        const result = await deleteTranscriptMessage({
+          transcriptId: activeTab,
+          storyId: _storyId,
+          messageIndex,
+        });
+        if ('success' in result) {
+          setConfirmDeleteIndex(null);
+          router.refresh();
+          loadTranscript(activeTab);
+        }
+      });
+    },
+    [activeTab, _storyId, router, loadTranscript],
+  );
+
+  const handleEdit = useCallback(
+    (messageIndex: number) => {
+      if (!activeTab) {
+        return;
+      }
+      startTransition(async () => {
+        const result = await editTranscriptMessage({
+          transcriptId: activeTab,
+          storyId: _storyId,
+          messageIndex,
+          newContent: editContent,
+        });
+        if ('success' in result) {
+          setEditingIndex(null);
+          setEditContent('');
+          router.refresh();
+          loadTranscript(activeTab);
+        }
+      });
+    },
+    [activeTab, _storyId, editContent, router, loadTranscript],
   );
 
   const activeTranscript = transcripts.find((t) => t.id === activeTab);
@@ -205,9 +254,41 @@ export const DocumentViewer = ({ storyId: _storyId, storyName, transcripts }: Do
             <Virtuoso
               data={messages}
               overscan={200}
-              itemContent={(index, msg) => {
+              itemContent={(_index, msg) => {
                 const msgAnnotations = getAnnotationsForMessage(msg.index);
                 const isSelected = selection.transcriptId === activeTab && selection.messageIndex === msg.index;
+
+                if (confirmDeleteIndex === msg.index) {
+                  return (
+                    <div className='flex items-center justify-between px-4 py-3 bg-destructive/5 border-b border-muted/30'>
+                      <span className='text-sm text-muted-foreground'>Delete this message?</span>
+                      <div className='flex items-center gap-1'>
+                        <Button variant='destructive' size='sm' className='h-6 text-xs' onClick={() => handleDelete(msg.index)} disabled={isPending}>
+                          Delete
+                        </Button>
+                        <Button variant='ghost' size='sm' className='h-6 text-xs' onClick={() => setConfirmDeleteIndex(null)}>
+                          Cancel
+                        </Button>
+                      </div>
+                    </div>
+                  );
+                }
+
+                if (editingIndex === msg.index) {
+                  return (
+                    <div className='flex flex-col gap-2 px-4 py-3 border-b border-muted/30 bg-blue-500/5'>
+                      <Textarea value={editContent} onChange={(e) => setEditContent(e.target.value)} className='text-sm min-h-15' autoFocus />
+                      <div className='flex items-center gap-1 justify-end'>
+                        <Button variant='ghost' size='sm' className='h-6 text-xs' onClick={() => setEditingIndex(null)}>
+                          Cancel
+                        </Button>
+                        <Button size='sm' className='h-6 text-xs' onClick={() => handleEdit(msg.index)} disabled={isPending}>
+                          Save
+                        </Button>
+                      </div>
+                    </div>
+                  );
+                }
 
                 return (
                   <button
@@ -240,6 +321,31 @@ export const DocumentViewer = ({ storyId: _storyId, storyName, transcripts }: Do
                         </Button>
                         <Button variant='ghost' size='icon' className='h-6 w-6 p-0 text-muted-foreground' title='Flag important'>
                           <Flag className='h-3 w-3' />
+                        </Button>
+                        <Button
+                          variant='ghost'
+                          size='icon'
+                          className='h-6 w-6 p-0 text-muted-foreground'
+                          title='Edit message'
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setEditingIndex(msg.index);
+                            setEditContent(msg.content);
+                          }}
+                        >
+                          <Pencil className='h-3 w-3' />
+                        </Button>
+                        <Button
+                          variant='ghost'
+                          size='icon'
+                          className='h-6 w-6 p-0 text-muted-foreground'
+                          title='Delete message'
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setConfirmDeleteIndex(msg.index);
+                          }}
+                        >
+                          <Trash2 className='h-3 w-3' />
                         </Button>
                       </div>
                     </div>
