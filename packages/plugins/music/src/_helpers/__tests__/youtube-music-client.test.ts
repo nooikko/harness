@@ -16,6 +16,15 @@ vi.mock('../youtube-music-auth', () => ({
   initWithCredentials: vi.fn().mockResolvedValue(undefined),
 }));
 
+const mockResolveStreamUrl = vi.fn();
+vi.mock('../resolve-stream-url', () => ({
+  resolveStreamUrl: (...args: unknown[]) => mockResolveStreamUrl(...args),
+}));
+
+vi.mock('../fetch-po-token', () => ({
+  fetchPoToken: vi.fn().mockResolvedValue('mock-po-token'),
+}));
+
 import { initWithCredentials } from '../youtube-music-auth';
 import {
   destroyYouTubeMusicClient,
@@ -139,55 +148,24 @@ describe('youtube-music-client', () => {
   });
 
   describe('getAudioStreamUrl', () => {
-    it('returns best audio stream URL', async () => {
-      setupMockClient();
-      await initYouTubeMusicClient();
-
-      mockMusicGetInfo.mockResolvedValue({
-        streaming_data: {
-          adaptive_formats: [
-            {
-              has_audio: true,
-              has_video: false,
-              url: 'https://audio-low.url',
-              mime_type: 'audio/mp4',
-              average_bitrate: 64000,
-              approx_duration_ms: 210000,
-            },
-            {
-              has_audio: true,
-              has_video: false,
-              url: 'https://audio-high.url',
-              mime_type: 'audio/webm; codecs="opus"',
-              average_bitrate: 128000,
-              approx_duration_ms: 210000,
-            },
-            {
-              has_audio: true,
-              has_video: true,
-              url: 'https://video.url',
-              mime_type: 'video/mp4',
-              average_bitrate: 256000,
-            },
-          ],
-        },
+    it('delegates to yt-dlp and returns resolved stream', async () => {
+      mockResolveStreamUrl.mockResolvedValueOnce({
+        url: 'https://stream.googlevideo.com/playback',
+        mimeType: 'audio/webm',
+        bitrate: 128000,
+        durationMs: 210000,
       });
 
       const stream = await getAudioStreamUrl('vid1');
-      expect(stream.url).toBe('https://audio-high.url');
-      expect(stream.mimeType).toContain('opus');
-      expect(stream.bitrate).toBe(128000);
+      expect(stream.url).toBe('https://stream.googlevideo.com/playback');
+      expect(stream.mimeType).toBe('audio/webm');
+      expect(mockResolveStreamUrl).toHaveBeenCalledWith('vid1');
     });
 
-    it('throws when no audio formats available', async () => {
-      setupMockClient();
-      await initYouTubeMusicClient();
+    it('throws when yt-dlp fails', async () => {
+      mockResolveStreamUrl.mockRejectedValueOnce(new Error('yt-dlp failed for vid1: Video unavailable'));
 
-      mockMusicGetInfo.mockResolvedValue({
-        streaming_data: { adaptive_formats: [] },
-      });
-
-      await expect(getAudioStreamUrl('vid1')).rejects.toThrow('No audio streams found');
+      await expect(getAudioStreamUrl('vid1')).rejects.toThrow('yt-dlp failed');
     });
   });
 
@@ -359,6 +337,49 @@ describe('youtube-music-client', () => {
       const tracks = await getUpNextTracks('other');
       expect(tracks[0]?.title).toBe('Unknown');
     });
+
+    it('falls back to anonymous client when authenticated client fails getInfo', async () => {
+      const anonymousGetInfo = vi.fn().mockResolvedValue({
+        getUpNext: vi.fn().mockResolvedValue({
+          contents: [
+            {
+              video_id: 'next1',
+              title: { toString: () => 'Fallback Track' },
+              artists: [{ name: 'FB Artist' }],
+              duration: { seconds: 180, text: '3:00' },
+              thumbnail: [],
+            },
+          ],
+        }),
+      });
+
+      mockCreate.mockResolvedValueOnce({
+        music: { search: mockMusicSearch, getInfo: mockMusicGetInfo },
+        session: { logged_in: true },
+      });
+      await initYouTubeMusicClient();
+
+      mockMusicGetInfo.mockRejectedValueOnce(new Error('400 bad request'));
+      mockCreate.mockResolvedValueOnce({
+        music: { search: vi.fn(), getInfo: anonymousGetInfo },
+      });
+
+      const tracks = await getUpNextTracks('current', 10);
+      expect(tracks).toHaveLength(1);
+      expect(tracks[0]?.title).toBe('Fallback Track');
+    });
+
+    it('throws when already anonymous and getInfo fails', async () => {
+      mockCreate.mockResolvedValueOnce({
+        music: { search: mockMusicSearch, getInfo: mockMusicGetInfo },
+        session: { logged_in: false },
+      });
+      await initYouTubeMusicClient();
+
+      mockMusicGetInfo.mockRejectedValueOnce(new Error('400 bad request'));
+
+      await expect(getUpNextTracks('vid1')).rejects.toThrow('400 bad request');
+    });
   });
 
   describe('destroyYouTubeMusicClient', () => {
@@ -368,9 +389,7 @@ describe('youtube-music-client', () => {
   });
 
   describe('getClient guard', () => {
-    it('throws from getAudioStreamUrl when client not initialized', async () => {
-      await expect(getAudioStreamUrl('vid1')).rejects.toThrow('not initialized');
-    });
+    // getAudioStreamUrl no longer uses getClient() — it delegates to yt-dlp.
 
     it('throws from getUpNextTracks when client not initialized', async () => {
       await expect(getUpNextTracks('vid1')).rejects.toThrow('not initialized');
@@ -560,231 +579,43 @@ describe('youtube-music-client', () => {
     });
   });
 
-  describe('getAudioStreamUrl edge cases', () => {
-    it('falls back to non-opus audio when no opus formats exist', async () => {
-      setupMockClient();
-      await initYouTubeMusicClient();
-
-      mockMusicGetInfo.mockResolvedValue({
-        streaming_data: {
-          adaptive_formats: [
-            {
-              has_audio: true,
-              has_video: false,
-              url: 'https://aac-audio.url',
-              mime_type: 'audio/mp4; codecs="mp4a.40.2"',
-              average_bitrate: 128000,
-              approx_duration_ms: 200000,
-            },
-          ],
-        },
-      });
-
-      const stream = await getAudioStreamUrl('vid1');
-      expect(stream.url).toBe('https://aac-audio.url');
-      expect(stream.mimeType).toContain('mp4');
-    });
-
-    it('throws when streaming_data is null', async () => {
-      setupMockClient();
-      await initYouTubeMusicClient();
-
-      mockMusicGetInfo.mockResolvedValue({
-        streaming_data: null,
-      });
-
-      await expect(getAudioStreamUrl('vid1')).rejects.toThrow('No audio streams found');
-    });
-
-    it('throws when best candidate has no url', async () => {
-      setupMockClient();
-      await initYouTubeMusicClient();
-
-      mockMusicGetInfo.mockResolvedValue({
-        streaming_data: {
-          adaptive_formats: [
-            {
-              has_audio: true,
-              has_video: false,
-              url: undefined,
-              mime_type: 'audio/webm; codecs="opus"',
-              average_bitrate: 128000,
-            },
-          ],
-        },
-      });
-
-      // No url and no decipher function — should fail at decipher step
-      await expect(getAudioStreamUrl('vid1')).rejects.toThrow('Failed to decipher stream URL');
-    });
-
-    it('defaults mimeType to audio/webm when mime_type is null', async () => {
-      setupMockClient();
-      await initYouTubeMusicClient();
-
-      mockMusicGetInfo.mockResolvedValue({
-        streaming_data: {
-          adaptive_formats: [
-            {
-              has_audio: true,
-              has_video: false,
-              url: 'https://no-mime.url',
-              mime_type: null,
-              average_bitrate: 96000,
-              approx_duration_ms: 180000,
-            },
-          ],
-        },
-      });
-
-      const stream = await getAudioStreamUrl('vid1');
-      expect(stream.mimeType).toBe('audio/webm');
-    });
-
-    it('falls back to bitrate when average_bitrate is null', async () => {
-      setupMockClient();
-      await initYouTubeMusicClient();
-
-      mockMusicGetInfo.mockResolvedValue({
-        streaming_data: {
-          adaptive_formats: [
-            {
-              has_audio: true,
-              has_video: false,
-              url: 'https://bitrate-fallback.url',
-              mime_type: 'audio/mp4',
-              average_bitrate: null,
-              bitrate: 96000,
-              approx_duration_ms: 150000,
-            },
-          ],
-        },
-      });
-
-      const stream = await getAudioStreamUrl('vid1');
-      expect(stream.bitrate).toBe(96000);
-    });
-
-    it('uses 0 for bitrate when both average_bitrate and bitrate are null', async () => {
-      setupMockClient();
-      await initYouTubeMusicClient();
-
-      mockMusicGetInfo.mockResolvedValue({
-        streaming_data: {
-          adaptive_formats: [
-            {
-              has_audio: true,
-              has_video: false,
-              url: 'https://no-bitrate.url',
-              mime_type: 'audio/mp4',
-              average_bitrate: null,
-              bitrate: null,
-              approx_duration_ms: 150000,
-            },
-          ],
-        },
-      });
-
-      const stream = await getAudioStreamUrl('vid1');
-      expect(stream.bitrate).toBe(0);
-    });
-
-    it('durationMs is undefined when approx_duration_ms is missing', async () => {
-      setupMockClient();
-      await initYouTubeMusicClient();
-
-      mockMusicGetInfo.mockResolvedValue({
-        streaming_data: {
-          adaptive_formats: [
-            {
-              has_audio: true,
-              has_video: false,
-              url: 'https://no-duration.url',
-              mime_type: 'audio/mp4',
-              average_bitrate: 128000,
-            },
-          ],
-        },
-      });
-
-      const stream = await getAudioStreamUrl('vid1');
-      expect(stream.durationMs).toBeUndefined();
-    });
-
-    it('falls back to anonymous client when authenticated client fails getInfo', async () => {
-      const anonymousGetInfo = vi.fn().mockResolvedValue({
-        streaming_data: {
-          adaptive_formats: [
-            {
-              has_audio: true,
-              has_video: false,
-              url: 'https://anonymous-stream.url',
-              mime_type: 'audio/webm; codecs="opus"',
-              average_bitrate: 128000,
-              approx_duration_ms: 210000,
-            },
-          ],
-        },
-      });
-
-      // First call: authenticated client that fails getInfo
-      mockCreate.mockResolvedValueOnce({
+  describe('replaceYouTubeMusicClient with logger', () => {
+    const setupMockClientWithSession = (loggedIn = false) => {
+      mockCreate.mockResolvedValue({
         music: { search: mockMusicSearch, getInfo: mockMusicGetInfo },
-        session: { logged_in: true },
+        session: { logged_in: loggedIn },
       });
-      await initYouTubeMusicClient();
+    };
 
-      mockMusicGetInfo.mockRejectedValueOnce(new Error('Request failed with status code 400'));
-      // Second call: anonymous fallback client
-      mockCreate.mockResolvedValueOnce({
-        music: { search: vi.fn(), getInfo: anonymousGetInfo },
+    it('logs client creation details when logger is provided', async () => {
+      setupMockClientWithSession(true);
+      const mockLogger = { info: vi.fn(), warn: vi.fn(), error: vi.fn(), debug: vi.fn() };
+
+      await replaceYouTubeMusicClient({
+        credentials: { authMethod: 'oauth' as const, accessToken: 'a', refreshToken: 'r', expiresAt: '' },
+        logger: mockLogger,
+        poTokenServerUrl: 'http://localhost:4416',
       });
 
-      const stream = await getAudioStreamUrl('vid1');
-      expect(stream.url).toBe('https://anonymous-stream.url');
-      expect(mockCreate).toHaveBeenCalledTimes(2);
+      expect(mockLogger.info).toHaveBeenCalledWith(
+        'music: creating Innertube client',
+        expect.objectContaining({ hasOAuth: true, poTokenServerUrl: 'http://localhost:4416' }),
+      );
+      expect(mockLogger.info).toHaveBeenCalledWith('music: OAuth sign-in completed', { logged_in: true });
+      expect(mockLogger.info).toHaveBeenCalledWith('music: client ready', { logged_in: true });
     });
 
-    it('throws original error when already anonymous and getInfo fails', async () => {
-      mockCreate.mockResolvedValueOnce({
-        music: { search: mockMusicSearch, getInfo: mockMusicGetInfo },
-        session: { logged_in: false },
-      });
-      await initYouTubeMusicClient();
+    it('logs without OAuth when no credentials', async () => {
+      setupMockClientWithSession(false);
+      const mockLogger = { info: vi.fn(), warn: vi.fn(), error: vi.fn(), debug: vi.fn() };
 
-      mockMusicGetInfo.mockRejectedValueOnce(new Error('Request failed with status code 400'));
+      await replaceYouTubeMusicClient({ logger: mockLogger });
 
-      await expect(getAudioStreamUrl('vid1')).rejects.toThrow('Request failed with status code 400');
-    });
-
-    it('sorts candidates by bitrate descending and picks highest', async () => {
-      setupMockClient();
-      await initYouTubeMusicClient();
-
-      mockMusicGetInfo.mockResolvedValue({
-        streaming_data: {
-          adaptive_formats: [
-            {
-              has_audio: true,
-              has_video: false,
-              url: 'https://low.url',
-              mime_type: 'audio/mp4',
-              average_bitrate: 64000,
-            },
-            {
-              has_audio: true,
-              has_video: false,
-              url: 'https://high.url',
-              mime_type: 'audio/mp4',
-              average_bitrate: 256000,
-            },
-          ],
-        },
-      });
-
-      const stream = await getAudioStreamUrl('vid1');
-      expect(stream.url).toBe('https://high.url');
-      expect(stream.bitrate).toBe(256000);
+      expect(mockLogger.info).toHaveBeenCalledWith('music: creating Innertube client', expect.objectContaining({ hasOAuth: false }));
+      expect(mockLogger.info).not.toHaveBeenCalledWith('music: OAuth sign-in completed', expect.anything());
     });
   });
+
+  // getAudioStreamUrl edge cases are now covered by resolve-stream-url.test.ts
+  // since the function delegates entirely to yt-dlp.
 });

@@ -255,10 +255,12 @@ Plugins can be disabled at runtime via `PluginConfig.enabled` in the database wi
 
 ### music plugin
 **Hooks:** `onSettingsChange`
-**Lifecycle:** `start` (init YouTube Music client, start Cast device mDNS discovery, init playback controller), `stop` (destroy client, stop discovery, destroy controller)
-**Tools:** `search`, `play`, `pause`, `resume`, `stop`, `skip`, `queue_add`, `queue_view`, `set_volume`, `list_devices`, `my_playlists`, `liked_songs`, `get_playback_settings`, `update_playback_settings`
-**Does:** YouTube Music playback on Cast devices (Chromecast, Google Home, Nest speakers). `play` accepts a search query or videoId and resolves a target Cast device by name (or uses last-used). Radio/autoplay mode keeps music playing after the current track ends. `update_playback_settings` persists changes to PluginConfig and triggers settings reload. `onSettingsChange('music')` reloads credentials and playback defaults.
-**Key behavior:** Settings schema defines YouTube auth credentials, cookie/poToken auth, device aliases, default volume, radio toggle, and audio quality.
+**Lifecycle:** `start` (check yt-dlp binary, fetch PO token from sidecar, init YouTube Music client, start Cast device mDNS discovery, init playback controller), `stop` (destroy client, stop discovery, destroy controller)
+**Tools:** `search`, `play`, `pause`, `resume`, `stop`, `skip`, `queue_add`, `queue_view`, `set_volume`, `list_devices`, `my_playlists`, `liked_songs`, `like_song`, `unlike_song`, `get_playback_settings`, `update_playback_settings`
+**Does:** YouTube Music playback on Cast devices (Chromecast, Google Home, Nest speakers). `play` accepts a search query or videoId and resolves a target Cast device by name (or uses last-used). Radio/autoplay mode keeps music playing after the current track ends. `update_playback_settings` persists changes to PluginConfig and triggers settings reload. `onSettingsChange('music')` resets PO token cache and reloads credentials and playback defaults.
+**Dual auth architecture:** OAuth device-code tokens (stored in PluginConfig) are used with TVHTML5 Innertube client context (`innertube-api.ts`) for authenticated operations: search, playlists, liked songs, like/unlike. Stream URL resolution uses `yt-dlp` as a subprocess (`resolve-stream-url.ts`) because youtubei.js's decipher is broken (returns empty strings as of v17.0.1). yt-dlp handles cipher rotation, PO tokens, and all YouTube-side auth internally and updates far more frequently than youtubei.js.
+**External dependencies:** `yt-dlp` must be installed on the host (`brew install yt-dlp`). `bgutil-ytdlp-pot-provider` Docker sidecar (port 4416) auto-generates Proof-of-Origin tokens with 6h TTL. Both are checked/logged on startup.
+**Key behavior:** Settings schema defines YouTube OAuth credentials, PO token server URL (default `http://localhost:4416`), manual PO token override, default volume, radio toggle, and audio quality. PO token is fetched fresh from the sidecar (5h local cache) for each stream resolution — not stale module state.
 
 ### playwright plugin
 **Hooks:** `onPipelineComplete`

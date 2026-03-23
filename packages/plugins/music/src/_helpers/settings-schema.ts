@@ -15,9 +15,15 @@ export const settingsSchema = createSettingsSchema({
   },
   poToken: {
     type: 'string' as const,
-    label: 'PO Token',
-    description: 'Proof-of-Origin token for stream access. Expires every ~12 hours. Extract via BgUtils.',
+    label: 'PO Token (Manual Override)',
+    description: 'Manual PO token override. Leave empty to auto-fetch from PO token server.',
     secret: true,
+  },
+  poTokenServerUrl: {
+    type: 'string' as const,
+    label: 'PO Token Server URL',
+    description: 'URL of the bgutil-ytdlp-pot-provider sidecar for automatic PO token generation.',
+    default: 'http://localhost:4416',
   },
   defaultVolume: {
     type: 'number' as const,

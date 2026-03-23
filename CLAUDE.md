@@ -196,7 +196,7 @@ cp packages/database/.env.example packages/database/.env
 pnpm setup
 
 # Or step-by-step:
-docker compose up -d               # PostgreSQL + Qdrant
+docker compose up -d               # PostgreSQL + Qdrant + Loki + Grafana + PO Token Server
 pnpm install
 pnpm db:generate
 pnpm db:push                       # Schema + FTS indexes (chained automatically)
@@ -204,7 +204,7 @@ pnpm --filter database db:seed
 pnpm dev
 ```
 
-Required: Node >= 22, pnpm 10.x, Docker (for PostgreSQL + Qdrant).
+Required: Node >= 22, pnpm 10.x, Docker (for PostgreSQL, Qdrant, Loki, Grafana, PO Token Server), yt-dlp (`brew install yt-dlp` — required for music playback).
 
 ## What Already Exists
 
@@ -340,10 +340,12 @@ Do not rebuild any of the following — these subsystems are fully implemented.
 ### Music Plugin (`packages/plugins/music/`)
 
 - YouTube Music playback via Cast devices (Chromecast, Google Home, Nest speakers)
-- 14 MCP tools: `search`, `play`, `pause`, `resume`, `stop`, `skip`, `queue_add`, `queue_view`, `set_volume`, `list_devices`, `my_playlists`, `liked_songs`, `get_playback_settings`, `update_playback_settings`
-- **Lifecycle:** `start` (init YouTube Music client + Cast device discovery + playback controller), `stop` (cleanup all)
-- **Hook:** `onSettingsChange` — reloads credentials and playback settings
-- Settings schema for YouTube auth, default volume, radio/autoplay, audio quality
+- 16 MCP tools: `search`, `play`, `pause`, `resume`, `stop`, `skip`, `queue_add`, `queue_view`, `set_volume`, `list_devices`, `my_playlists`, `liked_songs`, `like_song`, `unlike_song`, `get_playback_settings`, `update_playback_settings`
+- **Dual auth architecture:** OAuth (TVHTML5 client context via `innertube-api.ts`) for authenticated operations (search, playlists, likes); `yt-dlp` subprocess for stream URL resolution (handles YouTube cipher rotation)
+- **Lifecycle:** `start` (check yt-dlp availability, fetch PO token from sidecar, init YouTube Music client + Cast device discovery + playback controller), `stop` (cleanup all)
+- **Hook:** `onSettingsChange` — resets PO token cache, reloads credentials and playback settings
+- **External dependencies:** `yt-dlp` (system binary, `brew install yt-dlp`), `bgutil-ytdlp-pot-provider` Docker sidecar (port 4416, auto-generates PO tokens)
+- Settings schema for YouTube auth, PO token server URL, default volume, radio/autoplay, audio quality
 
 ### Playwright Plugin (`packages/plugins/playwright/`)
 

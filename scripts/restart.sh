@@ -48,6 +48,24 @@ if ! command -v pm2 &>/dev/null; then
   exit 1
 fi
 
+# --- Ensure Docker services are running ---
+
+if command -v docker &>/dev/null; then
+  CONTAINERS=("harness-postgres" "harness-qdrant" "harness-loki" "harness-grafana" "harness-po-token")
+  MISSING=false
+  for container in "${CONTAINERS[@]}"; do
+    if ! docker ps --format '{{.Names}}' | grep -q "^${container}$"; then
+      MISSING=true
+      break
+    fi
+  done
+  if [ "$MISSING" = true ]; then
+    log_step "Starting missing Docker containers..."
+    docker compose up -d
+    log_info "Docker containers started"
+  fi
+fi
+
 # --- Build ---
 
 if [ "$SKIP_BUILD" = false ]; then

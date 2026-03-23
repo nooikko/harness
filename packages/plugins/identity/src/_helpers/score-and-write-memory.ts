@@ -13,7 +13,7 @@ const SUMMARY_MAX_CHARS = 1500;
 
 const ImportanceSchema = z.object({
   importance: z.number().int().min(1).max(10),
-  userFact: z.string().optional(),
+  userFact: z.string().nullish(),
 });
 
 const SummarySchema = z.object({

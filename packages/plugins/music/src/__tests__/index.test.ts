@@ -82,6 +82,27 @@ vi.mock('../_helpers/device-routes', () => ({
   createDeviceRoutes: vi.fn().mockReturnValue([]),
 }));
 
+vi.mock('../_helpers/fetch-po-token', () => ({
+  fetchPoToken: vi.fn().mockResolvedValue('mock-po-token'),
+  resetPoTokenCache: vi.fn(),
+}));
+
+vi.mock('node:child_process', () => ({
+  execFile: vi.fn((_cmd: string, _args: string[], _opts: unknown, cb: (err: Error | null, stdout: string) => void) => {
+    cb(null, '2026.03.17');
+  }),
+}));
+
+vi.mock('../_helpers/innertube-api', () => ({
+  createInnertubeApi: vi.fn().mockReturnValue({
+    searchSongs: vi.fn().mockResolvedValue([]),
+    getLikedSongs: vi.fn().mockResolvedValue({ title: 'Liked', songCount: '0', tracks: [] }),
+    getPlaylists: vi.fn().mockResolvedValue([]),
+    likeSong: vi.fn().mockResolvedValue(undefined),
+    unlikeSong: vi.fn().mockResolvedValue(undefined),
+  }),
+}));
+
 const createMockContext = (): PluginContext => {
   const pluginConfig = {
     findUnique: vi.fn().mockResolvedValue(null),
@@ -601,6 +622,25 @@ describe('music plugin', () => {
     const meta = { threadId: 't1', traceId: 'tr1' };
     const getTool = () => musicPlugin.tools!.find((t) => t.name === 'my_playlists')!;
 
+    it('returns playlists via innertube API when OAuth is configured', async () => {
+      const ctx = createMockContext();
+      (ctx.getSettings as ReturnType<typeof vi.fn>).mockResolvedValue({
+        youtubeAuth: { accessToken: 'token', refreshToken: 'refresh' },
+      });
+
+      const { createInnertubeApi } = await import('../_helpers/innertube-api');
+      vi.mocked(createInnertubeApi).mockReturnValueOnce({
+        searchSongs: vi.fn(),
+        getLikedSongs: vi.fn(),
+        getPlaylists: vi.fn().mockResolvedValue([{ playlistId: 'pl1', title: 'Road Trip' }]),
+        likeSong: vi.fn(),
+        unlikeSong: vi.fn(),
+      });
+
+      const result = await getTool().handler(ctx, {}, meta);
+      expect(textOf(result)).toContain('Road Trip');
+    });
+
     it('returns error when client is null', async () => {
       const { getRawClient } = await import('../_helpers/youtube-music-client');
       vi.mocked(getRawClient).mockReturnValueOnce(null);
@@ -706,6 +746,29 @@ describe('music plugin', () => {
   describe('tool: liked_songs', () => {
     const meta = { threadId: 't1', traceId: 'tr1' };
     const getTool = () => musicPlugin.tools!.find((t) => t.name === 'liked_songs')!;
+
+    it('returns liked songs via innertube API when OAuth is configured', async () => {
+      const ctx = createMockContext();
+      (ctx.getSettings as ReturnType<typeof vi.fn>).mockResolvedValue({
+        youtubeAuth: { accessToken: 'token', refreshToken: 'refresh' },
+      });
+
+      const { createInnertubeApi } = await import('../_helpers/innertube-api');
+      vi.mocked(createInnertubeApi).mockReturnValueOnce({
+        searchSongs: vi.fn(),
+        getLikedSongs: vi.fn().mockResolvedValue({
+          title: 'Liked Music',
+          songCount: '5 songs',
+          tracks: [{ videoId: 'v1', title: 'Fav Song', artist: 'Fav Artist' }],
+        }),
+        getPlaylists: vi.fn(),
+        likeSong: vi.fn(),
+        unlikeSong: vi.fn(),
+      });
+
+      const result = await getTool().handler(ctx, {}, meta);
+      expect(textOf(result)).toContain('Fav Song');
+    });
 
     it('returns error when client is null', async () => {
       const { getRawClient } = await import('../_helpers/youtube-music-client');
@@ -979,6 +1042,88 @@ describe('music plugin', () => {
     });
   });
 
+  describe('tool: like_song', () => {
+    const getTool = () => musicPlugin.tools!.find((t) => t.name === 'like_song')!;
+    const meta = { threadId: 'thread-1' };
+
+    it('likes a song when authenticated', async () => {
+      const ctx = createMockContext();
+      (ctx.getSettings as ReturnType<typeof vi.fn>).mockResolvedValue({
+        youtubeAuth: { accessToken: 'token', refreshToken: 'refresh' },
+      });
+
+      const result = await getTool().handler(ctx, { videoId: 'abc123' }, meta);
+      expect(textOf(result)).toContain('Liked song');
+    });
+
+    it('returns error when not authenticated', async () => {
+      const ctx = createMockContext();
+      (ctx.getSettings as ReturnType<typeof vi.fn>).mockResolvedValue({});
+
+      const result = await getTool().handler(ctx, { videoId: 'abc123' }, meta);
+      expect(textOf(result)).toContain('Not authenticated');
+    });
+
+    it('handles API errors gracefully', async () => {
+      const ctx = createMockContext();
+      const { createInnertubeApi } = await import('../_helpers/innertube-api');
+      vi.mocked(createInnertubeApi).mockReturnValueOnce({
+        searchSongs: vi.fn(),
+        getLikedSongs: vi.fn(),
+        getPlaylists: vi.fn(),
+        likeSong: vi.fn().mockRejectedValue(new Error('API error')),
+        unlikeSong: vi.fn(),
+      });
+      (ctx.getSettings as ReturnType<typeof vi.fn>).mockResolvedValue({
+        youtubeAuth: { accessToken: 'token', refreshToken: 'refresh' },
+      });
+
+      const result = await getTool().handler(ctx, { videoId: 'abc123' }, meta);
+      expect(textOf(result)).toContain('like_song failed');
+    });
+  });
+
+  describe('tool: unlike_song', () => {
+    const getTool = () => musicPlugin.tools!.find((t) => t.name === 'unlike_song')!;
+    const meta = { threadId: 'thread-1' };
+
+    it('unlikes a song when authenticated', async () => {
+      const ctx = createMockContext();
+      (ctx.getSettings as ReturnType<typeof vi.fn>).mockResolvedValue({
+        youtubeAuth: { accessToken: 'token', refreshToken: 'refresh' },
+      });
+
+      const result = await getTool().handler(ctx, { videoId: 'abc123' }, meta);
+      expect(textOf(result)).toContain('Removed like');
+    });
+
+    it('returns error when not authenticated', async () => {
+      const ctx = createMockContext();
+      (ctx.getSettings as ReturnType<typeof vi.fn>).mockResolvedValue({});
+
+      const result = await getTool().handler(ctx, { videoId: 'abc123' }, meta);
+      expect(textOf(result)).toContain('Not authenticated');
+    });
+
+    it('handles API errors gracefully', async () => {
+      const ctx = createMockContext();
+      const { createInnertubeApi } = await import('../_helpers/innertube-api');
+      vi.mocked(createInnertubeApi).mockReturnValueOnce({
+        searchSongs: vi.fn(),
+        getLikedSongs: vi.fn(),
+        getPlaylists: vi.fn(),
+        likeSong: vi.fn(),
+        unlikeSong: vi.fn().mockRejectedValue(new Error('API error')),
+      });
+      (ctx.getSettings as ReturnType<typeof vi.fn>).mockResolvedValue({
+        youtubeAuth: { accessToken: 'token', refreshToken: 'refresh' },
+      });
+
+      const result = await getTool().handler(ctx, { videoId: 'abc123' }, meta);
+      expect(textOf(result)).toContain('unlike_song failed');
+    });
+  });
+
   describe('onSettingsChange hook', () => {
     it('ignores settings changes for other plugins', async () => {
       const ctx = createMockContext();
@@ -1072,6 +1217,105 @@ describe('music plugin', () => {
     it('has routes array', () => {
       expect(musicPlugin.routes).toBeDefined();
       expect(Array.isArray(musicPlugin.routes)).toBe(true);
+    });
+  });
+
+  describe('PO token integration', () => {
+    it('fetches PO token from sidecar on start', async () => {
+      const ctx = createMockContext();
+      (ctx.getSettings as ReturnType<typeof vi.fn>).mockResolvedValue({
+        poTokenServerUrl: 'http://localhost:4416',
+      });
+
+      const { fetchPoToken } = await import('../_helpers/fetch-po-token');
+      vi.mocked(fetchPoToken).mockResolvedValue('test-po-token');
+
+      await musicPlugin.start!(ctx);
+
+      expect(ctx.logger.info).toHaveBeenCalledWith('music: PO token fetched from sidecar');
+      expect(ctx.logger.info).toHaveBeenCalledWith(expect.stringContaining('+ PO token'));
+    });
+
+    it('logs yt-dlp version on start', async () => {
+      const ctx = createMockContext();
+      (ctx.getSettings as ReturnType<typeof vi.fn>).mockResolvedValue({});
+
+      const { execFile } = await import('node:child_process');
+      vi.mocked(execFile).mockImplementation((_cmd, _args, _opts, cb) => {
+        (cb as (err: Error | null, stdout: string) => void)(null, '2026.03.17\n');
+        return {} as ReturnType<typeof execFile>;
+      });
+
+      await musicPlugin.start!(ctx);
+
+      expect(ctx.logger.info).toHaveBeenCalledWith('music: yt-dlp available (v2026.03.17)');
+    });
+
+    it('logs error when yt-dlp is not installed', async () => {
+      const ctx = createMockContext();
+      (ctx.getSettings as ReturnType<typeof vi.fn>).mockResolvedValue({});
+
+      const { execFile } = await import('node:child_process');
+      vi.mocked(execFile).mockImplementation((_cmd, _args, _opts, cb) => {
+        (cb as (err: Error | null, stdout: string) => void)(new Error('not found'), '');
+        return {} as ReturnType<typeof execFile>;
+      });
+
+      await musicPlugin.start!(ctx);
+
+      expect(ctx.logger.error).toHaveBeenCalledWith(expect.stringContaining('yt-dlp is NOT installed'));
+    });
+
+    it('logs warning when PO token sidecar is unavailable', async () => {
+      const ctx = createMockContext();
+      (ctx.getSettings as ReturnType<typeof vi.fn>).mockResolvedValue({});
+
+      const { fetchPoToken } = await import('../_helpers/fetch-po-token');
+      vi.mocked(fetchPoToken).mockRejectedValue(new Error('ECONNREFUSED'));
+
+      await musicPlugin.start!(ctx);
+
+      expect(ctx.logger.warn).toHaveBeenCalledWith(expect.stringContaining('PO token sidecar unavailable'));
+    });
+
+    it('uses manual poToken override when set', async () => {
+      const ctx = createMockContext();
+      (ctx.getSettings as ReturnType<typeof vi.fn>).mockResolvedValue({
+        poToken: 'manual-token',
+      });
+
+      const { replaceYouTubeMusicClient } = await import('../_helpers/youtube-music-client');
+      vi.mocked(replaceYouTubeMusicClient).mockClear();
+
+      await musicPlugin.start!(ctx);
+
+      expect(vi.mocked(replaceYouTubeMusicClient)).toHaveBeenCalledWith(expect.objectContaining({ poToken: 'manual-token' }));
+    });
+  });
+
+  describe('onSettingsChange', () => {
+    it('resets PO token cache on music settings change', async () => {
+      const ctx = createMockContext();
+      const hooks = await musicPlugin.register(ctx);
+
+      const { resetPoTokenCache } = await import('../_helpers/fetch-po-token');
+      vi.mocked(resetPoTokenCache).mockClear();
+
+      await hooks.onSettingsChange!('music');
+
+      expect(vi.mocked(resetPoTokenCache)).toHaveBeenCalled();
+    });
+
+    it('ignores settings changes for other plugins', async () => {
+      const ctx = createMockContext();
+      const hooks = await musicPlugin.register(ctx);
+
+      const { resetPoTokenCache } = await import('../_helpers/fetch-po-token');
+      vi.mocked(resetPoTokenCache).mockClear();
+
+      await hooks.onSettingsChange!('discord');
+
+      expect(vi.mocked(resetPoTokenCache)).not.toHaveBeenCalled();
     });
   });
 });

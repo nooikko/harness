@@ -89,7 +89,7 @@ mkdir -p "$PROJECT_ROOT/logs"
 
 log_step "Checking Docker containers..."
 
-CONTAINERS=("harness-postgres" "harness-qdrant" "harness-loki" "harness-grafana")
+CONTAINERS=("harness-postgres" "harness-qdrant" "harness-loki" "harness-grafana" "harness-po-token")
 ALL_RUNNING=true
 
 for container in "${CONTAINERS[@]}"; do

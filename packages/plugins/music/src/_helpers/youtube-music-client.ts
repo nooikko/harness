@@ -1,5 +1,6 @@
 import type { OAuthStoredCredentials } from '@harness/plugin-contract';
 import Innertube, { UniversalCache } from 'youtubei.js';
+import { fetchPoToken } from './fetch-po-token';
 import { initWithCredentials } from './youtube-music-auth';
 
 // --- Types ---
@@ -22,9 +23,18 @@ export type MusicClientOptions = {
 
 type InnertubeClient = Awaited<ReturnType<typeof Innertube.create>>;
 
+type MusicLogger = {
+  info: (msg: string, meta?: Record<string, unknown>) => void;
+  warn: (msg: string, meta?: Record<string, unknown>) => void;
+  error: (msg: string, meta?: Record<string, unknown>) => void;
+  debug: (msg: string, meta?: Record<string, unknown>) => void;
+};
+
 // --- State ---
 
 let innertube: InnertubeClient | null = null;
+let poTokenServerUrl: string | undefined;
+let log: MusicLogger | null = null;
 
 // --- Lifecycle ---
 
@@ -49,7 +59,41 @@ export const destroyYouTubeMusicClient = (): void => {
   innertube = null;
 };
 
-export const replaceYouTubeMusicClient = async (options?: MusicClientOptions): Promise<void> => {
+export type MusicClientInitOptions = MusicClientOptions & {
+  poTokenServerUrl?: string;
+  logger?: MusicLogger;
+};
+
+const getFreshPoToken = async (): Promise<string | undefined> => {
+  if (!poTokenServerUrl) {
+    log?.debug('music: no PO token server configured, skipping');
+    return undefined;
+  }
+  try {
+    const token = await fetchPoToken(poTokenServerUrl);
+    log?.debug('music: PO token acquired', { serverUrl: poTokenServerUrl, tokenLength: token.length });
+    return token;
+  } catch (err) {
+    log?.warn('music: PO token fetch failed', {
+      serverUrl: poTokenServerUrl,
+      error: err instanceof Error ? err.message : String(err),
+    });
+    return undefined;
+  }
+};
+
+export const replaceYouTubeMusicClient = async (options?: MusicClientInitOptions): Promise<void> => {
+  poTokenServerUrl = options?.poTokenServerUrl;
+  log = options?.logger ?? null;
+
+  log?.info('music: creating Innertube client', {
+    hasOAuth: !!(options?.credentials?.authMethod === 'oauth'),
+    hasCookie: !!options?.cookie,
+    hasPoToken: !!options?.poToken,
+    poTokenServerUrl: poTokenServerUrl ?? '(none)',
+    cookieLength: options?.cookie?.length ?? 0,
+  });
+
   const newClient = await Innertube.create({
     cache: new UniversalCache(true),
     generate_session_locally: false,
@@ -62,10 +106,12 @@ export const replaceYouTubeMusicClient = async (options?: MusicClientOptions): P
 
   if (options?.credentials && options.credentials.authMethod === 'oauth') {
     await initWithCredentials(newClient as unknown as Parameters<typeof initWithCredentials>[0], options.credentials);
+    log?.info('music: OAuth sign-in completed', { logged_in: newClient.session.logged_in });
   }
 
   // Atomic swap — old client is GC'd, no window where innertube is null
   innertube = newClient;
+  log?.info('music: client ready', { logged_in: newClient.session.logged_in });
 };
 
 // --- Helpers ---
@@ -110,23 +156,28 @@ const parseSearchResults = (results: Awaited<ReturnType<InnertubeClient['music']
 
 export const searchSongs = async (query: string, limit = 10): Promise<MusicTrack[]> => {
   const yt = getClient();
+  log?.debug('music: searchSongs', { query, limit, logged_in: yt.session.logged_in });
 
   try {
     const results = await yt.music.search(query, { type: 'song' });
     return parseSearchResults(results, limit);
   } catch (err) {
-    // Authenticated clients can get 400s from YouTube's search endpoint.
-    // Fall back to an anonymous client for search — it doesn't need auth.
+    const errMsg = err instanceof Error ? err.message : String(err);
+    log?.warn('music: searchSongs primary failed', { query, error: errMsg, logged_in: yt.session.logged_in });
+
     if (!yt.session.logged_in) {
-      throw err; // Already anonymous, no fallback possible
+      throw err;
     }
 
+    log?.info('music: searchSongs falling back to anonymous', { query });
+    const freshPo = await getFreshPoToken();
     const anonymous = await Innertube.create({
       cache: new UniversalCache(true),
       generate_session_locally: false,
       retrieve_player: true,
       lang: 'en',
       location: 'US',
+      ...(freshPo ? { po_token: freshPo } : {}),
     });
     const results = await anonymous.music.search(query, { type: 'song' });
     return parseSearchResults(results, limit);
@@ -142,68 +193,23 @@ export type AudioStream = {
   durationMs: number | undefined;
 };
 
-type ExtractStreamFromInfo = (info: Awaited<ReturnType<InnertubeClient['music']['getInfo']>>, videoId: string) => Promise<AudioStream>;
-
-const extractStreamFromInfo: ExtractStreamFromInfo = async (info, videoId) => {
-  const adaptiveFormats = info.streaming_data?.adaptive_formats ?? [];
-  const audioFormats = adaptiveFormats.filter((f) => f.has_audio && !f.has_video);
-
-  if (audioFormats.length === 0) {
-    throw new Error(`No audio streams found for videoId: ${videoId}`);
-  }
-
-  // Prefer opus/webm (higher quality), fall back to others
-  const opus = audioFormats.filter((f) => f.mime_type?.includes('opus'));
-  const candidates = opus.length > 0 ? opus : audioFormats;
-
-  // Sort by bitrate descending
-  candidates.sort((a, b) => (b.average_bitrate ?? b.bitrate ?? 0) - (a.average_bitrate ?? a.bitrate ?? 0));
-
-  const best = candidates[0];
-  if (!best) {
-    throw new Error(`No suitable audio format for videoId: ${videoId}`);
-  }
-
-  // v17+: URLs may not be pre-deciphered — call decipher() if needed
-  let url = best.url;
-  if (!url && typeof best.decipher === 'function') {
-    url = await best.decipher();
-  }
-  if (!url) {
-    throw new Error(`Failed to decipher stream URL for videoId: ${videoId}`);
-  }
-
-  return {
-    url,
-    mimeType: best.mime_type ?? 'audio/webm',
-    bitrate: best.average_bitrate ?? best.bitrate ?? 0,
-    durationMs: best.approx_duration_ms,
-  };
-};
-
 export const getAudioStreamUrl = async (videoId: string): Promise<AudioStream> => {
-  const yt = getClient();
+  log?.info('music: getAudioStreamUrl via yt-dlp', { videoId });
 
   try {
-    const info = await yt.music.getInfo(videoId);
-    return extractStreamFromInfo(info, videoId);
-  } catch (err) {
-    // Authenticated clients get 400s from the player endpoint because OAuth
-    // TV tokens are incompatible with WEB_REMIX client context.
-    // Fall back to an anonymous client — stream URLs don't need auth.
-    if (!yt.session.logged_in) {
-      throw err;
-    }
-
-    const anonymous = await Innertube.create({
-      cache: new UniversalCache(true),
-      generate_session_locally: true,
-      retrieve_player: true,
-      lang: 'en',
-      location: 'US',
+    const { resolveStreamUrl } = await import('./resolve-stream-url');
+    const stream = await resolveStreamUrl(videoId);
+    log?.info('music: stream resolved via yt-dlp', {
+      videoId,
+      mimeType: stream.mimeType,
+      bitrate: stream.bitrate,
+      urlLength: stream.url.length,
     });
-    const info = await anonymous.music.getInfo(videoId);
-    return extractStreamFromInfo(info, videoId);
+    return stream;
+  } catch (err) {
+    const errMsg = err instanceof Error ? err.message : String(err);
+    log?.error('music: yt-dlp stream resolution failed', { videoId, error: errMsg });
+    throw err;
   }
 };
 
@@ -211,20 +217,26 @@ export const getAudioStreamUrl = async (videoId: string): Promise<AudioStream> =
 
 export const getUpNextTracks = async (videoId: string, limit = 10): Promise<MusicTrack[]> => {
   const yt = getClient();
+  log?.debug('music: getUpNextTracks', { videoId, limit, logged_in: yt.session.logged_in });
 
   let info: Awaited<ReturnType<InnertubeClient['music']['getInfo']>>;
   try {
     info = await yt.music.getInfo(videoId);
   } catch (err) {
+    const errMsg = err instanceof Error ? err.message : String(err);
+    log?.warn('music: getUpNextTracks primary getInfo failed', { videoId, error: errMsg });
     if (!yt.session.logged_in) {
       throw err;
     }
+    log?.info('music: getUpNextTracks falling back to anonymous', { videoId });
+    const freshPo = await getFreshPoToken();
     const anonymous = await Innertube.create({
       cache: new UniversalCache(true),
       generate_session_locally: true,
       retrieve_player: true,
       lang: 'en',
       location: 'US',
+      ...(freshPo ? { po_token: freshPo } : {}),
     });
     info = await anonymous.music.getInfo(videoId);
   }

@@ -35,7 +35,7 @@ echo ""
 
 echo -e "${BLUE}--- Docker Containers ---${NC}"
 if command -v docker &>/dev/null; then
-  CONTAINERS=("harness-postgres" "harness-qdrant" "harness-loki" "harness-grafana")
+  CONTAINERS=("harness-postgres" "harness-qdrant" "harness-loki" "harness-grafana" "harness-po-token")
   for container in "${CONTAINERS[@]}"; do
     STATUS=$(docker ps --filter "name=^${container}$" --format '{{.Status}}' 2>/dev/null)
     if [ -n "$STATUS" ]; then

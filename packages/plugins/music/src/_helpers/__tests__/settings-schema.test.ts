@@ -7,9 +7,9 @@ describe('settingsSchema', () => {
     expect(typeof settingsSchema.toFieldArray).toBe('function');
   });
 
-  it('returns all 6 fields', () => {
+  it('returns all 7 fields', () => {
     const fields = settingsSchema.toFieldArray();
-    expect(fields).toHaveLength(6);
+    expect(fields).toHaveLength(7);
   });
 
   it('includes youtubeAuth as oauth type', () => {

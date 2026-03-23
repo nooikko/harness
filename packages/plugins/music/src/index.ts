@@ -9,6 +9,7 @@ import {
 } from './_helpers/cast-device-manager';
 import { getDeviceAliases } from './_helpers/device-alias-manager';
 import { createDeviceRoutes } from './_helpers/device-routes';
+import { fetchPoToken, resetPoTokenCache } from './_helpers/fetch-po-token';
 import { formatLikedSongs } from './_helpers/format-liked-songs';
 import { formatPlaylists } from './_helpers/format-playlists';
 import { formatQueueState } from './_helpers/format-queue-state';
@@ -40,6 +41,7 @@ type MusicSettings = {
   youtubeAuth?: OAuthStoredCredentials;
   cookie?: string;
   poToken?: string;
+  poTokenServerUrl?: string;
   defaultVolume?: number;
   radioEnabled?: boolean;
   audioQuality?: string;
@@ -79,14 +81,38 @@ const loadAndApplySettings = async (ctx: PluginContext): Promise<MusicSettings> 
   return settings;
 };
 
+const resolvePoToken = async (ctx: PluginContext, settings: MusicSettings): Promise<string | undefined> => {
+  // Manual override takes priority
+  if (settings.poToken) {
+    return settings.poToken;
+  }
+
+  // Auto-fetch from PO token sidecar
+  const serverUrl = settings.poTokenServerUrl ?? 'http://localhost:4416';
+  try {
+    const token = await fetchPoToken(serverUrl);
+    ctx.logger.info('music: PO token fetched from sidecar');
+    return token;
+  } catch (err) {
+    ctx.logger.warn(`music: PO token sidecar unavailable (${serverUrl}): ${err instanceof Error ? err.message : String(err)}`);
+    return undefined;
+  }
+};
+
 const initClientWithSettings = async (ctx: PluginContext, settings: MusicSettings): Promise<void> => {
+  const poToken = await resolvePoToken(ctx, settings);
+
   await replaceYouTubeMusicClient({
     credentials: settings.youtubeAuth,
     cookie: settings.cookie,
-    poToken: settings.poToken,
+    poToken,
+    poTokenServerUrl: settings.poTokenServerUrl ?? 'http://localhost:4416',
+    logger: ctx.logger,
   });
 
-  ctx.logger.info(`music: Client initialized${settings.youtubeAuth ? ' (authenticated)' : settings.cookie ? ' (cookie auth)' : ' (anonymous)'}`);
+  const authMode = settings.youtubeAuth ? ' (authenticated)' : settings.cookie ? ' (cookie auth)' : ' (anonymous)';
+  const poMode = poToken ? ' + PO token' : '';
+  ctx.logger.info(`music: Client initialized${authMode}${poMode}`);
 };
 
 // --- Plugin definition ---
@@ -668,6 +694,16 @@ const musicPlugin: PluginDefinition = {
   ],
 
   start: async (ctx) => {
+    // Check yt-dlp availability (required for stream URL resolution)
+    const { execFile } = await import('node:child_process');
+    execFile('yt-dlp', ['--version'], { timeout: 5000 }, (err, stdout) => {
+      if (err) {
+        ctx.logger.error('music: yt-dlp is NOT installed — playback will fail. Install with: brew install yt-dlp');
+      } else {
+        ctx.logger.info(`music: yt-dlp available (v${stdout.trim()})`);
+      }
+    });
+
     ctx.logger.info('music: Loading settings...');
     const settings = await loadAndApplySettings(ctx);
 
@@ -700,6 +736,7 @@ const musicPlugin: PluginDefinition = {
       }
 
       ctx.logger.info('music: Settings changed, reloading...');
+      resetPoTokenCache();
       const settings = await loadAndApplySettings(ctx);
 
       // Reinitialize client with new credentials

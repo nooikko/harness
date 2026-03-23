@@ -1,4 +1,4 @@
-type DetectUserFacts = (parsed: { userFact?: string }) => string | null;
+type DetectUserFacts = (parsed: { userFact?: string | null }) => string | null;
 
 export const detectUserFacts: DetectUserFacts = (parsed) => {
   const fact = parsed.userFact?.trim();
