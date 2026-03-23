@@ -26,6 +26,7 @@
     "@harness/plugin-cron": "workspace:*",
     "@harness/plugin-delegation": "workspace:*",
     "@harness/plugin-discord": "workspace:*",
+    "@harness/plugin-govee": "workspace:*",
     "@harness/plugin-identity": "workspace:*",
     "@harness/plugin-logs": "workspace:*",
     "@harness/plugin-metrics": "workspace:*",
