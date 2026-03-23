@@ -102,11 +102,11 @@ export const DocumentSidebar = ({ storyId, documents }: DocumentSidebarProps) =>
         />
       ) : activeDoc ? (
         /* Document reader — full markdown content */
-        <ScrollArea className='flex-1'>
+        <div className='min-h-0 flex-1 overflow-y-auto'>
           <div className='prose prose-sm dark:prose-invert max-w-none px-4 py-3'>
             <MarkdownContent text={activeText ?? 'Loading...'} />
           </div>
-        </ScrollArea>
+        </div>
       ) : (
         /* Document list */
         <ScrollArea className='flex-1'>
