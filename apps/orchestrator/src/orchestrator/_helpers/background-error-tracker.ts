@@ -75,7 +75,9 @@ export const createBackgroundErrorTracker: CreateBackgroundErrorTracker = (
 
   const getErrors = (pluginName: string): Record<string, ErrorEntry> => {
     const pluginErrors = errors.get(pluginName);
-    if (!pluginErrors) return {};
+    if (!pluginErrors) {
+      return {};
+    }
     return Object.fromEntries(pluginErrors);
   };
 

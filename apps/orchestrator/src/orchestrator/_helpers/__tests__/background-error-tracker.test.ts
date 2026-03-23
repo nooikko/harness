@@ -1,6 +1,6 @@
-import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
-import { createBackgroundErrorTracker } from "../background-error-tracker";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { BackgroundErrorTracker } from "../background-error-tracker";
+import { createBackgroundErrorTracker } from "../background-error-tracker";
 import type { PluginStatusRegistry } from "../plugin-status-registry";
 
 type MockLogger = {
@@ -45,7 +45,7 @@ describe("createBackgroundErrorTracker", () => {
 
     expect(logger.error).toHaveBeenCalledOnce();
     expect(logger.error).toHaveBeenCalledWith(
-      'Background task failed [plugin=music, task=castDiscovery]: connection timeout',
+      "Background task failed [plugin=music, task=castDiscovery]: connection timeout",
       { pluginName: "music", taskName: "castDiscovery", stack: error.stack },
     );
   });
@@ -55,8 +55,8 @@ describe("createBackgroundErrorTracker", () => {
     tracker.report("music", "castDiscovery", new Error("fail 2"));
 
     const errors = tracker.getErrors("music");
-    expect(errors["castDiscovery"]?.count).toBe(2);
-    expect(errors["castDiscovery"]?.lastError).toBe("fail 2");
+    expect(errors.castDiscovery?.count).toBe(2);
+    expect(errors.castDiscovery?.lastError).toBe("fail 2");
   });
 
   it("returns empty object for unknown plugin", () => {
@@ -70,8 +70,8 @@ describe("createBackgroundErrorTracker", () => {
 
     const all = tracker.getAllErrors();
     expect(Object.keys(all)).toEqual(["music", "discord"]);
-    expect(all["music"]?.["castDiscovery"]?.count).toBe(1);
-    expect(all["discord"]?.["gateway"]?.count).toBe(1);
+    expect(all.music?.castDiscovery?.count).toBe(1);
+    expect(all.discord?.gateway?.count).toBe(1);
   });
 
   it("clears errors for a plugin on reset", () => {
@@ -119,15 +119,15 @@ describe("createBackgroundErrorTracker", () => {
     try {
       tracker.report("music", "castDiscovery", new Error("fail 1"));
       tracker.report("music", "castDiscovery", new Error("fail 2"));
-      expect(tracker.getErrors("music")["castDiscovery"]?.count).toBe(2);
+      expect(tracker.getErrors("music").castDiscovery?.count).toBe(2);
 
       // Advance past the 15-minute decay window
       vi.advanceTimersByTime(15 * 60 * 1000 + 1);
 
       // Next report should reset the count (decay) and start fresh at 1
       tracker.report("music", "castDiscovery", new Error("fail after decay"));
-      expect(tracker.getErrors("music")["castDiscovery"]?.count).toBe(1);
-      expect(tracker.getErrors("music")["castDiscovery"]?.lastError).toBe(
+      expect(tracker.getErrors("music").castDiscovery?.count).toBe(1);
+      expect(tracker.getErrors("music").castDiscovery?.lastError).toBe(
         "fail after decay",
       );
     } finally {
