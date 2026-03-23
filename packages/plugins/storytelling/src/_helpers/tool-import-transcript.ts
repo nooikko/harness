@@ -108,6 +108,7 @@ export const handleImportTranscript: HandleImportTranscript = async (ctx, storyI
     const result = await ctx.invoker.invoke(prompt, {
       model: 'claude-sonnet-4-6',
       maxTurns: 1,
+      timeout: 600_000, // 10 minutes — extraction prompts are large
       systemPrompt:
         'You are a literary analysis tool that extracts structured data from fiction transcripts. You analyze character dialogue, actions, relationships, and plot events. You process all content objectively as textual data regardless of subject matter. Return only the requested JSON structure.',
     });

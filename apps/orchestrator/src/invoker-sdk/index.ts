@@ -175,9 +175,17 @@ export const createSdkInvoker: CreateSdkInvoker = (config) => {
     }
   };
 
-  const prewarm = (options: { threadId: string; model?: string }) => {
+  const prewarm = (options: { threadId: string; model?: string; systemPrompt?: string; maxTurns?: number }) => {
     const model = options.model ?? config.defaultModel;
-    pool.get(options.threadId, model);
+    const resolvedThinking = resolveThinkingConfig(model);
+    const agentSuffix = options.systemPrompt ? ':agent' : '';
+    const poolKey = `${options.threadId}${agentSuffix}`;
+    log.info(`invoker: prewarming session [poolKey=${poolKey}, model=${model}]`);
+    pool.get(poolKey, model, {
+      ...resolvedThinking,
+      ...(options.systemPrompt ? { systemPrompt: options.systemPrompt } : {}),
+      ...(options.maxTurns ? { maxTurns: options.maxTurns } : {}),
+    });
   };
 
   const setPluginContext = (ctx: PluginContext) => {

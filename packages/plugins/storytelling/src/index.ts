@@ -573,6 +573,18 @@ export const plugin: PluginDefinition = {
   version: '1.0.0',
   register: createRegister(),
   start: async (ctx) => {
+    // Pre-warm the extraction session so import_transcript doesn't cold-start
+    if (ctx.invoker.prewarm) {
+      ctx.invoker.prewarm({
+        threadId: 'default',
+        model: 'claude-sonnet-4-6',
+        maxTurns: 1,
+        systemPrompt:
+          'You are a literary analysis tool that extracts structured data from fiction transcripts. You analyze character dialogue, actions, relationships, and plot events. You process all content objectively as textual data regardless of subject matter. Return only the requested JSON structure.',
+      });
+      ctx.logger.info('storytelling: extraction session pre-warming');
+    }
+
     // Ensure Qdrant collection exists for character similarity search
     const { ensureCharacterCollection } = await import('./_helpers/ensure-character-collection.js');
     const ready = await ensureCharacterCollection();

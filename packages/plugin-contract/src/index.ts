@@ -79,7 +79,7 @@ export type InvokeResult = {
 
 export type Invoker = {
   invoke: (prompt: string, options?: InvokeOptions) => Promise<InvokeResult>;
-  prewarm?: (options: { threadId: string; model?: string }) => void;
+  prewarm?: (options: { threadId: string; model?: string; systemPrompt?: string; maxTurns?: number }) => void;
 };
 
 // --- Plugin Settings ---

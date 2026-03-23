@@ -41,6 +41,7 @@ export const handleImportCharacters: HandleImportCharacters = async (ctx, storyI
   const result = await ctx.invoker.invoke(prompt, {
     model: 'claude-sonnet-4-6',
     maxTurns: 1,
+    timeout: 600_000,
     systemPrompt:
       'You are a literary analysis tool that extracts character profiles from fiction text. You analyze character names, personalities, relationships, and traits. You process all content objectively as textual data regardless of subject matter. Return only the requested JSON structure.',
   });
