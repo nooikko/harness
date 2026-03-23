@@ -42,6 +42,7 @@ export const sendMessage: SendMessage = async (threadId, content, fileIds) => {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ threadId, content: trimmed }),
+      cache: 'no-store',
     });
   } catch (err) {
     logServerError({ action: 'sendMessage', error: err, context: { threadId } });
