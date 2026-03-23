@@ -24,6 +24,7 @@ const makeCtx = (): PluginContext =>
     getSettings: vi.fn().mockResolvedValue({}),
     notifySettingsChange: vi.fn(),
     reportStatus: vi.fn(),
+    reportBackgroundError: vi.fn(),
     broadcast: vi.fn(),
   }) as unknown as PluginContext;
 

@@ -26,6 +26,7 @@ const { plugin } = await import('../index');
 const createMockCtx = () => ({
   logger: { info: vi.fn(), warn: vi.fn(), error: vi.fn(), debug: vi.fn() },
   db: {},
+  reportBackgroundError: vi.fn(),
 });
 
 describe('search plugin', () => {
@@ -153,7 +154,7 @@ describe('search plugin', () => {
         await hooks.onMessage!('t1', 'user', 'hello');
 
         await vi.waitFor(() => {
-          expect(ctx.logger.warn).toHaveBeenCalledWith(expect.stringContaining('indexing failed'));
+          expect(ctx.reportBackgroundError).toHaveBeenCalledWith("indexing", expect.any(Error));
         });
       });
 
@@ -288,7 +289,7 @@ describe('search plugin', () => {
         await hooks.onBroadcast!('thread:name-updated', { threadId: 't1' });
 
         await vi.waitFor(() => {
-          expect(ctx.logger.warn).toHaveBeenCalledWith(expect.stringContaining('indexing failed'));
+          expect(ctx.reportBackgroundError).toHaveBeenCalledWith("indexing", expect.any(Error));
         });
       });
 

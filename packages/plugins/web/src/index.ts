@@ -36,7 +36,8 @@ const createRegister: CreateRegister = () => async (ctx: PluginContext) => {
     // Fire-and-forget: sendToThread runs the full Claude pipeline (takes seconds).
     // We don't await it so the HTTP response returns immediately.
     ctx.sendToThread(threadId, content).catch((err: unknown) => {
-      logger.error(`onChatMessage: sendToThread failed [thread=${threadId}]: ${err instanceof Error ? err.message : String(err)}`);
+      const error = err instanceof Error ? err : new Error(String(err));
+      ctx.reportBackgroundError("chat-pipeline", error);
     });
   };
 

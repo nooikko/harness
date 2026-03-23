@@ -1,6 +1,7 @@
 import type { SdkMcpToolDefinition } from '@anthropic-ai/claude-agent-sdk';
 import { createSdkMcpServer } from '@anthropic-ai/claude-agent-sdk';
 import type { ContentBlock, PluginContext, PluginDefinition, PluginTool, PluginToolMeta } from '@harness/plugin-contract';
+import { ToolError } from '@harness/plugin-contract';
 import type { ZodTypeAny } from 'zod';
 import { jsonSchemaToZodShape } from './_helpers/json-schema-to-zod-shape';
 
@@ -56,12 +57,25 @@ export const createToolServer: CreateToolServer = (tools, contextRef) => {
         traceId: contextRef.traceId,
         ...(contextRef.taskId ? { taskId: contextRef.taskId } : {}),
       };
-      const raw = await t.handler(contextRef.ctx, input, meta);
-      const text = typeof raw === 'string' ? raw : raw.text;
-      if (typeof raw !== 'string' && raw.blocks.length > 0) {
-        contextRef.pendingBlocks.push(raw.blocks);
+      try {
+        const raw = await t.handler(contextRef.ctx, input, meta);
+        const text = typeof raw === 'string' ? raw : raw.text;
+        if (typeof raw !== 'string' && raw.blocks.length > 0) {
+          contextRef.pendingBlocks.push(raw.blocks);
+        }
+        return { content: [{ type: 'text' as const, text }] };
+      } catch (err) {
+        const code = err instanceof ToolError ? err.code : "INTERNAL_ERROR";
+        const message = err instanceof Error ? err.message : String(err);
+        contextRef.ctx.logger.error(`Tool "${t.qualifiedName}" failed [${code}]: ${message}`, {
+          toolName: t.qualifiedName,
+          pluginName: t.pluginName,
+          code,
+          threadId: meta.threadId,
+          traceId: meta.traceId,
+        });
+        return { content: [{ type: "text" as const, text: `[${code}] ${message}` }], isError: true };
       }
-      return { content: [{ type: 'text' as const, text }] };
     },
   }));
 

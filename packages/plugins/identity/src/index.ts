@@ -130,7 +130,8 @@ export const plugin: PluginDefinition = {
           importanceThreshold: settings.importanceThreshold,
           reflectionThreshold: settings.reflectionThreshold,
         }).catch((err) => {
-          ctx.logger.error(`scoreAndWriteMemory failed [agent=${agent.id}, thread=${threadId}]: ${err instanceof Error ? err.message : String(err)}`);
+          const error = err instanceof Error ? err : new Error(String(err));
+          ctx.reportBackgroundError("score-and-write-memory", error);
         });
       },
     };

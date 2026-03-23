@@ -16,7 +16,8 @@ const generateNameInBackground: GenerateNameInBackground = async (ctx, threadId,
     await ctx.db.thread.update({ where: { id: threadId }, data: { name } });
     await ctx.broadcast('thread:name-updated', { threadId, name });
   } catch (err) {
-    ctx.logger.warn(`auto-namer: failed to generate name [thread=${threadId}]: ${err}`);
+    const error = err instanceof Error ? err : new Error(String(err));
+    ctx.reportBackgroundError("generate-name", error);
   }
 };
 

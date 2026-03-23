@@ -45,11 +45,9 @@ const summarizeInBackground: SummarizeInBackground = async (ctx, threadId, messa
         },
       },
     });
-  } catch (error) {
-    ctx.logger.warn('summarization failed', {
-      threadId,
-      error: error instanceof Error ? error.message : String(error),
-    });
+  } catch (err) {
+    const error = err instanceof Error ? err : new Error(String(err));
+    ctx.reportBackgroundError("summarize-thread", error);
   }
 };
 

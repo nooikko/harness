@@ -93,6 +93,7 @@ const createMockContext: CreateMockContext = (overrides = {}) =>
     getSettings: vi.fn().mockResolvedValue({}),
     notifySettingsChange: vi.fn().mockResolvedValue(undefined),
     reportStatus: vi.fn(),
+    reportBackgroundError: vi.fn(),
     uploadFile: vi.fn().mockResolvedValue({ fileId: 'test', relativePath: 'test' }),
     ...overrides,
   }) as never;
@@ -302,7 +303,7 @@ describe('createCronServer', () => {
 
     await instance._handler();
 
-    expect(ctx.logger.error).toHaveBeenCalledWith(expect.stringContaining('pipeline failed'));
+    expect(ctx.reportBackgroundError).toHaveBeenCalledWith("cron-job:Test Job:send-to-thread", expect.any(Error));
     expect(db.cronJob.update).toHaveBeenCalledWith({
       where: { id: 'job-1' },
       data: {
@@ -664,8 +665,7 @@ describe('createCronServer', () => {
 
     await instance._handler();
 
-    expect(ctx.logger.error).toHaveBeenCalledWith(expect.stringContaining('failed to resolve thread'));
-    expect(ctx.logger.error).toHaveBeenCalledWith(expect.stringContaining('thread creation failed'));
+    expect(ctx.reportBackgroundError).toHaveBeenCalledWith("cron-job:Resolve Error Job:resolve-thread", expect.any(Error));
     // sendToThread and update should NOT have been called
     expect(ctx.sendToThread).not.toHaveBeenCalled();
     expect(db.cronJob.update).not.toHaveBeenCalled();

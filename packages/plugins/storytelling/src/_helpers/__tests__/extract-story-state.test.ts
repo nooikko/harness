@@ -52,6 +52,7 @@ const createMockContext: CreateMockContext = () =>
     getSettings: vi.fn(),
     notifySettingsChange: vi.fn(),
     reportStatus: vi.fn(),
+    reportBackgroundError: vi.fn(),
   }) as unknown as PluginContext;
 
 describe('extractStoryState', () => {

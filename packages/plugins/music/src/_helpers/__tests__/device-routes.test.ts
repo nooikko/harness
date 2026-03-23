@@ -37,6 +37,7 @@ describe('device-routes', () => {
       },
       notifySettingsChange: vi.fn().mockResolvedValue(undefined),
       reportStatus: vi.fn(),
+      reportBackgroundError: vi.fn(),
       uploadFile: vi.fn().mockResolvedValue({ fileId: 'test', relativePath: 'test' }),
       logger: { info: vi.fn(), warn: vi.fn(), error: vi.fn(), debug: vi.fn() },
     }) as unknown as PluginContext;

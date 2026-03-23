@@ -139,7 +139,8 @@ const delegateTools: PluginTool[] = [
         },
       })
         .catch((err) => {
-          ctx.logger.error(`Delegation tool failed: ${err instanceof Error ? err.message : String(err)}`);
+          const error = err instanceof Error ? err : new Error(String(err));
+          ctx.reportBackgroundError("delegation-loop", error);
         })
         .finally(() => {
           semaphore.release();

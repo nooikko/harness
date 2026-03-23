@@ -58,6 +58,7 @@ const createMockContext: CreateMockContext = (portOverride) => ({
   getSettings: vi.fn().mockResolvedValue({}),
   notifySettingsChange: vi.fn().mockResolvedValue(undefined),
   reportStatus: vi.fn(),
+  reportBackgroundError: vi.fn(),
   uploadFile: vi.fn().mockResolvedValue({ fileId: 'test', relativePath: 'test' }),
 });
 
@@ -229,7 +230,7 @@ describe('web plugin', () => {
 
     // The .catch() handler in onChatMessage is fire-and-forget — wait for it to settle
     await vi.waitFor(() => {
-      expect(ctx.logger.error).toHaveBeenCalledWith(expect.stringContaining('sendToThread failed [thread=t1]'));
+      expect(ctx.reportBackgroundError).toHaveBeenCalledWith("chat-pipeline", expect.any(Error));
     });
   });
 

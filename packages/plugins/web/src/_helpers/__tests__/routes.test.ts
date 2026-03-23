@@ -890,6 +890,7 @@ describe('plugin route mounting', () => {
       logger: mockPluginLogger,
       notifySettingsChange: vi.fn(),
       reportStatus: vi.fn(),
+      reportBackgroundError: vi.fn(),
       uploadFile: vi.fn().mockResolvedValue({ fileId: 'test', relativePath: 'test' }),
       broadcast: vi.fn(),
     } as unknown as PluginContext;
@@ -901,6 +902,7 @@ describe('plugin route mounting', () => {
       logger: mockPluginLogger,
       notifySettingsChange: vi.fn(),
       reportStatus: vi.fn(),
+      reportBackgroundError: vi.fn(),
       uploadFile: vi.fn().mockResolvedValue({ fileId: 'test', relativePath: 'test' }),
       broadcast: vi.fn(),
       pluginRoutes: [
@@ -1049,6 +1051,7 @@ describe('plugin route mounting — no routes', () => {
       logger,
       notifySettingsChange: vi.fn(),
       reportStatus: vi.fn(),
+      reportBackgroundError: vi.fn(),
       uploadFile: vi.fn().mockResolvedValue({ fileId: 'test', relativePath: 'test' }),
       broadcast: vi.fn(),
       // pluginRoutes is undefined

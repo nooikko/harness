@@ -187,6 +187,10 @@ export type PluginContext = {
   reportStatus: (level: PluginStatusLevel, message?: string, details?: Record<string, unknown>) => void;
   uploadFile: (input: UploadFileInput) => Promise<UploadFileResult>;
   pluginRoutes?: PluginRouteEntry[];
+  /** Report a background task error for observability. Fire-and-forget tasks
+   *  should call this in their .catch() handler so failures are tracked in the
+   *  status registry rather than only appearing in logs. */
+  reportBackgroundError: (taskName: string, error: Error) => void;
 };
 
 export type PluginHooks = {
@@ -227,6 +231,23 @@ export type ContentBlock = {
 };
 
 export type ToolResult = string | { text: string; blocks: ContentBlock[] };
+
+/**
+ * Throw ToolError from any tool handler to return a structured error to Claude.
+ * The tool server catches ToolError and returns it with `isError: true` so Claude
+ * can distinguish tool failures from successful results.
+ *
+ * Use `code` to classify the error (e.g. DB_ERROR, AUTH_FAILED, NOT_FOUND, TIMEOUT).
+ */
+export class ToolError extends Error {
+  public readonly code: string;
+
+  constructor(message: string, code = "TOOL_ERROR") {
+    super(message);
+    this.name = "ToolError";
+    this.code = code;
+  }
+}
 
 export type PluginToolHandler = (ctx: PluginContext, input: Record<string, unknown>, meta: PluginToolMeta) => Promise<ToolResult>;
 

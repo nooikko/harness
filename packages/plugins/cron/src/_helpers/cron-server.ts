@@ -77,7 +77,8 @@ export const createCronServer: CreateCronServer = (options) => {
               (job as { threadId: string | null }).threadId = threadId;
             }
           } catch (err) {
-            ctx.logger.error(`Cron plugin: failed to resolve thread for job "${job.name}": ${err instanceof Error ? err.message : String(err)}`);
+            const error = err instanceof Error ? err : new Error(String(err));
+            ctx.reportBackgroundError(`cron-job:${job.name}:resolve-thread`, error);
             return;
           }
 
@@ -88,7 +89,8 @@ export const createCronServer: CreateCronServer = (options) => {
           try {
             await ctx.sendToThread(threadId, job.prompt);
           } catch (err) {
-            ctx.logger.error(`Cron plugin: sendToThread failed for job "${job.name}": ${err instanceof Error ? err.message : String(err)}`);
+            const error = err instanceof Error ? err : new Error(String(err));
+            ctx.reportBackgroundError(`cron-job:${job.name}:send-to-thread`, error);
           }
 
           const nextRun = cronJob.nextRun() ?? null;

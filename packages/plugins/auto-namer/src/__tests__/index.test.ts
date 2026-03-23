@@ -20,6 +20,7 @@ const makeMockCtx = (invokeOutput = 'Generated Thread Name') => ({
   getSettings: vi.fn().mockResolvedValue({}),
   notifySettingsChange: vi.fn(),
   reportStatus: vi.fn(),
+  reportBackgroundError: vi.fn(),
   uploadFile: vi.fn().mockResolvedValue({ fileId: 'test', relativePath: 'test' }),
   invoker: {
     invoke: vi.fn().mockResolvedValue({
@@ -158,7 +159,7 @@ describe('auto-namer plugin', () => {
       await hooks.onMessage!('t-err', 'user', 'Content');
       await settle();
 
-      expect(ctx.logger.warn).toHaveBeenCalledWith(expect.stringMatching(/thread=t-err/));
+      expect(ctx.reportBackgroundError).toHaveBeenCalledWith("generate-name", expect.any(Error));
     });
   });
 

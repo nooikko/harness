@@ -29,6 +29,7 @@ const makeMockCtx = () => ({
   getSettings: vi.fn().mockResolvedValue({}),
   notifySettingsChange: vi.fn(),
   reportStatus: vi.fn(),
+  reportBackgroundError: vi.fn(),
   uploadFile: vi.fn().mockResolvedValue({ fileId: 'test', relativePath: 'test' }),
 });
 
@@ -147,7 +148,7 @@ describe('audit plugin', () => {
     await hooks.onBroadcast!('audit:requested', { threadId: 't-err' });
     await new Promise((r) => setTimeout(r, 10));
 
-    expect(ctx.logger.error).toHaveBeenCalled();
+    expect(ctx.reportBackgroundError).toHaveBeenCalledWith("audit-delete", expect.any(Error));
     expect(ctx.broadcast).toHaveBeenCalledWith('audit:failed', expect.objectContaining({ threadId: 't-err' }));
   });
 
@@ -270,7 +271,7 @@ describe('audit plugin', () => {
     await hooks.onBroadcast!('audit:requested', { threadId: 't-fk' });
     await new Promise((r) => setTimeout(r, 10));
 
-    expect(ctx.logger.error).toHaveBeenCalledWith(expect.stringContaining('t-fk'));
+    expect(ctx.reportBackgroundError).toHaveBeenCalledWith("audit-delete", expect.any(Error));
     expect(ctx.broadcast).toHaveBeenCalledWith('audit:failed', expect.objectContaining({ threadId: 't-fk' }));
   });
 

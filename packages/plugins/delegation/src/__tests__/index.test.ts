@@ -73,6 +73,7 @@ const createMockContext: CreateMockContext = () => ({
   getSettings: vi.fn().mockResolvedValue({}),
   notifySettingsChange: vi.fn().mockResolvedValue(undefined),
   reportStatus: vi.fn(),
+  reportBackgroundError: vi.fn(),
   uploadFile: vi.fn().mockResolvedValue({ fileId: 'test', relativePath: 'test' }),
 });
 
@@ -290,7 +291,7 @@ describe('plugin tools', () => {
 
     // Wait for the background promise to settle and log the error
     await vi.waitFor(() => {
-      expect(ctx.logger.error).toHaveBeenCalledWith(expect.stringContaining('Delegation tool failed'));
+      expect(ctx.reportBackgroundError).toHaveBeenCalledWith("delegation-loop", expect.any(Error));
     });
   });
 });

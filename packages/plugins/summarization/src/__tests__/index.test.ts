@@ -28,6 +28,7 @@ const createMockContext: CreateMockContext = () =>
     getSettings: vi.fn().mockResolvedValue({}),
     notifySettingsChange: vi.fn(),
     reportStatus: vi.fn(),
+    reportBackgroundError: vi.fn(),
     uploadFile: vi.fn().mockResolvedValue({ fileId: 'test', relativePath: 'test' }),
   }) as never;
 
@@ -179,7 +180,7 @@ describe('onAfterInvoke hook', () => {
     await vi.runAllTimersAsync();
 
     await vi.waitFor(() => {
-      expect(ctx.logger.warn).toHaveBeenCalledWith('summarization failed', expect.objectContaining({ threadId: 'thread-1' }));
+      expect(ctx.reportBackgroundError).toHaveBeenCalledWith("summarize-thread", expect.any(Error));
     });
   });
 

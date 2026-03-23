@@ -17,6 +17,7 @@ import type {
   PluginStatusLevel,
   SettingsFieldDefs,
 } from '@harness/plugin-contract';
+import { createBackgroundErrorTracker } from './_helpers/background-error-tracker';
 import { computeDisallowedTools } from './_helpers/compute-disallowed-tools';
 import { createScopedDb } from './_helpers/create-scoped-db';
 import { getPluginSettings } from './_helpers/get-plugin-settings';
@@ -73,6 +74,7 @@ export const createOrchestrator: CreateOrchestrator = (deps) => {
 
   // Status registry uses a late-bound broadcast ref (context.broadcast isn't available yet)
   const statusRegistry = createPluginStatusRegistry((event, data) => context.broadcast(event, data));
+  const backgroundErrors = createBackgroundErrorTracker(deps.logger, statusRegistry);
 
   // Mutable ref for late-binding — handleMessage is set after the return object is created
   type HandleMessageFn = (threadId: string, role: string, content: string, traceId?: string, logger?: Logger) => Promise<HandleMessageResult>;
@@ -230,6 +232,9 @@ export const createOrchestrator: CreateOrchestrator = (deps) => {
     reportStatus: () => {
       // No-op on the shared context — each plugin gets a scoped version in buildPluginContext
     },
+    reportBackgroundError: () => {
+      // No-op on the shared context — each plugin gets a scoped version in buildPluginContext
+    },
     uploadFile: createUploadFile({
       db: deps.db,
       uploadDir: deps.config.uploadDir,
@@ -243,8 +248,11 @@ export const createOrchestrator: CreateOrchestrator = (deps) => {
     const scopedReportStatus = (level: PluginStatusLevel, message?: string, details?: Record<string, unknown>) => {
       statusRegistry.report(definition.name, level, message, details);
     };
+    const scopedReportBackgroundError = (taskName: string, error: Error) => {
+      backgroundErrors.report(definition.name, taskName, error);
+    };
     if (definition.system) {
-      return { ...context, reportStatus: scopedReportStatus };
+      return { ...context, reportStatus: scopedReportStatus, reportBackgroundError: scopedReportBackgroundError };
     }
     return {
       ...context,
@@ -252,6 +260,7 @@ export const createOrchestrator: CreateOrchestrator = (deps) => {
       getSettings: async <T extends SettingsFieldDefs>(schema: PluginSettingsSchemaInstance<T>) =>
         getPluginSettings(deps.db, definition.name, schema),
       reportStatus: scopedReportStatus,
+      reportBackgroundError: scopedReportBackgroundError,
     };
   };
 

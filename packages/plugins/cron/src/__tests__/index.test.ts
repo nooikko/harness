@@ -43,6 +43,7 @@ const createMockContext: CreateMockContext = () => ({
   getSettings: vi.fn().mockResolvedValue({}),
   notifySettingsChange: vi.fn().mockResolvedValue(undefined),
   reportStatus: vi.fn(),
+  reportBackgroundError: vi.fn(),
   uploadFile: vi.fn().mockResolvedValue({ fileId: 'test', relativePath: 'test' }),
 });
 
@@ -351,6 +352,7 @@ const createIntegrationContext: CreateIntegrationContext = (overrides = {}) =>
     getSettings: vi.fn().mockResolvedValue({}),
     notifySettingsChange: vi.fn().mockResolvedValue(undefined),
     reportStatus: vi.fn(),
+    reportBackgroundError: vi.fn(),
     uploadFile: vi.fn().mockResolvedValue({ fileId: 'test', relativePath: 'test' }),
     ...overrides,
   }) as never;
@@ -588,7 +590,7 @@ describe('createCronServer — integration', () => {
 
     await instance._handler();
 
-    expect(ctx.logger.error).toHaveBeenCalledWith(expect.stringContaining('failed to resolve thread'));
+    expect(ctx.reportBackgroundError).toHaveBeenCalledWith("cron-job:Thread Fail Job:resolve-thread", expect.any(Error));
     expect(ctx.sendToThread).not.toHaveBeenCalled();
 
     await server.stop();
