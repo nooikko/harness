@@ -34,6 +34,7 @@ export default defineConfig({
 
       'packages/plugins/calendar',
       'packages/plugins/ssh',
+      'packages/plugins/workspace',
     ],
     coverage: {
       provider: 'v8',

@@ -180,7 +180,7 @@ describe('onAfterInvoke hook', () => {
     await vi.runAllTimersAsync();
 
     await vi.waitFor(() => {
-      expect(ctx.reportBackgroundError).toHaveBeenCalledWith("summarize-thread", expect.any(Error));
+      expect(ctx.reportBackgroundError).toHaveBeenCalledWith('summarize-thread', expect.any(Error));
     });
   });
 

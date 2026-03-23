@@ -28,6 +28,7 @@ import { plugin as tasksPlugin } from '@harness/plugin-tasks';
 import { plugin as timePlugin } from '@harness/plugin-time';
 import { plugin as validatorPlugin } from '@harness/plugin-validator';
 import { plugin as webPlugin } from '@harness/plugin-web';
+import { plugin as workspacePlugin } from '@harness/plugin-workspace';
 import { filterDisabledPlugins } from './_helpers/filter-disabled-plugins';
 import { syncPluginConfigs } from './_helpers/sync-plugin-configs';
 
@@ -36,6 +37,7 @@ const ALL_PLUGINS: PluginDefinition[] = [
   activityPlugin,
   contextPlugin,
   storytellingPlugin,
+  workspacePlugin,
   discordPlugin,
   webPlugin,
   cronPlugin,

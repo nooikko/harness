@@ -63,6 +63,7 @@ export type InvokeOptions = {
   effort?: 'low' | 'medium' | 'high' | 'max'; // Thinking effort level — overrides model-aware defaults
   systemPrompt?: string; // System prompt — frames the agent's role (flows to SDK agent definition)
   maxTurns?: number; // Maximum agentic turns before stopping (flows to SDK query options)
+  cwd?: string; // Working directory override — workspace tasks set this to the target project directory
 };
 
 export type InvokeResult = {
@@ -242,9 +243,9 @@ export type ToolResult = string | { text: string; blocks: ContentBlock[] };
 export class ToolError extends Error {
   public readonly code: string;
 
-  constructor(message: string, code = "TOOL_ERROR") {
+  constructor(message: string, code = 'TOOL_ERROR') {
     super(message);
-    this.name = "ToolError";
+    this.name = 'ToolError';
     this.code = code;
   }
 }

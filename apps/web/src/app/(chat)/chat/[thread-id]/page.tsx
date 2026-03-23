@@ -24,10 +24,15 @@ const ThreadPage: ThreadPageComponent = async ({ params }) => {
     notFound();
   }
 
-  const projects = await prisma.project.findMany({
-    select: { id: true, name: true },
-    orderBy: { name: 'asc' },
-  });
+  const [projects, workspacePlan] = await Promise.all([
+    prisma.project.findMany({
+      select: { id: true, name: true },
+      orderBy: { name: 'asc' },
+    }),
+    prisma.workspacePlan.findUnique({
+      where: { threadId },
+    }),
+  ]);
 
   const displayName = thread.name ?? `${thread.source}/${thread.sourceId}`;
 
@@ -40,6 +45,7 @@ const ThreadPage: ThreadPageComponent = async ({ params }) => {
     currentInstructions: thread.customInstructions,
     currentProjectId: thread.projectId,
     projects,
+    workspacePlan,
   };
 
   const chatContent = (

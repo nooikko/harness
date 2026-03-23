@@ -134,18 +134,15 @@ These are ordered by dependency. Each one unlocks the next. After this tier, Har
 ### ~~3. File Upload / Attachment Pipeline~~ — COMPLETE
 File uploads are fully implemented: Prisma File model, upload/delete/list server actions, multipart API route, file serving with proper headers, chat input with paperclip button, preview modal (images/PDFs/text), thread attachments panel, project files panel, context plugin injection. Only gap is programmatic uploads from plugins (addressed in #2 above).
 
-### 3. Staged Deployment Flow
+### 3. Staged Deployment Flow — DEFERRED
 - **What:** Agent builds Harness on staging server, validates with Playwright, promotes to production
 - **Current state:** `deploy/deploy.sh` exists for single-server PM2 deployment. No multi-server, no staging concept.
 - **New models:** Environment (links to SshHost, stores deploy path + env config) + Deployment (tracks each deploy with status + logs)
 - **Flow:** SSH deploy to staging → Playwright screenshots → user approves → SSH deploy to production
-- **Key insight:** SSH not Portainer, because deployment method varies (PM2, Docker, systemd) and SSH gives flexibility
 - **Plan file:** `tier1-staged-deployment.md`
 
-### 4. Agent Isolation Hardening
+### 4. Agent Isolation Hardening — DEFERRED
 - **What:** Per-agent permission scoping so self-managing agents can't brick the system
-- **Context:** Before agents can deploy and manage infrastructure, we need guardrails
-- **Key question:** Can we isolate `claude -p` subprocess execution while still passing through required env vars (ANTHROPIC_API_KEY, etc.)?
 - **Approach:** Incremental — env var allowlist → disallowedTools per agent → execution sandboxing
 - **Plan file:** `agent-isolation-research.md` (exists)
 
@@ -155,29 +152,45 @@ File uploads are fully implemented: Prisma File model, upload/delete/list server
 
 Once the self-managing loop works, these can be built by Harness itself (with human approval). They're the features that make it worth opening every day.
 
-### 6. Philips Hue Plugin
-- **What:** MCP tools for controlling lights via Hue Bridge local REST API
-- **Scope:** `packages/plugins/hue/` — tools for scenes, rooms, individual lights, brightness, color temp
-- **API:** Hue Bridge v2 API (local network, mDNS discovery, HTTPS + app key auth)
-- **Self-management:** Plugin exposes its own tools — `hue__set_light`, `hue__set_scene`, `hue__list_rooms`, etc.
-- **Feasibility:** High — well-documented REST API, no cloud dependency, straightforward plugin
-- **Plan file:** TBD
+### ~~6. Govee Lights Plugin~~ — COMPLETE
+- Originally planned as Philips Hue — switched to Govee (what we actually have)
+- `packages/plugins/govee/` — MCP tools for controlling Govee LED lights via LAN API
+- On worktree branch, pending merge
 
-### 7. Claude Status Monitor Plugin
+### ~~6b. Philips Hue Plugin~~ — WON'T DO
+- Replaced by Govee plugin (we don't use Hue)
+
+### ~~7. Rich Content Blocks~~ — COMPLETE
+- Content block framework: `ContentBlock` type in plugin-contract, `pendingBlocks` queue in tool server, activity plugin persistence, frontend registry with lazy-loaded renderers
+- 12 block types: email-list, email-folders, map, timer, recipe, calendar-events, calendar-day-summary, calendar-week-overview, now-playing, task-list, music-search, cron-jobs
+- Code block syntax highlighting with copy button (`code-block.tsx`)
+- Plan files: `rich-response-formatting.md`, `content-block-system.md`
+
+### 8. Morning News Digest
+- **What:** Automated daily briefing with web search results, delivered via Discord + web UI
+- **Scope:** Web search plugin (`packages/plugins/web-search/`) + digest formatting + cron trigger
+- **Plan file:** `morning-news-digest.md`
+
+### 9. Cron-Calendar Followups
+- **What:** Calendar-aware scheduling — detect conflicts when creating one-shots, smart rescheduling
+- **Scope:** Integration layer between cron and calendar plugins
+- **Plan file:** `cron-calendar-followups.md`
+
+### 10. Claude Status Monitor Plugin
 - **What:** Poll `status.anthropic.com` for incidents, notify via Discord + web UI
 - **Scope:** `packages/plugins/claude-status/` — polling cron or webhook, incident parsing, broadcast
 - **Source:** Atlassian Statuspage (RSS/Atom feed at `status.anthropic.com/history.atom`, or JSON API)
 - **Feasibility:** High — simple HTTP polling + parse + broadcast pattern
 - **Plan file:** TBD
 
-### 8. Plugin UI Coupling System
+### 11. Plugin UI Coupling System
 - **What:** Disabled plugins hide their UI routes/components automatically
 - **Scope:** Plugin metadata declares owned routes; web app layout checks plugin status at render time
 - **Includes:** System vs feature plugin classification, disable-protection for system plugins
 - **Research needed:** Calendar plugin dependency graph (Outlook Calendar ↔ Calendar plugin ↔ Calendar UI)
 - **Plan file:** TBD
 
-### 9. GitHub CI/Actions Integration
+### 12. GitHub CI/Actions Integration
 - **What:** Surface GitHub Actions status in UI, let agent trigger/monitor workflow runs
 - **Scope:** New MCP tools in a `packages/plugins/github-actions/` or extend existing GitHub MCP usage
 - **Self-management:** `github__list_runs`, `github__trigger_workflow`, `github__get_run_status`
@@ -191,7 +204,7 @@ Once the self-managing loop works, these can be built by Harness itself (with hu
 
 The UI where you watch everything happening, manage agents, and review their work.
 
-### 10. Coding Workspace / Agent Activity Dashboard
+### 13. Coding Workspace / Agent Activity Dashboard
 - **What:** Dedicated UI for watching agent work — live file diffs, tool call timeline, clickable file browser
 - **Scope:** New route `/workspace` or `/activity` in `apps/web/`
 - **Data source:** Activity plugin already captures `tool_call`, `tool_result`, `thinking` stream events
@@ -205,7 +218,7 @@ The UI where you watch everything happening, manage agents, and review their wor
 - **Feasibility:** Medium — data exists, this is primarily a frontend build
 - **Plan file:** TBD
 
-### 11. Roadmap → Task Delegation Bridge
+### 14. Roadmap → Task Delegation Bridge
 - **What:** Roadmap items become structured tasks that agents can pick up and execute
 - **Scope:** Could be part of the existing task system (plan at `task-list-system.md`) or a roadmap plugin
 - **Flow:** User reviews roadmap in Harness → marks item as "ready" → agent picks it up → delegation loop handles implementation → staged deploy → user reviews visual proof → approve/iterate
@@ -218,7 +231,7 @@ The UI where you watch everything happening, manage agents, and review their wor
 
 Rich notifications with Dynamic Island, actionable alerts, media control widgets. PWA can't do this.
 
-### 12. Native iOS App
+### 15. Native iOS App
 - **What:** Swift/SwiftUI app consuming Harness API. Push notifications via APNs.
 - **Features:**
   - Chat interface (mirrors web UI)
@@ -231,7 +244,7 @@ Rich notifications with Dynamic Island, actionable alerts, media control widgets
 - **Feasibility:** Medium-High — standard Swift app, but it's a whole new platform
 - **Plan file:** TBD
 
-### 13. macOS Companion App
+### 16. macOS Companion App
 - **What:** Menu bar app with notification center integration, possibly shares codebase with iOS via SwiftUI
 - **Features:** System tray presence, native macOS notifications, quick-reply, status indicator
 - **Feasibility:** Medium — SwiftUI multiplatform, shares most code with iOS app
@@ -241,7 +254,7 @@ Rich notifications with Dynamic Island, actionable alerts, media control widgets
 
 ## Tier 5: Research / Uncertain Feasibility
 
-### 14. iMessage Integration
+### 17. iMessage Integration
 - **What:** Two-way iMessage from Harness
 - **Reality:** Apple provides no public API. Known workarounds:
   - AppleScript `Messages.app` automation (macOS only, brittle, requires GUI session)
@@ -261,22 +274,18 @@ Rich notifications with Dynamic Island, actionable alerts, media control widgets
 - ~~Memory scoping~~ — 3-level AGENT/PROJECT/THREAD on AgentMemory
 - ~~Reflection cycle~~ — Phase 4 complete with scoped reflections
 - ~~File uploads~~ — Full pipeline: File model, upload/serve API, chat integration, preview modal, context plugin injection
-- ~~Playwright plugin~~ — 8 MCP tools (navigate, snapshot, click, fill, select, check, screenshot, press_key)
-- ~~E2E test framework~~ — Playwright Test configured, POM with 9 page objects, ~20 smoke/admin tests
+- ~~Playwright plugin~~ — 11 MCP tools, per-thread sessions, auto-cleanup
+- ~~Playwright Visual Capture~~ — `ctx.uploadFile`, screenshot/video persistence, inline media, `validate_pages`
+- ~~E2E test framework~~ — Playwright Test configured, POM with 9 page objects, 6 suites
 - ~~SSH plugin~~ — `@harness/plugin-ssh` with 5 MCP tools, connection pool, admin UI, key install, 155+ tests
 - ~~Search plugin hardening~~ — `qdrantReady` guard for graceful Qdrant downtime handling
-- ~~Playwright Visual Capture~~ — `ctx.uploadFile`, screenshot/video persistence, inline media, `validate_pages`, 11 tools
+- ~~Task list system~~ — UserTask model, 6 MCP tools, `/admin/tasks` + `/tasks` UI, dependencies
+- ~~Microsoft Graph / Outlook~~ — 8 MCP tools, OAuth token storage
+- ~~Calendar system~~ — Unified Outlook/Google/local, 14 MCP tools, `/calendar` UI
+- ~~Logging infrastructure~~ — `@harness/logger` + `@harness/plugin-logs`, Loki + file fallback
+- ~~Live delegation card~~ — Real-time status, progress bar, cancel, WebSocket updates
+- ~~Project area UI~~ — Project hub at `/chat/projects`, detail pages, settings, files, memory, threads
+- ~~Govee lights plugin~~ — On worktree branch, pending merge
+- ~~Storytelling plugin~~ — 20+ MCP tools, story workspace, character embedding, arcs, transcript import
+- ~~Rich content blocks~~ — 12 block types in registry, content block framework, code syntax highlighting + copy
 
----
-
-## Existing Plans (not yet on roadmap)
-
-These plan files exist but aren't prioritized above. Pull them in as needed:
-
-- `task-list-system.md` — UserTask model + plugin + /tasks UI
-- `rich-response-formatting.md` — Structured blocks in assistant responses
-- `project-area-ui.md` — Claude-style project hub page
-- `cron-calendar-followups.md` — Cron verification + calendar-aware one-shots
-- `morning-news-digest.md` — Web search plugin + Discord daily digest
-- `live-delegation-card.md` — Live-updating delegation card in chat
-- `content-block-system.md` — Rich content blocks for messages

@@ -249,4 +249,54 @@ describe('invokeSubAgent', () => {
     expect(result.output).toBe('Agent output here');
     expect(result.exitCode).toBe(0);
   });
+
+  it('handles persist-delegation-activity failure gracefully', async () => {
+    const ctx = createMockContext();
+    vi.mocked(persistDelegationActivity).mockRejectedValueOnce(new Error('DB write failed'));
+
+    const result = await invokeSubAgent(ctx, 'Do work', 'task-1', 'thread-1', undefined);
+
+    // Should still return the result despite persistence failure
+    expect(result.output).toBe('Agent output here');
+    expect(ctx.logger.warn).toHaveBeenCalled();
+  });
+
+  it('handles record-agent-run failure gracefully', async () => {
+    const ctx = createMockContext();
+    const agentRunCreate = (ctx.db as unknown as { agentRun: { create: ReturnType<typeof vi.fn> } }).agentRun.create;
+    agentRunCreate.mockRejectedValueOnce(new Error('Agent run write failed'));
+
+    const result = await invokeSubAgent(ctx, 'Do work', 'task-1', 'thread-1', undefined);
+
+    expect(result.output).toBe('Agent output here');
+    expect(ctx.logger.warn).toHaveBeenCalled();
+  });
+
+  it('handles message create failure gracefully', async () => {
+    const ctx = createMockContext();
+    const messageCreate = (ctx.db as unknown as { message: { create: ReturnType<typeof vi.fn> } }).message.create;
+    messageCreate.mockRejectedValueOnce(new Error('DB write failed'));
+
+    const result = await invokeSubAgent(ctx, 'Do work', 'task-1', 'thread-1', undefined);
+
+    expect(result.output).toBe('Agent output here');
+    expect(ctx.logger.warn).toHaveBeenCalled();
+  });
+
+  it('passes cwd to invoker when provided', async () => {
+    const ctx = createMockContext();
+
+    await invokeSubAgent(ctx, 'Do work', 'task-1', 'thread-1', undefined, undefined, undefined, '/tmp/workspace');
+
+    expect(ctx.invoker.invoke).toHaveBeenCalledWith('Do work', expect.objectContaining({ cwd: '/tmp/workspace' }));
+  });
+
+  it('omits cwd from invoker options when not provided', async () => {
+    const ctx = createMockContext();
+
+    await invokeSubAgent(ctx, 'Do work', 'task-1', 'thread-1', undefined);
+
+    const invokeOptions = (ctx.invoker.invoke as ReturnType<typeof vi.fn>).mock.calls[0]![1];
+    expect(invokeOptions).not.toHaveProperty('cwd');
+  });
 });

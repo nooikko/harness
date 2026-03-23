@@ -5,6 +5,8 @@ import type { Metadata } from 'next';
 import Link from 'next/link';
 import { ProjectCard } from './_components/project-card';
 
+export const dynamic = 'force-dynamic';
+
 export const metadata: Metadata = {
   title: 'Projects | Harness Dashboard',
   description: 'Manage projects for the Harness orchestrator',

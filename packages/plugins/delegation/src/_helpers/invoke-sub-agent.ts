@@ -14,9 +14,10 @@ type InvokeSubAgent = (
   model: string | undefined,
   onMessage?: OnStreamEvent,
   traceId?: string,
+  cwd?: string,
 ) => Promise<InvokeResult>;
 
-export const invokeSubAgent: InvokeSubAgent = async (ctx, prompt, taskId, threadId, model, onMessage, traceId) => {
+export const invokeSubAgent: InvokeSubAgent = async (ctx, prompt, taskId, threadId, model, onMessage, traceId, cwd) => {
   // Collect stream events for persistence while forwarding to the caller's callback
   const collectedEvents: InvokeStreamEvent[] = [];
   const wrappedOnMessage: OnStreamEvent | undefined = (event) => {
@@ -31,6 +32,7 @@ export const invokeSubAgent: InvokeSubAgent = async (ctx, prompt, taskId, thread
     onMessage: wrappedOnMessage,
     traceId,
     taskId,
+    ...(cwd ? { cwd } : {}),
   });
 
   // Post-invoke persistence — all guarded with .catch() so a DB failure here

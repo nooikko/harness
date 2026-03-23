@@ -92,8 +92,9 @@ export const createSdkInvoker: CreateSdkInvoker = (config) => {
         : '';
     const toolsSuffix = options?.disallowedTools?.length ? `:dt:${options.disallowedTools.length}` : '';
     const agentSuffix = options?.systemPrompt ? ':agent' : '';
+    const cwdSuffix = options?.cwd ? `:cwd:${options.cwd}` : '';
     const baseKey = options?.threadId ?? options?.sessionId ?? 'default';
-    const poolKey = `${baseKey}${effortSuffix}${toolsSuffix}${agentSuffix}`;
+    const poolKey = `${baseKey}${effortSuffix}${toolsSuffix}${agentSuffix}${cwdSuffix}`;
     const timeout = options?.timeout ?? config.defaultTimeout;
     const startTime = Date.now();
 
@@ -103,6 +104,7 @@ export const createSdkInvoker: CreateSdkInvoker = (config) => {
       ...(options?.disallowedTools?.length ? { disallowedTools: options.disallowedTools } : {}),
       ...(options?.systemPrompt ? { systemPrompt: options.systemPrompt } : {}),
       ...(options?.maxTurns ? { maxTurns: options.maxTurns } : {}),
+      ...(options?.cwd ? { cwd: options.cwd } : {}),
     });
     log.info(`invoker: session acquired, sending prompt [promptLength=${prompt.length}]`);
 
@@ -145,6 +147,9 @@ export const createSdkInvoker: CreateSdkInvoker = (config) => {
           const freshSession = pool.get(poolKey, model, {
             ...resolvedThinking,
             ...(options?.disallowedTools?.length ? { disallowedTools: options.disallowedTools } : {}),
+            ...(options?.systemPrompt ? { systemPrompt: options.systemPrompt } : {}),
+            ...(options?.maxTurns ? { maxTurns: options.maxTurns } : {}),
+            ...(options?.cwd ? { cwd: options.cwd } : {}),
           });
           const retryResult = await withTimeout(freshSession.send(prompt, sendOptions), timeout);
           const retryExtracted = extractResult(retryResult, Date.now() - startTime);

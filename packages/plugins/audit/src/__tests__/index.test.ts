@@ -148,7 +148,7 @@ describe('audit plugin', () => {
     await hooks.onBroadcast!('audit:requested', { threadId: 't-err' });
     await new Promise((r) => setTimeout(r, 10));
 
-    expect(ctx.reportBackgroundError).toHaveBeenCalledWith("audit-delete", expect.any(Error));
+    expect(ctx.reportBackgroundError).toHaveBeenCalledWith('audit-delete', expect.any(Error));
     expect(ctx.broadcast).toHaveBeenCalledWith('audit:failed', expect.objectContaining({ threadId: 't-err' }));
   });
 
@@ -271,7 +271,7 @@ describe('audit plugin', () => {
     await hooks.onBroadcast!('audit:requested', { threadId: 't-fk' });
     await new Promise((r) => setTimeout(r, 10));
 
-    expect(ctx.reportBackgroundError).toHaveBeenCalledWith("audit-delete", expect.any(Error));
+    expect(ctx.reportBackgroundError).toHaveBeenCalledWith('audit-delete', expect.any(Error));
     expect(ctx.broadcast).toHaveBeenCalledWith('audit:failed', expect.objectContaining({ threadId: 't-fk' }));
   });
 

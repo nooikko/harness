@@ -17,7 +17,7 @@ const generateNameInBackground: GenerateNameInBackground = async (ctx, threadId,
     await ctx.broadcast('thread:name-updated', { threadId, name });
   } catch (err) {
     const error = err instanceof Error ? err : new Error(String(err));
-    ctx.reportBackgroundError("generate-name", error);
+    ctx.reportBackgroundError('generate-name', error);
   }
 };
 

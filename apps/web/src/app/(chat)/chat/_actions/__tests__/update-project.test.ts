@@ -29,6 +29,7 @@ describe('updateProject', () => {
       description: null,
       instructions: null,
       model: null,
+      workingDirectory: null,
     });
 
     await updateProject('project-1', { name: 'New Name' });
@@ -40,6 +41,7 @@ describe('updateProject', () => {
         description: undefined,
         instructions: undefined,
         model: undefined,
+        workingDirectory: undefined,
       },
     });
   });
@@ -51,6 +53,7 @@ describe('updateProject', () => {
       description: 'New desc',
       instructions: 'New instructions',
       model: 'claude-sonnet-4-6',
+      workingDirectory: null,
     });
 
     await updateProject('project-1', {
@@ -67,6 +70,7 @@ describe('updateProject', () => {
         description: 'New desc',
         instructions: 'New instructions',
         model: 'claude-sonnet-4-6',
+        workingDirectory: undefined,
       },
     });
   });
@@ -78,6 +82,7 @@ describe('updateProject', () => {
       description: null,
       instructions: null,
       model: null,
+      workingDirectory: null,
     };
     mockUpdate.mockResolvedValue(mockProject);
 
@@ -93,6 +98,7 @@ describe('updateProject', () => {
       description: null,
       instructions: null,
       model: null,
+      workingDirectory: null,
     });
 
     await updateProject('project-1', { name: 'Updated' });
@@ -107,6 +113,7 @@ describe('updateProject', () => {
       description: null,
       instructions: null,
       model: null,
+      workingDirectory: null,
     });
 
     await updateProject('project-1', { name: 'Test', model: null });
@@ -118,6 +125,55 @@ describe('updateProject', () => {
         description: undefined,
         instructions: undefined,
         model: null,
+        workingDirectory: undefined,
+      },
+    });
+  });
+
+  it('sets workingDirectory on a project', async () => {
+    mockUpdate.mockResolvedValue({
+      id: 'project-1',
+      name: 'Test',
+      description: null,
+      instructions: null,
+      model: null,
+      workingDirectory: '/Users/quinn/dev/some-project',
+    });
+
+    await updateProject('project-1', { workingDirectory: '/Users/quinn/dev/some-project' });
+
+    expect(mockUpdate).toHaveBeenCalledWith({
+      where: { id: 'project-1' },
+      data: {
+        name: undefined,
+        description: undefined,
+        instructions: undefined,
+        model: undefined,
+        workingDirectory: '/Users/quinn/dev/some-project',
+      },
+    });
+  });
+
+  it('clears workingDirectory when null is passed', async () => {
+    mockUpdate.mockResolvedValue({
+      id: 'project-1',
+      name: 'Test',
+      description: null,
+      instructions: null,
+      model: null,
+      workingDirectory: null,
+    });
+
+    await updateProject('project-1', { workingDirectory: null });
+
+    expect(mockUpdate).toHaveBeenCalledWith({
+      where: { id: 'project-1' },
+      data: {
+        name: undefined,
+        description: undefined,
+        instructions: undefined,
+        model: undefined,
+        workingDirectory: null,
       },
     });
   });

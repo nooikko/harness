@@ -260,10 +260,12 @@ describe('boot', () => {
 
       await boot();
 
-      expect(mockCreateSdkInvoker).toHaveBeenCalledWith({
-        defaultModel: 'opus',
-        defaultTimeout: 60000,
-      });
+      expect(mockCreateSdkInvoker).toHaveBeenCalledWith(
+        expect.objectContaining({
+          defaultModel: 'opus',
+          defaultTimeout: 60000,
+        }),
+      );
     });
 
     it('gets plugins from the static registry', async () => {

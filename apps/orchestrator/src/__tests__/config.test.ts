@@ -30,7 +30,7 @@ describe('loadConfig', () => {
       expect(config.timezone).toBe('America/Phoenix');
       expect(config.maxConcurrentAgents).toBe(3);
       expect(config.claudeModel).toBe('haiku');
-      expect(config.claudeTimeout).toBe(300000);
+      expect(config.claudeTimeout).toBe(600000);
       expect(config.discordToken).toBeUndefined();
       expect(config.discordChannelId).toBeUndefined();
       expect(config.port).toBe(4001);

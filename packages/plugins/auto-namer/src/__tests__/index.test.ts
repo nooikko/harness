@@ -159,7 +159,7 @@ describe('auto-namer plugin', () => {
       await hooks.onMessage!('t-err', 'user', 'Content');
       await settle();
 
-      expect(ctx.reportBackgroundError).toHaveBeenCalledWith("generate-name", expect.any(Error));
+      expect(ctx.reportBackgroundError).toHaveBeenCalledWith('generate-name', expect.any(Error));
     });
   });
 

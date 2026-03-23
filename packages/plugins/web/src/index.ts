@@ -37,7 +37,7 @@ const createRegister: CreateRegister = () => async (ctx: PluginContext) => {
     // We don't await it so the HTTP response returns immediately.
     ctx.sendToThread(threadId, content).catch((err: unknown) => {
       const error = err instanceof Error ? err : new Error(String(err));
-      ctx.reportBackgroundError("chat-pipeline", error);
+      ctx.reportBackgroundError('chat-pipeline', error);
     });
   };
 

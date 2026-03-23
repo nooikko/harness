@@ -107,6 +107,22 @@ const delegateTools: PluginTool[] = [
           type: 'number',
           description: 'Maximum validation retry attempts before giving up. Default 5.',
         },
+        planId: {
+          type: 'string',
+          description: 'Workspace plan ID this delegation belongs to.',
+        },
+        planTaskId: {
+          type: 'string',
+          description: 'Which plan task this delegation maps to.',
+        },
+        parentTaskId: {
+          type: 'string',
+          description: 'Parent OrchestratorTask ID for depth tracking.',
+        },
+        cwd: {
+          type: 'string',
+          description: 'Working directory for the sub-agent. Defaults to system tmpdir.',
+        },
       },
       required: ['prompt'],
     },
@@ -116,8 +132,10 @@ const delegateTools: PluginTool[] = [
         return 'Error: prompt is required for delegation.';
       }
 
-      const limit = ctx.config.maxConcurrentAgents;
-      if (!semaphore.tryAcquire(limit)) {
+      const planId = input.planId as string | undefined;
+      // Workspace tasks get per-plan semaphore (default limit 5), non-workspace uses global
+      const limit = planId ? 5 : ctx.config.maxConcurrentAgents;
+      if (!semaphore.tryAcquire(limit, planId)) {
         return `Error: delegation limit reached (${limit} concurrent task(s) already running). Wait for an existing task to complete before delegating another.`;
       }
 
@@ -137,13 +155,17 @@ const delegateTools: PluginTool[] = [
         onTaskCreated: (taskId) => {
           abortControllers.set(taskId, abortController);
         },
+        planId: input.planId as string | undefined,
+        planTaskId: input.planTaskId as string | undefined,
+        parentTaskId: input.parentTaskId as string | undefined,
+        cwd: input.cwd as string | undefined,
       })
         .catch((err) => {
           const error = err instanceof Error ? err : new Error(String(err));
-          ctx.reportBackgroundError("delegation-loop", error);
+          ctx.reportBackgroundError('delegation-loop', error);
         })
         .finally(() => {
-          semaphore.release();
+          semaphore.release(planId);
         });
 
       return 'Task delegated successfully. You will receive a notification when the sub-agent completes.';

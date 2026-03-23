@@ -65,7 +65,7 @@ export const createToolServer: CreateToolServer = (tools, contextRef) => {
         }
         return { content: [{ type: 'text' as const, text }] };
       } catch (err) {
-        const code = err instanceof ToolError ? err.code : "INTERNAL_ERROR";
+        const code = err instanceof ToolError ? err.code : 'INTERNAL_ERROR';
         const message = err instanceof Error ? err.message : String(err);
         contextRef.ctx.logger.error(`Tool "${t.qualifiedName}" failed [${code}]: ${message}`, {
           toolName: t.qualifiedName,
@@ -74,7 +74,7 @@ export const createToolServer: CreateToolServer = (tools, contextRef) => {
           threadId: meta.threadId,
           traceId: meta.traceId,
         });
-        return { content: [{ type: "text" as const, text: `[${code}] ${message}` }], isError: true };
+        return { content: [{ type: 'text' as const, text: `[${code}] ${message}` }], isError: true };
       }
     },
   }));

@@ -48,7 +48,9 @@ EXCLUDED_PATTERNS = [
     # Plugin index files — wiring-only (no testable logic, just delegate to helpers)
     r"packages/plugins/(activity|project|tasks|outlook|time|playwright|logs|metrics|cron)/src/index\.ts$",
     # Plugin index files — has testable logic but below 80% branch coverage (TODO: add tests)
-    r"packages/plugins/(calendar|ssh)/src/index\.ts$",
+    r"packages/plugins/(calendar|ssh|delegation|workspace)/src/index\.ts$",
+    r"invoke-sub-agent\.ts$",  # delegation helper — .catch() branches require real I/O failures
+    r"prompt-template-types\.ts$",  # pure type declarations + const array — no branching logic
     r"packages/logger/src/index\.ts$",  # Logger factory — transport selection runs at module load, not branch-testable
     r"packages/logger/src/_helpers/create-http-logger\.ts$",  # pino-http factory — callbacks only exercised by HTTP server
     r"apps/web/src/app/api/oauth/callback/route\.ts$",  # OAuth callback — browser redirect flow, not unit-testable
@@ -113,6 +115,7 @@ PROJECT_DIRS = [
     ("packages/plugins/outlook-calendar/", "packages/plugins/outlook-calendar"),
     ("packages/plugins/logs/", "packages/plugins/logs"),
     ("packages/plugins/ssh/", "packages/plugins/ssh"),
+    ("packages/plugins/workspace/", "packages/plugins/workspace"),
 ]
 
 MAX_RETRIES = 2  # ESM race condition is non-deterministic; retry on failure

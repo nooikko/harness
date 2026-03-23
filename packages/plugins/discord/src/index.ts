@@ -248,7 +248,7 @@ const start: StartDiscordPlugin = async (ctx) => {
       // Run the Claude pipeline — fire-and-forget, same pattern as web plugin
       void ctx.sendToThread(thread.id, pipelineMsg.content).catch((err) => {
         const error = err instanceof Error ? err : new Error(String(err));
-        ctx.reportBackgroundError("discord-pipeline", error);
+        ctx.reportBackgroundError('discord-pipeline', error);
       });
 
       // Feed into pipeline via broadcast
@@ -275,7 +275,7 @@ const start: StartDiscordPlugin = async (ctx) => {
             // Run the Claude pipeline — fire-and-forget, same pattern as web plugin
             void ctx.sendToThread(existing.id, pipelineMsg.content).catch((err) => {
               const error = err instanceof Error ? err : new Error(String(err));
-              ctx.reportBackgroundError("discord-pipeline", error);
+              ctx.reportBackgroundError('discord-pipeline', error);
             });
 
             await ctx.broadcast('discord:message', {

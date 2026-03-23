@@ -131,7 +131,7 @@ export const plugin: PluginDefinition = {
           reflectionThreshold: settings.reflectionThreshold,
         }).catch((err) => {
           const error = err instanceof Error ? err : new Error(String(err));
-          ctx.reportBackgroundError("score-and-write-memory", error);
+          ctx.reportBackgroundError('score-and-write-memory', error);
         });
       },
     };

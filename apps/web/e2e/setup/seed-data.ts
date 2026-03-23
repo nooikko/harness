@@ -81,6 +81,55 @@ export const TEST_TASKS = {
   },
 } as const;
 
+export const TEST_WORKSPACE_PLAN = {
+  objective: 'E2E test comprehensive coverage for delegation plugin',
+  status: 'active',
+  planData: {
+    tasks: [
+      {
+        id: 't1',
+        title: 'Unit tests for delegation helpers',
+        description: 'Cover all _helpers/ files',
+        status: 'accepted',
+        dependsOn: [],
+        acceptanceCriteria: '80%+ coverage',
+        assignedTaskId: null,
+        assignedThreadId: null,
+        result: 'All tests passing, 92% coverage',
+        reviewNotes: null,
+        depth: 0,
+      },
+      {
+        id: 't2',
+        title: 'Integration tests for pipeline',
+        description: 'Full pipeline integration tests',
+        status: 'delegated',
+        dependsOn: ['t1'],
+        acceptanceCriteria: 'All endpoints tested',
+        assignedTaskId: null,
+        assignedThreadId: null,
+        result: null,
+        reviewNotes: null,
+        depth: 0,
+      },
+      {
+        id: 't3',
+        title: 'E2E test plan',
+        description: 'Plan comprehensive E2E tests',
+        status: 'pending',
+        dependsOn: [],
+        acceptanceCriteria: 'Comprehensive plan document',
+        assignedTaskId: null,
+        assignedThreadId: null,
+        result: null,
+        reviewNotes: null,
+        depth: 0,
+      },
+    ],
+  },
+  maxDepth: 3,
+} as const;
+
 export const TEST_PROFILE = {
   name: 'E2E Test User',
   pronouns: 'they/them',
@@ -106,6 +155,7 @@ export type SeedResult = {
   projectId: string;
   generalThreadId: string;
   cronThreadId: string;
+  workspaceThreadId: string;
 };
 
 export const seedTestData = async (databaseUrl: string): Promise<SeedResult> => {
@@ -131,11 +181,12 @@ export const seedTestData = async (databaseUrl: string): Promise<SeedResult> => 
       },
     });
 
-    // Project
+    // Project (with working directory for workspace tests)
     const project = await prisma.project.create({
       data: {
         name: TEST_PROJECT.name,
         description: TEST_PROJECT.description,
+        workingDirectory: '/tmp/e2e-test-project',
       },
     });
 
@@ -153,6 +204,29 @@ export const seedTestData = async (databaseUrl: string): Promise<SeedResult> => 
         ...TEST_THREADS.cron,
         agentId: agent.id,
         projectId: project.id,
+      },
+    });
+
+    // Workspace thread + plan
+    const workspaceThread = await prisma.thread.create({
+      data: {
+        source: 'e2e-test',
+        sourceId: 'workspace-thread',
+        name: 'E2E Workspace Thread',
+        kind: 'general',
+        status: 'active',
+        agentId: agent.id,
+        projectId: project.id,
+      },
+    });
+
+    await prisma.workspacePlan.create({
+      data: {
+        threadId: workspaceThread.id,
+        objective: TEST_WORKSPACE_PLAN.objective,
+        status: TEST_WORKSPACE_PLAN.status,
+        planData: TEST_WORKSPACE_PLAN.planData as Record<string, unknown>,
+        maxDepth: TEST_WORKSPACE_PLAN.maxDepth,
       },
     });
 
@@ -250,6 +324,7 @@ export const seedTestData = async (databaseUrl: string): Promise<SeedResult> => 
       projectId: project.id,
       generalThreadId: generalThread.id,
       cronThreadId: cronThread.id,
+      workspaceThreadId: workspaceThread.id,
     };
   } finally {
     await prisma.$disconnect();

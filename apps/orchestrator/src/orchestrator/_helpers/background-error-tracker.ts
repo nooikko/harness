@@ -2,8 +2,8 @@
 // Aggregates error counts and surfaces them via the status registry when a
 // threshold is reached, so silent failures become visible.
 
-import type { Logger } from "@harness/logger";
-import type { PluginStatusRegistry } from "./plugin-status-registry";
+import type { Logger } from '@harness/logger';
+import type { PluginStatusRegistry } from './plugin-status-registry';
 
 type ErrorEntry = {
   count: number;
@@ -24,22 +24,13 @@ const DEGRADED_THRESHOLD = 5;
 /** Window in ms over which error counts decay. Errors older than this are cleared on next report. */
 const DECAY_WINDOW_MS = 15 * 60 * 1000; // 15 minutes
 
-type CreateBackgroundErrorTracker = (
-  logger: Logger,
-  statusRegistry: PluginStatusRegistry,
-) => BackgroundErrorTracker;
+type CreateBackgroundErrorTracker = (logger: Logger, statusRegistry: PluginStatusRegistry) => BackgroundErrorTracker;
 
-export const createBackgroundErrorTracker: CreateBackgroundErrorTracker = (
-  logger,
-  statusRegistry,
-) => {
+export const createBackgroundErrorTracker: CreateBackgroundErrorTracker = (logger, statusRegistry) => {
   const errors = new Map<string, Map<string, ErrorEntry>>();
 
   const report = (pluginName: string, taskName: string, error: Error) => {
-    logger.error(
-      `Background task failed [plugin=${pluginName}, task=${taskName}]: ${error.message}`,
-      { pluginName, taskName, stack: error.stack },
-    );
+    logger.error(`Background task failed [plugin=${pluginName}, task=${taskName}]: ${error.message}`, { pluginName, taskName, stack: error.stack });
 
     let pluginErrors = errors.get(pluginName);
     if (!pluginErrors) {
@@ -65,7 +56,7 @@ export const createBackgroundErrorTracker: CreateBackgroundErrorTracker = (
 
     // Escalate to status registry when threshold is breached
     if (entry.count >= DEGRADED_THRESHOLD) {
-      statusRegistry.report(pluginName, "degraded", `Background task "${taskName}" failing repeatedly (${entry.count} errors in 15m)`, {
+      statusRegistry.report(pluginName, 'degraded', `Background task "${taskName}" failing repeatedly (${entry.count} errors in 15m)`, {
         taskName,
         errorCount: entry.count,
         lastError: error.message,

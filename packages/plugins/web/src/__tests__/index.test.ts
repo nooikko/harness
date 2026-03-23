@@ -230,7 +230,7 @@ describe('web plugin', () => {
 
     // The .catch() handler in onChatMessage is fire-and-forget — wait for it to settle
     await vi.waitFor(() => {
-      expect(ctx.reportBackgroundError).toHaveBeenCalledWith("chat-pipeline", expect.any(Error));
+      expect(ctx.reportBackgroundError).toHaveBeenCalledWith('chat-pipeline', expect.any(Error));
     });
   });
 

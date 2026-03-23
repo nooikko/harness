@@ -17,7 +17,7 @@ const indexInBackground: IndexInBackground = (ctx, fn) => {
       await fn();
     } catch (err) {
       const error = err instanceof Error ? err : new Error(String(err));
-      ctx.reportBackgroundError("indexing", error);
+      ctx.reportBackgroundError('indexing', error);
     }
   })();
 };

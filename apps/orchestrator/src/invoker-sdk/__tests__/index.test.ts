@@ -245,8 +245,8 @@ describe('createSdkInvoker', () => {
 
     invoker.prewarm({ threadId: 'thread-warm', model: 'sonnet' });
 
-    // prewarm does not apply effort encoding — it uses the raw threadId
-    expect(mockPool.get).toHaveBeenCalledWith('thread-warm', 'sonnet');
+    // prewarm uses the raw threadId and applies model-aware thinking defaults
+    expect(mockPool.get).toHaveBeenCalledWith('thread-warm', 'sonnet', expect.objectContaining({ effort: 'medium' }));
     expect(mockSession.send).not.toHaveBeenCalled();
   });
 
@@ -255,7 +255,8 @@ describe('createSdkInvoker', () => {
 
     invoker.prewarm({ threadId: 'thread-warm-default' });
 
-    expect(mockPool.get).toHaveBeenCalledWith('thread-warm-default', 'haiku');
+    // Haiku gets thinking disabled
+    expect(mockPool.get).toHaveBeenCalledWith('thread-warm-default', 'haiku', expect.objectContaining({ thinking: { type: 'disabled' } }));
   });
 
   it('prewarm uses raw threadId as pool key; invoke appends the effort suffix', async () => {
@@ -267,6 +268,54 @@ describe('createSdkInvoker', () => {
     const calls = vi.mocked(mockPool.get).mock.calls;
     expect(calls[0]![0]).toBe('thread-abc'); // prewarm uses raw key (no effort known at prewarm time)
     expect(calls[1]![0]).toBe('thread-abc:thinking:disabled'); // invoke encodes haiku default
+  });
+
+  it('passes systemPrompt and maxTurns to session config', async () => {
+    const invoker = createSdkInvoker({ defaultModel: 'haiku', defaultTimeout: 300000 });
+
+    await invoker.invoke('hello', { threadId: 'thread-1', systemPrompt: 'Be helpful.', maxTurns: 5 });
+
+    const sessionConfig = vi.mocked(mockPool.get).mock.calls[0]![2];
+    expect(sessionConfig).toEqual(expect.objectContaining({ systemPrompt: 'Be helpful.', maxTurns: 5 }));
+  });
+
+  it('includes agent suffix in pool key when systemPrompt is provided', async () => {
+    const invoker = createSdkInvoker({ defaultModel: 'haiku', defaultTimeout: 300000 });
+
+    await invoker.invoke('hello', { threadId: 'thread-1', systemPrompt: 'Be helpful.' });
+
+    const poolKey = vi.mocked(mockPool.get).mock.calls[0]![0];
+    expect(poolKey).toContain(':agent');
+  });
+
+  it('includes cwd suffix in pool key when cwd is provided', async () => {
+    const invoker = createSdkInvoker({ defaultModel: 'haiku', defaultTimeout: 300000 });
+
+    await invoker.invoke('hello', { threadId: 'thread-1', cwd: '/tmp/workspace' });
+
+    const poolKey = vi.mocked(mockPool.get).mock.calls[0]![0];
+    expect(poolKey).toContain(':cwd:/tmp/workspace');
+  });
+
+  it('passes cwd to session config', async () => {
+    const invoker = createSdkInvoker({ defaultModel: 'haiku', defaultTimeout: 300000 });
+
+    await invoker.invoke('hello', { threadId: 'thread-1', cwd: '/tmp/workspace' });
+
+    const sessionConfig = vi.mocked(mockPool.get).mock.calls[0]![2];
+    expect(sessionConfig).toEqual(expect.objectContaining({ cwd: '/tmp/workspace' }));
+  });
+
+  it('omits cwd from pool key and config when not provided', async () => {
+    const invoker = createSdkInvoker({ defaultModel: 'haiku', defaultTimeout: 300000 });
+
+    await invoker.invoke('hello', { threadId: 'thread-1' });
+
+    const poolKey = vi.mocked(mockPool.get).mock.calls[0]![0];
+    expect(poolKey).not.toContain(':cwd:');
+
+    const sessionConfig = vi.mocked(mockPool.get).mock.calls[0]![2];
+    expect(sessionConfig).not.toHaveProperty('cwd');
   });
 
   it('passes threadId, traceId, and taskId in send meta', async () => {
@@ -467,6 +516,24 @@ describe('createSdkInvoker', () => {
       // Both evict and retry get should use the effort-encoded key
       expect(mockPool.evict).toHaveBeenCalledWith('thread-1:effort:medium');
       expect(mockPool.get).toHaveBeenNthCalledWith(2, 'thread-1:effort:medium', 'claude-sonnet-4-6', { effort: 'medium' });
+    });
+
+    it('passes cwd to retry session on stale session', async () => {
+      const freshSession: Session = {
+        send: vi.fn().mockResolvedValue(successResult),
+        close: vi.fn(),
+        isAlive: true,
+        lastActivity: Date.now(),
+      };
+      vi.mocked(mockSession.send).mockRejectedValueOnce(new Error('Session is closed'));
+      vi.mocked(mockPool.get).mockReturnValueOnce(mockSession).mockReturnValueOnce(freshSession);
+
+      const invoker = createSdkInvoker({ defaultModel: 'haiku', defaultTimeout: 300000 });
+      await invoker.invoke('hello', { threadId: 'thread-1', cwd: '/tmp/workspace' });
+
+      // Retry should also include cwd in session config
+      const retryConfig = vi.mocked(mockPool.get).mock.calls[1]![2];
+      expect(retryConfig).toEqual(expect.objectContaining({ cwd: '/tmp/workspace' }));
     });
   });
 });

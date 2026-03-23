@@ -47,7 +47,7 @@ const summarizeInBackground: SummarizeInBackground = async (ctx, threadId, messa
     });
   } catch (err) {
     const error = err instanceof Error ? err : new Error(String(err));
-    ctx.reportBackgroundError("summarize-thread", error);
+    ctx.reportBackgroundError('summarize-thread', error);
   }
 };
 

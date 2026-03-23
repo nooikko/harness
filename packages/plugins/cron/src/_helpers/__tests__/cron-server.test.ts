@@ -303,7 +303,7 @@ describe('createCronServer', () => {
 
     await instance._handler();
 
-    expect(ctx.reportBackgroundError).toHaveBeenCalledWith("cron-job:Test Job:send-to-thread", expect.any(Error));
+    expect(ctx.reportBackgroundError).toHaveBeenCalledWith('cron-job:Test Job:send-to-thread', expect.any(Error));
     expect(db.cronJob.update).toHaveBeenCalledWith({
       where: { id: 'job-1' },
       data: {
@@ -665,7 +665,7 @@ describe('createCronServer', () => {
 
     await instance._handler();
 
-    expect(ctx.reportBackgroundError).toHaveBeenCalledWith("cron-job:Resolve Error Job:resolve-thread", expect.any(Error));
+    expect(ctx.reportBackgroundError).toHaveBeenCalledWith('cron-job:Resolve Error Job:resolve-thread', expect.any(Error));
     // sendToThread and update should NOT have been called
     expect(ctx.sendToThread).not.toHaveBeenCalled();
     expect(db.cronJob.update).not.toHaveBeenCalled();

@@ -203,4 +203,50 @@ describe('setupDelegationTask', () => {
       maxIterations: 3,
     });
   });
+
+  it('passes workspace fields to task creation', async () => {
+    const ctx = createMockContext();
+    mockThreadFindUnique.mockResolvedValue({ projectId: 'proj-1', agentId: 'agent-1' });
+    mockThreadCreate.mockResolvedValue({ id: 'thread-ws' });
+    mockTaskCreate.mockResolvedValue({ id: 'task-ws' });
+
+    await setupDelegationTask(
+      ctx,
+      [],
+      makeOptions({
+        planId: 'plan-1',
+        planTaskId: 't1',
+        parentTaskId: 'parent-task-1',
+        depth: 2,
+      }),
+    );
+
+    expect(mockTaskCreate).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({
+          planId: 'plan-1',
+          planTaskId: 't1',
+          parentTaskId: 'parent-task-1',
+          depth: 2,
+        }),
+      }),
+    );
+  });
+
+  it('defaults depth to 0 when not provided', async () => {
+    const ctx = createMockContext();
+    mockThreadFindUnique.mockResolvedValue({ projectId: 'proj-1', agentId: 'agent-1' });
+    mockThreadCreate.mockResolvedValue({ id: 'thread-1' });
+    mockTaskCreate.mockResolvedValue({ id: 'task-1' });
+
+    await setupDelegationTask(ctx, [], makeOptions());
+
+    expect(mockTaskCreate).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({
+          depth: 0,
+        }),
+      }),
+    );
+  });
 });

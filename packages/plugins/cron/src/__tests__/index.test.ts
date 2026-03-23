@@ -590,7 +590,7 @@ describe('createCronServer — integration', () => {
 
     await instance._handler();
 
-    expect(ctx.reportBackgroundError).toHaveBeenCalledWith("cron-job:Thread Fail Job:resolve-thread", expect.any(Error));
+    expect(ctx.reportBackgroundError).toHaveBeenCalledWith('cron-job:Thread Fail Job:resolve-thread', expect.any(Error));
     expect(ctx.sendToThread).not.toHaveBeenCalled();
 
     await server.stop();

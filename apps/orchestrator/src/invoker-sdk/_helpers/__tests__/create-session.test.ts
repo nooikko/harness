@@ -427,6 +427,69 @@ describe('createSession', () => {
     session.close();
   });
 
+  it('wraps systemPrompt into agent config when provided', async () => {
+    const session = createSession('sonnet', { systemPrompt: 'You are a test agent.' });
+    await tick();
+
+    expect(lastQueryOptions).toEqual(
+      expect.objectContaining({
+        agent: 'harness-agent',
+        agents: expect.objectContaining({
+          'harness-agent': expect.objectContaining({
+            prompt: 'You are a test agent.',
+          }),
+        }),
+      }),
+    );
+
+    session.close();
+  });
+
+  it('includes maxTurns in agent config when systemPrompt is also provided', async () => {
+    const session = createSession('sonnet', { systemPrompt: 'Be helpful.', maxTurns: 10 });
+    await tick();
+
+    expect(lastQueryOptions).toEqual(
+      expect.objectContaining({
+        agents: expect.objectContaining({
+          'harness-agent': expect.objectContaining({
+            maxTurns: 10,
+          }),
+        }),
+      }),
+    );
+
+    session.close();
+  });
+
+  it('passes maxTurns directly to query() when no systemPrompt', async () => {
+    const session = createSession('sonnet', { maxTurns: 10 });
+    await tick();
+
+    expect(lastQueryOptions).toEqual(
+      expect.objectContaining({
+        maxTurns: 10,
+      }),
+    );
+    // Should NOT have agent config
+    expect(lastQueryOptions?.agent).toBeUndefined();
+
+    session.close();
+  });
+
+  it('uses config.cwd when provided instead of os.tmpdir()', async () => {
+    const session = createSession('sonnet', { cwd: '/tmp/workspace-project' });
+    await tick();
+
+    expect(lastQueryOptions).toEqual(
+      expect.objectContaining({
+        cwd: '/tmp/workspace-project',
+      }),
+    );
+
+    session.close();
+  });
+
   it('passes thinking config to query() when provided in SessionConfig', async () => {
     const session = createSession('sonnet', { thinking: { type: 'disabled' } });
     await tick();

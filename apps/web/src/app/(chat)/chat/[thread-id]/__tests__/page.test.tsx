@@ -6,6 +6,8 @@ const mockFindUnique = vi.fn();
 const mockFindMany = vi.fn();
 const mockProjectFindMany = vi.fn().mockResolvedValue([]);
 
+const mockWorkspacePlanFindUnique = vi.fn().mockResolvedValue(null);
+
 vi.mock('@harness/database', () => ({
   prisma: {
     thread: {
@@ -16,6 +18,9 @@ vi.mock('@harness/database', () => ({
     },
     project: {
       findMany: (...args: unknown[]) => mockProjectFindMany(...args),
+    },
+    workspacePlan: {
+      findUnique: (...args: unknown[]) => mockWorkspacePlanFindUnique(...args),
     },
   },
 }));

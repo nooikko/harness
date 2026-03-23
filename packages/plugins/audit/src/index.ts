@@ -87,7 +87,7 @@ const runAuditInBackground: RunAuditInBackground = async (ctx, threadId, message
     await ctx.broadcast('thread:deleted', { threadId });
   } catch (err) {
     const error = err instanceof Error ? err : new Error(String(err));
-    ctx.reportBackgroundError("audit-delete", error);
+    ctx.reportBackgroundError('audit-delete', error);
     await ctx.broadcast('audit:failed', { threadId, reason: String(err) });
   } finally {
     activeAudits.delete(threadId);

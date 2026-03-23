@@ -154,7 +154,7 @@ describe('search plugin', () => {
         await hooks.onMessage!('t1', 'user', 'hello');
 
         await vi.waitFor(() => {
-          expect(ctx.reportBackgroundError).toHaveBeenCalledWith("indexing", expect.any(Error));
+          expect(ctx.reportBackgroundError).toHaveBeenCalledWith('indexing', expect.any(Error));
         });
       });
 
@@ -289,7 +289,7 @@ describe('search plugin', () => {
         await hooks.onBroadcast!('thread:name-updated', { threadId: 't1' });
 
         await vi.waitFor(() => {
-          expect(ctx.reportBackgroundError).toHaveBeenCalledWith("indexing", expect.any(Error));
+          expect(ctx.reportBackgroundError).toHaveBeenCalledWith('indexing', expect.any(Error));
         });
       });
 

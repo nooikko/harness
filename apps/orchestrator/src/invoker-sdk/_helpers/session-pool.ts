@@ -33,6 +33,7 @@ export type SessionConfig = {
   disallowedTools?: string[];
   systemPrompt?: string;
   maxTurns?: number;
+  cwd?: string; // Working directory override — workspace tasks set this to the target project directory
 };
 
 export type SessionFactory = (model: string, config?: SessionConfig) => Session;
