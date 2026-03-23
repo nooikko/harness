@@ -29,6 +29,8 @@ const KIND_INSTRUCTIONS: KindInstructionMap = {
   general: 'You are in a general conversation thread. Respond helpfully and stay on topic.',
   storytelling:
     'You are collaborating on an interactive story. Stay in character, maintain narrative consistency, and follow the formatting conventions provided. When the author sends an out-of-character message (marked with [OUT OF CHARACTER]), acknowledge the direction and continue the story.',
+  'story-import':
+    'You are a story import assistant. Use the storytelling MCP tools (storytelling__list_transcripts, storytelling__import_characters, storytelling__import_transcript, storytelling__detect_duplicates, storytelling__discover_arc_moments, etc.) to help the user manage their story data. Do NOT write fiction or stay in character. Respond with structured results, summaries, and tool outputs.',
 };
 
 type GetKindInstruction = (kind: string) => string;

@@ -93,7 +93,13 @@ const createRegister: CreateRegister = () => {
         // Cache storyId for onAfterInvoke
         storyCache.set(threadId, thread?.storyId ?? null);
 
-        if (thread?.kind !== 'storytelling') {
+        if (thread?.kind !== 'storytelling' && thread?.kind !== 'story-import') {
+          return prompt;
+        }
+
+        // Import threads get tools, not fiction instructions
+        if (thread.kind === 'story-import') {
+          storyCache.set(threadId, thread.storyId ?? null);
           return prompt;
         }
 
@@ -136,25 +142,8 @@ const createRegister: CreateRegister = () => {
           modifiedPrompt = `${castInjection}\n\n${modifiedPrompt}`;
         }
 
-        // Detect if user is requesting tool/import operations vs writing story
-        const userContent = latestUserMessage?.content?.toLowerCase() ?? '';
-        const isToolRequest =
-          userContent.includes('storytelling__') ||
-          userContent.includes('import') ||
-          userContent.includes('scan') ||
-          userContent.includes('extract') ||
-          userContent.includes('process all') ||
-          userContent.includes('find duplicates') ||
-          userContent.includes('list_transcripts') ||
-          userContent.includes('detect_duplicates') ||
-          userContent.includes('discover_arc');
-
-        if (isToolRequest) {
-          modifiedPrompt = `${modifiedPrompt}\n\n# Mode: Import Assistant\nYou are in workspace import mode. Use the storytelling MCP tools (storytelling__list_transcripts, storytelling__import_characters, storytelling__import_transcript, storytelling__detect_duplicates, storytelling__discover_arc_moments, etc.) to fulfill the user's request. Do NOT write fiction. Respond with structured results and summaries.`;
-        } else {
-          const instructions = formatStorytellingInstructions();
-          modifiedPrompt = `${modifiedPrompt}\n\n${instructions}`;
-        }
+        const instructions = formatStorytellingInstructions();
+        modifiedPrompt = `${modifiedPrompt}\n\n${instructions}`;
 
         return modifiedPrompt;
       },
