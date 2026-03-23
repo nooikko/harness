@@ -37,8 +37,7 @@ export const DocumentSidebar = ({ storyId, documents }: DocumentSidebarProps) =>
           if (!result) {
             return null;
           }
-          const fullText = result.messages.map((m) => m.content).join('\n\n');
-          return { id: doc.id, text: fullText };
+          return { id: doc.id, text: result.rawContent };
         }),
       );
       const map = new Map<string, string>();

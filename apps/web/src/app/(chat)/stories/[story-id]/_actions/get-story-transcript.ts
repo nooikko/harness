@@ -24,6 +24,7 @@ type TranscriptDetail = {
   processed: boolean;
   processedThrough: number | null;
   totalChunks: number | null;
+  rawContent: string;
   messages: TranscriptMessage[];
   annotations: AnnotationData[];
 } | null;
@@ -91,6 +92,7 @@ export const getStoryTranscript: GetStoryTranscript = async (transcriptId, story
     processed: transcript.processed,
     processedThrough: transcript.processedThrough,
     totalChunks: transcript.totalChunks,
+    rawContent: transcript.rawContent,
     messages,
     annotations: transcript.annotations.map((a) => ({
       id: a.id,
