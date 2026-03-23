@@ -7,10 +7,13 @@ import { mapStreamEvent } from './_helpers/map-stream-event';
 import type { SessionConfig, ThinkingConfig } from './_helpers/session-pool';
 import { createSessionPool } from './_helpers/session-pool';
 
+type Logger = { info: (msg: string) => void; warn: (msg: string) => void; error: (msg: string) => void };
+
 export type SdkInvokerConfig = {
   defaultModel: string;
   defaultTimeout: number;
   sessionConfig?: SessionConfig;
+  logger?: Logger;
 };
 
 type CreateSdkInvoker = (config: SdkInvokerConfig) => {
@@ -43,6 +46,7 @@ const withTimeout: WithTimeout = (promise, ms) => {
 };
 
 export const createSdkInvoker: CreateSdkInvoker = (config) => {
+  const log = config.logger ?? { info: () => {}, warn: () => {}, error: () => {} };
   const pool = createSessionPool(
     {
       maxSessions: 8,
@@ -92,10 +96,12 @@ export const createSdkInvoker: CreateSdkInvoker = (config) => {
     const timeout = options?.timeout ?? config.defaultTimeout;
     const startTime = Date.now();
 
+    log.info(`invoker: acquiring session [poolKey=${poolKey}, model=${model}, timeout=${timeout}ms]`);
     const session = pool.get(poolKey, model, {
       ...resolvedThinking,
       ...(options?.disallowedTools?.length ? { disallowedTools: options.disallowedTools } : {}),
     });
+    log.info(`invoker: session acquired, sending prompt [promptLength=${prompt.length}]`);
 
     // Construct per-invocation meta — flows to the session's contextRef via drainQueue
     const meta = {
@@ -121,25 +127,33 @@ export const createSdkInvoker: CreateSdkInvoker = (config) => {
 
     try {
       const result = await withTimeout(session.send(prompt, sendOptions), timeout);
-      return { ...extractResult(result, Date.now() - startTime), traceId: options?.traceId };
+      const extracted = extractResult(result, Date.now() - startTime);
+      log.info(`invoker: result received [outputLength=${extracted.output?.length ?? 0}, durationMs=${extracted.durationMs}]`);
+      return { ...extracted, traceId: options?.traceId };
     } catch (err) {
+      const errMsg = err instanceof Error ? err.message : String(err);
       // Retry once on stale session (TOCTOU: eviction timer closed it between get() and send())
       const isStaleSession = err instanceof Error && err.message === 'Session is closed';
       pool.evict(poolKey);
 
       if (isStaleSession) {
+        log.warn(`invoker: stale session, retrying [poolKey=${poolKey}]`);
         try {
           const freshSession = pool.get(poolKey, model, {
             ...resolvedThinking,
             ...(options?.disallowedTools?.length ? { disallowedTools: options.disallowedTools } : {}),
           });
           const retryResult = await withTimeout(freshSession.send(prompt, sendOptions), timeout);
-          return { ...extractResult(retryResult, Date.now() - startTime), traceId: options?.traceId };
+          const retryExtracted = extractResult(retryResult, Date.now() - startTime);
+          log.info(`invoker: retry succeeded [outputLength=${retryExtracted.output?.length ?? 0}, durationMs=${retryExtracted.durationMs}]`);
+          return { ...retryExtracted, traceId: options?.traceId };
         } catch (retryErr) {
+          const retryMsg = retryErr instanceof Error ? retryErr.message : String(retryErr);
+          log.error(`invoker: retry also failed [error=${retryMsg}, durationMs=${Date.now() - startTime}]`);
           pool.evict(poolKey);
           return {
             output: '',
-            error: retryErr instanceof Error ? retryErr.message : String(retryErr),
+            error: retryMsg,
             durationMs: Date.now() - startTime,
             exitCode: 1,
             traceId: options?.traceId,
@@ -147,9 +161,10 @@ export const createSdkInvoker: CreateSdkInvoker = (config) => {
         }
       }
 
+      log.error(`invoker: invocation failed [error=${errMsg}, durationMs=${Date.now() - startTime}]`);
       return {
         output: '',
-        error: err instanceof Error ? err.message : String(err),
+        error: errMsg,
         durationMs: Date.now() - startTime,
         exitCode: 1,
         traceId: options?.traceId,

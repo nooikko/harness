@@ -72,6 +72,7 @@ export const boot: Boot = async () => {
   const invoker = createSdkInvoker({
     defaultModel: config.claudeModel,
     defaultTimeout: config.claudeTimeout,
+    logger,
     // Per-session tool server: each session gets its own contextRef, passed to createToolServer
     // so tool handlers capture a session-local ref instead of a global one. drainQueue in
     // create-session.ts updates this ref when a request becomes active.

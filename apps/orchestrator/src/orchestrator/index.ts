@@ -103,9 +103,14 @@ export const createOrchestrator: CreateOrchestrator = (deps) => {
           const names = pluginNames();
           pipelineLogger.info(`sendToThread: starting [contentLength=${content.length}]`);
 
+          pipelineLogger.info('sendToThread: firing onPipelineStart hooks');
           await runNotifyHooks(allHooks(), 'onPipelineStart', (h) => h.onPipelineStart?.(threadId, { traceId }), pipelineLogger, names);
 
+          pipelineLogger.info('sendToThread: calling handleMessage');
           const result = await handle(threadId, 'user', content, traceId, pipelineLogger);
+          pipelineLogger.info(
+            `sendToThread: handleMessage returned [outputLength=${result.invokeResult.output?.length ?? 0}, durationMs=${result.invokeResult.durationMs}]`,
+          );
           const { invokeResult, pipelineSteps, streamEvents } = result;
 
           await runNotifyHooks(
