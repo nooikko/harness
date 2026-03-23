@@ -28,8 +28,8 @@ export const StoryWorkspace = ({ story, transcripts, importThreadId }: StoryWork
   return (
     <WorkspaceProvider>
       <div className={cn('flex h-[calc(100vh-3.5rem)] w-full')}>
-        {/* Left panel: Documents sidebar */}
-        <div className='flex w-70 shrink-0 flex-col overflow-hidden border-r'>
+        {/* Left panel: Documents */}
+        <div className='flex w-120 shrink-0 flex-col overflow-hidden border-r'>
           <DocumentSidebar storyId={story.id} documents={documents} />
         </div>
 
