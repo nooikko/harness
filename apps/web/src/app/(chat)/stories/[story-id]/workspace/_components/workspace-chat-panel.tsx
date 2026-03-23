@@ -27,20 +27,23 @@ type QuickAction = {
 const QUICK_ACTIONS: QuickAction[] = [
   {
     label: 'Scan Characters',
-    prompt: 'Scan all uploaded documents and transcripts to identify every unique character name. Present a summary of who you found.',
+    prompt:
+      'Use the storytelling__list_transcripts tool to see all uploaded transcripts. Then for each one, use storytelling__import_characters to extract character names and profiles. Present a summary of all unique characters found.',
   },
   {
     label: 'Process All',
     prompt:
-      'Process all unprocessed transcripts in order (by sort order). For each one, extract moments, identify characters, and note any significant events. Show progress as you go.',
+      'Use the storytelling__list_transcripts tool to see all unprocessed transcripts. Then process each one in sort order using storytelling__import_transcript. For each transcript, extract moments, identify characters, and note significant events. Report progress after each transcript.',
   },
   {
     label: 'Find Duplicates',
-    prompt: 'Run duplicate detection across all extracted moments. Identify potential duplicates and present them for review.',
+    prompt:
+      'Use the storytelling__detect_duplicates tool to scan all extracted moments for potential duplicates. Present the results for review with recommendations on which to merge.',
   },
   {
     label: 'Discover Arcs',
-    prompt: 'Discover story arcs from the existing moments. Look for narrative patterns, character development threads, and recurring themes.',
+    prompt:
+      'Use the storytelling__discover_arc_moments tool to find narrative arcs from existing moments. Look for character development threads, recurring themes, and story progression patterns.',
   },
 ];
 
