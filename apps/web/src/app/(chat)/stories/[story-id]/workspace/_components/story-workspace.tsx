@@ -1,7 +1,8 @@
 'use client';
 
 import { cn } from '@harness/ui';
-import { DocumentViewer } from './document-viewer';
+import { DocumentSidebar } from './document-sidebar';
+import { TranscriptStack } from './transcript-stack';
 import { WorkspaceChatPanel } from './workspace-chat-panel';
 import { WorkspaceProvider } from './workspace-context';
 
@@ -21,16 +22,24 @@ type StoryWorkspaceProps = {
 };
 
 export const StoryWorkspace = ({ story, transcripts, importThreadId }: StoryWorkspaceProps) => {
+  const chatTranscripts = transcripts.filter((t) => t.sourceType !== 'document').sort((a, b) => a.sortOrder - b.sortOrder);
+  const documents = transcripts.filter((t) => t.sourceType === 'document').sort((a, b) => a.sortOrder - b.sortOrder);
+
   return (
     <WorkspaceProvider>
       <div className={cn('flex h-[calc(100vh-3.5rem)] w-full')}>
-        {/* Left panel: Document viewer (2/3) */}
-        <div className='flex flex-1 flex-col overflow-hidden border-r'>
-          <DocumentViewer storyId={story.id} storyName={story.name} transcripts={transcripts} />
+        {/* Left panel: Documents sidebar */}
+        <div className='flex w-70 shrink-0 flex-col overflow-hidden border-r'>
+          <DocumentSidebar storyId={story.id} documents={documents} />
         </div>
 
-        {/* Right panel: AI Chat (1/3) */}
-        <div className='flex w-[400px] flex-col overflow-hidden'>
+        {/* Center panel: Transcript stack */}
+        <div className='flex flex-1 flex-col overflow-hidden border-r'>
+          <TranscriptStack storyId={story.id} storyName={story.name} transcripts={chatTranscripts} />
+        </div>
+
+        {/* Right panel: AI Chat */}
+        <div className='flex w-95 shrink-0 flex-col overflow-hidden'>
           <WorkspaceChatPanel storyId={story.id} threadId={importThreadId} />
         </div>
       </div>
