@@ -31,6 +31,7 @@ export type SessionConfig = {
   thinking?: ThinkingConfig;
   effort?: 'low' | 'medium' | 'high' | 'max';
   disallowedTools?: string[];
+  cwd?: string; // Working directory override — workspace tasks set this to the target project directory
 };
 
 export type SessionFactory = (model: string, config?: SessionConfig) => Session;

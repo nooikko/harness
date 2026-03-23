@@ -13,6 +13,11 @@ export type DelegationOptions = {
   traceId?: string;
   signal?: AbortSignal;
   onTaskCreated?: (taskId: string) => void;
+  planId?: string;
+  planTaskId?: string;
+  parentTaskId?: string;
+  depth?: number;
+  cwd?: string;
 };
 
 export type SetupDelegationTaskResult = {
@@ -55,6 +60,10 @@ export const setupDelegationTask: SetupDelegationTask = async (ctx, allHooks, op
         status: 'pending',
         maxIterations,
         currentIteration: 0,
+        ...(options.planId ? { planId: options.planId } : {}),
+        ...(options.planTaskId ? { planTaskId: options.planTaskId } : {}),
+        ...(options.parentTaskId ? { parentTaskId: options.parentTaskId } : {}),
+        depth: options.depth ?? 0,
       },
     });
 

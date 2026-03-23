@@ -138,7 +138,7 @@ export const runDelegationLoop: RunDelegationLoop = async (ctx, allHooks, option
           });
         });
     };
-    const invokeResult = await invokeSubAgent(ctx, iterationPrompt, taskId, threadId, options.model, onMessage, options.traceId);
+    const invokeResult = await invokeSubAgent(ctx, iterationPrompt, taskId, threadId, options.model, onMessage, options.traceId, options.cwd);
 
     // Check for cancellation immediately after invoke completes — avoids waiting
     // for the next loop iteration when cancellation arrived during a long invocation

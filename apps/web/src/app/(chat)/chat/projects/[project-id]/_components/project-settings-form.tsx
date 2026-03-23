@@ -2,7 +2,7 @@
 
 import type { Project } from '@harness/database';
 import { Button, Input, Label, Select, SelectContent, SelectItem, SelectTrigger, SelectValue, Separator, Textarea, Tooltip } from '@harness/ui';
-import { Sparkles } from 'lucide-react';
+import { FolderOpen, Sparkles, X } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import { useState, useTransition } from 'react';
 import { deleteProject } from '../../../_actions/delete-project';
@@ -34,6 +34,7 @@ export const ProjectSettingsForm: ProjectSettingsFormComponent = ({ project }) =
   const [saveError, setSaveError] = useState<string | null>(null);
   const [deleteError, setDeleteError] = useState<string | null>(null);
   const [confirmDelete, setConfirmDelete] = useState(false);
+  const [workingDirectory, setWorkingDirectory] = useState(project.workingDirectory ?? '');
   const [isRewritingDescription, startRewriteDescription] = useTransition();
   const [isRewritingInstructions, startRewriteInstructions] = useTransition();
 
@@ -65,6 +66,7 @@ export const ProjectSettingsForm: ProjectSettingsFormComponent = ({ project }) =
           description: description.trim() || undefined,
           model: model === '_inherit' ? null : model,
           instructions: instructions.trim() || undefined,
+          workingDirectory: workingDirectory.trim() || null,
         });
         router.push(`/chat/projects/${project.id}`);
       } catch (err) {
@@ -162,6 +164,33 @@ export const ProjectSettingsForm: ProjectSettingsFormComponent = ({ project }) =
             placeholder='You are a helpful assistant focused on...'
             rows={5}
           />
+        </div>
+
+        <div className='flex flex-col gap-1.5'>
+          <Label htmlFor='proj-working-dir'>
+            <span className='flex items-center gap-1.5'>
+              <FolderOpen className='h-3.5 w-3.5' />
+              Working Directory
+            </span>
+          </Label>
+          <p className='text-xs text-muted-foreground'>
+            Link a local directory for workspace agents to operate in. Agents will use this directory&apos;s Claude configuration, hooks, and
+            pre-commit checks.
+          </p>
+          <div className='flex gap-2'>
+            <Input
+              id='proj-working-dir'
+              value={workingDirectory}
+              onChange={(e) => setWorkingDirectory(e.target.value)}
+              placeholder='/path/to/your/project'
+              className='font-mono text-sm'
+            />
+            {workingDirectory && (
+              <Button type='button' variant='ghost' size='icon' onClick={() => setWorkingDirectory('')} aria-label='Clear working directory'>
+                <X className='h-4 w-4' />
+              </Button>
+            )}
+          </div>
         </div>
 
         {project.memory && (

@@ -1,10 +1,12 @@
 'use client';
 
+import type { WorkspacePlan } from '@harness/database';
 import { Button } from '@harness/ui';
 import { Paperclip, Settings2, Users } from 'lucide-react';
 import { useState } from 'react';
 import { ManageThreadModal } from './manage-thread-modal';
 import { ThreadAttachmentsPanel } from './thread-attachments-panel';
+import { WorkspaceControls } from './workspace-controls';
 
 type ProjectOption = {
   id: string;
@@ -21,6 +23,7 @@ type ThreadHeaderProps = {
   currentProjectId: string | null;
   projects: ProjectOption[];
   storyId?: string | null;
+  workspacePlan?: WorkspacePlan | null;
   onToggleCharacters?: () => void;
   isCharacterPanelOpen?: boolean;
 };
@@ -37,6 +40,7 @@ export const ThreadHeader: ThreadHeaderComponent = ({
   currentProjectId,
   projects,
   storyId,
+  workspacePlan,
   onToggleCharacters,
   isCharacterPanelOpen,
 }) => {
@@ -49,6 +53,7 @@ export const ThreadHeader: ThreadHeaderComponent = ({
         <div className='mx-auto flex max-w-4xl items-center justify-between px-4 py-3 sm:px-6'>
           <h1 className='truncate text-sm font-medium text-foreground/80'>{displayName}</h1>
           <div className='flex items-center gap-1'>
+            {workspacePlan && workspacePlan.status !== 'completed' && workspacePlan.status !== 'failed' && <WorkspaceControls plan={workspacePlan} />}
             {storyId && onToggleCharacters && (
               <Button
                 variant='ghost'

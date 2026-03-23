@@ -80,10 +80,10 @@ export const createSession: CreateSession = (model, config) => {
     prompt: messageStream(),
     options: {
       model,
-      // Use a neutral cwd outside the project tree so the Claude subprocess does not
+      // Use config.cwd if provided (workspace tasks set this to the target project directory).
+      // Otherwise use a neutral cwd outside the project tree so the Claude subprocess does not
       // auto-load the harness CLAUDE.md, .claude/rules/, or dev-session memory files.
-      // The orchestrator agent's context is delivered via the context plugin instead.
-      cwd: os.tmpdir(),
+      cwd: config?.cwd ?? os.tmpdir(),
       permissionMode: 'bypassPermissions',
       allowDangerouslySkipPermissions: true,
       env,

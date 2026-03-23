@@ -9,6 +9,7 @@ type UpdateProjectFields = {
   description?: string;
   instructions?: string;
   model?: string | null;
+  workingDirectory?: string | null;
 };
 
 type UpdateProject = (
@@ -20,6 +21,7 @@ type UpdateProject = (
   description: string | null;
   instructions: string | null;
   model: string | null;
+  workingDirectory: string | null;
 }>;
 
 export const updateProject: UpdateProject = async (projectId, fields) => {
@@ -31,6 +33,7 @@ export const updateProject: UpdateProject = async (projectId, fields) => {
         description: fields.description,
         instructions: fields.instructions,
         model: fields.model,
+        workingDirectory: fields.workingDirectory,
       },
     });
 

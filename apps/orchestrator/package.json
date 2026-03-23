@@ -42,6 +42,7 @@
     "@harness/plugin-time": "workspace:*",
     "@harness/plugin-validator": "workspace:*",
     "@harness/plugin-web": "workspace:*",
+    "@harness/plugin-workspace": "workspace:*",
     "zod": "^4.3.6"
   },
   "devDependencies": {

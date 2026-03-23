@@ -61,6 +61,7 @@ export type InvokeOptions = {
   disallowedTools?: string[]; // MCP tool names to exclude from the session (flows to SDK query options)
   pendingBlocks?: ContentBlock[][]; // Per-invocation content block queue — tool handlers push, onMessage shifts
   effort?: 'low' | 'medium' | 'high' | 'max'; // Thinking effort level — overrides model-aware defaults
+  cwd?: string; // Working directory override — workspace tasks set this to the target project directory
 };
 
 export type InvokeResult = {

@@ -64,6 +64,7 @@ const makeProject = (overrides: Partial<Project & { threads: Thread[] }> = {}): 
   instructions: null,
   memory: null,
   model: null,
+  workingDirectory: null,
   createdAt: new Date('2026-01-01T00:00:00Z'),
   updatedAt: new Date('2026-01-01T00:00:00Z'),
   threads: [],

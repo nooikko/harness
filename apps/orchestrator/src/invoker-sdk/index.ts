@@ -87,14 +87,16 @@ export const createSdkInvoker: CreateSdkInvoker = (config) => {
         ? ':thinking:disabled'
         : '';
     const toolsSuffix = options?.disallowedTools?.length ? `:dt:${options.disallowedTools.length}` : '';
+    const cwdSuffix = options?.cwd ? `:cwd:${options.cwd}` : '';
     const baseKey = options?.threadId ?? options?.sessionId ?? 'default';
-    const poolKey = `${baseKey}${effortSuffix}${toolsSuffix}`;
+    const poolKey = `${baseKey}${effortSuffix}${toolsSuffix}${cwdSuffix}`;
     const timeout = options?.timeout ?? config.defaultTimeout;
     const startTime = Date.now();
 
     const session = pool.get(poolKey, model, {
       ...resolvedThinking,
       ...(options?.disallowedTools?.length ? { disallowedTools: options.disallowedTools } : {}),
+      ...(options?.cwd ? { cwd: options.cwd } : {}),
     });
 
     // Construct per-invocation meta — flows to the session's contextRef via drainQueue
@@ -132,6 +134,7 @@ export const createSdkInvoker: CreateSdkInvoker = (config) => {
           const freshSession = pool.get(poolKey, model, {
             ...resolvedThinking,
             ...(options?.disallowedTools?.length ? { disallowedTools: options.disallowedTools } : {}),
+            ...(options?.cwd ? { cwd: options.cwd } : {}),
           });
           const retryResult = await withTimeout(freshSession.send(prompt, sendOptions), timeout);
           return { ...extractResult(retryResult, Date.now() - startTime), traceId: options?.traceId };
