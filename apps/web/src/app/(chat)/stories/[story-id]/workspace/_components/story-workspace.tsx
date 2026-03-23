@@ -40,7 +40,7 @@ export const StoryWorkspace = ({ story, transcripts, importThreadId }: StoryWork
 
         {/* Right panel: AI Chat */}
         <div className='flex w-95 shrink-0 flex-col overflow-hidden'>
-          <WorkspaceChatPanel storyId={story.id} threadId={importThreadId} />
+          <WorkspaceChatPanel storyId={story.id} threadId={importThreadId} transcripts={chatTranscripts} />
         </div>
       </div>
     </WorkspaceProvider>

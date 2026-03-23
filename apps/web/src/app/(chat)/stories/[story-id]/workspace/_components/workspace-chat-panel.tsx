@@ -14,9 +14,17 @@ type ChatMessage = {
   createdAt: string;
 };
 
+type TranscriptInfo = {
+  id: string;
+  label: string;
+  processed: boolean;
+  sortOrder: number;
+};
+
 type WorkspaceChatPanelProps = {
   storyId: string;
   threadId: string;
+  transcripts: TranscriptInfo[];
 };
 
 type QuickAction = {
@@ -24,30 +32,37 @@ type QuickAction = {
   prompt: string;
 };
 
-const QUICK_ACTIONS: QuickAction[] = [
-  {
-    label: 'Scan Characters',
-    prompt:
-      'Use the storytelling__list_transcripts tool to see all uploaded transcripts. Then for each one, use storytelling__import_characters to extract character names and profiles. Present a summary of all unique characters found.',
-  },
-  {
-    label: 'Process All',
-    prompt:
-      'Use the storytelling__list_transcripts tool to see all unprocessed transcripts. Then process each one in sort order using storytelling__import_transcript. For each transcript, extract moments, identify characters, and note significant events. Report progress after each transcript.',
-  },
-  {
-    label: 'Find Duplicates',
-    prompt:
-      'Use the storytelling__detect_duplicates tool to scan all extracted moments for potential duplicates. Present the results for review with recommendations on which to merge.',
-  },
-  {
-    label: 'Discover Arcs',
-    prompt:
-      'Use the storytelling__discover_arc_moments tool to find narrative arcs from existing moments. Look for character development threads, recurring themes, and story progression patterns.',
-  },
-];
+type BuildQuickActions = (transcripts: TranscriptInfo[]) => QuickAction[];
 
-export const WorkspaceChatPanel = ({ storyId: _storyId, threadId }: WorkspaceChatPanelProps) => {
+const buildQuickActions: BuildQuickActions = (transcripts) => {
+  const transcriptList = transcripts.map((t) => `- "${t.label}" (ID: ${t.id}, processed: ${t.processed})`).join('\n');
+  const unprocessed = transcripts.filter((t) => !t.processed);
+  const unprocessedIds = unprocessed.map((t) => t.id);
+
+  return [
+    {
+      label: 'Scan Characters',
+      prompt: `Here are the uploaded transcripts for this story:\n${transcriptList}\n\nFor each transcript, call storytelling__import_transcript with the transcript ID to extract characters and moments. Start with the first unprocessed one${unprocessedIds.length > 0 ? ` (ID: ${unprocessedIds[0]})` : ''}. Report what characters you find after each one.`,
+    },
+    {
+      label: 'Process All',
+      prompt: `Here are the uploaded transcripts:\n${transcriptList}\n\n${unprocessed.length > 0 ? `Process these unprocessed transcripts in order using storytelling__import_transcript:\n${unprocessed.map((t) => `- ${t.label}: ${t.id}`).join('\n')}\n\nCall the tool once for each ID. Report progress after each.` : 'All transcripts are already processed.'}`,
+    },
+    {
+      label: 'Find Duplicates',
+      prompt:
+        'Use storytelling__detect_duplicates to find duplicate moments across the story. Present results with recommendations on which to merge.',
+    },
+    {
+      label: 'Discover Arcs',
+      prompt:
+        'Use storytelling__discover_arc_moments to find narrative arcs from the extracted moments. Look for character development, recurring themes, and story progression.',
+    },
+  ];
+};
+
+export const WorkspaceChatPanel = ({ storyId: _storyId, threadId, transcripts: transcriptList }: WorkspaceChatPanelProps) => {
+  const quickActions = buildQuickActions(transcriptList);
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [input, setInput] = useState('');
   const [isPending, startTransition] = useTransition();
@@ -170,7 +185,7 @@ export const WorkspaceChatPanel = ({ storyId: _storyId, threadId }: WorkspaceCha
       {/* Quick actions */}
       <div className='flex items-center gap-1.5 border-b px-3 py-2 overflow-x-auto'>
         <span className='text-[10px] text-muted-foreground shrink-0'>Quick:</span>
-        {QUICK_ACTIONS.map((action) => (
+        {quickActions.map((action) => (
           <Button
             key={action.label}
             variant='outline'
