@@ -581,12 +581,16 @@ export const plugin: PluginDefinition = {
       });
 
       for (const char of characters) {
-        void indexCharacter(
+        indexCharacter(
           (char as { id: string }).id,
           (char as { name: string }).name,
           (char as { personality?: string }).personality ?? '',
           (char as { storyId: string }).storyId,
-        );
+        ).catch((err) => {
+          ctx.logger.warn(
+            `storytelling: failed to index character ${(char as { name: string }).name}: ${err instanceof Error ? err.message : String(err)}`,
+          );
+        });
       }
       ctx.logger.info(`storytelling: backfilling ${characters.length} characters into Qdrant`);
     } else {
