@@ -4,6 +4,7 @@
 import type { PluginContext, PluginDefinition, PluginHooks } from '@harness/plugin-contract';
 import { formatFileReferences } from './_helpers/format-file-references';
 import { formatHistorySection } from './_helpers/format-history-section';
+import { formatProjectToolsSection } from './_helpers/format-project-tools-section';
 import { formatSummarySection } from './_helpers/format-summary-section';
 import { formatUserProfileSection } from './_helpers/format-user-profile-section';
 import { loadHistory } from './_helpers/history-loader';
@@ -83,6 +84,8 @@ const register = async (ctx: PluginContext): Promise<PluginHooks> => {
 
       const projectMemorySection = thread?.project?.memory ? `<project_memory>\n${thread.project.memory}\n</project_memory>` : null;
 
+      const projectToolsSection = formatProjectToolsSection(thread?.projectId);
+
       let summarySection = '';
       let historySection = '';
 
@@ -119,6 +122,7 @@ const register = async (ctx: PluginContext): Promise<PluginHooks> => {
       return buildPrompt([
         projectInstructionsSection ?? '',
         projectMemorySection ?? '',
+        projectToolsSection,
         userProfileSection,
         fileReferencesSection,
         summarySection,

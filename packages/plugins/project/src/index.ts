@@ -1,9 +1,23 @@
 import type { PluginDefinition } from '@harness/plugin-contract';
+import { getProjectInfo } from './_helpers/get-project-info';
+import { setProjectDescription } from './_helpers/set-project-description';
+import { setProjectInstructions } from './_helpers/set-project-instructions';
 
 const projectPlugin: PluginDefinition = {
   name: 'project',
   version: '1.0.0',
   tools: [
+    {
+      name: 'get_project_info',
+      audience: 'agent',
+      description: 'Read the current project metadata: name, description, instructions, and working directory.',
+      schema: {
+        type: 'object',
+        properties: {},
+        required: [],
+      },
+      handler: getProjectInfo,
+    },
     {
       name: 'get_project_memory',
       audience: 'agent',
@@ -71,7 +85,10 @@ const projectPlugin: PluginDefinition = {
         if (result.count === 0) {
           let still: { id: string } | null;
           try {
-            still = await ctx.db.project.findUnique({ where: { id: thread.projectId }, select: { id: true } });
+            still = await ctx.db.project.findUnique({
+              where: { id: thread.projectId },
+              select: { id: true },
+            });
           } catch {
             return '(failed to save project memory — database error)';
           }
@@ -82,6 +99,39 @@ const projectPlugin: PluginDefinition = {
         }
         return 'Project memory updated.';
       },
+    },
+    {
+      name: 'set_project_instructions',
+      audience: 'agent',
+      description:
+        'Update the project instructions that are injected into every prompt. Use this to evolve how you approach the project over time — add conventions, constraints, or context that should persist across all conversations.',
+      schema: {
+        type: 'object',
+        properties: {
+          instructions: {
+            type: 'string',
+            description: 'The complete new project instructions document in markdown format',
+          },
+        },
+        required: ['instructions'],
+      },
+      handler: setProjectInstructions,
+    },
+    {
+      name: 'set_project_description',
+      audience: 'agent',
+      description: 'Update the project description.',
+      schema: {
+        type: 'object',
+        properties: {
+          description: {
+            type: 'string',
+            description: 'The new project description',
+          },
+        },
+        required: ['description'],
+      },
+      handler: setProjectDescription,
     },
   ],
   register: async (_ctx) => ({}),

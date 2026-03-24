@@ -55,11 +55,11 @@ describe('project plugin', () => {
     expect(hooks).toEqual({});
   });
 
-  it('defines two tools', () => {
+  it('defines five tools', () => {
     expect(projectPlugin.tools).toBeDefined();
-    expect(projectPlugin.tools).toHaveLength(2);
-    expect(projectPlugin.tools?.[0]?.name).toBe('get_project_memory');
-    expect(projectPlugin.tools?.[1]?.name).toBe('set_project_memory');
+    expect(projectPlugin.tools).toHaveLength(5);
+    const names = projectPlugin.tools?.map((t) => t.name);
+    expect(names).toEqual(['get_project_info', 'get_project_memory', 'set_project_memory', 'set_project_instructions', 'set_project_description']);
   });
 });
 
@@ -70,7 +70,7 @@ describe('get_project_memory tool', () => {
       project: { memory: '# My Project\n\nKey facts here.' },
     } as never);
 
-    const tool = projectPlugin.tools?.[0];
+    const tool = projectPlugin.tools!.find((t) => t.name === 'get_project_memory')!;
     const result = await tool?.handler(ctx, {}, { threadId: 'thread-1' });
 
     expect(result).toBe('# My Project\n\nKey facts here.');
@@ -86,7 +86,7 @@ describe('get_project_memory tool', () => {
       project: { memory: null },
     } as never);
 
-    const tool = projectPlugin.tools?.[0];
+    const tool = projectPlugin.tools!.find((t) => t.name === 'get_project_memory')!;
     const result = await tool?.handler(ctx, {}, { threadId: 'thread-1' });
 
     expect(result).toBe('(no project memory)');
@@ -98,7 +98,7 @@ describe('get_project_memory tool', () => {
       project: null,
     } as never);
 
-    const tool = projectPlugin.tools?.[0];
+    const tool = projectPlugin.tools!.find((t) => t.name === 'get_project_memory')!;
     const result = await tool?.handler(ctx, {}, { threadId: 'thread-1' });
 
     expect(result).toBe('(thread has no associated project)');
@@ -108,7 +108,7 @@ describe('get_project_memory tool', () => {
     const ctx = createMockContext();
     vi.mocked(ctx.db.thread.findUnique).mockResolvedValue(null);
 
-    const tool = projectPlugin.tools?.[0];
+    const tool = projectPlugin.tools!.find((t) => t.name === 'get_project_memory')!;
     const result = await tool?.handler(ctx, {}, { threadId: 'thread-1' });
 
     expect(result).toBe('(thread not found)');
@@ -125,7 +125,7 @@ describe('set_project_memory tool', () => {
     } as never);
     vi.mocked(ctx.db.project.updateMany).mockResolvedValue({ count: 1 } as never);
 
-    const tool = projectPlugin.tools?.[1];
+    const tool = projectPlugin.tools!.find((t) => t.name === 'set_project_memory')!;
     const result = await tool?.handler(ctx, { memory: '# Updated Memory\n\nNew facts.' }, { threadId: 'thread-1' });
 
     expect(result).toBe('Project memory updated.');
@@ -146,7 +146,7 @@ describe('set_project_memory tool', () => {
       project: null,
     } as never);
 
-    const tool = projectPlugin.tools?.[1];
+    const tool = projectPlugin.tools!.find((t) => t.name === 'set_project_memory')!;
     const result = await tool?.handler(ctx, { memory: 'some memory' }, { threadId: 'thread-1' });
 
     expect(result).toBe('(thread has no associated project)');
@@ -157,7 +157,7 @@ describe('set_project_memory tool', () => {
     const ctx = createMockContext();
     vi.mocked(ctx.db.thread.findUnique).mockResolvedValue(null);
 
-    const tool = projectPlugin.tools?.[1];
+    const tool = projectPlugin.tools!.find((t) => t.name === 'set_project_memory')!;
     const result = await tool?.handler(ctx, { memory: 'some memory' }, { threadId: 'thread-1' });
 
     expect(result).toBe('(thread not found)');
@@ -167,7 +167,7 @@ describe('set_project_memory tool', () => {
   it('returns error message for non-string memory input', async () => {
     const ctx = createMockContext();
 
-    const tool = projectPlugin.tools?.[1];
+    const tool = projectPlugin.tools!.find((t) => t.name === 'set_project_memory')!;
     const result = await tool?.handler(ctx, { memory: 42 }, { threadId: 'thread-1' });
 
     expect(result).toBe('(invalid input: memory must be a string)');
@@ -178,7 +178,7 @@ describe('set_project_memory tool', () => {
   it('returns error message when input is null', async () => {
     const ctx = createMockContext();
 
-    const tool = projectPlugin.tools?.[1];
+    const tool = projectPlugin.tools!.find((t) => t.name === 'set_project_memory')!;
     const result = await tool?.handler(ctx, null as never, { threadId: 'thread-1' });
 
     expect(result).toBe('(invalid input: memory must be a string)');
@@ -189,7 +189,7 @@ describe('set_project_memory tool', () => {
   it('returns error message when memory key is missing from input', async () => {
     const ctx = createMockContext();
 
-    const tool = projectPlugin.tools?.[1];
+    const tool = projectPlugin.tools!.find((t) => t.name === 'set_project_memory')!;
     const result = await tool?.handler(ctx, {}, { threadId: 'thread-1' });
 
     expect(result).toBe('(invalid input: memory must be a string)');
@@ -206,7 +206,7 @@ describe('set_project_memory tool', () => {
     } as never);
     vi.mocked(ctx.db.project.updateMany).mockResolvedValue({ count: 1 } as never);
 
-    const tool = projectPlugin.tools?.[1];
+    const tool = projectPlugin.tools!.find((t) => t.name === 'set_project_memory')!;
     const result = await tool?.handler(ctx, { memory: '' }, { threadId: 'thread-1' });
 
     expect(result).toBe('Project memory updated.');
@@ -226,7 +226,7 @@ describe('set_project_memory tool', () => {
     vi.mocked(ctx.db.project.updateMany).mockResolvedValue({ count: 0 } as never);
     vi.mocked(ctx.db.project.findUnique).mockResolvedValue(null);
 
-    const tool = projectPlugin.tools?.[1];
+    const tool = projectPlugin.tools!.find((t) => t.name === 'set_project_memory')!;
     const result = await tool?.handler(ctx, { memory: 'new memory' }, { threadId: 'thread-1' });
 
     expect(result).toBe('(project was deleted before memory could be saved)');
@@ -245,7 +245,7 @@ describe('set_project_memory tool', () => {
     } as never);
     vi.mocked(ctx.db.project.updateMany).mockRejectedValue(new Error('connection lost'));
 
-    const tool = projectPlugin.tools?.[1];
+    const tool = projectPlugin.tools!.find((t) => t.name === 'set_project_memory')!;
     const result = await tool?.handler(ctx, { memory: 'new memory' }, { threadId: 'thread-1' });
 
     expect(result).toBe('(failed to save project memory — database error)');
@@ -262,7 +262,7 @@ describe('set_project_memory tool', () => {
     vi.mocked(ctx.db.project.updateMany).mockResolvedValue({ count: 0 } as never);
     vi.mocked(ctx.db.project.findUnique).mockRejectedValue(new Error('connection lost'));
 
-    const tool = projectPlugin.tools?.[1];
+    const tool = projectPlugin.tools!.find((t) => t.name === 'set_project_memory')!;
     const result = await tool?.handler(ctx, { memory: 'new memory' }, { threadId: 'thread-1' });
 
     expect(result).toBe('(failed to save project memory — database error)');
@@ -278,7 +278,7 @@ describe('set_project_memory tool', () => {
     vi.mocked(ctx.db.project.updateMany).mockResolvedValue({ count: 0 } as never);
     vi.mocked(ctx.db.project.findUnique).mockResolvedValue({ id: 'project-abc' } as never);
 
-    const tool = projectPlugin.tools?.[1];
+    const tool = projectPlugin.tools!.find((t) => t.name === 'set_project_memory')!;
     const result = await tool?.handler(ctx, { memory: 'new memory' }, { threadId: 'thread-1' });
 
     expect(result).toBe('(project memory was modified concurrently — call get_project_memory again and retry)');
