@@ -100,7 +100,11 @@ type SettingsFieldBase = {
 type SettingsFieldScalar = SettingsFieldBase & { type: Exclude<SettingsFieldType, 'select' | 'oauth'> };
 type SettingsFieldSelect = SettingsFieldBase & {
   type: 'select';
-  options: { label: string; value: string }[];
+  options?: { label: string; value: string }[];
+  /** URL path (relative to orchestrator) to fetch options dynamically.
+   *  Response must be `{ options: Array<{ label: string; value: string }> }`.
+   *  When set, static `options` are used as fallback while loading. */
+  fetchOptionsUrl?: string;
 };
 type SettingsFieldOAuth = SettingsFieldBase & {
   type: 'oauth';

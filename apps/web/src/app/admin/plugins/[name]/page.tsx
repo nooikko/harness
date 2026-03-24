@@ -1,6 +1,7 @@
 import { prisma } from '@harness/database';
 import { Card, CardContent, CardHeader, CardTitle } from '@harness/ui';
 import { notFound } from 'next/navigation';
+import { getOrchestratorUrl } from '@/app/_helpers/get-orchestrator-url';
 import { pluginSettingsRegistry } from '@/generated/plugin-settings-registry';
 import { AdminBreadcrumb } from '../../_components/admin-breadcrumb';
 import { SettingsForm } from './_components/settings-form';
@@ -52,7 +53,13 @@ const PluginSettingsPage: PluginSettingsPageComponent = async ({ params }) => {
           <CardTitle className='capitalize'>{name} Settings</CardTitle>
         </CardHeader>
         <CardContent>
-          <SettingsForm pluginName={name} fields={entry.fields} currentValues={displayValues} disabled={!config?.enabled} />
+          <SettingsForm
+            pluginName={name}
+            fields={entry.fields}
+            currentValues={displayValues}
+            disabled={!config?.enabled}
+            orchestratorUrl={entry.fields.some((f) => f.fetchOptionsUrl) ? getOrchestratorUrl() : undefined}
+          />
         </CardContent>
       </Card>
     </div>

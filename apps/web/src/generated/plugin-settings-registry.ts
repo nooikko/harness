@@ -10,6 +10,7 @@ export type PluginSettingsField = {
   secret?: boolean;
   default?: string | number | boolean;
   options?: Array<{ label: string; value: string }>;
+  fetchOptionsUrl?: string;
   provider?: string;
 };
 
@@ -137,10 +138,17 @@ export const pluginSettingsRegistry: PluginSettingsEntry[] = [
       },
       {
         "name": "defaultDevice",
-        "type": "string",
+        "type": "select",
         "label": "Default Speaker",
-        "description": "Name of the default Cast device for announcements. Leave empty to use the first discovered device.",
-        "default": ""
+        "description": "Cast device for announcements. Leave on \"First available\" to auto-select.",
+        "default": "",
+        "options": [
+          {
+            "label": "First available",
+            "value": ""
+          }
+        ],
+        "fetchOptionsUrl": "/api/plugins/notifications/devices"
       }
     ]
   },

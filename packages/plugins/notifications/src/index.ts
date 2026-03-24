@@ -2,6 +2,7 @@ import { listDevices, resolveDevice, startDiscovery, stopDiscovery } from '@harn
 import type { PluginContext, PluginDefinition, PluginHooks } from '@harness/plugin-contract';
 import { createAudioServer } from './_helpers/audio-server';
 import { announce } from './_helpers/cast-announcer';
+import { deviceRoutes } from './_helpers/device-routes';
 import { settingsSchema } from './_helpers/settings-schema';
 import type { TtsProvider } from './_helpers/tts-provider';
 import { createTtsProvider } from './_helpers/tts-provider';
@@ -51,6 +52,7 @@ export const plugin: PluginDefinition = {
   name: 'notifications',
   version: '1.0.0',
   settingsSchema,
+  routes: deviceRoutes,
 
   tools: [
     {

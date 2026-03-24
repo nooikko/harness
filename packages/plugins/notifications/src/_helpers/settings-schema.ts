@@ -21,9 +21,11 @@ export const settingsSchema = createSettingsSchema({
     default: 70,
   },
   defaultDevice: {
-    type: 'string' as const,
+    type: 'select' as const,
     label: 'Default Speaker',
-    description: 'Name of the default Cast device for announcements. Leave empty to use the first discovered device.',
+    description: 'Cast device for announcements. Leave on "First available" to auto-select.',
     default: '',
+    options: [{ label: 'First available', value: '' }],
+    fetchOptionsUrl: '/api/plugins/notifications/devices',
   },
 });
