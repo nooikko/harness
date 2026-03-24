@@ -70,6 +70,7 @@ export const plugin: PluginDefinition = {
   tools: [
     {
       name: 'schedule_task',
+      audience: 'agent',
       description: 'Create a scheduled task that fires a prompt into a thread on a recurring cron schedule or at a specific one-shot time.',
       schema: {
         type: 'object',
@@ -101,6 +102,7 @@ export const plugin: PluginDefinition = {
     },
     {
       name: 'list_tasks',
+      audience: 'agent',
       description: 'List all scheduled tasks (cron jobs). Shows name, schedule/fireAt, enabled status, and last/next run times.',
       schema: {
         type: 'object',
@@ -115,6 +117,7 @@ export const plugin: PluginDefinition = {
     },
     {
       name: 'get_task',
+      audience: 'agent',
       description: 'Get full details of a scheduled task by name, including its prompt text.',
       schema: {
         type: 'object',
@@ -130,6 +133,7 @@ export const plugin: PluginDefinition = {
     },
     {
       name: 'update_task',
+      audience: 'agent',
       description: 'Update a scheduled task. Can change prompt, schedule, fireAt, or enabled status. Triggers immediate hot-reload.',
       schema: {
         type: 'object',
@@ -161,6 +165,7 @@ export const plugin: PluginDefinition = {
     },
     {
       name: 'delete_task',
+      audience: 'agent',
       description: 'Permanently delete a scheduled task by name. Triggers immediate hot-reload.',
       schema: {
         type: 'object',

@@ -43,6 +43,7 @@ type CreateTools = () => PluginTool[];
 const createTools: CreateTools = () => [
   {
     name: 'current_time',
+    audience: 'agent',
     description: 'Get the current date and time in the configured timezone.',
     schema: {
       type: 'object',

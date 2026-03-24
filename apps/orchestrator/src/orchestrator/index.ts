@@ -4,6 +4,7 @@ import type { PrismaClient } from '@harness/database';
 import type { Logger } from '@harness/logger';
 import { createChildLogger, writeErrorToDb } from '@harness/logger';
 import type {
+  InvokeOptions,
   InvokeResult,
   Invoker,
   InvokeStreamEvent,
@@ -279,7 +280,7 @@ export const createOrchestrator: CreateOrchestrator = (deps) => {
     // Step 0: Look up thread for session resumption and model override
     const thread = await deps.db.thread.findUnique({
       where: { id: threadId },
-      select: { sessionId: true, model: true, effort: true, kind: true, name: true, customInstructions: true, projectId: true },
+      select: { sessionId: true, model: true, effort: true, permissionMode: true, kind: true, name: true, customInstructions: true, projectId: true },
     });
 
     // Step 1: Fire onMessage hooks (notification — no modification)
@@ -328,13 +329,17 @@ export const createOrchestrator: CreateOrchestrator = (deps) => {
 
     // Step 4: Invoke Claude via the invoker with session resumption and model override
     let model = thread?.model ?? undefined;
-    // Fallback: inherit model from project if thread has no model override
-    if (!model && thread?.projectId) {
+    let cwd: string | undefined;
+    // Fetch project for model fallback and working directory
+    if (thread?.projectId) {
       const project = await deps.db.project.findUnique({
         where: { id: thread.projectId },
-        select: { model: true },
+        select: { model: true, workingDirectory: true },
       });
-      model = project?.model ?? undefined;
+      if (!model) {
+        model = project?.model ?? undefined;
+      }
+      cwd = project?.workingDirectory ?? undefined;
     }
     const sessionId = thread?.sessionId ?? undefined;
     log.info(`Pipeline: invoking Claude [promptLength=${prompt.length}, model=${model ?? 'default'}, sessionId=${sessionId ?? 'none'}]`);
@@ -363,8 +368,10 @@ export const createOrchestrator: CreateOrchestrator = (deps) => {
         sessionId,
         threadId,
         traceId,
+        cwd,
         pendingBlocks,
-        effort: (thread?.effort ?? undefined) as 'low' | 'medium' | 'high' | 'max' | undefined,
+        effort: (thread?.effort ?? undefined) as InvokeOptions['effort'],
+        permissionMode: (thread?.permissionMode ?? undefined) as 'default' | 'acceptEdits' | 'bypassPermissions' | 'plan' | 'dontAsk' | undefined,
         disallowedTools,
         onMessage: (event) => {
           if (event.type === 'tool_use_summary') {

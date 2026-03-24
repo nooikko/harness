@@ -65,6 +65,10 @@ export const createSdkInvoker: CreateSdkInvoker = (config) => {
     effort?: InvokeOptions['effort'],
   ) => { thinking?: ThinkingConfig; effort?: 'low' | 'medium' | 'high' | 'max' };
   const resolveThinkingConfig: ResolveThinkingConfig = (model, effort) => {
+    // 'off' explicitly disables thinking regardless of model
+    if (effort === 'off') {
+      return { thinking: { type: 'disabled' } };
+    }
     // Explicit effort always wins over model-aware defaults
     if (effort !== undefined) {
       return { effort };
@@ -93,8 +97,9 @@ export const createSdkInvoker: CreateSdkInvoker = (config) => {
     const toolsSuffix = options?.disallowedTools?.length ? `:dt:${options.disallowedTools.length}` : '';
     const agentSuffix = options?.systemPrompt ? ':agent' : '';
     const cwdSuffix = options?.cwd ? `:cwd:${options.cwd}` : '';
+    const permSuffix = options?.permissionMode ? `:perm:${options.permissionMode}` : '';
     const baseKey = options?.threadId ?? options?.sessionId ?? 'default';
-    const poolKey = `${baseKey}${effortSuffix}${toolsSuffix}${agentSuffix}${cwdSuffix}`;
+    const poolKey = `${baseKey}${effortSuffix}${toolsSuffix}${agentSuffix}${cwdSuffix}${permSuffix}`;
     const timeout = options?.timeout ?? config.defaultTimeout;
     const startTime = Date.now();
 
@@ -105,6 +110,7 @@ export const createSdkInvoker: CreateSdkInvoker = (config) => {
       ...(options?.systemPrompt ? { systemPrompt: options.systemPrompt } : {}),
       ...(options?.maxTurns ? { maxTurns: options.maxTurns } : {}),
       ...(options?.cwd ? { cwd: options.cwd } : {}),
+      ...(options?.permissionMode ? { permissionMode: options.permissionMode } : {}),
     });
     log.info(`invoker: session acquired, sending prompt [promptLength=${prompt.length}]`);
 
@@ -150,6 +156,7 @@ export const createSdkInvoker: CreateSdkInvoker = (config) => {
             ...(options?.systemPrompt ? { systemPrompt: options.systemPrompt } : {}),
             ...(options?.maxTurns ? { maxTurns: options.maxTurns } : {}),
             ...(options?.cwd ? { cwd: options.cwd } : {}),
+            ...(options?.permissionMode ? { permissionMode: options.permissionMode } : {}),
           });
           const retryResult = await withTimeout(freshSession.send(prompt, sendOptions), timeout);
           const retryExtracted = extractResult(retryResult, Date.now() - startTime);

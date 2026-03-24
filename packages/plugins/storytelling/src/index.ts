@@ -183,6 +183,7 @@ const createRegister: CreateRegister = () => {
 const storytellingTools: PluginTool[] = [
   {
     name: 'update_character',
+    audience: 'agent',
     description:
       'Update a single field on a story character (appearance, personality, mannerisms, motives, backstory, relationships, status, or color).',
     schema: {
@@ -208,6 +209,7 @@ const storytellingTools: PluginTool[] = [
   },
   {
     name: 'record_moment',
+    audience: 'agent',
     description: 'Record a significant story moment with character perspectives and knowledge tracking.',
     schema: {
       type: 'object',
@@ -258,6 +260,7 @@ const storytellingTools: PluginTool[] = [
   },
   {
     name: 'advance_time',
+    audience: 'agent',
     description: 'Advance the in-story time to a new value.',
     schema: {
       type: 'object',
@@ -276,6 +279,7 @@ const storytellingTools: PluginTool[] = [
   },
   {
     name: 'add_location',
+    audience: 'agent',
     description: 'Add a new location to the story world. Optionally nest under a parent location with distance/direction.',
     schema: {
       type: 'object',
@@ -302,6 +306,7 @@ const storytellingTools: PluginTool[] = [
   },
   {
     name: 'character_knowledge',
+    audience: 'agent',
     description: 'Get what a character knows and does not know based on their moment participation.',
     schema: {
       type: 'object',
@@ -320,6 +325,7 @@ const storytellingTools: PluginTool[] = [
   },
   {
     name: 'get_character',
+    audience: 'agent',
     description: 'Get a full character profile including appearance, personality, moments, and knowledge state.',
     schema: {
       type: 'object',
@@ -338,6 +344,7 @@ const storytellingTools: PluginTool[] = [
   },
   {
     name: 'import_characters',
+    audience: 'agent',
     description: 'Bulk-import character profiles from pasted text. Uses Sonnet for high-fidelity extraction.',
     schema: {
       type: 'object',
@@ -356,6 +363,7 @@ const storytellingTools: PluginTool[] = [
   },
   {
     name: 'import_document',
+    audience: 'agent',
     description:
       'Process a summary document to extract moments, locations, and character developments. Stores the document and extracts at emotional-beat granularity.',
     schema: {
@@ -376,6 +384,7 @@ const storytellingTools: PluginTool[] = [
   },
   {
     name: 'import_transcript',
+    audience: 'agent',
     description: 'Process a stored Claude.ai transcript. The transcript must be stored first via the web UI. Supports resume on failure.',
     schema: {
       type: 'object',
@@ -397,6 +406,7 @@ const storytellingTools: PluginTool[] = [
   },
   {
     name: 'detect_duplicates',
+    audience: 'agent',
     description: 'Scan moments for duplicates and drift — events that appear to describe the same thing. Auto-paginates for large moment sets.',
     schema: {
       type: 'object',
@@ -417,6 +427,7 @@ const storytellingTools: PluginTool[] = [
   },
   {
     name: 'merge_moments',
+    audience: 'agent',
     description:
       'Merge two duplicate moments. Soft-deletes the discarded one (recoverable via restore_moment). Transfers perspectives and reassigns arc links.',
     schema: {
@@ -438,6 +449,7 @@ const storytellingTools: PluginTool[] = [
   },
   {
     name: 'restore_moment',
+    audience: 'agent',
     description: 'Restore a soft-deleted moment (undo a merge). Transferred perspectives are NOT reversed.',
     schema: {
       type: 'object',
@@ -456,6 +468,7 @@ const storytellingTools: PluginTool[] = [
   },
   {
     name: 'correct_moment',
+    audience: 'agent',
     description: 'Fix specific details on a moment — update fields, remove phantom characters, add missing characters.',
     schema: {
       type: 'object',
@@ -504,6 +517,7 @@ const storytellingTools: PluginTool[] = [
   },
   {
     name: 'create_arc',
+    audience: 'agent',
     description: 'Create a named story arc and optionally seed it with moments. Arcs connect related moments across time.',
     schema: {
       type: 'object',
@@ -525,6 +539,7 @@ const storytellingTools: PluginTool[] = [
   },
   {
     name: 'discover_arc_moments',
+    audience: 'agent',
     description: 'Search extracted moments for ones related to a story arc. Seeds the arc with examples first, then run this to find more.',
     schema: {
       type: 'object',
@@ -548,6 +563,7 @@ const storytellingTools: PluginTool[] = [
   },
   {
     name: 'annotate_moment',
+    audience: 'agent',
     description: 'Add a user annotation to a moment and/or link it to story arcs by name.',
     schema: {
       type: 'object',

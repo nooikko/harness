@@ -16,4 +16,18 @@ export class ThreadPage extends BasePage {
   openManageModal = async (): Promise<void> => {
     await this.page.getByRole('button', { name: /manage|settings/i }).click();
   };
+
+  /** Get the settings popover trigger (gear icon next to send). */
+  getSettingsButton = () => this.page.getByRole('button', { name: 'Chat settings' });
+
+  /** Open the settings popover in the chat input area. */
+  openSettingsPopover = async (): Promise<void> => {
+    await this.getSettingsButton().click();
+  };
+
+  /** Get the model selector in the main controls bar. */
+  getModelSelector = () => this.page.getByRole('button', { name: 'Select model' });
+
+  /** Get the send message button. */
+  getSendButton = () => this.page.getByRole('button', { name: 'Send message' });
 }

@@ -90,6 +90,7 @@ export { state };
 const delegateTools: PluginTool[] = [
   {
     name: 'delegate',
+    audience: 'agent',
     description:
       'Spawn a sub-agent to work on a task in a separate thread. Use this when a task can be done independently and in parallel without blocking the current conversation. The sub-agent works autonomously and results are reported back when complete.',
     schema: {
@@ -173,6 +174,7 @@ const delegateTools: PluginTool[] = [
   },
   {
     name: 'checkin',
+    audience: 'agent',
     description: 'Send a progress update to the parent thread. Use this during long-running delegated tasks to keep the user informed of progress.',
     schema: {
       type: 'object',

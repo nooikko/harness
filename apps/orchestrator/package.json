@@ -31,6 +31,7 @@
     "@harness/plugin-logs": "workspace:*",
     "@harness/plugin-metrics": "workspace:*",
     "@harness/plugin-music": "workspace:*",
+    "@harness/plugin-notifications": "workspace:*",
     "@harness/plugin-outlook": "workspace:*",
     "@harness/plugin-playwright": "workspace:*",
     "@harness/plugin-project": "workspace:*",

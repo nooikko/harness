@@ -2,12 +2,13 @@
 
 import type { Project } from '@harness/database';
 import { Button, Input, Label, Select, SelectContent, SelectItem, SelectTrigger, SelectValue, Separator, Textarea, Tooltip } from '@harness/ui';
-import { FolderOpen, Sparkles, X } from 'lucide-react';
+import { FolderOpen, FolderSearch, Sparkles, X } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import { useState, useTransition } from 'react';
 import { deleteProject } from '../../../_actions/delete-project';
 import { rewriteWithAi } from '../../../_actions/rewrite-with-ai';
 import { updateProject } from '../../../_actions/update-project';
+import { DirectoryBrowserDialog } from './directory-browser-dialog';
 
 const PROJECT_MODEL_OPTIONS = [
   { value: '_inherit', label: 'Default (inherit)' },
@@ -35,6 +36,7 @@ export const ProjectSettingsForm: ProjectSettingsFormComponent = ({ project }) =
   const [deleteError, setDeleteError] = useState<string | null>(null);
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [workingDirectory, setWorkingDirectory] = useState(project.workingDirectory ?? '');
+  const [isBrowseOpen, setIsBrowseOpen] = useState(false);
   const [isRewritingDescription, startRewriteDescription] = useTransition();
   const [isRewritingInstructions, startRewriteInstructions] = useTransition();
 
@@ -185,12 +187,21 @@ export const ProjectSettingsForm: ProjectSettingsFormComponent = ({ project }) =
               placeholder='/path/to/your/project'
               className='font-mono text-sm'
             />
+            <Button type='button' variant='outline' size='icon' onClick={() => setIsBrowseOpen(true)} aria-label='Browse for directory'>
+              <FolderSearch className='h-4 w-4' />
+            </Button>
             {workingDirectory && (
               <Button type='button' variant='ghost' size='icon' onClick={() => setWorkingDirectory('')} aria-label='Clear working directory'>
                 <X className='h-4 w-4' />
               </Button>
             )}
           </div>
+          <DirectoryBrowserDialog
+            open={isBrowseOpen}
+            onOpenChange={setIsBrowseOpen}
+            initialPath={workingDirectory || ''}
+            onSelect={setWorkingDirectory}
+          />
         </div>
 
         {project.memory && (

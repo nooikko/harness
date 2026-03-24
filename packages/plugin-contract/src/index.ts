@@ -60,10 +60,11 @@ export type InvokeOptions = {
   taskId?: string; // Delegation task ID — flows to tool handlers via per-invocation context
   disallowedTools?: string[]; // MCP tool names to exclude from the session (flows to SDK query options)
   pendingBlocks?: ContentBlock[][]; // Per-invocation content block queue — tool handlers push, onMessage shifts
-  effort?: 'low' | 'medium' | 'high' | 'max'; // Thinking effort level — overrides model-aware defaults
+  effort?: 'off' | 'low' | 'medium' | 'high' | 'max'; // Thinking effort level — 'off' disables thinking, others set extended thinking budget
   systemPrompt?: string; // System prompt — frames the agent's role (flows to SDK agent definition)
   maxTurns?: number; // Maximum agentic turns before stopping (flows to SDK query options)
   cwd?: string; // Working directory override — workspace tasks set this to the target project directory
+  permissionMode?: 'default' | 'acceptEdits' | 'bypassPermissions' | 'plan' | 'dontAsk'; // SDK permission mode — overrides session default
 };
 
 export type InvokeResult = {
@@ -252,11 +253,14 @@ export class ToolError extends Error {
 
 export type PluginToolHandler = (ctx: PluginContext, input: Record<string, unknown>, meta: PluginToolMeta) => Promise<ToolResult>;
 
+export type ToolAudience = 'human' | 'agent' | 'both';
+
 export type PluginTool = {
   name: string;
   description: string;
   schema: Record<string, unknown>;
   handler: PluginToolHandler;
+  audience?: ToolAudience;
 };
 
 export type RegisterFn = (ctx: PluginContext) => Promise<PluginHooks>;

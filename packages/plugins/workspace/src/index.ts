@@ -120,6 +120,7 @@ const workspaceTools: PluginTool[] = [
   },
   {
     name: 'update_plan',
+    audience: 'agent',
     description:
       'Update the workspace plan — change task statuses, add review notes, mark tasks as delegated, or change the plan status. Call this after evaluating each delegation result.',
     schema: {
@@ -235,6 +236,7 @@ const workspaceTools: PluginTool[] = [
   },
   {
     name: 'get_plan',
+    audience: 'agent',
     description: 'Read the current workspace plan state. Use this to check progress or review the task graph.',
     schema: {
       type: 'object',
@@ -261,6 +263,7 @@ const workspaceTools: PluginTool[] = [
   },
   {
     name: 'complete_plan',
+    audience: 'agent',
     description: 'Mark the workspace plan as completed. Call this when all tasks are accepted and the objective is met.',
     schema: {
       type: 'object',
@@ -297,6 +300,7 @@ const workspaceTools: PluginTool[] = [
   },
   {
     name: 'escalate',
+    audience: 'agent',
     description: 'Escalate to the human — call this when you need a decision, are stuck, or want to check in on direction.',
     schema: {
       type: 'object',
@@ -325,6 +329,7 @@ const workspaceTools: PluginTool[] = [
   },
   {
     name: 'report',
+    audience: 'agent',
     description:
       'Submit a structured status report from a reviewer or worker agent back to the parent. Use this instead of free-form text when reporting delegation results.',
     schema: {
@@ -366,6 +371,7 @@ const workspaceTools: PluginTool[] = [
   },
   {
     name: 'list_agents',
+    audience: 'agent',
     description:
       'List available agents with their specializations. Use this to discover which agents can be assigned to workspace tasks. Returns agents in pages of up to 10.',
     schema: {
@@ -416,6 +422,7 @@ const workspaceTools: PluginTool[] = [
   },
   {
     name: 'search_agents',
+    audience: 'agent',
     description:
       'Search for agents by keyword. Searches across name, role, goal, soul, and identity fields. Use this to find the right specialist for a task.',
     schema: {
@@ -467,6 +474,7 @@ const workspaceTools: PluginTool[] = [
   },
   {
     name: 'activate',
+    audience: 'agent',
     description:
       "Bootstrap a workspace session with validated prompt templates. Creates the plan, validates that reviewer templates don't contain code, worker templates are specific enough, and eval criteria are actionable. Call this instead of create_plan when you have the full setup ready.",
     schema: {

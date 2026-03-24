@@ -29,7 +29,7 @@ const parseSystemCommand = (text: string): SystemCommand | null => {
 };
 
 type SubmitPluginProps = {
-  threadId: string;
+  threadId: string | null;
   onSubmit: (text: string) => void;
   disabled: boolean;
 };
@@ -82,9 +82,11 @@ const SubmitPlugin: SubmitPluginComponent = ({ threadId, onSubmit, disabled }) =
         }
 
         if (system?.command === 'model') {
-          updateThreadModel(threadId, system.args || null).then(() => {
-            router.refresh();
-          });
+          if (threadId) {
+            updateThreadModel(threadId, system.args || null).then(() => {
+              router.refresh();
+            });
+          }
           return true;
         }
 

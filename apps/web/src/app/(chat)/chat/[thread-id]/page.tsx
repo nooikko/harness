@@ -56,6 +56,8 @@ const ThreadPage: ThreadPageComponent = async ({ params }) => {
         currentModel={thread.model}
         currentAgentId={thread.agent?.id ?? null}
         currentAgentName={thread.agent?.name ?? null}
+        currentEffort={thread.effort}
+        currentPermissionMode={thread.permissionMode}
       >
         <MessageList threadId={threadId} />
       </ChatArea>

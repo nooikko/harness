@@ -500,6 +500,26 @@ describe('createSdkInvoker', () => {
       expect(mockPool.get).toHaveBeenCalledWith('thread-1:effort:low', 'claude-sonnet-4-6', { effort: 'low' });
     });
 
+    it('effort:off disables thinking and uses thinking:disabled suffix', async () => {
+      const invoker = createSdkInvoker({ defaultModel: 'haiku', defaultTimeout: 300000 });
+
+      await invoker.invoke('hello', { threadId: 'thread-1', model: 'claude-sonnet-4-6', effort: 'off' });
+
+      expect(mockPool.get).toHaveBeenCalledWith('thread-1:thinking:disabled', 'claude-sonnet-4-6', {
+        thinking: { type: 'disabled' },
+      });
+    });
+
+    it('effort:off overrides opus default to disable thinking', async () => {
+      const invoker = createSdkInvoker({ defaultModel: 'haiku', defaultTimeout: 300000 });
+
+      await invoker.invoke('hello', { threadId: 'thread-1', model: 'claude-opus-4-6', effort: 'off' });
+
+      expect(mockPool.get).toHaveBeenCalledWith('thread-1:thinking:disabled', 'claude-opus-4-6', {
+        thinking: { type: 'disabled' },
+      });
+    });
+
     it('uses effort-keyed pool key for eviction on stale session retry', async () => {
       const freshSession: Session = {
         send: vi.fn().mockResolvedValue(successResult),

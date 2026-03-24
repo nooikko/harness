@@ -24,6 +24,7 @@ export const plugin: PluginDefinition = {
   tools: [
     {
       name: 'update_self',
+      audience: 'agent',
       description:
         'Update your own agent identity — name, personality, soul, role, goal, or backstory. Use this when the user wants to customize who you are.',
       schema: {

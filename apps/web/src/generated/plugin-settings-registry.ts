@@ -106,6 +106,52 @@ export const pluginSettingsRegistry: PluginSettingsEntry[] = [
     ]
   },
   {
+    "pluginName": "notifications",
+    "fields": [
+      {
+        "name": "ttsProvider",
+        "type": "select",
+        "label": "TTS Provider",
+        "description": "Text-to-speech engine for generating announcements. edge-tts is free and fast.",
+        "default": "edge-tts",
+        "options": [
+          {
+            "label": "Microsoft Edge TTS (free)",
+            "value": "edge-tts"
+          }
+        ]
+      },
+      {
+        "name": "voice",
+        "type": "string",
+        "label": "Voice",
+        "description": "Voice name for text-to-speech. Default: en-US-GuyNeural. Run \"edge-tts --list-voices\" for options.",
+        "default": "en-US-GuyNeural"
+      },
+      {
+        "name": "volume",
+        "type": "number",
+        "label": "Announcement Volume",
+        "description": "Volume for announcements (0-100). Cast device volume is set to this percentage.",
+        "default": 70
+      },
+      {
+        "name": "defaultDevice",
+        "type": "string",
+        "label": "Default Speaker",
+        "description": "Name of the default Cast device for announcements. Leave empty to use the first discovered device.",
+        "default": ""
+      },
+      {
+        "name": "audioServerPort",
+        "type": "number",
+        "label": "Audio Server Port",
+        "description": "Port for the local HTTP server that serves generated audio to Cast devices.",
+        "default": 9849
+      }
+    ]
+  },
+  {
     "pluginName": "music",
     "fields": [
       {
@@ -125,9 +171,16 @@ export const pluginSettingsRegistry: PluginSettingsEntry[] = [
       {
         "name": "poToken",
         "type": "string",
-        "label": "PO Token",
-        "description": "Proof-of-Origin token for stream access. Expires every ~12 hours. Extract via BgUtils.",
+        "label": "PO Token (Manual Override)",
+        "description": "Manual PO token override. Leave empty to auto-fetch from PO token server.",
         "secret": true
+      },
+      {
+        "name": "poTokenServerUrl",
+        "type": "string",
+        "label": "PO Token Server URL",
+        "description": "URL of the bgutil-ytdlp-pot-provider sidecar for automatic PO token generation.",
+        "default": "http://localhost:4416"
       },
       {
         "name": "defaultVolume",
@@ -217,6 +270,25 @@ export const pluginSettingsRegistry: PluginSettingsEntry[] = [
         "label": "User Insight Boost",
         "description": "Extra score added to SEMANTIC (user insight) memories during retrieval. Higher values prioritize user facts over episodic memories.",
         "default": 0.3
+      }
+    ]
+  },
+  {
+    "pluginName": "govee",
+    "fields": [
+      {
+        "name": "apiKey",
+        "type": "string",
+        "label": "Govee API Key",
+        "description": "API key from Govee Home App (Settings → Apply for API Key).",
+        "secret": true
+      },
+      {
+        "name": "defaultTransitionMs",
+        "type": "number",
+        "label": "Default Transition (ms)",
+        "description": "Default transition duration for light changes in milliseconds. 0 for instant.",
+        "default": 400
       }
     ]
   },

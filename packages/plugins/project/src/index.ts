@@ -6,6 +6,7 @@ const projectPlugin: PluginDefinition = {
   tools: [
     {
       name: 'get_project_memory',
+      audience: 'agent',
       description:
         'Read the current project memory document for the active project. Call this before set_project_memory to see what currently exists.',
       schema: {
@@ -29,6 +30,7 @@ const projectPlugin: PluginDefinition = {
     },
     {
       name: 'set_project_memory',
+      audience: 'agent',
       description:
         'Write the complete project memory document. You are responsible for preserving existing facts that are still relevant, removing stale ones, and adding new observations. Call get_project_memory first to read the current state.',
       schema: {

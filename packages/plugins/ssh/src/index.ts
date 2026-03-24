@@ -96,6 +96,7 @@ const buildConnectConfig: BuildConnectConfig = (host) => {
 const tools: PluginTool[] = [
   {
     name: 'exec',
+    audience: 'agent',
     description:
       'Execute a command on a remote SSH host. Returns stdout, stderr, and exit code. Commands must be non-interactive (no prompts for input). Use sudo -n for passwordless sudo.',
     schema: {
@@ -177,6 +178,7 @@ const tools: PluginTool[] = [
   },
   {
     name: 'list_hosts',
+    audience: 'agent',
     description: 'List registered SSH hosts. Optionally filter by tag.',
     schema: {
       type: 'object',
@@ -223,6 +225,7 @@ const tools: PluginTool[] = [
   },
   {
     name: 'add_host',
+    audience: 'agent',
     description: 'Register a new SSH host. Keys must be configured separately via admin UI.',
     schema: {
       type: 'object',
@@ -290,6 +293,7 @@ const tools: PluginTool[] = [
   },
   {
     name: 'remove_host',
+    audience: 'agent',
     description: 'Remove a registered SSH host by name.',
     schema: {
       type: 'object',
@@ -323,6 +327,7 @@ const tools: PluginTool[] = [
   },
   {
     name: 'test_connection',
+    audience: 'agent',
     description: 'Test SSH connectivity to a host. Updates lastSeenAt on success and saves fingerprint on first connection (TOFU).',
     schema: {
       type: 'object',

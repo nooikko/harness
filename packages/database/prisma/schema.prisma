@@ -22,6 +22,7 @@ model Thread {
   sessionId           String?
   model               String?
   effort              String?
+  permissionMode      String?
   customInstructions  String?
   parentThreadId      String?
   parentThread   Thread?    @relation("ThreadChildren", fields: [parentThreadId], references: [id])

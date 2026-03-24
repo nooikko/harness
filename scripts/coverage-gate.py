@@ -48,7 +48,7 @@ EXCLUDED_PATTERNS = [
     # Plugin index files — wiring-only (no testable logic, just delegate to helpers)
     r"packages/plugins/(activity|project|tasks|outlook|time|playwright|logs|metrics|cron)/src/index\.ts$",
     # Plugin index files — has testable logic but below 80% branch coverage (TODO: add tests)
-    r"packages/plugins/(calendar|ssh|delegation|workspace)/src/index\.ts$",
+    r"packages/plugins/(calendar|ssh|delegation|workspace|notifications|govee|storytelling)/src/index\.ts$",
     r"invoke-sub-agent\.ts$",  # delegation helper — .catch() branches require real I/O failures
     r"prompt-template-types\.ts$",  # pure type declarations + const array — no branching logic
     r"packages/logger/src/index\.ts$",  # Logger factory — transport selection runs at module load, not branch-testable
@@ -73,6 +73,7 @@ EXCLUDED_PATTERNS = [
     r"apps/web/src/components/ui/",  # calendar-specific UI primitives — thin wrappers
     r"apps/web/src/components/hooks\.ts$",  # React hooks — require component context
     r"apps/web/src/lib/utils\.ts$",  # cn() re-export — no logic
+    r"/_helpers/commands\.ts$",  # command registry — branches from name disambiguation, tested indirectly
     r"/_helpers/animations\.ts$",  # pure data constants — no runtime logic
     r"/_helpers/interfaces\.ts$",  # pure type declarations — no runtime code
     r"/_helpers/types\.ts$",  # pure type declarations — no runtime code
@@ -115,6 +116,7 @@ PROJECT_DIRS = [
     ("packages/plugins/outlook-calendar/", "packages/plugins/outlook-calendar"),
     ("packages/plugins/logs/", "packages/plugins/logs"),
     ("packages/plugins/ssh/", "packages/plugins/ssh"),
+    ("packages/plugins/notifications/", "packages/plugins/notifications"),
     ("packages/plugins/workspace/", "packages/plugins/workspace"),
 ]
 

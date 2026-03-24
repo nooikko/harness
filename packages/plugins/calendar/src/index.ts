@@ -27,6 +27,7 @@ const plugin: PluginDefinition = {
   tools: [
     {
       name: 'create_event',
+      audience: 'agent',
       description: 'Create a local calendar event (birthday, reminder, appointment, etc.). To create events on Outlook, use outlook_create_event.',
       schema: {
         type: 'object',
@@ -76,6 +77,7 @@ const plugin: PluginDefinition = {
     },
     {
       name: 'update_event',
+      audience: 'agent',
       description:
         'Update a calendar event. Supports LOCAL events (direct edit) and OUTLOOK events (via Graph API). Google events must be edited in Google Calendar. Provide only the fields to change.',
       schema: {
@@ -105,6 +107,7 @@ const plugin: PluginDefinition = {
     },
     {
       name: 'delete_event',
+      audience: 'agent',
       description:
         'Delete a calendar event. Supports LOCAL events (direct delete) and OUTLOOK events (via Graph API). Google events must be deleted in Google Calendar.',
       schema: {
@@ -124,6 +127,7 @@ const plugin: PluginDefinition = {
     },
     {
       name: 'list_events',
+      audience: 'agent',
       description: 'List events from the unified calendar (Outlook, Google, local, memories, tasks, cron). Defaults to the next 7 days.',
       schema: {
         type: 'object',
@@ -162,6 +166,7 @@ const plugin: PluginDefinition = {
     },
     {
       name: 'get_event',
+      audience: 'agent',
       description: 'Get full details of a calendar event by its ID.',
       schema: {
         type: 'object',
@@ -177,6 +182,7 @@ const plugin: PluginDefinition = {
     },
     {
       name: 'respond_to_event',
+      audience: 'agent',
       description: 'Accept, tentatively accept, or decline a calendar event invitation (Outlook or Google).',
       schema: {
         type: 'object',
@@ -203,6 +209,7 @@ const plugin: PluginDefinition = {
     },
     {
       name: 'outlook_create_event',
+      audience: 'agent',
       description: 'Create a new event on Outlook calendar via Microsoft Graph API. Supports attendees, timezone, and rich body text.',
       schema: {
         type: 'object',
@@ -224,6 +231,7 @@ const plugin: PluginDefinition = {
     },
     {
       name: 'outlook_update_event',
+      audience: 'agent',
       description:
         'Update an existing Outlook calendar event via Microsoft Graph API. Pass the Outlook Graph event ID directly. Only provide the fields you want to change.',
       schema: {
@@ -247,6 +255,7 @@ const plugin: PluginDefinition = {
     },
     {
       name: 'outlook_delete_event',
+      audience: 'agent',
       description: 'Delete/cancel an Outlook calendar event by its Graph API ID.',
       schema: {
         type: 'object',
@@ -262,6 +271,7 @@ const plugin: PluginDefinition = {
     },
     {
       name: 'outlook_list_events',
+      audience: 'agent',
       description:
         'List Outlook calendar events in real-time via Microsoft Graph API calendarView. Returns live data directly from Outlook, not the synced local database.',
       schema: {
@@ -280,6 +290,7 @@ const plugin: PluginDefinition = {
     },
     {
       name: 'outlook_get_event',
+      audience: 'agent',
       description: 'Get full details of an Outlook calendar event by its Graph API ID, including HTML body, attendees, recurrence, and meeting link.',
       schema: {
         type: 'object',
@@ -295,6 +306,7 @@ const plugin: PluginDefinition = {
     },
     {
       name: 'outlook_find_free_time',
+      audience: 'agent',
       description: 'Find available meeting time slots in a date range using Microsoft Graph findMeetingTimes API.',
       schema: {
         type: 'object',
@@ -316,6 +328,7 @@ const plugin: PluginDefinition = {
     },
     {
       name: 'outlook_list_calendars',
+      audience: 'agent',
       description: 'List all available Outlook calendars (personal, shared, etc.) with their properties.',
       schema: {
         type: 'object',
@@ -328,6 +341,7 @@ const plugin: PluginDefinition = {
     },
     {
       name: 'sync_now',
+      audience: 'agent',
       description: 'Trigger an immediate sync of Outlook and Google calendar events into the local calendar database.',
       schema: {
         type: 'object',

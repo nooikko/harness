@@ -40,6 +40,7 @@ const makeThread = (
   kind: 'general',
   model: null,
   effort: null,
+  permissionMode: null,
   customInstructions: null,
   projectId: null,
   parentThreadId: null,

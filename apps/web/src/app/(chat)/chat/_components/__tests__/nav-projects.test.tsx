@@ -46,6 +46,7 @@ const makeThread = (overrides: Partial<Thread> = {}): Thread => ({
   sessionId: null,
   model: null,
   effort: null,
+  permissionMode: null,
   customInstructions: null,
   parentThreadId: null,
   agentId: null,

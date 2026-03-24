@@ -139,6 +139,7 @@ const musicPlugin: PluginDefinition = {
   tools: [
     {
       name: 'search',
+      audience: 'agent',
       description: 'Search YouTube Music for songs. Returns a list of results with videoId, title, artist, album, and duration.',
       schema: {
         type: 'object',
@@ -163,6 +164,7 @@ const musicPlugin: PluginDefinition = {
 
     {
       name: 'play',
+      audience: 'agent',
       description:
         'Play a song on a Cast device (Chromecast, Google Home, Nest speaker). Provide either a search query or a specific videoId. Enables radio/autoplay by default so music keeps playing after the song ends.',
       schema: {
@@ -232,6 +234,7 @@ const musicPlugin: PluginDefinition = {
 
     {
       name: 'pause',
+      audience: 'agent',
       description: 'Pause the currently playing music on a Cast device.',
       schema: {
         type: 'object',
@@ -255,6 +258,7 @@ const musicPlugin: PluginDefinition = {
 
     {
       name: 'resume',
+      audience: 'agent',
       description: 'Resume paused music on a Cast device.',
       schema: {
         type: 'object',
@@ -278,6 +282,7 @@ const musicPlugin: PluginDefinition = {
 
     {
       name: 'stop',
+      audience: 'agent',
       description: 'Stop music playback and clear the queue on a Cast device.',
       schema: {
         type: 'object',
@@ -301,6 +306,7 @@ const musicPlugin: PluginDefinition = {
 
     {
       name: 'skip',
+      audience: 'agent',
       description: 'Skip to the next song in the queue.',
       schema: {
         type: 'object',
@@ -324,6 +330,7 @@ const musicPlugin: PluginDefinition = {
 
     {
       name: 'queue_add',
+      audience: 'agent',
       description: 'Add a song to the playback queue. It will play after the current track and any other queued songs.',
       schema: {
         type: 'object',
@@ -378,6 +385,7 @@ const musicPlugin: PluginDefinition = {
 
     {
       name: 'queue_view',
+      audience: 'agent',
       description: 'View the current playback queue including the currently playing song.',
       schema: {
         type: 'object',
@@ -407,6 +415,7 @@ const musicPlugin: PluginDefinition = {
 
     {
       name: 'set_volume',
+      audience: 'agent',
       description: 'Set the volume on a Cast device. Level is 0 to 100 (percentage).',
       schema: {
         type: 'object',
@@ -431,6 +440,7 @@ const musicPlugin: PluginDefinition = {
 
     {
       name: 'list_devices',
+      audience: 'agent',
       description: 'List all Cast devices (Chromecast, Google Home, Nest speakers) discovered on the local network.',
       schema: {
         type: 'object',
@@ -450,6 +460,7 @@ const musicPlugin: PluginDefinition = {
 
     {
       name: 'my_playlists',
+      audience: 'agent',
       description: "List the user's YouTube Music playlists. Requires YouTube Music account to be connected.",
       schema: {
         type: 'object',
@@ -499,6 +510,7 @@ const musicPlugin: PluginDefinition = {
 
     {
       name: 'liked_songs',
+      audience: 'agent',
       description: "List the user's liked songs from YouTube Music. Requires account to be connected.",
       schema: {
         type: 'object',
@@ -556,6 +568,7 @@ const musicPlugin: PluginDefinition = {
 
     {
       name: 'like_song',
+      audience: 'agent',
       description: 'Like a song on YouTube Music. Adds it to your Liked Music playlist. Requires account to be connected.',
       schema: {
         type: 'object',
@@ -584,6 +597,7 @@ const musicPlugin: PluginDefinition = {
 
     {
       name: 'unlike_song',
+      audience: 'agent',
       description: 'Remove a like from a song on YouTube Music. Requires account to be connected.',
       schema: {
         type: 'object',
@@ -612,6 +626,7 @@ const musicPlugin: PluginDefinition = {
 
     {
       name: 'get_playback_settings',
+      audience: 'agent',
       description: 'Get current music playback settings (default volume, radio/autoplay, audio quality).',
       schema: {
         type: 'object',
@@ -631,6 +646,7 @@ const musicPlugin: PluginDefinition = {
 
     {
       name: 'update_playback_settings',
+      audience: 'agent',
       description: 'Update music playback settings. Provide only the fields you want to change.',
       schema: {
         type: 'object',

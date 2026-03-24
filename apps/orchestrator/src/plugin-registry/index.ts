@@ -16,6 +16,7 @@ import { plugin as identityPlugin } from '@harness/plugin-identity';
 import { plugin as logsPlugin } from '@harness/plugin-logs';
 import { plugin as metricsPlugin } from '@harness/plugin-metrics';
 import { musicPlugin } from '@harness/plugin-music';
+import { plugin as notificationsPlugin } from '@harness/plugin-notifications';
 import { plugin as outlookPlugin } from '@harness/plugin-outlook';
 
 import { plugin as playwrightPlugin } from '@harness/plugin-playwright';
@@ -58,6 +59,7 @@ const ALL_PLUGINS: PluginDefinition[] = [
   playwrightPlugin,
   logsPlugin,
   sshPlugin,
+  notificationsPlugin,
 ];
 
 type GetPlugins = (db: PrismaClient, logger: Logger) => Promise<PluginDefinition[]>;

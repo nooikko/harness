@@ -76,7 +76,16 @@ const makeDeps = (overrides?: Partial<OrchestratorDeps>): OrchestratorDeps => ({
     })),
     message: { create: vi.fn().mockResolvedValue({}) },
     thread: {
-      findUnique: vi.fn().mockResolvedValue({ sessionId: null, model: null, kind: 'primary', name: 'Main', projectId: null }),
+      findUnique: vi.fn().mockResolvedValue({
+        sessionId: null,
+        model: null,
+        effort: null,
+        permissionMode: null,
+        kind: 'primary',
+        name: 'Main',
+        customInstructions: null,
+        projectId: null,
+      }),
       update: vi.fn().mockResolvedValue({}),
       updateMany: vi.fn().mockResolvedValue({ count: 0 }),
     },
@@ -789,7 +798,16 @@ describe('createOrchestrator', () => {
 
       expect(deps.db.thread.findUnique as ReturnType<typeof vi.fn>).toHaveBeenCalledWith({
         where: { id: 'thread-123' },
-        select: { sessionId: true, model: true, effort: true, kind: true, name: true, customInstructions: true, projectId: true },
+        select: {
+          sessionId: true,
+          model: true,
+          effort: true,
+          permissionMode: true,
+          kind: true,
+          name: true,
+          customInstructions: true,
+          projectId: true,
+        },
       });
     });
 
@@ -923,12 +941,12 @@ describe('createOrchestrator', () => {
 
       expect(deps.db.project.findUnique as ReturnType<typeof vi.fn>).toHaveBeenCalledWith({
         where: { id: 'project-1' },
-        select: { model: true },
+        select: { model: true, workingDirectory: true },
       });
       expect(deps.invoker.invoke).toHaveBeenCalledWith(expect.any(String), expect.objectContaining({ model: 'claude-opus-4-6' }));
     });
 
-    it('does not look up project when thread already has a model', async () => {
+    it('uses thread model even when project has a different model', async () => {
       const invokeResult = makeInvokeResult({ output: 'response' });
       const deps = makeDeps({
         invoker: { invoke: vi.fn().mockResolvedValue(invokeResult) } as unknown as Invoker,
@@ -941,11 +959,15 @@ describe('createOrchestrator', () => {
         customInstructions: null,
         projectId: 'project-1',
       });
+      (deps.db.project.findUnique as ReturnType<typeof vi.fn>).mockResolvedValue({
+        model: 'claude-opus-4-6',
+        workingDirectory: null,
+      });
       const orchestrator = createOrchestrator(deps);
 
       await orchestrator.handleMessage('thread-1', 'user', 'hi');
 
-      expect(deps.db.project.findUnique as ReturnType<typeof vi.fn>).not.toHaveBeenCalled();
+      // Thread model takes precedence over project model
       expect(deps.invoker.invoke).toHaveBeenCalledWith(expect.any(String), expect.objectContaining({ model: 'claude-haiku-4-5-20251001' }));
     });
 
@@ -999,6 +1021,7 @@ describe('createOrchestrator', () => {
         sessionId: null,
         model: null,
         effort: null,
+        permissionMode: null,
         kind: 'general',
         name: 'Thread',
         customInstructions: null,

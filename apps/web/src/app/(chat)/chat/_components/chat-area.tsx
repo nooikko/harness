@@ -19,12 +19,22 @@ type ChatAreaProps = {
   currentModel: string | null;
   currentAgentId: string | null;
   currentAgentName: string | null;
+  currentEffort: string | null;
+  currentPermissionMode: string | null;
   children: React.ReactNode;
 };
 
 type ChatAreaComponent = (props: ChatAreaProps) => React.ReactNode;
 
-export const ChatArea: ChatAreaComponent = ({ threadId, currentModel, currentAgentId, currentAgentName, children }) => {
+export const ChatArea: ChatAreaComponent = ({
+  threadId,
+  currentModel,
+  currentAgentId,
+  currentAgentName,
+  currentEffort,
+  currentPermissionMode,
+  children,
+}) => {
   const [error, setError] = useState<string | null>(null);
   const [isThinking, setIsThinking] = useState(false);
   const [isPending, startTransition] = useTransition();
@@ -200,6 +210,8 @@ export const ChatArea: ChatAreaComponent = ({ threadId, currentModel, currentAge
         currentModel={currentModel}
         currentAgentId={currentAgentId}
         currentAgentName={currentAgentName}
+        currentEffort={currentEffort}
+        currentPermissionMode={currentPermissionMode}
         onSubmitAction={handleSubmit}
         disabled={isPending}
         error={error}

@@ -7,8 +7,9 @@ import { updateThreadModel } from '../_actions/update-thread-model';
 import { MODEL_OPTIONS } from '../_helpers/model-options';
 
 type ModelSelectorProps = {
-  threadId: string;
+  threadId: string | null;
   currentModel: string | null;
+  onModelChange?: (model: string | null) => void;
 };
 
 const getModelLabel = (model: string | null): string => {
@@ -19,13 +20,19 @@ const getModelLabel = (model: string | null): string => {
 
 type ModelSelectorComponent = (props: ModelSelectorProps) => React.ReactNode;
 
-export const ModelSelector: ModelSelectorComponent = ({ threadId, currentModel }) => {
+export const ModelSelector: ModelSelectorComponent = ({ threadId, currentModel, onModelChange }) => {
   const [isPending, startTransition] = useTransition();
 
   const handleSelect = (value: string) => {
-    startTransition(async () => {
-      await updateThreadModel(threadId, value || null);
-    });
+    if (onModelChange) {
+      onModelChange(value || null);
+      return;
+    }
+    if (threadId) {
+      startTransition(async () => {
+        await updateThreadModel(threadId, value || null);
+      });
+    }
   };
 
   return (

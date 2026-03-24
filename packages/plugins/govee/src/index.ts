@@ -104,6 +104,7 @@ export const goveePlugin: PluginDefinition = {
   tools: [
     {
       name: 'list_devices',
+      audience: 'agent',
       description: 'List all Govee devices with their capabilities (on/off, brightness, color, color temp, scenes).',
       schema: { type: 'object', properties: {} },
       handler: async () => {
@@ -114,6 +115,7 @@ export const goveePlugin: PluginDefinition = {
     },
     {
       name: 'set_light',
+      audience: 'agent',
       description:
         "Control a Govee device by name or MAC. Set on/off, brightness (1-100), color temperature (2000-9000K), or color (hex like #ff6600 or name like 'red'). Rate limit: 10 commands/minute per device.",
       schema: {
@@ -196,6 +198,7 @@ export const goveePlugin: PluginDefinition = {
     },
     {
       name: 'toggle_light',
+      audience: 'agent',
       description: 'Toggle a Govee device on or off (reads current state and inverts). Rate limit: 10 commands/minute per device.',
       schema: {
         type: 'object',
@@ -229,6 +232,7 @@ export const goveePlugin: PluginDefinition = {
     },
     {
       name: 'list_scenes',
+      audience: 'agent',
       description: 'List available scenes for a specific Govee device.',
       schema: {
         type: 'object',
@@ -268,6 +272,7 @@ export const goveePlugin: PluginDefinition = {
     },
     {
       name: 'set_scene',
+      audience: 'agent',
       description: 'Activate a scene on a Govee device. Use list_scenes to find available scene values.',
       schema: {
         type: 'object',
@@ -319,6 +324,7 @@ export const goveePlugin: PluginDefinition = {
     },
     {
       name: 'list_groups',
+      audience: 'agent',
       description: 'List virtual device groups.',
       schema: { type: 'object', properties: {} },
       handler: async () => {
@@ -333,6 +339,7 @@ export const goveePlugin: PluginDefinition = {
     },
     {
       name: 'create_group',
+      audience: 'agent',
       description: 'Create a virtual group of devices for batch control.',
       schema: {
         type: 'object',
@@ -377,6 +384,7 @@ export const goveePlugin: PluginDefinition = {
     },
     {
       name: 'delete_group',
+      audience: 'agent',
       description: 'Delete a virtual device group.',
       schema: {
         type: 'object',
@@ -400,6 +408,7 @@ export const goveePlugin: PluginDefinition = {
     },
     {
       name: 'set_group',
+      audience: 'agent',
       description:
         'Control all devices in a virtual group. Set on/off, brightness, color temp, or color. Commands are sent sequentially respecting rate limits (10/min per device).',
       schema: {
@@ -492,6 +501,7 @@ export const goveePlugin: PluginDefinition = {
     },
     {
       name: 'get_status',
+      audience: 'agent',
       description: 'Get Govee plugin status including device count, rate limit usage, and group info.',
       schema: { type: 'object', properties: {} },
       handler: async () => {

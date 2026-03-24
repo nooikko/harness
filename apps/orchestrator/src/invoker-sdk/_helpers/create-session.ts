@@ -98,7 +98,7 @@ export const createSession: CreateSession = (model, config) => {
       // Otherwise use a neutral cwd outside the project tree so the Claude subprocess does not
       // auto-load the harness CLAUDE.md, .claude/rules/, or dev-session memory files.
       cwd: config?.cwd ?? os.tmpdir(),
-      permissionMode: 'bypassPermissions',
+      permissionMode: config?.permissionMode ?? 'bypassPermissions',
       allowDangerouslySkipPermissions: true,
       env,
       ...(config?.mcpServerFactory ? { mcpServers: config.mcpServerFactory(contextRef) } : {}),

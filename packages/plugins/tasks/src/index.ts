@@ -12,6 +12,7 @@ export const plugin: PluginDefinition = {
   tools: [
     {
       name: 'add_task',
+      audience: 'agent',
       description: 'Create a new task. Auto-resolves projectId and sourceThreadId from the current thread.',
       schema: {
         type: 'object',
@@ -40,6 +41,7 @@ export const plugin: PluginDefinition = {
     },
     {
       name: 'list_tasks',
+      audience: 'agent',
       description: 'List tasks, filterable by status and project. Returns compact summaries with dependency info.',
       schema: {
         type: 'object',
@@ -64,6 +66,7 @@ export const plugin: PluginDefinition = {
     },
     {
       name: 'update_task',
+      audience: 'agent',
       description: "Update a task's title, description, status, priority, or due date.",
       schema: {
         type: 'object',
@@ -89,6 +92,7 @@ export const plugin: PluginDefinition = {
     },
     {
       name: 'complete_task',
+      audience: 'agent',
       description: 'Mark a task as DONE and set completedAt timestamp.',
       schema: {
         type: 'object',
@@ -101,6 +105,7 @@ export const plugin: PluginDefinition = {
     },
     {
       name: 'add_dependency',
+      audience: 'agent',
       description: 'Link two tasks: "taskId is blocked by blockedById". Rejects cycles.',
       schema: {
         type: 'object',
@@ -117,6 +122,7 @@ export const plugin: PluginDefinition = {
     },
     {
       name: 'remove_dependency',
+      audience: 'agent',
       description: 'Remove a dependency link between two tasks.',
       schema: {
         type: 'object',

@@ -34,6 +34,7 @@ export type SessionConfig = {
   systemPrompt?: string;
   maxTurns?: number;
   cwd?: string; // Working directory override — workspace tasks set this to the target project directory
+  permissionMode?: 'default' | 'acceptEdits' | 'bypassPermissions' | 'plan' | 'dontAsk'; // SDK permission mode override
 };
 
 export type SessionFactory = (model: string, config?: SessionConfig) => Session;

@@ -44,13 +44,16 @@ const AGENT_COMMANDS: CommandDefinition[] = [
 
 // Auto-discovered plugin tools (from build-time generation)
 // Disambiguate tools that share the same toolName across plugins by prefixing with pluginName
+// Filter out agent-only tools (audience: "agent") — those are for Claude's MCP tools, not the / command menu
 const TOOL_COMMANDS: CommandDefinition[] = (() => {
+  const humanTools = pluginToolRegistry.filter((t) => t.audience !== 'agent');
+
   const nameCount = new Map<string, number>();
-  for (const tool of pluginToolRegistry) {
+  for (const tool of humanTools) {
     nameCount.set(tool.toolName, (nameCount.get(tool.toolName) ?? 0) + 1);
   }
 
-  return pluginToolRegistry.map((tool) => ({
+  return humanTools.map((tool) => ({
     name: (nameCount.get(tool.toolName) ?? 0) > 1 ? `${tool.pluginName}-${tool.toolName}` : tool.toolName,
     description: tool.description,
     args: tool.args,

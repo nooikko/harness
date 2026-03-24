@@ -14,6 +14,7 @@ const makeThread: MakeThread = (overrides) => ({
   sessionId: null,
   model: null,
   effort: null,
+  permissionMode: null,
   customInstructions: null,
   parentThreadId: null,
   agentId: null,

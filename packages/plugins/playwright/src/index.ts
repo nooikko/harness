@@ -15,6 +15,7 @@ import { cleanupRecordingState, startRecording, stopRecording } from './_helpers
 const tools: PluginTool[] = [
   {
     name: 'navigate',
+    audience: 'agent',
     description:
       'Navigate the browser to a URL. Returns the page title, final URL, and HTTP status. The browser page persists across tool calls within this pipeline run, so you can navigate and then interact with the page using other tools.',
     schema: {
@@ -31,6 +32,7 @@ const tools: PluginTool[] = [
   },
   {
     name: 'snapshot',
+    audience: 'agent',
     description:
       'Get an accessibility tree snapshot of the current page. This is the primary way to understand page structure — it shows headings, buttons, links, form fields, checkboxes, and their states (checked, disabled, etc.). Use this after navigating to understand what is on the page before interacting with it.',
     schema: {
@@ -41,6 +43,7 @@ const tools: PluginTool[] = [
   },
   {
     name: 'click',
+    audience: 'agent',
     description:
       'Click an element on the page by CSS selector. Use for buttons, links, checkboxes, and any clickable element. After clicking, the page may navigate or update — use snapshot to see the new state.',
     schema: {
@@ -57,6 +60,7 @@ const tools: PluginTool[] = [
   },
   {
     name: 'fill',
+    audience: 'agent',
     description: 'Type text into a form input field. Clears any existing value first, then types the new value.',
     schema: {
       type: 'object',
@@ -76,6 +80,7 @@ const tools: PluginTool[] = [
   },
   {
     name: 'select_option',
+    audience: 'agent',
     description: 'Select an option from a <select> dropdown by value.',
     schema: {
       type: 'object',
@@ -95,6 +100,7 @@ const tools: PluginTool[] = [
   },
   {
     name: 'check',
+    audience: 'agent',
     description: 'Check or uncheck a checkbox. Defaults to checking. Set checked=false to uncheck.',
     schema: {
       type: 'object',
@@ -114,6 +120,7 @@ const tools: PluginTool[] = [
   },
   {
     name: 'screenshot',
+    audience: 'agent',
     description:
       'Take a screenshot of the current page. The screenshot is persisted as a file attachment on the thread and will be visible in the chat UI. Use this when you need visual confirmation, want to show the user what something looks like, or the user explicitly asked for a screenshot. Prefer snapshot (accessibility tree) for understanding page structure.',
     schema: {
@@ -129,6 +136,7 @@ const tools: PluginTool[] = [
   },
   {
     name: 'press_key',
+    audience: 'agent',
     description: 'Press a keyboard key. Useful for submitting forms (Enter), tabbing between fields (Tab), closing modals (Escape), etc.',
     schema: {
       type: 'object',
@@ -144,6 +152,7 @@ const tools: PluginTool[] = [
   },
   {
     name: 'start_recording',
+    audience: 'agent',
     description:
       'Start recording a video of the browser page. All page activity will be captured until stop_recording is called. The current page URL is preserved. Note: this closes and recreates the browser context, so cookies and session state will be lost.',
     schema: {
@@ -154,6 +163,7 @@ const tools: PluginTool[] = [
   },
   {
     name: 'stop_recording',
+    audience: 'agent',
     description:
       'Stop the active video recording and save it as a file attachment on the thread. The video will be visible in the chat UI. Must call start_recording first. Note: after stopping, the browser page resets to about:blank — call navigate before using other browser tools.',
     schema: {
@@ -164,6 +174,7 @@ const tools: PluginTool[] = [
   },
   {
     name: 'validate_pages',
+    audience: 'agent',
     description:
       'Navigate to a list of URLs and take a screenshot of each page. All screenshots are persisted as file attachments visible in the chat UI. Use this for batch visual validation — e.g., checking multiple pages on a staging server after a deployment.',
     schema: {

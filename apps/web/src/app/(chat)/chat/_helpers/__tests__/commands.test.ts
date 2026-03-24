@@ -3,7 +3,8 @@ import { COMMANDS } from '../commands';
 
 describe('COMMANDS registry', () => {
   it('contains system, agent, and tool commands', () => {
-    expect(COMMANDS.length).toBeGreaterThanOrEqual(7);
+    // 3 system + 1 agent (re-delegate) + 1 tool (create-plan) = 5 minimum
+    expect(COMMANDS.length).toBeGreaterThanOrEqual(5);
   });
 
   it('every command has required fields with correct types', () => {
@@ -16,13 +17,6 @@ describe('COMMANDS registry', () => {
     }
   });
 
-  it('includes /current-time as an auto-discovered tool command', () => {
-    const cmd = COMMANDS.find((c) => c.name === 'current-time');
-    expect(cmd).toBeDefined();
-    expect(cmd?.category).toBe('tool');
-    expect(cmd?.pluginName).toBe('time');
-  });
-
   it('includes all three system commands', () => {
     const names = COMMANDS.map((c) => c.name);
     expect(names).toContain('model');
@@ -32,33 +26,48 @@ describe('COMMANDS registry', () => {
 
   it("system commands have category 'system'", () => {
     const systemCmds = COMMANDS.filter((c) => c.category === 'system');
-    expect(systemCmds.length).toBeGreaterThanOrEqual(3);
+    expect(systemCmds.length).toBe(3);
   });
 
-  it('tool commands have pluginName set', () => {
+  it('includes create-plan as the only human-facing tool command', () => {
     const toolCmds = COMMANDS.filter((c) => c.category === 'tool');
-    expect(toolCmds.length).toBeGreaterThanOrEqual(1);
-    for (const cmd of toolCmds) {
-      expect(cmd.pluginName).toBeDefined();
-      expect(typeof cmd.pluginName).toBe('string');
-    }
+    expect(toolCmds.length).toBe(1);
+    expect(toolCmds[0]?.name).toBe('create-plan');
+    expect(toolCmds[0]?.pluginName).toBe('workspace');
   });
 
-  it('includes auto-discovered plugin tools', () => {
+  it('excludes all agent-audience tools from the command list', () => {
     const names = COMMANDS.map((c) => c.name);
-    expect(names).toContain('delegate');
-    expect(names).toContain('checkin');
-    expect(names).toContain('schedule-task');
-    expect(names).toContain('update-self');
-  });
-
-  it('disambiguates tools with the same name across plugins', () => {
-    // tasks and cron both expose list-tasks and update-task
-    const names = COMMANDS.map((c) => c.name);
-    expect(names).toContain('tasks-list-tasks');
-    expect(names).toContain('cron-list-tasks');
-    expect(names).toContain('tasks-update-task');
-    expect(names).toContain('cron-update-task');
+    // delegation
+    expect(names).not.toContain('delegate');
+    expect(names).not.toContain('checkin');
+    // identity
+    expect(names).not.toContain('update-self');
+    // project
+    expect(names).not.toContain('get-project-memory');
+    expect(names).not.toContain('set-project-memory');
+    // music
+    expect(names).not.toContain('play');
+    expect(names).not.toContain('pause');
+    // govee
+    expect(names).not.toContain('set-light');
+    expect(names).not.toContain('toggle-light');
+    // cron
+    expect(names).not.toContain('schedule-task');
+    // outlook
+    expect(names).not.toContain('send-email');
+    // calendar
+    expect(names).not.toContain('list-events');
+    // playwright
+    expect(names).not.toContain('navigate');
+    // ssh
+    expect(names).not.toContain('exec');
+    // tasks
+    expect(names).not.toContain('add-task');
+    // time
+    expect(names).not.toContain('current-time');
+    // logs
+    expect(names).not.toContain('query');
   });
 
   it('no duplicate command names', () => {

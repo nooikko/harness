@@ -13,6 +13,7 @@ type CreateTools = () => PluginTool[];
 const createTools: CreateTools = () => [
   {
     name: "query",
+    audience: "agent",
     description: `Search structured logs from the running Harness instance. Use this to diagnose errors, trace pipeline execution, or investigate plugin behavior.
 
 Diagnostic workflow:

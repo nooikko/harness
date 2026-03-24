@@ -15,6 +15,7 @@ const plugin: PluginDefinition = {
   tools: [
     {
       name: 'search_emails',
+      audience: 'agent',
       description: 'Search emails by query string (supports KQL syntax). Returns subject, from, date, and preview for matching emails.',
       schema: {
         type: 'object',
@@ -37,6 +38,7 @@ const plugin: PluginDefinition = {
     },
     {
       name: 'read_email',
+      audience: 'agent',
       description: 'Read the full content of an email by its ID. Returns subject, from, to, cc, body (HTML), and attachment info.',
       schema: {
         type: 'object',
@@ -55,6 +57,7 @@ const plugin: PluginDefinition = {
     },
     {
       name: 'list_recent',
+      audience: 'agent',
       description: 'List recent emails from a mail folder. Defaults to inbox. Supports inbox, sent, drafts, archive, trash.',
       schema: {
         type: 'object',
@@ -77,6 +80,7 @@ const plugin: PluginDefinition = {
     },
     {
       name: 'send_email',
+      audience: 'agent',
       description: 'Send a new email. Provide recipients, subject, and body.',
       schema: {
         type: 'object',
@@ -119,6 +123,7 @@ const plugin: PluginDefinition = {
     },
     {
       name: 'reply_email',
+      audience: 'agent',
       description: 'Reply to an email by its ID. Sends a reply to the original sender.',
       schema: {
         type: 'object',
@@ -144,6 +149,7 @@ const plugin: PluginDefinition = {
     },
     {
       name: 'move_email',
+      audience: 'agent',
       description: 'Move an email to a different folder. Supports well-known folders: inbox, archive, trash, drafts, sent, junk.',
       schema: {
         type: 'object',
@@ -169,6 +175,7 @@ const plugin: PluginDefinition = {
     },
     {
       name: 'list_folders',
+      audience: 'agent',
       description: 'List all mail folders with their item counts and unread counts.',
       schema: {
         type: 'object',
@@ -181,6 +188,7 @@ const plugin: PluginDefinition = {
     },
     {
       name: 'list_folder_emails',
+      audience: 'agent',
       description: 'List emails from a folder with pagination. Returns basic metadata (sender, subject, date, ID, unsubscribe flag) per email.',
       schema: {
         type: 'object',
@@ -207,6 +215,7 @@ const plugin: PluginDefinition = {
     },
     {
       name: 'find_unsubscribe_links',
+      audience: 'agent',
       description: 'Search for emails containing unsubscribe links. Returns sender, subject, and extracted unsubscribe URLs.',
       schema: {
         type: 'object',

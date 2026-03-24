@@ -12,14 +12,15 @@ type Agent = {
 };
 
 type AgentSelectorProps = {
-  threadId: string;
+  threadId: string | null;
   currentAgentId: string | null;
   currentAgentName: string | null;
+  onAgentChange?: (agentId: string, agentName: string) => void;
 };
 
 type AgentSelectorComponent = (props: AgentSelectorProps) => React.ReactNode;
 
-export const AgentSelector: AgentSelectorComponent = ({ threadId, currentAgentId, currentAgentName }) => {
+export const AgentSelector: AgentSelectorComponent = ({ threadId, currentAgentId, currentAgentName, onAgentChange }) => {
   const [agents, setAgents] = useState<Agent[]>([]);
   const [isPending, startTransition] = useTransition();
   const [loaded, setLoaded] = useState(false);
@@ -37,10 +38,16 @@ export const AgentSelector: AgentSelectorComponent = ({ threadId, currentAgentId
     };
   }, []);
 
-  const handleSelect = (agentId: string) => {
-    startTransition(async () => {
-      await updateThreadAgent(threadId, agentId);
-    });
+  const handleSelect = (agent: Agent) => {
+    if (onAgentChange) {
+      onAgentChange(agent.id, agent.name);
+      return;
+    }
+    if (threadId) {
+      startTransition(async () => {
+        await updateThreadAgent(threadId, agent.id);
+      });
+    }
   };
 
   return (
@@ -56,7 +63,7 @@ export const AgentSelector: AgentSelectorComponent = ({ threadId, currentAgentId
       </DropdownMenuTrigger>
       <DropdownMenuContent align='start' side='top' className='w-36'>
         {agents.map((agent) => (
-          <DropdownMenuItem key={agent.id} onClick={() => handleSelect(agent.id)} className='flex items-center justify-between text-xs'>
+          <DropdownMenuItem key={agent.id} onClick={() => handleSelect(agent)} className='flex items-center justify-between text-xs'>
             <span>{agent.name}</span>
             {currentAgentId === agent.id && <Check className='h-3 w-3 shrink-0' />}
           </DropdownMenuItem>

@@ -100,7 +100,17 @@ const { ChatInput } = await import('../chat-input');
 
 describe('ChatInput', () => {
   it('renders the send button', () => {
-    render(<ChatInput threadId='thread-1' currentModel={null} currentAgentId={null} currentAgentName={null} onSubmitAction={vi.fn()} />);
+    render(
+      <ChatInput
+        threadId='thread-1'
+        currentModel={null}
+        currentAgentId={null}
+        currentAgentName={null}
+        currentEffort={null}
+        currentPermissionMode={null}
+        onSubmitAction={vi.fn()}
+      />,
+    );
     expect(screen.getByRole('button', { name: /send message/i })).toBeInTheDocument();
   });
 
@@ -111,6 +121,8 @@ describe('ChatInput', () => {
         currentModel={null}
         currentAgentId={null}
         currentAgentName={null}
+        currentEffort={null}
+        currentPermissionMode={null}
         onSubmitAction={vi.fn()}
         error='Something went wrong'
       />,
@@ -119,33 +131,82 @@ describe('ChatInput', () => {
   });
 
   it('does not show error element when error is null', () => {
-    render(<ChatInput threadId='thread-1' currentModel={null} currentAgentId={null} currentAgentName={null} onSubmitAction={vi.fn()} error={null} />);
+    render(
+      <ChatInput
+        threadId='thread-1'
+        currentModel={null}
+        currentAgentId={null}
+        currentAgentName={null}
+        currentEffort={null}
+        currentPermissionMode={null}
+        onSubmitAction={vi.fn()}
+        error={null}
+      />,
+    );
     expect(screen.queryByText('Something went wrong')).not.toBeInTheDocument();
   });
 
   it('disables the send button when disabled prop is true', () => {
     render(
-      <ChatInput threadId='thread-1' currentModel={null} currentAgentId={null} currentAgentName={null} onSubmitAction={vi.fn()} disabled={true} />,
+      <ChatInput
+        threadId='thread-1'
+        currentModel={null}
+        currentAgentId={null}
+        currentAgentName={null}
+        currentEffort={null}
+        currentPermissionMode={null}
+        onSubmitAction={vi.fn()}
+        disabled={true}
+      />,
     );
     expect(screen.getByRole('button', { name: /send message/i })).toBeDisabled();
   });
 
   it('enables the send button when disabled prop is false', () => {
     render(
-      <ChatInput threadId='thread-1' currentModel={null} currentAgentId={null} currentAgentName={null} onSubmitAction={vi.fn()} disabled={false} />,
+      <ChatInput
+        threadId='thread-1'
+        currentModel={null}
+        currentAgentId={null}
+        currentAgentName={null}
+        currentEffort={null}
+        currentPermissionMode={null}
+        onSubmitAction={vi.fn()}
+        disabled={false}
+      />,
     );
     expect(screen.getByRole('button', { name: /send message/i })).not.toBeDisabled();
   });
 
   it('renders the hint text', () => {
-    render(<ChatInput threadId='thread-1' currentModel={null} currentAgentId={null} currentAgentName={null} onSubmitAction={vi.fn()} />);
+    render(
+      <ChatInput
+        threadId='thread-1'
+        currentModel={null}
+        currentAgentId={null}
+        currentAgentName={null}
+        currentEffort={null}
+        currentPermissionMode={null}
+        onSubmitAction={vi.fn()}
+      />,
+    );
     expect(screen.getByText(/Enter to send/)).toBeInTheDocument();
   });
 
   it('dispatches KEY_ENTER_COMMAND when send button is clicked', async () => {
     const user = userEvent.setup();
     mockDispatchCommand.mockClear();
-    render(<ChatInput threadId='thread-1' currentModel={null} currentAgentId={null} currentAgentName={null} onSubmitAction={vi.fn()} />);
+    render(
+      <ChatInput
+        threadId='thread-1'
+        currentModel={null}
+        currentAgentId={null}
+        currentAgentName={null}
+        currentEffort={null}
+        currentPermissionMode={null}
+        onSubmitAction={vi.fn()}
+      />,
+    );
     await user.click(screen.getByRole('button', { name: /send message/i }));
     expect(mockDispatchCommand).toHaveBeenCalledOnce();
   });
@@ -153,7 +214,17 @@ describe('ChatInput', () => {
   it('passes onSubmit prop down to SubmitPlugin', async () => {
     MockSubmitPlugin.mockClear();
     const onSubmit = vi.fn();
-    render(<ChatInput threadId='thread-1' currentModel={null} currentAgentId={null} currentAgentName={null} onSubmitAction={onSubmit} />);
+    render(
+      <ChatInput
+        threadId='thread-1'
+        currentModel={null}
+        currentAgentId={null}
+        currentAgentName={null}
+        currentEffort={null}
+        currentPermissionMode={null}
+        onSubmitAction={onSubmit}
+      />,
+    );
     expect(MockSubmitPlugin).toHaveBeenCalled();
     const { onSubmit: passedOnSubmit } = MockSubmitPlugin.mock.calls[0]![0] as {
       onSubmit: (text: string) => void;
@@ -164,17 +235,48 @@ describe('ChatInput', () => {
   });
 
   it('renders the attach file button', () => {
-    render(<ChatInput threadId='thread-1' currentModel={null} currentAgentId={null} currentAgentName={null} onSubmitAction={vi.fn()} />);
+    render(
+      <ChatInput
+        threadId='thread-1'
+        currentModel={null}
+        currentAgentId={null}
+        currentAgentName={null}
+        currentEffort={null}
+        currentPermissionMode={null}
+        onSubmitAction={vi.fn()}
+      />,
+    );
     expect(screen.getByRole('button', { name: /attach file/i })).toBeInTheDocument();
   });
 
   it('disables attach button when disabled', () => {
-    render(<ChatInput threadId='thread-1' currentModel={null} currentAgentId={null} currentAgentName={null} onSubmitAction={vi.fn()} disabled />);
+    render(
+      <ChatInput
+        threadId='thread-1'
+        currentModel={null}
+        currentAgentId={null}
+        currentAgentName={null}
+        currentEffort={null}
+        currentPermissionMode={null}
+        onSubmitAction={vi.fn()}
+        disabled
+      />,
+    );
     expect(screen.getByRole('button', { name: /attach file/i })).toBeDisabled();
   });
 
   it('shows upload error message', () => {
-    render(<ChatInput threadId='thread-1' currentModel={null} currentAgentId={null} currentAgentName={null} onSubmitAction={vi.fn()} />);
+    render(
+      <ChatInput
+        threadId='thread-1'
+        currentModel={null}
+        currentAgentId={null}
+        currentAgentName={null}
+        currentEffort={null}
+        currentPermissionMode={null}
+        onSubmitAction={vi.fn()}
+      />,
+    );
     // uploadError state is internal and only set during file upload flow
     // The error prop path is already tested above
   });
@@ -182,7 +284,17 @@ describe('ChatInput', () => {
   it('passes fileIds from upload in stableOnSubmit', async () => {
     MockSubmitPlugin.mockClear();
     const onSubmit = vi.fn();
-    render(<ChatInput threadId='thread-1' currentModel={null} currentAgentId={null} currentAgentName={null} onSubmitAction={onSubmit} />);
+    render(
+      <ChatInput
+        threadId='thread-1'
+        currentModel={null}
+        currentAgentId={null}
+        currentAgentName={null}
+        currentEffort={null}
+        currentPermissionMode={null}
+        onSubmitAction={onSubmit}
+      />,
+    );
     const { onSubmit: passedOnSubmit } = MockSubmitPlugin.mock.calls[0]![0] as {
       onSubmit: (text: string) => void;
     };
@@ -193,7 +305,15 @@ describe('ChatInput', () => {
 
   it('applies open-menu card styling when onMenuOpen is called', async () => {
     const { container } = render(
-      <ChatInput threadId='thread-1' currentModel={null} currentAgentId={null} currentAgentName={null} onSubmitAction={vi.fn()} />,
+      <ChatInput
+        threadId='thread-1'
+        currentModel={null}
+        currentAgentId={null}
+        currentAgentName={null}
+        currentEffort={null}
+        currentPermissionMode={null}
+        onSubmitAction={vi.fn()}
+      />,
     );
 
     // Before menu opens the card has rounded-xl (all corners)
@@ -218,7 +338,17 @@ describe('ChatInput', () => {
   });
 
   it('stages files when selected via file input', async () => {
-    render(<ChatInput threadId='thread-1' currentModel={null} currentAgentId={null} currentAgentName={null} onSubmitAction={vi.fn()} />);
+    render(
+      <ChatInput
+        threadId='thread-1'
+        currentModel={null}
+        currentAgentId={null}
+        currentAgentName={null}
+        currentEffort={null}
+        currentPermissionMode={null}
+        onSubmitAction={vi.fn()}
+      />,
+    );
 
     const fileInput = document.querySelector('input[type="file"]') as HTMLInputElement;
     const testFile = new File(['hello'], 'test.txt', { type: 'text/plain' });
@@ -232,7 +362,17 @@ describe('ChatInput', () => {
 
   it('removes staged files when remove button is clicked', async () => {
     const user = userEvent.setup();
-    render(<ChatInput threadId='thread-1' currentModel={null} currentAgentId={null} currentAgentName={null} onSubmitAction={vi.fn()} />);
+    render(
+      <ChatInput
+        threadId='thread-1'
+        currentModel={null}
+        currentAgentId={null}
+        currentAgentName={null}
+        currentEffort={null}
+        currentPermissionMode={null}
+        onSubmitAction={vi.fn()}
+      />,
+    );
 
     const fileInput = document.querySelector('input[type="file"]') as HTMLInputElement;
     const testFile = new File(['hello'], 'test.txt', { type: 'text/plain' });
@@ -257,7 +397,17 @@ describe('ChatInput', () => {
 
     MockSubmitPlugin.mockClear();
     const onSubmit = vi.fn();
-    render(<ChatInput threadId='thread-1' currentModel={null} currentAgentId={null} currentAgentName={null} onSubmitAction={onSubmit} />);
+    render(
+      <ChatInput
+        threadId='thread-1'
+        currentModel={null}
+        currentAgentId={null}
+        currentAgentName={null}
+        currentEffort={null}
+        currentPermissionMode={null}
+        onSubmitAction={onSubmit}
+      />,
+    );
 
     // Stage a file
     const fileInput = document.querySelector('input[type="file"]') as HTMLInputElement;
@@ -288,7 +438,17 @@ describe('ChatInput', () => {
 
     MockSubmitPlugin.mockClear();
     const onSubmit = vi.fn();
-    render(<ChatInput threadId='thread-1' currentModel={null} currentAgentId={null} currentAgentName={null} onSubmitAction={onSubmit} />);
+    render(
+      <ChatInput
+        threadId='thread-1'
+        currentModel={null}
+        currentAgentId={null}
+        currentAgentName={null}
+        currentEffort={null}
+        currentPermissionMode={null}
+        onSubmitAction={onSubmit}
+      />,
+    );
 
     // Stage a file
     const fileInput = document.querySelector('input[type="file"]') as HTMLInputElement;

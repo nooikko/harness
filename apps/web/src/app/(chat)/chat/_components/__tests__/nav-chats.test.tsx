@@ -51,6 +51,7 @@ const makeThread = (
   sourceId: 'src-1',
   model: null,
   effort: null,
+  permissionMode: null,
   customInstructions: null,
   createdAt: new Date(),
   updatedAt: new Date(),

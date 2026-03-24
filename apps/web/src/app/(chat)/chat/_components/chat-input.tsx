@@ -18,8 +18,8 @@ import { CommandMenuItem } from '../_helpers/command-menu-item';
 import { CommandNode } from '../_helpers/command-node';
 import { COMMANDS } from '../_helpers/commands';
 import { SubmitPlugin } from '../_helpers/submit-plugin';
-import { AgentSelector } from './agent-selector';
 import { FileChip } from './file-chip';
+import { InputSettingsPopover } from './input-settings-popover';
 import { ModelSelector } from './model-selector';
 
 // Static — module-level so Lexical does not warn about a new config reference on every render.
@@ -96,11 +96,17 @@ const uploadStagedFiles: UploadStagedFiles = async (threadId, files) => {
 };
 
 type ChatInputProps = {
-  threadId: string;
+  threadId: string | null;
   currentModel: string | null;
   currentAgentId: string | null;
   currentAgentName: string | null;
+  currentEffort: string | null;
+  currentPermissionMode: string | null;
   onSubmitAction: (text: string, fileIds?: string[]) => void;
+  onAgentChange?: (agentId: string, agentName: string) => void;
+  onModelChange?: (model: string | null) => void;
+  onEffortChange?: (effort: string | null) => void;
+  onPermissionModeChange?: (mode: string | null) => void;
   disabled?: boolean;
   error?: string | null;
 };
@@ -112,7 +118,13 @@ export const ChatInput: ChatInputComponent = ({
   currentModel,
   currentAgentId,
   currentAgentName,
+  currentEffort,
+  currentPermissionMode,
   onSubmitAction,
+  onAgentChange,
+  onModelChange,
+  onEffortChange,
+  onPermissionModeChange,
   disabled = false,
   error,
 }) => {
@@ -130,7 +142,7 @@ export const ChatInput: ChatInputComponent = ({
   const stableOnSubmit = useCallback(
     async (text: string) => {
       let fileIds: string[] | undefined;
-      if (stagedFiles.length > 0) {
+      if (stagedFiles.length > 0 && threadId) {
         setIsUploading(true);
         setUploadError(null);
         try {
@@ -249,7 +261,7 @@ export const ChatInput: ChatInputComponent = ({
               ))}
             </div>
           )}
-          {/* Controls row: attach + agent + model selectors left, send button right */}
+          {/* Controls row: attach + model left, settings + send right */}
           <div className='flex items-center justify-between px-3 pb-2'>
             <div className='flex items-center gap-2'>
               <Button
@@ -258,15 +270,27 @@ export const ChatInput: ChatInputComponent = ({
                 size='sm'
                 className='h-7 w-7 p-0 text-muted-foreground hover:text-foreground'
                 onClick={() => fileInputRef.current?.click()}
-                disabled={disabled || isUploading}
+                disabled={disabled || isUploading || !threadId}
                 aria-label='Attach file'
               >
                 <Paperclip className='h-3.5 w-3.5' />
               </Button>
-              <AgentSelector threadId={threadId} currentAgentId={currentAgentId} currentAgentName={currentAgentName} />
-              <ModelSelector threadId={threadId} currentModel={currentModel} />
+              <ModelSelector threadId={threadId} currentModel={currentModel} onModelChange={onModelChange} />
             </div>
-            <SendButton disabled={disabled || isUploading} />
+            <div className='flex items-center gap-1'>
+              <InputSettingsPopover
+                threadId={threadId}
+                currentModel={currentModel}
+                currentAgentId={currentAgentId}
+                currentAgentName={currentAgentName}
+                currentEffort={currentEffort}
+                currentPermissionMode={currentPermissionMode}
+                onAgentChange={onAgentChange}
+                onEffortChange={onEffortChange}
+                onPermissionModeChange={onPermissionModeChange}
+              />
+              <SendButton disabled={disabled || isUploading} />
+            </div>
           </div>
         </div>
         <p className='mt-1 text-[10px] text-muted-foreground/40'>Enter to send · Shift+Enter for new line · / for commands</p>
