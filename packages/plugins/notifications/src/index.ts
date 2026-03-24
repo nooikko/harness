@@ -10,12 +10,13 @@ import { createTtsProvider } from './_helpers/tts-provider';
 
 let audioServer: ReturnType<typeof createAudioServer> | null = null;
 let ttsProvider: TtsProvider | null = null;
+const AUDIO_SERVER_PORT = 9849;
+
 let currentSettings = {
   ttsProvider: 'edge-tts',
   voice: 'en-US-GuyNeural',
   volume: 70,
   defaultDevice: '',
-  audioServerPort: 9849,
 };
 
 // --- Helpers ---
@@ -108,7 +109,6 @@ export const plugin: PluginDefinition = {
       voice: settings.voice ?? 'en-US-GuyNeural',
       volume: settings.volume ?? 70,
       defaultDevice: settings.defaultDevice ?? '',
-      audioServerPort: settings.audioServerPort ?? 9849,
     };
 
     return {
@@ -145,7 +145,6 @@ export const plugin: PluginDefinition = {
           voice: settings.voice ?? 'en-US-GuyNeural',
           volume: settings.volume ?? 70,
           defaultDevice: settings.defaultDevice ?? '',
-          audioServerPort: settings.audioServerPort ?? 9849,
         };
 
         // Re-create TTS provider if it changed
@@ -165,7 +164,7 @@ export const plugin: PluginDefinition = {
     ttsProvider = createTtsProvider(currentSettings.ttsProvider);
 
     // Start audio server
-    audioServer = createAudioServer({ port: currentSettings.audioServerPort });
+    audioServer = createAudioServer({ port: AUDIO_SERVER_PORT });
     const info = await audioServer.start();
     ctx.logger.info(`notifications: audio server listening at http://${info.host}:${info.port}`);
 

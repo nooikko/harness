@@ -141,13 +141,6 @@ export const pluginSettingsRegistry: PluginSettingsEntry[] = [
         "label": "Default Speaker",
         "description": "Name of the default Cast device for announcements. Leave empty to use the first discovered device.",
         "default": ""
-      },
-      {
-        "name": "audioServerPort",
-        "type": "number",
-        "label": "Audio Server Port",
-        "description": "Port for the local HTTP server that serves generated audio to Cast devices.",
-        "default": 9849
       }
     ]
   },

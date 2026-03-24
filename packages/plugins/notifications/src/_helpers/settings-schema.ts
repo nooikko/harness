@@ -26,10 +26,4 @@ export const settingsSchema = createSettingsSchema({
     description: 'Name of the default Cast device for announcements. Leave empty to use the first discovered device.',
     default: '',
   },
-  audioServerPort: {
-    type: 'number' as const,
-    label: 'Audio Server Port',
-    description: 'Port for the local HTTP server that serves generated audio to Cast devices.',
-    default: 9849,
-  },
 });
