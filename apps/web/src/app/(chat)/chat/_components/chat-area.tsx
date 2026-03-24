@@ -10,6 +10,7 @@ import { sendMessage } from '../_actions/send-message';
 import { ChatInput } from './chat-input';
 import { DelegationStack } from './delegation-stack';
 import { PipelineActivity } from './pipeline-activity';
+import { StreamingMessage } from './streaming-message';
 
 const POLL_INTERVAL_MS = 3000;
 const POLL_TIMEOUT_MS = 120_000;
@@ -49,6 +50,7 @@ export const ChatArea: ChatAreaComponent = ({
   const { lastEvent: lastStepEvent } = useWs('pipeline:step');
   const { lastEvent: lastErrorEvent } = useWs('pipeline:error');
   const { lastEvent: lastDeletedEvent } = useWs('thread:deleted');
+  const { lastEvent: lastStreamEvent } = useWs('pipeline:stream');
 
   // On mount: detect if a pipeline is already running (e.g. navigated from NewChatArea after sending)
   useEffect(() => {
@@ -114,6 +116,18 @@ export const ChatArea: ChatAreaComponent = ({
     }
     anchorRef.current?.scrollIntoView({ behavior: 'smooth', block: 'end' });
   }, [lastStepEvent, threadId]);
+
+  // Scroll to bottom when streaming text arrives
+  useEffect(() => {
+    if (!lastStreamEvent || !isThinking) {
+      return;
+    }
+    const data = lastStreamEvent as { threadId?: string; event?: { type?: string } };
+    if (data.threadId !== threadId || data.event?.type !== 'assistant') {
+      return;
+    }
+    anchorRef.current?.scrollIntoView({ behavior: 'smooth', block: 'end' });
+  }, [lastStreamEvent, threadId, isThinking]);
 
   const onResponseReceived = useCallback(() => {
     setIsThinking(false);
@@ -199,6 +213,7 @@ export const ChatArea: ChatAreaComponent = ({
         <div className='mx-auto flex flex-1 w-full max-w-4xl flex-col justify-end px-4 py-6 sm:px-6'>
           <div className='flex flex-col gap-2'>
             {children}
+            <StreamingMessage threadId={threadId} isActive={isThinking} />
             <PipelineActivity threadId={threadId} isActive={isThinking} />
             <DelegationStack parentThreadId={threadId} />
             <div ref={anchorRef} data-scroll-anchor aria-hidden='true' />

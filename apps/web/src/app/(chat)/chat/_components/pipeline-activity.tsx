@@ -64,7 +64,7 @@ export const PipelineActivity: PipelineActivityComponent = ({ threadId, isActive
   const { lastEvent: lastErrorEvent } = useWs('pipeline:error');
   const [steps, setSteps] = useState<PipelineStep[]>([]);
   const [streamActivity, setStreamActivity] = useState<StreamActivity[]>([]);
-  const [isExpanded, setIsExpanded] = useState(true);
+  const [isExpanded, setIsExpanded] = useState(false);
   const [isUnresponsive, setIsUnresponsive] = useState(false);
   const [pipelineError, setPipelineError] = useState<string | null>(null);
   const startTimeRef = useRef<number>(0);
@@ -113,7 +113,6 @@ export const PipelineActivity: PipelineActivityComponent = ({ threadId, isActive
       startTimeRef.current = Date.now();
       setSteps([]);
       setStreamActivity([]);
-      setIsExpanded(true);
       setIsUnresponsive(false);
       setPipelineError(null);
     }
