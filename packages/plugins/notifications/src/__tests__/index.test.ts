@@ -5,10 +5,10 @@ vi.mock('../_helpers/settings-schema', () => ({
   settingsSchema: { fields: {}, __brand: 'settings-schema' },
 }));
 
-vi.mock('../_helpers/device-resolver', () => ({
+vi.mock('@harness/cast-devices', () => ({
   startDiscovery: vi.fn(),
   stopDiscovery: vi.fn(),
-  listSpeakers: vi.fn(() => [
+  listDevices: vi.fn(() => [
     {
       name: 'Living Room',
       host: '192.168.1.10',

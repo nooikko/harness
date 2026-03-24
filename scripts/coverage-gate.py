@@ -115,6 +115,7 @@ PROJECT_DIRS = [
     ("packages/plugins/calendar/", "packages/plugins/calendar"),
     ("packages/plugins/outlook-calendar/", "packages/plugins/outlook-calendar"),
     ("packages/plugins/logs/", "packages/plugins/logs"),
+    ("packages/cast-devices/", "packages/cast-devices"),
     ("packages/plugins/ssh/", "packages/plugins/ssh"),
     ("packages/plugins/notifications/", "packages/plugins/notifications"),
     ("packages/plugins/workspace/", "packages/plugins/workspace"),

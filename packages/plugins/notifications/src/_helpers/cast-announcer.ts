@@ -1,4 +1,4 @@
-import type { CastDevice } from './device-resolver';
+import type { CastDevice } from '@harness/cast-devices';
 
 // --- Types ---
 

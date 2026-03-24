@@ -1,5 +1,5 @@
 {
-  "name": "@harness/plugin-music",
+  "name": "@harness/cast-devices",
   "version": "0.1.0",
   "private": true,
   "type": "module",
@@ -21,10 +21,7 @@
     "test:watch": "vitest"
   },
   "dependencies": {
-    "@harness/cast-devices": "workspace:*",
-    "@harness/plugin-contract": "workspace:*",
-    "castv2-client": "^1.2.0",
-    "youtubei.js": "^17.0.1"
+    "bonjour-service": "^1.3.0"
   },
   "devDependencies": {
     "@harness/vitest-config": "workspace:*",

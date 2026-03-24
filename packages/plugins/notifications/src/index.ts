@@ -1,7 +1,7 @@
+import { listDevices, resolveDevice, startDiscovery, stopDiscovery } from '@harness/cast-devices';
 import type { PluginContext, PluginDefinition, PluginHooks } from '@harness/plugin-contract';
 import { createAudioServer } from './_helpers/audio-server';
 import { announce } from './_helpers/cast-announcer';
-import { listSpeakers, resolveDevice, startDiscovery, stopDiscovery } from './_helpers/device-resolver';
 import { settingsSchema } from './_helpers/settings-schema';
 import type { TtsProvider } from './_helpers/tts-provider';
 import { createTtsProvider } from './_helpers/tts-provider';
@@ -93,7 +93,7 @@ export const plugin: PluginDefinition = {
         properties: {},
       },
       handler: async () => {
-        const speakers = listSpeakers();
+        const speakers = listDevices();
         if (speakers.length === 0) {
           return 'No Cast devices found on the network. Make sure devices are on the same LAN.';
         }

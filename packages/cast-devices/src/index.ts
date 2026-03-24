@@ -18,10 +18,15 @@ type Browser = ReturnType<BonjourInstance['find']>;
 const devices = new Map<string, CastDevice>();
 let bonjour: BonjourInstance | null = null;
 let browser: Browser | null = null;
+let refCount = 0;
 
-// --- Lifecycle ---
+// --- Lifecycle (refcounted — multiple plugins can start/stop independently) ---
 
 export const startDiscovery = (): void => {
+  refCount++;
+  if (bonjour) {
+    return; // Already running
+  }
   bonjour = new Bonjour();
   browser = bonjour.find({ type: 'googlecast' }, (service: Service) => {
     const device = serviceToDevice(service);
@@ -32,6 +37,10 @@ export const startDiscovery = (): void => {
 };
 
 export const stopDiscovery = (): void => {
+  refCount = Math.max(0, refCount - 1);
+  if (refCount > 0) {
+    return; // Other consumers still need it
+  }
   browser?.stop();
   browser = null;
   bonjour?.destroy();
@@ -41,7 +50,7 @@ export const stopDiscovery = (): void => {
 
 // --- Device lookup ---
 
-export const listSpeakers = (): CastDevice[] => {
+export const listDevices = (): CastDevice[] => {
   return Array.from(devices.values());
 };
 
