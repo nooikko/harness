@@ -87,6 +87,7 @@ describe('sendMessage', () => {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ threadId: 'thread-1', content: 'Hello' }),
+      cache: 'no-store',
     });
   });
 

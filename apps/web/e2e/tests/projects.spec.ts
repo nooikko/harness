@@ -101,5 +101,13 @@ test.describe('projects', () => {
     // Should navigate back to hub with updated name
     await projectsPage.waitForReady();
     await expect(projectsPage.getHeading('Updated Project Name')).toBeVisible();
+
+    // Restore original name so other tests are not affected
+    await projectsPage.page.getByRole('link', { name: /settings/i }).click();
+    await projectsPage.waitForReady();
+    await projectsPage.page.locator('#proj-name').clear();
+    await projectsPage.page.locator('#proj-name').fill(TEST_PROJECT.name);
+    await projectsPage.page.getByRole('button', { name: 'Save Changes' }).click();
+    await projectsPage.waitForReady();
   });
 });

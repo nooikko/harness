@@ -59,7 +59,7 @@ describe('handleImportCharacters', () => {
     expect(result).toContain('Created 2 characters');
     expect(result).toContain('Violet');
     expect(result).toContain('Kai');
-    expect(ctx.invoker.invoke).toHaveBeenCalledWith(expect.any(String), { model: 'claude-sonnet-4-6' });
+    expect(ctx.invoker.invoke).toHaveBeenCalledWith(expect.any(String), expect.objectContaining({ model: 'claude-sonnet-4-6' }));
   });
 
   it('reports updates for existing characters', async () => {
@@ -96,7 +96,7 @@ describe('handleImportCharacters', () => {
 
     await handleImportCharacters(ctx, 'story-1', { text: 'profiles here' });
 
-    expect(ctx.invoker.invoke).toHaveBeenCalledWith(expect.any(String), { model: 'claude-sonnet-4-6' });
+    expect(ctx.invoker.invoke).toHaveBeenCalledWith(expect.any(String), expect.objectContaining({ model: 'claude-sonnet-4-6' }));
   });
 
   it('merges character when resolve returns merge action', async () => {

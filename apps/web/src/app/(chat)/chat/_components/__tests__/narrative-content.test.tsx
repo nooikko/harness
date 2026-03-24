@@ -26,7 +26,7 @@ describe('NarrativeContent', () => {
     render(<NarrativeContent content='*She paused.*' />);
     const em = screen.getByText('She paused.');
     expect(em.tagName).toBe('EM');
-    expect(em.className).toContain('text-muted-foreground');
+    expect(em.className).toContain('italic');
   });
 
   it('renders > blockquote with thought-bubble styling', () => {

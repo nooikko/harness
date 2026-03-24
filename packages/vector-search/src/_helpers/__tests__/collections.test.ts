@@ -3,8 +3,8 @@ import { COLLECTION_NAMES, EMBEDDING_DIMENSION } from '../collections.js';
 
 describe('collections', () => {
   it('exposes messages, threads, and files collection names', () => {
-    expect(Object.keys(COLLECTION_NAMES)).toEqual(expect.arrayContaining(['messages', 'threads', 'files']));
-    expect(Object.keys(COLLECTION_NAMES)).toHaveLength(3);
+    expect(Object.keys(COLLECTION_NAMES)).toEqual(expect.arrayContaining(['messages', 'threads', 'files', 'storyCharacters']));
+    expect(Object.keys(COLLECTION_NAMES)).toHaveLength(4);
   });
 
   it('sets EMBEDDING_DIMENSION to 384', () => {

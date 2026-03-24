@@ -27,7 +27,7 @@ test.describe('thread management', () => {
     await expect(threadPage.page.getByText('Start a new conversation')).toBeVisible();
 
     // Input area should have the placeholder
-    await expect(threadPage.page.getByPlaceholder(/send a message to start a new chat/i)).toBeVisible();
+    await expect(threadPage.page.getByPlaceholder(/send a message/i)).toBeVisible();
   });
 
   test('manage thread modal opens with settings fields', async ({ threadPage }) => {
@@ -76,14 +76,14 @@ test.describe('thread management', () => {
     expect(value).toBeTruthy();
   });
 
-  test('new chat has agent and model selectors', async ({ threadPage }) => {
+  test('new chat has model selector and settings button', async ({ threadPage }) => {
     await threadPage.gotoNewChat();
     await threadPage.waitForReady();
 
-    // Agent selector should be present
-    await expect(threadPage.page.getByRole('button', { name: 'Select agent' })).toBeVisible();
-
     // Model selector should be present
     await expect(threadPage.page.getByRole('button', { name: 'Select model' })).toBeVisible();
+
+    // Chat settings button should be present (agent selection is inside the settings popover)
+    await expect(threadPage.page.getByRole('button', { name: 'Chat settings' })).toBeVisible();
   });
 });

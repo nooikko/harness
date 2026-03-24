@@ -218,6 +218,6 @@ describe('handleImportTranscript', () => {
     const ctx = createMockCtx(invokeOutput);
     await handleImportTranscript(ctx, 'story-1', { transcriptId: 'tx-1' });
 
-    expect(ctx.invoker.invoke).toHaveBeenCalledWith(expect.any(String), { model: 'claude-sonnet-4-6' });
+    expect(ctx.invoker.invoke).toHaveBeenCalledWith(expect.any(String), expect.objectContaining({ model: 'claude-sonnet-4-6' }));
   });
 });

@@ -18,17 +18,18 @@ describe('upsertPoint', () => {
 
     const client = makeClient();
     const payload = { agentId: 'agent-1', importance: 8 };
+    const id = 'a0b1c2d3-e4f5-6789-abcd-ef0123456789';
 
-    await upsertPoint(client as never, 'messages', 'point-id', 'some text', payload);
+    await upsertPoint(client as never, 'messages', id, 'some text', payload);
 
     expect(embedSingle).toHaveBeenCalledWith('some text');
     expect(client.upsert).toHaveBeenCalledWith('messages', {
       wait: true,
       points: [
         {
-          id: 'point-id',
+          id,
           vector,
-          payload: { agentId: 'agent-1', importance: 8, text: 'some text' },
+          payload: { agentId: 'agent-1', importance: 8, text: 'some text', originalId: id },
         },
       ],
     });
@@ -44,6 +45,6 @@ describe('upsertPoint', () => {
 
     const upsertCall = client.upsert.mock.calls[0];
     const pointPayload = upsertCall?.[1]?.points?.[0]?.payload;
-    expect(pointPayload).toEqual({ path: '/a.ts', text: 'file content' });
+    expect(pointPayload).toEqual({ path: '/a.ts', text: 'file content', originalId: 'f1' });
   });
 });

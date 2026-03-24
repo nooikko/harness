@@ -59,6 +59,6 @@ test.describe('admin read-only pages', () => {
 
     await expect(basePage.getHeading('Integrations')).toBeVisible();
     await expect(basePage.page.getByRole('heading', { name: 'Microsoft 365' })).toBeVisible();
-    await expect(basePage.page.getByRole('button', { name: 'Connect Account' })).toBeVisible();
+    await expect(basePage.page.getByRole('button', { name: 'Connect Account' }).first()).toBeVisible();
   });
 });

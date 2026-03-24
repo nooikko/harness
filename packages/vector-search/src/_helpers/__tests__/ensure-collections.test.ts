@@ -38,11 +38,14 @@ describe('ensureCollections', () => {
 
     await ensureCollections(client as never);
 
-    expect(client.createCollection).toHaveBeenCalledTimes(2);
+    expect(client.createCollection).toHaveBeenCalledTimes(3);
     expect(client.createCollection).toHaveBeenCalledWith('threads', {
       vectors: { size: EMBEDDING_DIMENSION, distance: 'Cosine' },
     });
     expect(client.createCollection).toHaveBeenCalledWith('files', {
+      vectors: { size: EMBEDDING_DIMENSION, distance: 'Cosine' },
+    });
+    expect(client.createCollection).toHaveBeenCalledWith('story-characters', {
       vectors: { size: EMBEDDING_DIMENSION, distance: 'Cosine' },
     });
   });
