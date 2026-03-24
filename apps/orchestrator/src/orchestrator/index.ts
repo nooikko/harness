@@ -18,6 +18,7 @@ import type {
   PluginStatusLevel,
   SettingsFieldDefs,
 } from '@harness/plugin-contract';
+import { runEarlyReturnHook } from '@harness/plugin-contract';
 import { createBackgroundErrorTracker } from './_helpers/background-error-tracker';
 import { computeDisallowedTools } from './_helpers/compute-disallowed-tools';
 import { createScopedDb } from './_helpers/create-scoped-db';
@@ -38,12 +39,22 @@ export type PluginHealth = {
   details?: Record<string, unknown>;
 };
 
+export type CollectedToolRef = {
+  qualifiedName: string;
+  handler: (
+    ctx: PluginContext,
+    input: Record<string, unknown>,
+    meta: import('@harness/plugin-contract').PluginToolMeta,
+  ) => Promise<import('@harness/plugin-contract').ToolResult>;
+};
+
 export type OrchestratorDeps = {
   db: PrismaClient;
   invoker: Invoker;
   config: OrchestratorConfig;
   logger: Logger;
   toolNames?: string[]; // All registered MCP tool qualified names — used to compute disallowedTools per thread kind
+  collectedTools?: CollectedToolRef[]; // Tool handlers for direct execution via ctx.executeTool
 };
 
 export type HandleMessageResult = {
@@ -102,12 +113,49 @@ export const createOrchestrator: CreateOrchestrator = (deps) => {
             throw new Error('Orchestrator not fully initialized');
           }
           const traceId = crypto.randomUUID();
+          const pipelineStartedAt = Date.now();
           const pipelineLogger = createChildLogger(deps.logger, { traceId, threadId });
           const names = pluginNames();
           pipelineLogger.info(`sendToThread: starting [contentLength=${content.length}]`);
 
           pipelineLogger.info('sendToThread: firing onPipelineStart hooks');
           await runNotifyHooks(allHooks(), 'onPipelineStart', (h) => h.onPipelineStart?.(threadId, { traceId }), pipelineLogger, names);
+
+          // Intent classification — fast-path for high-confidence tool requests
+          const intentResult = await runEarlyReturnHook(
+            allHooks(),
+            'onIntentClassify',
+            (h) => h.onIntentClassify?.(threadId, content),
+            pipelineLogger,
+            names,
+          );
+
+          if (intentResult?.handled && intentResult.response) {
+            pipelineLogger.info(`sendToThread: intent fast-path handled [responseLength=${intentResult.response.length}]`);
+
+            await deps.db.message.create({
+              data: {
+                threadId,
+                role: 'assistant',
+                kind: 'text',
+                source: 'intent',
+                content: intentResult.response,
+              },
+            });
+            await deps.db.thread.update({
+              where: { id: threadId },
+              data: { lastActivity: new Date() },
+            });
+
+            try {
+              await context.broadcast('pipeline:complete', { threadId, durationMs: Date.now() - pipelineStartedAt, fastPath: true });
+            } catch (broadcastErr) {
+              pipelineLogger.error(
+                `sendToThread: broadcast failed [thread=${threadId}]: ${broadcastErr instanceof Error ? broadcastErr.message : String(broadcastErr)}`,
+              );
+            }
+            return;
+          }
 
           pipelineLogger.info('sendToThread: calling handleMessage');
           const result = await handle(threadId, 'user', content, traceId, pipelineLogger);
@@ -242,6 +290,15 @@ export const createOrchestrator: CreateOrchestrator = (deps) => {
       logger: deps.logger,
       broadcast: async (event, data) => context.broadcast(event, data),
     }),
+    executeTool: deps.collectedTools
+      ? async (qualifiedName: string, input: Record<string, unknown>, meta: import('@harness/plugin-contract').PluginToolMeta) => {
+          const tool = deps.collectedTools?.find((t) => t.qualifiedName === qualifiedName);
+          if (!tool) {
+            throw new Error(`Tool "${qualifiedName}" not found`);
+          }
+          return tool.handler(context, input, meta);
+        }
+      : undefined,
   };
 
   type BuildPluginContext = (definition: PluginDefinition) => PluginContext;

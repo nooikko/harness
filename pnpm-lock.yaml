@@ -183,6 +183,9 @@ importers:
       '@harness/plugin-identity':
         specifier: workspace:*
         version: link:../../packages/plugins/identity
+      '@harness/plugin-intent':
+        specifier: workspace:*
+        version: link:../../packages/plugins/intent
       '@harness/plugin-logs':
         specifier: workspace:*
         version: link:../../packages/plugins/logs
@@ -885,6 +888,34 @@ importers:
       zod:
         specifier: ^4.3.6
         version: 4.3.6
+    devDependencies:
+      '@harness/vitest-config':
+        specifier: workspace:*
+        version: link:../../vitest-config
+      '@types/node':
+        specifier: ^22.19.11
+        version: 22.19.11
+      '@vitest/coverage-v8':
+        specifier: ^4.1.0
+        version: 4.1.0(vitest@4.1.0(@types/node@22.19.11)(jsdom@28.1.0(@noble/hashes@2.0.1))(vite@7.3.1(@types/node@22.19.11)(jiti@2.6.1)(lightningcss@1.32.0)(tsx@4.21.0)(yaml@2.8.2)))
+      tsup:
+        specifier: ^8.5.0
+        version: 8.5.1(jiti@2.6.1)(postcss@8.5.8)(tsx@4.21.0)(typescript@5.9.3)(yaml@2.8.2)
+      typescript:
+        specifier: ^5.9.3
+        version: 5.9.3
+      vitest:
+        specifier: ^4.1.0
+        version: 4.1.0(@types/node@22.19.11)(jsdom@28.1.0(@noble/hashes@2.0.1))(vite@7.3.1(@types/node@22.19.11)(jiti@2.6.1)(lightningcss@1.32.0)(tsx@4.21.0)(yaml@2.8.2))
+
+  packages/plugins/intent:
+    dependencies:
+      '@harness/plugin-contract':
+        specifier: workspace:*
+        version: link:../../plugin-contract
+      '@harness/vector-search':
+        specifier: workspace:*
+        version: link:../../vector-search
     devDependencies:
       '@harness/vitest-config':
         specifier: workspace:*
@@ -5651,10 +5682,6 @@ packages:
   tinyexec@0.3.2:
     resolution: {integrity: sha512-KQQR9yN7R5+OSwaK0XQoj22pwHoTlgYqmUscPYoknOoWCWfj/5/ABTMRi69FrKU5ffPVh5QcFikpWJI/P1ocHA==}
 
-  tinyexec@1.0.2:
-    resolution: {integrity: sha512-W/KYk+NFhkmsYpuHq5JykngiOCnxeVL8v8dFnqxSD8qEEdRfXk1SDM6JzNqcERbcGYj9tMrDQBYV9cjgnunFIg==}
-    engines: {node: '>=18'}
-
   tinyexec@1.0.4:
     resolution: {integrity: sha512-u9r3uZC0bdpGOXtlxUIdwf9pkmvhqJdrVCH9fapQtgy/OeTTMZ1nqH7agtvEfmGui6e1XxjcdrlxvxJvc3sMqw==}
     engines: {node: '>=18'}
@@ -9435,7 +9462,7 @@ snapshots:
     dependencies:
       citty: 0.2.1
       pathe: 2.0.3
-      tinyexec: 1.0.2
+      tinyexec: 1.0.4
 
   object-assign@4.1.1: {}
 
@@ -10356,8 +10383,6 @@ snapshots:
 
   tinyexec@0.3.2: {}
 
-  tinyexec@1.0.2: {}
-
   tinyexec@1.0.4: {}
 
   tinyglobby@0.2.15:
@@ -10582,7 +10607,7 @@ snapshots:
       picomatch: 4.0.3
       std-env: 4.0.0
       tinybench: 2.9.0
-      tinyexec: 1.0.2
+      tinyexec: 1.0.4
       tinyglobby: 0.2.15
       tinyrainbow: 3.0.3
       vite: 7.3.1(@types/node@22.19.11)(jiti@2.6.1)(lightningcss@1.32.0)(tsx@4.21.0)(yaml@2.8.2)

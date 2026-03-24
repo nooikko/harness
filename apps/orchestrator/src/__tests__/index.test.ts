@@ -332,6 +332,7 @@ describe('boot', () => {
         config,
         logger,
         toolNames: expect.any(Array),
+        collectedTools: expect.any(Array),
       });
       // Suppress unused variable warnings
       void invoker;

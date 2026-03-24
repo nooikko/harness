@@ -119,6 +119,8 @@ PROJECT_DIRS = [
     ("packages/plugins/ssh/", "packages/plugins/ssh"),
     ("packages/plugins/notifications/", "packages/plugins/notifications"),
     ("packages/plugins/workspace/", "packages/plugins/workspace"),
+    ("packages/plugins/intent/", "packages/plugins/intent"),
+    ("packages/plugins/govee/", "packages/plugins/govee"),
 ]
 
 MAX_RETRIES = 2  # ESM race condition is non-deterministic; retry on failure

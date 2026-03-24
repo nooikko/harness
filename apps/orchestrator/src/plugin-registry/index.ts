@@ -13,6 +13,7 @@ import { plugin as delegationPlugin } from '@harness/plugin-delegation';
 import { plugin as discordPlugin } from '@harness/plugin-discord';
 import { goveePlugin } from '@harness/plugin-govee';
 import { plugin as identityPlugin } from '@harness/plugin-identity';
+import { plugin as intentPlugin } from '@harness/plugin-intent';
 import { plugin as logsPlugin } from '@harness/plugin-logs';
 import { plugin as metricsPlugin } from '@harness/plugin-metrics';
 import { musicPlugin } from '@harness/plugin-music';
@@ -34,6 +35,7 @@ import { filterDisabledPlugins } from './_helpers/filter-disabled-plugins';
 import { syncPluginConfigs } from './_helpers/sync-plugin-configs';
 
 const ALL_PLUGINS: PluginDefinition[] = [
+  intentPlugin, // Must be early — onIntentClassify fires before handleMessage to short-circuit tool requests
   identityPlugin,
   activityPlugin,
   contextPlugin,

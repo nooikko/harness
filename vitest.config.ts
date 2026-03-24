@@ -37,6 +37,7 @@ export default defineConfig({
       'packages/plugins/ssh',
       'packages/plugins/notifications',
       'packages/plugins/workspace',
+      'packages/plugins/intent',
     ],
     coverage: {
       provider: 'v8',

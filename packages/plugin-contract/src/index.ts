@@ -5,13 +5,14 @@
 import type { PrismaClient } from '@harness/database';
 import type { Logger } from '@harness/logger';
 import { runChainHook } from './_helpers/run-chain-hook';
+import { runEarlyReturnHook } from './_helpers/run-early-return-hook';
 import { runHook } from './_helpers/run-hook';
 
 export { decryptValue } from './_helpers/decrypt-value';
 export { encryptValue } from './_helpers/encrypt-value';
 export type { ModelPricing } from './_helpers/model-pricing';
 export { getModelCost, getModelPricing, isKnownModel } from './_helpers/model-pricing';
-export { runChainHook, runHook };
+export { runChainHook, runEarlyReturnHook, runHook };
 
 // Inlined from orchestrator config
 export type LogLevel = 'debug' | 'info' | 'warn' | 'error';
@@ -197,9 +198,22 @@ export type PluginContext = {
    *  should call this in their .catch() handler so failures are tracked in the
    *  status registry rather than only appearing in logs. */
   reportBackgroundError: (taskName: string, error: Error) => void;
+  /** Execute a registered plugin tool by qualified name (e.g., "govee__set_light").
+   *  Returns the tool result string. Throws if the tool is not found. */
+  executeTool?: (qualifiedName: string, input: Record<string, unknown>, meta: PluginToolMeta) => Promise<ToolResult>;
+};
+
+/** Result from onIntentClassify hook — when handled is true, the pipeline is short-circuited. */
+export type IntentClassifyResult = {
+  handled: boolean;
+  response?: string;
 };
 
 export type PluginHooks = {
+  /** Fires in sendToThread BEFORE handleMessage. If any plugin returns { handled: true },
+   *  the full Claude pipeline is skipped and the response is persisted directly.
+   *  Used by the intent plugin to fast-path tool requests (e.g., "turn on the lights"). */
+  onIntentClassify?: (threadId: string, content: string) => Promise<IntentClassifyResult>;
   onMessage?: (threadId: string, role: string, content: string) => Promise<void>;
   onBeforeInvoke?: (threadId: string, prompt: string) => Promise<string>;
   onAfterInvoke?: (threadId: string, result: InvokeResult) => Promise<void>;

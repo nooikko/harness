@@ -26,6 +26,14 @@ vi.mock('../_helpers/run-notify-hooks', () => ({
   runNotifyHooks: vi.fn().mockResolvedValue(undefined),
 }));
 
+vi.mock('@harness/plugin-contract', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('@harness/plugin-contract')>();
+  return {
+    ...actual,
+    runEarlyReturnHook: vi.fn().mockResolvedValue(null),
+  };
+});
+
 vi.mock('../_helpers/prompt-assembler', () => ({
   assemblePrompt: vi.fn().mockImplementation((message: string, _meta: unknown) => ({
     prompt: `[assembled] ${message}`,
@@ -33,6 +41,7 @@ vi.mock('../_helpers/prompt-assembler', () => ({
   })),
 }));
 
+import { runEarlyReturnHook } from '@harness/plugin-contract';
 import { assemblePrompt } from '../_helpers/prompt-assembler';
 import { runChainHooks } from '../_helpers/run-chain-hooks';
 import { runNotifyHooks } from '../_helpers/run-notify-hooks';
@@ -40,6 +49,7 @@ import { runNotifyHooks } from '../_helpers/run-notify-hooks';
 const mockAssemblePrompt = vi.mocked(assemblePrompt);
 const mockRunChainHooks = vi.mocked(runChainHooks);
 const mockRunNotifyHooks = vi.mocked(runNotifyHooks);
+const mockRunEarlyReturnHook = vi.mocked(runEarlyReturnHook);
 
 const makeLogger = (): Logger =>
   ({
@@ -258,6 +268,29 @@ describe('createOrchestrator', () => {
 
       expect(deps.db.thread.updateMany).toHaveBeenCalled();
       expect(deps.logger.info).not.toHaveBeenCalledWith(expect.stringContaining('stale session'));
+    });
+
+    it('distributes plugin routes to all plugin contexts when plugins have routes', async () => {
+      const deps = makeDeps();
+      const orchestrator = createOrchestrator(deps);
+      const routeHandler = vi.fn().mockResolvedValue({ status: 200, body: {} });
+
+      await orchestrator.registerPlugin(
+        makePluginDefinition(
+          'with-routes',
+          {},
+          {
+            routes: [{ method: 'GET', path: '/test', handler: routeHandler }],
+          },
+        ),
+      );
+
+      await orchestrator.start();
+
+      const ctx = orchestrator.getContext();
+      expect(ctx.pluginRoutes).toBeDefined();
+      expect(ctx.pluginRoutes).toHaveLength(1);
+      expect(ctx.pluginRoutes![0]?.pluginName).toBe('with-routes');
     });
   });
 
@@ -592,6 +625,108 @@ describe('createOrchestrator', () => {
         expect.anything(),
         expect.any(Array),
       );
+    });
+
+    it('short-circuits the pipeline when onIntentClassify returns handled: true', async () => {
+      mockRunEarlyReturnHook.mockResolvedValueOnce({ handled: true, response: 'Lights turned on' } as never);
+      const deps = makeDeps();
+      const orchestrator = createOrchestrator(deps);
+
+      await orchestrator.getContext().sendToThread('thread-1', 'turn on the lights');
+
+      // Should persist the fast-path response
+      expect(deps.db.message.create as ReturnType<typeof vi.fn>).toHaveBeenCalledWith({
+        data: {
+          threadId: 'thread-1',
+          role: 'assistant',
+          kind: 'text',
+          source: 'intent',
+          content: 'Lights turned on',
+        },
+      });
+      // Should NOT call the invoker (Claude is skipped)
+      expect(deps.invoker.invoke).not.toHaveBeenCalled();
+    });
+
+    it('proceeds to full pipeline when onIntentClassify returns null', async () => {
+      mockRunEarlyReturnHook.mockResolvedValueOnce(null);
+      const deps = makeDeps();
+      const orchestrator = createOrchestrator(deps);
+
+      await orchestrator.getContext().sendToThread('thread-1', 'what is the meaning of life');
+
+      // Full pipeline should run
+      expect(deps.invoker.invoke).toHaveBeenCalled();
+    });
+
+    it('proceeds to full pipeline when onIntentClassify returns handled: false', async () => {
+      mockRunEarlyReturnHook.mockResolvedValueOnce({ handled: false });
+      const deps = makeDeps();
+      const orchestrator = createOrchestrator(deps);
+
+      await orchestrator.getContext().sendToThread('thread-1', 'tell me a joke');
+
+      expect(deps.invoker.invoke).toHaveBeenCalled();
+    });
+
+    it('broadcasts pipeline:complete with fastPath flag on intent short-circuit', async () => {
+      mockRunEarlyReturnHook.mockResolvedValueOnce({ handled: true, response: 'Done' } as never);
+      const deps = makeDeps();
+      const orchestrator = createOrchestrator(deps);
+      const broadcastCalls: Array<[string, unknown]> = [];
+      mockRunNotifyHooks.mockImplementation(async (_hooks, hookName, callHook) => {
+        if (hookName === 'onBroadcast') {
+          // Capture broadcast arguments by invoking the callback
+          const fakeHooks: PluginHooks = {
+            onBroadcast: async (event: string, data: unknown) => {
+              broadcastCalls.push([event, data]);
+            },
+          };
+          await callHook(fakeHooks);
+        }
+      });
+
+      await orchestrator.getContext().sendToThread('thread-1', 'lights on');
+
+      // The broadcast happens via context.broadcast which calls runNotifyHooks('onBroadcast')
+      const pipelineComplete = broadcastCalls.find(([event]) => event === 'pipeline:complete');
+      expect(pipelineComplete).toBeDefined();
+      expect(pipelineComplete?.[1]).toMatchObject({ threadId: 'thread-1', fastPath: true });
+    });
+
+    it('handles broadcast errors gracefully during intent short-circuit', async () => {
+      mockRunEarlyReturnHook.mockResolvedValueOnce({ handled: true, response: 'Done' } as never);
+      // Make broadcast throw by having runNotifyHooks throw when called for onBroadcast
+      mockRunNotifyHooks.mockImplementation(async (_hooks, hookName) => {
+        if (hookName === 'onBroadcast') {
+          throw new Error('WebSocket transport failed');
+        }
+      });
+      const deps = makeDeps();
+      const orchestrator = createOrchestrator(deps);
+
+      // Should not throw — broadcast errors are isolated
+      await expect(orchestrator.getContext().sendToThread('thread-1', 'lights on')).resolves.toBeUndefined();
+
+      // Response should still be persisted despite broadcast failure
+      expect(deps.db.message.create as ReturnType<typeof vi.fn>).toHaveBeenCalledWith(
+        expect.objectContaining({
+          data: expect.objectContaining({ source: 'intent', content: 'Done' }),
+        }),
+      );
+    });
+
+    it('handles non-Error broadcast exceptions during intent short-circuit', async () => {
+      mockRunEarlyReturnHook.mockResolvedValueOnce({ handled: true, response: 'Done' } as never);
+      mockRunNotifyHooks.mockImplementation(async (_hooks, hookName) => {
+        if (hookName === 'onBroadcast') {
+          throw 'raw string error';
+        }
+      });
+      const deps = makeDeps();
+      const orchestrator = createOrchestrator(deps);
+
+      await expect(orchestrator.getContext().sendToThread('thread-1', 'lights on')).resolves.toBeUndefined();
     });
   });
 
