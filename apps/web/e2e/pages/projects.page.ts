@@ -14,6 +14,11 @@ export class ProjectsPage extends BasePage {
     await this.page.getByText(name, { exact: true }).click();
   };
 
+  /** Navigate to a project by its description text (immune to name renames by other tests). */
+  clickProjectByDescription = async (description: string): Promise<void> => {
+    await this.page.getByText(description).click();
+  };
+
   /** Fill the project creation form. */
   fillForm = async (fields: { name?: string; description?: string }): Promise<void> => {
     if (fields.name) {

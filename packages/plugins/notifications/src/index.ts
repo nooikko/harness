@@ -15,7 +15,7 @@ const AUDIO_SERVER_PORT = 9849;
 
 let currentSettings = {
   ttsProvider: 'edge-tts',
-  voice: 'en-US-GuyNeural',
+  voice: 'en-US-AvaMultilingualNeural',
   volume: 70,
   defaultDevice: '',
 };
@@ -107,10 +107,10 @@ export const plugin: PluginDefinition = {
   register: async (ctx: PluginContext): Promise<PluginHooks> => {
     const settings = await ctx.getSettings(settingsSchema);
     currentSettings = {
-      ttsProvider: settings.ttsProvider ?? 'edge-tts',
-      voice: settings.voice ?? 'en-US-GuyNeural',
+      ttsProvider: settings.ttsProvider || 'edge-tts',
+      voice: settings.voice || 'en-US-AvaMultilingualNeural',
       volume: settings.volume ?? 70,
-      defaultDevice: settings.defaultDevice ?? '',
+      defaultDevice: settings.defaultDevice === '__auto__' ? '' : settings.defaultDevice || '',
     };
 
     return {
@@ -143,10 +143,10 @@ export const plugin: PluginDefinition = {
         ctx.logger.info('notifications: reloading settings');
         const settings = await ctx.getSettings(settingsSchema);
         currentSettings = {
-          ttsProvider: settings.ttsProvider ?? 'edge-tts',
-          voice: settings.voice ?? 'en-US-GuyNeural',
+          ttsProvider: settings.ttsProvider || 'edge-tts',
+          voice: settings.voice || 'en-US-AvaMultilingualNeural',
           volume: settings.volume ?? 70,
-          defaultDevice: settings.defaultDevice ?? '',
+          defaultDevice: settings.defaultDevice === '__auto__' ? '' : settings.defaultDevice || '',
         };
 
         // Re-create TTS provider if it changed

@@ -1,6 +1,7 @@
 import type { PluginContext } from '@harness/plugin-contract';
 import { z } from 'zod';
 import { buildDuplicateDetectionPrompt } from './build-duplicate-detection-prompt';
+import { EXTRACTION_MODEL, loadExtractionSystemPrompt } from './extraction-config';
 
 const MAX_MOMENTS_PER_BATCH = 50;
 
@@ -18,9 +19,11 @@ const DuplicateResultSchema = z.object({
   ),
 });
 
-type HandleDetectDuplicates = (ctx: PluginContext, storyId: string, input: { scope?: string }) => Promise<string>;
+type ReportProgress = (message: string, detail?: { current?: number; total?: number }) => void;
 
-export const handleDetectDuplicates: HandleDetectDuplicates = async (ctx, storyId, input) => {
+type HandleDetectDuplicates = (ctx: PluginContext, storyId: string, input: { scope?: string }, reportProgress?: ReportProgress) => Promise<string>;
+
+export const handleDetectDuplicates: HandleDetectDuplicates = async (ctx, storyId, input, reportProgress) => {
   // Load moments based on scope
   const where: Record<string, unknown> = { storyId, deletedAt: null };
 
@@ -77,12 +80,13 @@ export const handleDetectDuplicates: HandleDetectDuplicates = async (ctx, storyI
 
   for (let i = 0; i < batches.length; i++) {
     const batch = batches[i]!;
+    reportProgress?.(`Analyzing batch ${i + 1}/${batches.length}`, { current: i + 1, total: batches.length });
     const prompt = buildDuplicateDetectionPrompt({
       moments: batch,
       windowLabel: batches.length > 1 ? `batch ${i + 1}/${batches.length}` : undefined,
     });
 
-    const result = await ctx.invoker.invoke(prompt, { model: 'claude-sonnet-4-6' });
+    const result = await ctx.invoker.invoke(prompt, { model: EXTRACTION_MODEL, systemPrompt: await loadExtractionSystemPrompt(ctx) });
 
     try {
       const start = result.output.indexOf('{');

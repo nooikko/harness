@@ -15,7 +15,7 @@ test.describe('workspace orchestration', () => {
     test('shows working directory field in project settings', async ({ projectsPage }) => {
       await projectsPage.gotoList();
       await projectsPage.waitForReady();
-      await projectsPage.clickProject(TEST_PROJECT.name);
+      await projectsPage.clickProjectByDescription(TEST_PROJECT.description);
       await projectsPage.waitForReady();
 
       await projectsPage.page.getByRole('link', { name: /settings/i }).click();
@@ -29,7 +29,7 @@ test.describe('workspace orchestration', () => {
     test('working directory shows seeded value', async ({ projectsPage }) => {
       await projectsPage.gotoList();
       await projectsPage.waitForReady();
-      await projectsPage.clickProject(TEST_PROJECT.name);
+      await projectsPage.clickProjectByDescription(TEST_PROJECT.description);
       await projectsPage.waitForReady();
 
       await projectsPage.page.getByRole('link', { name: /settings/i }).click();
@@ -41,7 +41,7 @@ test.describe('workspace orchestration', () => {
     test('can update working directory path', async ({ projectsPage }) => {
       await projectsPage.gotoList();
       await projectsPage.waitForReady();
-      await projectsPage.clickProject(TEST_PROJECT.name);
+      await projectsPage.clickProjectByDescription(TEST_PROJECT.description);
       await projectsPage.waitForReady();
 
       await projectsPage.page.getByRole('link', { name: /settings/i }).click();
@@ -64,7 +64,7 @@ test.describe('workspace orchestration', () => {
     test('clear button removes working directory', async ({ projectsPage }) => {
       await projectsPage.gotoList();
       await projectsPage.waitForReady();
-      await projectsPage.clickProject(TEST_PROJECT.name);
+      await projectsPage.clickProjectByDescription(TEST_PROJECT.description);
       await projectsPage.waitForReady();
 
       await projectsPage.page.getByRole('link', { name: /settings/i }).click();
@@ -78,74 +78,75 @@ test.describe('workspace orchestration', () => {
     });
   });
 
-  test.describe('thread — workspace controls', () => {
-    test('workspace status badge is visible for thread with active plan', async ({ threadPage }) => {
-      await gotoWorkspaceThread(threadPage);
+  test.describe
+    .serial('thread — workspace controls', () => {
+      test('workspace status badge is visible for thread with active plan', async ({ threadPage }) => {
+        await gotoWorkspaceThread(threadPage);
 
-      // The workspace controls badge should be visible (shows "1/3" since 1 of 3 tasks accepted)
-      await expect(threadPage.page.getByText('1/3')).toBeVisible();
+        // The workspace controls badge should be visible (shows "1/3" since 1 of 3 tasks accepted)
+        await expect(threadPage.page.getByText('1/3')).toBeVisible();
+      });
+
+      test('clicking workspace badge opens plan overview dialog', async ({ threadPage }) => {
+        await gotoWorkspaceThread(threadPage);
+
+        // Click the workspace badge
+        await threadPage.page.getByText('1/3').click();
+
+        // Dialog should open with plan details
+        await expect(threadPage.page.getByText('Workspace Plan')).toBeVisible();
+        await expect(threadPage.page.getByText(TEST_WORKSPACE_PLAN.objective)).toBeVisible();
+      });
+
+      test('plan overview shows all tasks with statuses', async ({ threadPage }) => {
+        await gotoWorkspaceThread(threadPage);
+        await threadPage.page.getByText('1/3').click();
+
+        // Check each task is listed
+        await expect(threadPage.page.getByText('t1: Unit tests for delegation helpers')).toBeVisible();
+        await expect(threadPage.page.getByText('t2: Integration tests for pipeline')).toBeVisible();
+        await expect(threadPage.page.getByText('t3: E2E test plan')).toBeVisible();
+
+        // Check status badges (use exact + first to avoid matching "1/3 tasks accepted")
+        await expect(threadPage.page.getByText('accepted', { exact: true }).first()).toBeVisible();
+        await expect(threadPage.page.getByText('delegated', { exact: true }).first()).toBeVisible();
+        await expect(threadPage.page.getByText('pending', { exact: true }).first()).toBeVisible();
+      });
+
+      test('plan overview shows progress indicator', async ({ threadPage }) => {
+        await gotoWorkspaceThread(threadPage);
+        await threadPage.page.getByText('1/3').click();
+
+        // Should show 1/3 tasks accepted
+        await expect(threadPage.page.getByText('1/3 tasks accepted')).toBeVisible();
+      });
+
+      test('pause button changes plan status', async ({ threadPage }) => {
+        await gotoWorkspaceThread(threadPage);
+        await threadPage.page.getByText('1/3').click();
+
+        // Click pause
+        await threadPage.page.getByRole('button', { name: /pause/i }).click();
+
+        // Status should update to paused
+        await expect(threadPage.page.getByText('paused')).toBeVisible();
+      });
+
+      test('stop button removes workspace badge after refresh', async ({ threadPage }) => {
+        await gotoWorkspaceThread(threadPage);
+        await threadPage.page.getByText('1/3').first().click();
+
+        // Click stop
+        await threadPage.page.getByRole('button', { name: /stop/i }).click();
+
+        // Wait for refresh — the workspace badge should disappear since status is now failed
+        await threadPage.waitForReady();
+
+        // The workspace controls badge should no longer be in the header
+        // (WorkspaceControls only renders for planning/active/paused statuses)
+        await expect(threadPage.page.getByText('Workspace Plan')).not.toBeVisible();
+      });
     });
-
-    test('clicking workspace badge opens plan overview dialog', async ({ threadPage }) => {
-      await gotoWorkspaceThread(threadPage);
-
-      // Click the workspace badge
-      await threadPage.page.getByText('1/3').click();
-
-      // Dialog should open with plan details
-      await expect(threadPage.page.getByText('Workspace Plan')).toBeVisible();
-      await expect(threadPage.page.getByText(TEST_WORKSPACE_PLAN.objective)).toBeVisible();
-    });
-
-    test('plan overview shows all tasks with statuses', async ({ threadPage }) => {
-      await gotoWorkspaceThread(threadPage);
-      await threadPage.page.getByText('1/3').click();
-
-      // Check each task is listed
-      await expect(threadPage.page.getByText('t1: Unit tests for delegation helpers')).toBeVisible();
-      await expect(threadPage.page.getByText('t2: Integration tests for pipeline')).toBeVisible();
-      await expect(threadPage.page.getByText('t3: E2E test plan')).toBeVisible();
-
-      // Check status badges (use exact + first to avoid matching "1/3 tasks accepted")
-      await expect(threadPage.page.getByText('accepted', { exact: true }).first()).toBeVisible();
-      await expect(threadPage.page.getByText('delegated', { exact: true }).first()).toBeVisible();
-      await expect(threadPage.page.getByText('pending', { exact: true }).first()).toBeVisible();
-    });
-
-    test('plan overview shows progress indicator', async ({ threadPage }) => {
-      await gotoWorkspaceThread(threadPage);
-      await threadPage.page.getByText('1/3').click();
-
-      // Should show 1/3 tasks accepted
-      await expect(threadPage.page.getByText('1/3 tasks accepted')).toBeVisible();
-    });
-
-    test('pause button changes plan status', async ({ threadPage }) => {
-      await gotoWorkspaceThread(threadPage);
-      await threadPage.page.getByText('1/3').click();
-
-      // Click pause
-      await threadPage.page.getByRole('button', { name: /pause/i }).click();
-
-      // Status should update to paused
-      await expect(threadPage.page.getByText('paused')).toBeVisible();
-    });
-
-    test('stop button removes workspace badge after refresh', async ({ threadPage }) => {
-      await gotoWorkspaceThread(threadPage);
-      await threadPage.page.getByText('1/3').first().click();
-
-      // Click stop
-      await threadPage.page.getByRole('button', { name: /stop/i }).click();
-
-      // Wait for refresh — the workspace badge should disappear since status is now failed
-      await threadPage.waitForReady();
-
-      // The workspace controls badge should no longer be in the header
-      // (WorkspaceControls only renders for planning/active/paused statuses)
-      await expect(threadPage.page.getByText('Workspace Plan')).not.toBeVisible();
-    });
-  });
 
   test.describe('thread — workspace badge not visible for non-workspace threads', () => {
     test('general thread without plan shows no workspace badge', async ({ threadPage }) => {

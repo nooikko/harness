@@ -87,6 +87,57 @@ describe('StreamingMessage', () => {
     expect(container.firstChild).toBeNull();
   });
 
+  it('does not re-process stale lastEvent when isActive transitions false→true', () => {
+    // Simulate: previous pipeline streamed text, then completed
+    const staleEvent = {
+      threadId: 'thread-1',
+      event: { type: 'assistant', content: 'Previous response', timestamp: 1 },
+    };
+    wsOverrides['pipeline:stream'] = { lastEvent: staleEvent, isConnected: true };
+
+    const { container, rerender } = render(<StreamingMessage threadId='thread-1' isActive={true} />);
+    expect(screen.getByTestId('markdown-content')).toHaveTextContent('Previous response');
+
+    // Pipeline completes → isActive false → text cleared
+    rerender(<StreamingMessage threadId='thread-1' isActive={false} />);
+    expect(container.firstChild).toBeNull();
+
+    // User sends new message → isActive true again, but lastEvent is SAME stale reference
+    // (no new WebSocket event has arrived yet)
+    rerender(<StreamingMessage threadId='thread-1' isActive={true} />);
+
+    // BUG: without fix, the stale event would be re-processed and show "Previous response"
+    expect(container.firstChild).toBeNull();
+  });
+
+  it('processes new events after activation even if stale event was skipped', () => {
+    const staleEvent = {
+      threadId: 'thread-1',
+      event: { type: 'assistant', content: 'Old text', timestamp: 1 },
+    };
+    wsOverrides['pipeline:stream'] = { lastEvent: staleEvent, isConnected: true };
+
+    const { container, rerender } = render(<StreamingMessage threadId='thread-1' isActive={true} />);
+    expect(screen.getByTestId('markdown-content')).toHaveTextContent('Old text');
+
+    // Pipeline completes
+    rerender(<StreamingMessage threadId='thread-1' isActive={false} />);
+    expect(container.firstChild).toBeNull();
+
+    // New pipeline starts (stale lastEvent still present)
+    rerender(<StreamingMessage threadId='thread-1' isActive={true} />);
+
+    // New event arrives from the new pipeline (different object reference)
+    const freshEvent = {
+      threadId: 'thread-1',
+      event: { type: 'assistant', content: 'New response', timestamp: 2 },
+    };
+    wsOverrides['pipeline:stream'] = { lastEvent: freshEvent, isConnected: true };
+    rerender(<StreamingMessage threadId='thread-1' isActive={true} />);
+
+    expect(screen.getByTestId('markdown-content')).toHaveTextContent('New response');
+  });
+
   it('clears accumulated text when isActive becomes false', () => {
     wsOverrides['pipeline:stream'] = {
       lastEvent: {

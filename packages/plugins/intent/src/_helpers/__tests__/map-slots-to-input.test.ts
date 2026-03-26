@@ -6,21 +6,21 @@ describe('mapSlotsToInput', () => {
     it('maps room to device and on action to state', () => {
       expect(mapSlotsToInput('lights.control', 'set_light', { room: 'office', action: 'on' })).toEqual({
         device: 'office',
-        state: 'on',
+        on: true,
       });
     });
 
     it('maps off action to state off', () => {
       expect(mapSlotsToInput('lights.control', 'set_light', { room: 'bedroom', action: 'off' })).toEqual({
         device: 'bedroom',
-        state: 'off',
+        on: false,
       });
     });
 
     it('includes color when present', () => {
       expect(mapSlotsToInput('lights.control', 'set_light', { room: 'office', action: 'on', color: 'red' })).toEqual({
         device: 'office',
-        state: 'on',
+        on: true,
         color: 'red',
       });
     });
@@ -28,13 +28,13 @@ describe('mapSlotsToInput', () => {
     it('includes brightness when present', () => {
       expect(mapSlotsToInput('lights.control', 'set_light', { room: 'office', action: 'on', brightness: 50 })).toEqual({
         device: 'office',
-        state: 'on',
+        on: true,
         brightness: 50,
       });
     });
 
     it('omits device when no room', () => {
-      expect(mapSlotsToInput('lights.control', 'set_light', { action: 'on' })).toEqual({ state: 'on' });
+      expect(mapSlotsToInput('lights.control', 'set_light', { action: 'on' })).toEqual({ on: true });
     });
 
     it('handles toggle action (no state)', () => {

@@ -12,6 +12,7 @@ export { decryptValue } from './_helpers/decrypt-value';
 export { encryptValue } from './_helpers/encrypt-value';
 export type { ModelPricing } from './_helpers/model-pricing';
 export { getModelCost, getModelPricing, isKnownModel } from './_helpers/model-pricing';
+export { createToolProgressReporter } from './_helpers/report-tool-progress';
 export { runChainHook, runEarlyReturnHook, runHook };
 
 // Inlined from orchestrator config
@@ -57,6 +58,8 @@ export type InvokeOptions = {
   sessionId?: string;
   threadId?: string; // Harness thread ID — used as session pool key (stable across messages)
   onMessage?: (event: InvokeStreamEvent) => void;
+  /** Callback for tool progress events — pushed into streamEvents for persistence only (already broadcast by the helper). */
+  onToolProgress?: (event: InvokeStreamEvent) => void;
   traceId?: string; // Trace ID for correlating main-thread invocations with sub-agent invocations
   taskId?: string; // Delegation task ID — flows to tool handlers via per-invocation context
   disallowedTools?: string[]; // MCP tool names to exclude from the session (flows to SDK query options)
@@ -241,6 +244,9 @@ export type PluginToolMeta = {
   threadId: string;
   taskId?: string;
   traceId?: string; // Trace ID for correlating this tool call with its originating pipeline run
+  /** Report progress from within a tool handler. Broadcasts a `tool_progress` event
+   *  for real-time UI visibility and captures it for persistence. Injected by the tool server. */
+  reportProgress?: (message: string, detail?: { current?: number; total?: number }) => void;
 };
 
 // --- Content Blocks ---

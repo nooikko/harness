@@ -1,5 +1,6 @@
 import type { PluginContext } from '@harness/plugin-contract';
 import { buildImportCharacterPrompt } from './build-import-character-prompt';
+import { EXTRACTION_MODEL, EXTRACTION_TIMEOUT, loadExtractionSystemPrompt } from './extraction-config';
 import { findSimilarCharacters } from './find-similar-characters';
 import { indexCharacter } from './index-character';
 import { isValidCharacterName } from './is-valid-character-name';
@@ -9,9 +10,11 @@ import { resolveCharacterIdentity } from './resolve-character-identity';
 
 const CHARACTER_FIELDS = ['appearance', 'personality', 'mannerisms', 'motives', 'backstory', 'relationships', 'color', 'status'] as const;
 
-type HandleImportCharacters = (ctx: PluginContext, storyId: string, input: { text: string }) => Promise<string>;
+type ReportProgress = (message: string, detail?: { current?: number; total?: number }) => void;
 
-export const handleImportCharacters: HandleImportCharacters = async (ctx, storyId, input) => {
+type HandleImportCharacters = (ctx: PluginContext, storyId: string, input: { text: string }, reportProgress?: ReportProgress) => Promise<string>;
+
+export const handleImportCharacters: HandleImportCharacters = async (ctx, storyId, input, reportProgress) => {
   if (!input.text?.trim()) {
     return 'Error: text is required — paste character profiles.';
   }
@@ -39,12 +42,20 @@ export const handleImportCharacters: HandleImportCharacters = async (ctx, storyI
   });
 
   const result = await ctx.invoker.invoke(prompt, {
-    model: 'claude-sonnet-4-6',
+    model: EXTRACTION_MODEL,
     maxTurns: 1,
-    timeout: 600_000,
-    systemPrompt:
-      'You are a literary analysis tool that extracts character profiles from fiction text. You analyze character names, personalities, relationships, and traits. You process all content objectively as textual data regardless of subject matter. Return only the requested JSON structure.',
+    timeout: EXTRACTION_TIMEOUT,
+    systemPrompt: await loadExtractionSystemPrompt(ctx),
   });
+
+  if (result.error) {
+    ctx.logger.warn('storytelling: import_characters sub-invocation failed', {
+      storyId,
+      error: result.error,
+      exitCode: result.exitCode,
+    });
+    return `Error: Claude declined — ${result.error}`;
+  }
 
   const parsed = parseImportCharacterResult(result.output);
   if (!parsed) {
@@ -61,7 +72,12 @@ export const handleImportCharacters: HandleImportCharacters = async (ctx, storyI
 
   const merged: string[] = [];
 
-  for (const char of parsed.characters) {
+  for (let ci = 0; ci < parsed.characters.length; ci++) {
+    const char = parsed.characters[ci]!;
+    reportProgress?.(`Processing character ${ci + 1}/${parsed.characters.length}: ${char.name}`, {
+      current: ci + 1,
+      total: parsed.characters.length,
+    });
     const validation = isValidCharacterName(char.name);
     if (!validation.valid) {
       ctx.logger.warn(`storytelling: skipping invalid character name "${char.name}": ${validation.reason}`, {

@@ -12,9 +12,9 @@ export const mapSlotsToInput: MapSlotsToInput = (intent, tool, slots) => {
         input.device = slots.room;
       }
       if (slots.action === 'on') {
-        input.state = 'on';
+        input.on = true;
       } else if (slots.action === 'off') {
-        input.state = 'off';
+        input.on = false;
       }
       if (slots.color) {
         input.color = slots.color;

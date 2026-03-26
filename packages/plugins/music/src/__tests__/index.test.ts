@@ -10,6 +10,7 @@ vi.mock('../_helpers/youtube-music-client', () => ({
   replaceYouTubeMusicClient: vi.fn().mockResolvedValue(undefined),
   destroyYouTubeMusicClient: vi.fn(),
   getRawClient: vi.fn().mockReturnValue(null),
+  setAuthenticatedSearchApi: vi.fn(),
   searchSongs: vi.fn().mockResolvedValue([
     {
       videoId: 'v1',

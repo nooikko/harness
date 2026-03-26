@@ -107,6 +107,27 @@ describe('extractStoryState', () => {
     expect(prompt).toContain('[Assistant]: Sir Aldric raised his sword.');
   });
 
+  it('logs warning and returns early when invoker returns an error', async () => {
+    const { applyExtraction } = await import('../apply-extraction');
+    vi.mocked(applyExtraction).mockClear();
+
+    const ctx = createMockContext();
+    vi.mocked(ctx.invoker.invoke).mockResolvedValue({
+      output: '',
+      error: 'Content policy violation',
+      durationMs: 50,
+      exitCode: 1,
+    });
+
+    await extractStoryState(ctx, 'story-1', 'thread-1', 'Some story content');
+
+    expect(ctx.logger.warn).toHaveBeenCalledWith(
+      'storytelling: extraction sub-invocation failed',
+      expect.objectContaining({ storyId: 'story-1', error: 'Content policy violation' }),
+    );
+    expect(applyExtraction).not.toHaveBeenCalled();
+  });
+
   it('logs warning and returns early on unparseable result', async () => {
     const ctx = createMockContext();
     vi.mocked(ctx.invoker.invoke).mockResolvedValue({

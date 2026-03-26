@@ -62,17 +62,34 @@ describe('time plugin', () => {
 
     const result = await hooks.onBeforeInvoke?.('thread-1', 'What is /current-time right now?');
 
-    expect(result).toBe('What is [Current time: Thursday, February 26, 2026 at 8:30:00 AM MST] right now?');
+    expect(result).toContain('What is [Current time: Thursday, February 26, 2026 at 8:30:00 AM MST] right now?');
+    expect(result).toContain('[clock:');
     expect(mockFormatTime).toHaveBeenCalledWith({ timezone: 'America/Phoenix' });
   });
 
-  it('returns prompt unchanged when /current-time is not present', async () => {
+  it('always injects clock metadata before ## User Message', async () => {
+    const ctx = createMockContext();
+    const hooks = await plugin.register(ctx);
+
+    const prompt = '[Thread: t1 | general]\n\nYou are helpful.\n\n## User Message\n\nHello, what time is it?';
+    const result = await hooks.onBeforeInvoke?.('t1', prompt);
+
+    expect(result).toContain('[clock: Thursday, February 26, 2026 at 8:30:00 AM MST]');
+    expect(result).toContain('## User Message\n\nHello, what time is it?');
+    // clock should appear before the user message section
+    const clockIdx = result!.indexOf('[clock:');
+    const userMsgIdx = result!.indexOf('## User Message');
+    expect(clockIdx).toBeLessThan(userMsgIdx);
+  });
+
+  it('injects clock even in prompts without ## User Message marker', async () => {
     const ctx = createMockContext();
     const hooks = await plugin.register(ctx);
 
     const result = await hooks.onBeforeInvoke?.('thread-1', 'Hello, what time is it?');
 
-    expect(result).toBe('Hello, what time is it?');
+    expect(result).toContain('[clock: Thursday, February 26, 2026 at 8:30:00 AM MST]');
+    expect(result).toContain('Hello, what time is it?');
   });
 
   it('reframes user message when /current-time is sent standalone', async () => {
@@ -93,7 +110,7 @@ describe('time plugin', () => {
 
     const result = await hooks.onBeforeInvoke?.('thread-1', '/current-time and also /current-time');
 
-    expect(result).toBe(
+    expect(result).toContain(
       '[Current time: Thursday, February 26, 2026 at 8:30:00 AM MST] and also [Current time: Thursday, February 26, 2026 at 8:30:00 AM MST]',
     );
   });

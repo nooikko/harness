@@ -8,7 +8,7 @@ const envSchema = z.object({
   TZ: z.string().default('America/Phoenix'),
   MAX_CONCURRENT_AGENTS: z.coerce.number().default(3),
   CLAUDE_MODEL_DEFAULT: z.string().default('haiku'),
-  CLAUDE_TIMEOUT: z.coerce.number().default(600000),
+  CLAUDE_TIMEOUT: z.coerce.number().default(1_800_000), // 30 minutes
   DISCORD_TOKEN: z.string().optional(),
   DISCORD_CHANNEL_ID: z.string().optional(),
   PORT: z.coerce.number().default(4001),

@@ -6,6 +6,7 @@ const createMockSession = (overrides?: Partial<Session>): Session => ({
   send: vi.fn().mockResolvedValue({ type: 'result', subtype: 'success' }),
   close: vi.fn(),
   isAlive: true,
+  isBusy: false,
   lastActivity: Date.now(),
   ...overrides,
 });
@@ -150,6 +151,41 @@ describe('createSessionPool', () => {
 
     expect(sessions[0]!.close).toHaveBeenCalled();
     expect(pool.size()).toBe(0);
+  });
+
+  it('does not evict sessions with recent activity even if created long ago', () => {
+    const { factory } = createMockFactory();
+    const pool = createSessionPool({ maxSessions: 3, ttlMs: 60_000 }, factory);
+
+    const session = pool.get('thread-1', 'haiku');
+
+    // Simulate stream activity updating lastActivity partway through TTL
+    vi.advanceTimersByTime(50_000);
+    // Simulate the session receiving a stream event (tool call, thinking, etc.)
+    Object.defineProperty(session, 'lastActivity', { value: Date.now(), writable: true, configurable: true });
+
+    // Advance past original TTL but not past the refreshed lastActivity
+    vi.advanceTimersByTime(30_000); // Total: 80s, but lastActivity was refreshed at 50s
+
+    expect(session.isAlive).toBe(true);
+    expect(pool.size()).toBe(1);
+  });
+
+  it('does not evict a session that is actively processing a request', () => {
+    const { factory } = createMockFactory();
+    const pool = createSessionPool({ maxSessions: 3, ttlMs: 60_000 }, factory);
+
+    const session = pool.get('thread-1', 'haiku');
+
+    // Mark the session as busy (actively processing a tool call)
+    Object.defineProperty(session, 'isBusy', { value: true, configurable: true });
+
+    // Advance well past TTL
+    vi.advanceTimersByTime(120_000);
+
+    // Session should NOT have been evicted because it's busy
+    expect(pool.size()).toBe(1);
+    expect(session.close).not.toHaveBeenCalled();
   });
 
   it('reports correct size', () => {

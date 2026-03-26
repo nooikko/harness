@@ -26,8 +26,8 @@ test.describe('thread management', () => {
     // Should show the empty state
     await expect(threadPage.page.getByText('Start a new conversation')).toBeVisible();
 
-    // Input area should have the placeholder
-    await expect(threadPage.page.getByPlaceholder(/send a message/i)).toBeVisible();
+    // Input area should be present
+    await expect(threadPage.page.getByRole('textbox')).toBeVisible();
   });
 
   test('manage thread modal opens with settings fields', async ({ threadPage }) => {
@@ -41,16 +41,21 @@ test.describe('thread management', () => {
     // Click the settings button to open the manage modal
     await threadPage.page.getByRole('button', { name: 'Thread settings' }).click();
 
-    // Modal should open with "Chat Settings" title
-    await expect(threadPage.page.getByRole('heading', { name: 'Chat Settings' })).toBeVisible();
+    // Wait for dialog to be fully rendered (Radix Dialog + Next.js hydration can cause brief flickers)
+    const dialog = threadPage.page.getByRole('dialog');
+    await expect(dialog).toBeVisible({ timeout: 10_000 });
+
+    // Modal should have "Chat Settings" title
+    await expect(dialog.getByRole('heading', { name: 'Chat Settings' })).toBeVisible();
 
     // Form fields should be present
-    await expect(threadPage.page.locator('#thread-name')).toBeVisible();
-    await expect(threadPage.page.getByText('Model', { exact: true })).toBeVisible();
-    await expect(threadPage.page.locator('#thread-instructions')).toBeVisible();
+    await expect(dialog.locator('#thread-name')).toBeVisible();
+    await expect(dialog.locator('#thread-model')).toBeVisible();
+    await expect(dialog.locator('#thread-instructions')).toBeVisible();
 
-    // Save button should be present
-    await expect(threadPage.page.getByRole('button', { name: 'Save' })).toBeVisible();
+    // Save and Cancel buttons should be present in the dialog footer
+    await expect(dialog.getByRole('button', { name: 'Save' })).toBeVisible();
+    await expect(dialog.getByRole('button', { name: 'Cancel' })).toBeVisible();
   });
 
   test('thread name is pre-filled in manage modal', async ({ threadPage }) => {

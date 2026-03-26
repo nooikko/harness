@@ -18,6 +18,7 @@ export type DelegationOptions = {
   parentTaskId?: string;
   depth?: number;
   cwd?: string;
+  reportProgress?: (message: string, detail?: { current?: number; total?: number }) => void;
 };
 
 export type SetupDelegationTaskResult = {

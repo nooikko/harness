@@ -108,16 +108,16 @@ describe('auto-namer plugin integration', () => {
     expect(harness.invoker.invoke).toHaveBeenCalledTimes(1);
   });
 
-  it('skips naming on second user message', async () => {
+  it('still fires naming on second user message when name is New Chat', async () => {
     harness = await createTestHarness(autoNamerPlugin);
 
-    // Set thread name to "New Chat" so name check passes
+    // Set thread name to "New Chat" — auto-namer fires for any count >= 1
     await prisma.thread.update({
       where: { id: harness.threadId },
       data: { name: 'New Chat' },
     });
 
-    // Create 2 user messages in DB — auto-namer only fires when count === 1
+    // Create 2 user messages in DB — auto-namer fires when count >= 1 and name is still "New Chat"
     await prisma.message.create({
       data: {
         threadId: harness.threadId,
@@ -135,15 +135,38 @@ describe('auto-namer plugin integration', () => {
       },
     });
 
+    // Mock invoker: first call is auto-namer (fire-and-forget), second is main pipeline
+    harness.invoker.invoke
+      .mockResolvedValueOnce({
+        output: 'Late Rename Title',
+        durationMs: 5,
+        exitCode: 0,
+        model: 'claude-haiku-4-5-20251001',
+        inputTokens: 50,
+        outputTokens: 10,
+        sessionId: undefined,
+      })
+      .mockResolvedValue({
+        output: 'ok',
+        durationMs: 10,
+        exitCode: 0,
+        model: 'claude-haiku-4-5-20251001',
+        inputTokens: 100,
+        outputTokens: 50,
+        sessionId: undefined,
+      });
+
     await harness.orchestrator.handleMessage(harness.threadId, 'user', 'Second message');
 
-    // Thread name should remain "New Chat" — auto-namer skipped because count !== 1
-    const thread = await prisma.thread.findUnique({
-      where: { id: harness.threadId },
-    });
-    expect(thread?.name).toBe('New Chat');
-
-    // Main pipeline invoke fired, auto-namer did not fire its own invoke for naming
-    expect(harness.invoker.invoke).toHaveBeenCalled();
+    // Auto-namer fires because name is still "New Chat" and count >= 1
+    await vi.waitFor(
+      async () => {
+        const thread = await prisma.thread.findUnique({
+          where: { id: harness.threadId },
+        });
+        expect(thread?.name).toBe('Late Rename Title');
+      },
+      { timeout: 10_000 },
+    );
   });
 });

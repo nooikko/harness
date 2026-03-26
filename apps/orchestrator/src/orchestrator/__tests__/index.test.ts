@@ -716,6 +716,59 @@ describe('createOrchestrator', () => {
       );
     });
 
+    it('broadcasts pipeline:step for intent classification on fast-path', async () => {
+      mockRunEarlyReturnHook.mockResolvedValueOnce({ handled: true, response: 'Lights on' } as never);
+      const deps = makeDeps();
+      const orchestrator = createOrchestrator(deps);
+      const broadcastCalls: Array<[string, unknown]> = [];
+      mockRunNotifyHooks.mockImplementation(async (_hooks, hookName, callHook) => {
+        if (hookName === 'onBroadcast') {
+          const fakeHooks: PluginHooks = {
+            onBroadcast: async (event: string, data: unknown) => {
+              broadcastCalls.push([event, data]);
+            },
+          };
+          await callHook(fakeHooks);
+        }
+      });
+
+      await orchestrator.getContext().sendToThread('thread-1', 'turn on the office');
+
+      const intentStep = broadcastCalls.find(([event, data]) => event === 'pipeline:step' && (data as { step: string }).step === 'intentClassify');
+      expect(intentStep).toBeDefined();
+      expect(intentStep?.[1]).toMatchObject({
+        threadId: 'thread-1',
+        step: 'intentClassify',
+      });
+    });
+
+    it('broadcasts pipeline:step for intent classification on fallthrough to LLM', async () => {
+      mockRunEarlyReturnHook.mockResolvedValueOnce(null);
+      const deps = makeDeps();
+      const orchestrator = createOrchestrator(deps);
+      const broadcastCalls: Array<[string, unknown]> = [];
+      mockRunNotifyHooks.mockImplementation(async (_hooks, hookName, callHook) => {
+        if (hookName === 'onBroadcast') {
+          const fakeHooks: PluginHooks = {
+            onBroadcast: async (event: string, data: unknown) => {
+              broadcastCalls.push([event, data]);
+            },
+          };
+          await callHook(fakeHooks);
+        }
+      });
+
+      await orchestrator.getContext().sendToThread('thread-1', 'what is the weather');
+
+      const intentStep = broadcastCalls.find(([event, data]) => event === 'pipeline:step' && (data as { step: string }).step === 'intentClassify');
+      expect(intentStep).toBeDefined();
+      expect(intentStep?.[1]).toMatchObject({
+        threadId: 'thread-1',
+        step: 'intentClassify',
+        detail: expect.stringContaining('fallthrough'),
+      });
+    });
+
     it('handles non-Error broadcast exceptions during intent short-circuit', async () => {
       mockRunEarlyReturnHook.mockResolvedValueOnce({ handled: true, response: 'Done' } as never);
       mockRunNotifyHooks.mockImplementation(async (_hooks, hookName) => {

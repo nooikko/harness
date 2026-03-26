@@ -1,10 +1,12 @@
 // Discord plugin — registers as a message source and reply sink via Discord.js
 
-import type { PluginContext, PluginDefinition, PluginHooks } from '@harness/plugin-contract';
-import { Client, Events, GatewayIntentBits } from 'discord.js';
+import type { PluginContext, PluginDefinition, PluginHooks, PluginTool } from '@harness/plugin-contract';
+import { Client, Events, GatewayIntentBits, Partials } from 'discord.js';
 import { toPipelineMessage } from './_helpers/message-adapter';
 import { parseAllowedChannels } from './_helpers/parse-allowed-channels';
+import { resetCache as resetPrimaryThreadCache, resolvePrimaryThread } from './_helpers/resolve-primary-thread';
 import { sendDiscordReply } from './_helpers/send-discord-reply';
+import { sendProactiveDm } from './_helpers/send-proactive-dm';
 import { settingsSchema } from './_helpers/settings-schema';
 import { shouldProcessMessage } from './_helpers/should-process-message';
 import { stripMentions } from './_helpers/strip-mentions';
@@ -19,7 +21,7 @@ type CreateClient = (ctx: PluginContext) => Client;
 const createClient: CreateClient = (ctx) => {
   const intents = [GatewayIntentBits.Guilds, GatewayIntentBits.GuildMessages, GatewayIntentBits.MessageContent, GatewayIntentBits.DirectMessages];
 
-  const client = new Client({ intents });
+  const client = new Client({ intents, partials: [Partials.Channel] });
 
   client.on(Events.Error, (error) => {
     ctx.logger.error(`Discord client error: ${error.message}`);
@@ -78,6 +80,7 @@ export const splitMessage: SplitMessage = (content) => {
 let resolvedToken: string | undefined;
 let allowedChannels: Set<string> = new Set();
 let defaultAgentId: string | undefined;
+let ownerDiscordUserId: string | undefined;
 
 type CreateRegister = () => PluginDefinition['register'];
 
@@ -88,6 +91,7 @@ const createRegister: CreateRegister = () => {
     const settings = await ctx.getSettings(settingsSchema);
     resolvedToken = settings.botToken ?? ctx.config.discordToken;
     allowedChannels = parseAllowedChannels(settings.allowedChannelIds);
+    ownerDiscordUserId = settings.ownerDiscordUserId ?? undefined;
 
     // Cache default agent for thread creation (avoid per-message DB lookup)
     const defaultAgent = await ctx.db.agent.findFirst({ where: { slug: 'default', enabled: true }, select: { id: true } });
@@ -95,6 +99,20 @@ const createRegister: CreateRegister = () => {
 
     const hooks: PluginHooks = {
       onBroadcast: async (event, data) => {
+        // Proactive DM: any plugin can broadcast 'discord:send-dm' to message the owner
+        if (event === 'discord:send-dm') {
+          if (!state.client || !state.connected || !ownerDiscordUserId) {
+            return;
+          }
+          const { content } = data as { content: string };
+          try {
+            await sendProactiveDm({ client: state.client, userId: ownerDiscordUserId, content, splitMessage });
+          } catch (err) {
+            ctx.logger.error(`discord: proactive DM failed: ${err instanceof Error ? err.message : String(err)}`);
+          }
+          return;
+        }
+
         if (event !== 'pipeline:complete') {
           return;
         }
@@ -102,10 +120,34 @@ const createRegister: CreateRegister = () => {
           return;
         }
         const { threadId } = data as { threadId: string };
+
+        // Normal reply routing (thread-source or metadata-based)
         try {
           await sendDiscordReply({ client: state.client, ctx, threadId, splitMessage });
         } catch (err) {
           ctx.logger.error(`discord: failed to deliver reply [thread=${threadId}]: ${err instanceof Error ? err.message : String(err)}`);
+        }
+
+        // Proactive cron delivery: forward cron output to owner's DM
+        if (ownerDiscordUserId) {
+          try {
+            const thread = await ctx.db.thread.findUnique({
+              where: { id: threadId },
+              select: { kind: true, source: true },
+            });
+            if (thread?.kind === 'cron' && thread.source !== 'discord') {
+              const assistantMsg = await ctx.db.message.findFirst({
+                where: { threadId, role: 'assistant', kind: 'text' },
+                orderBy: { createdAt: 'desc' },
+                select: { content: true },
+              });
+              if (assistantMsg?.content) {
+                await sendProactiveDm({ client: state.client, userId: ownerDiscordUserId, content: assistantMsg.content, splitMessage });
+              }
+            }
+          } catch (err) {
+            ctx.logger.error(`discord: cron proactive DM failed [thread=${threadId}]: ${err instanceof Error ? err.message : String(err)}`);
+          }
         }
       },
       onSettingsChange: async (pluginName: string) => {
@@ -114,6 +156,8 @@ const createRegister: CreateRegister = () => {
         }
         const newSettings = await ctx.getSettings(settingsSchema);
         allowedChannels = parseAllowedChannels(newSettings.allowedChannelIds);
+        ownerDiscordUserId = newSettings.ownerDiscordUserId ?? undefined;
+        resetPrimaryThreadCache();
 
         // Re-cache default agent in case it changed
         const freshAgent = await ctx.db.agent.findFirst({ where: { slug: 'default', enabled: true }, select: { id: true } });
@@ -211,49 +255,83 @@ const start: StartDiscordPlugin = async (ctx) => {
       return;
     }
 
-    ctx.logger.info(`Discord plugin: message from ${pipelineMsg.authorName} in ${pipelineMsg.channelName}`);
+    const isDm = !message.guild;
+    ctx.logger.info(`Discord plugin: ${isDm ? 'DM' : 'message'} from ${pipelineMsg.authorName} in ${pipelineMsg.channelName}`);
 
     try {
-      // Find or create thread for this channel
-      const thread = await ctx.db.thread.upsert({
-        where: {
-          source_sourceId: {
+      let threadId: string;
+
+      if (isDm) {
+        // DMs route to the primary assistant thread — same context as web UI
+        const primaryThread = await resolvePrimaryThread(ctx.db);
+        if (primaryThread) {
+          threadId = primaryThread.id;
+        } else {
+          // Fallback: create a Discord-specific thread if no primary thread exists
+          ctx.logger.warn('Discord plugin: no primary thread found, falling back to Discord thread creation');
+          const thread = await ctx.db.thread.upsert({
+            where: { source_sourceId: { source: 'discord', sourceId: pipelineMsg.sourceId } },
+            update: { lastActivity: new Date() },
+            create: {
+              source: 'discord',
+              sourceId: pipelineMsg.sourceId,
+              name: pipelineMsg.channelName,
+              kind: 'general',
+              status: 'active',
+              lastActivity: new Date(),
+              ...(defaultAgentId ? { agent: { connect: { id: defaultAgentId } } } : {}),
+            },
+          });
+          threadId = thread.id;
+        }
+
+        // Tag the message with the Discord channel ID so replies route back to Discord
+        await ctx.db.message.create({
+          data: {
+            threadId,
+            role: 'user',
+            content: pipelineMsg.content,
+            metadata: { discordChannelId: pipelineMsg.sourceId },
+          },
+        });
+      } else {
+        // Guild messages: upsert a per-channel thread (existing behavior)
+        const thread = await ctx.db.thread.upsert({
+          where: { source_sourceId: { source: 'discord', sourceId: pipelineMsg.sourceId } },
+          update: { lastActivity: new Date() },
+          create: {
             source: 'discord',
             sourceId: pipelineMsg.sourceId,
+            name: pipelineMsg.channelName,
+            kind: 'general',
+            status: 'active',
+            lastActivity: new Date(),
+            ...(defaultAgentId ? { agent: { connect: { id: defaultAgentId } } } : {}),
           },
-        },
-        update: { lastActivity: new Date() },
-        create: {
-          source: 'discord',
-          sourceId: pipelineMsg.sourceId,
-          name: pipelineMsg.channelName,
-          kind: 'general',
-          status: 'active',
-          lastActivity: new Date(),
-          ...(defaultAgentId ? { agent: { connect: { id: defaultAgentId } } } : {}),
-        },
-      });
+        });
+        threadId = thread.id;
 
-      pipelineMsg.threadId = thread.id;
+        await ctx.db.message.create({
+          data: {
+            threadId,
+            role: 'user',
+            content: pipelineMsg.content,
+            metadata: { discordChannelId: pipelineMsg.sourceId },
+          },
+        });
+      }
 
-      // Persist the incoming message
-      await ctx.db.message.create({
-        data: {
-          threadId: thread.id,
-          role: 'user',
-          content: pipelineMsg.content,
-        },
-      });
+      pipelineMsg.threadId = threadId;
 
       // Run the Claude pipeline — fire-and-forget, same pattern as web plugin
-      void ctx.sendToThread(thread.id, pipelineMsg.content).catch((err) => {
+      void ctx.sendToThread(threadId, pipelineMsg.content).catch((err) => {
         const error = err instanceof Error ? err : new Error(String(err));
         ctx.reportBackgroundError('discord-pipeline', error);
       });
 
       // Feed into pipeline via broadcast
       await ctx.broadcast('discord:message', {
-        threadId: thread.id,
+        threadId,
         sourceId: pipelineMsg.sourceId,
         content: pipelineMsg.content,
         authorName: pipelineMsg.authorName,
@@ -269,10 +347,9 @@ const start: StartDiscordPlugin = async (ctx) => {
           });
           if (existing) {
             await ctx.db.message.create({
-              data: { threadId: existing.id, role: 'user', content: pipelineMsg.content },
+              data: { threadId: existing.id, role: 'user', content: pipelineMsg.content, metadata: { discordChannelId: pipelineMsg.sourceId } },
             });
 
-            // Run the Claude pipeline — fire-and-forget, same pattern as web plugin
             void ctx.sendToThread(existing.id, pipelineMsg.content).catch((err) => {
               const error = err instanceof Error ? err : new Error(String(err));
               ctx.reportBackgroundError('discord-pipeline', error);
@@ -321,11 +398,38 @@ const state: DiscordPluginState = {
   connected: false,
 };
 
+const tools: PluginTool[] = [
+  {
+    name: 'send_dm',
+    description:
+      'Send a direct message to the owner on Discord. Use this to proactively notify the user about completed tasks, important events, or anything that warrants immediate attention.',
+    schema: {
+      type: 'object',
+      properties: {
+        message: { type: 'string', description: 'The message content to send' },
+      },
+      required: ['message'],
+    },
+    handler: async (_ctx, input) => {
+      if (!ownerDiscordUserId) {
+        return 'Discord DM not configured — ownerDiscordUserId is not set in plugin settings.';
+      }
+      if (!state.client || !state.connected) {
+        return 'Discord bot is not connected — cannot send DM.';
+      }
+      const message = input.message as string;
+      await sendProactiveDm({ client: state.client, userId: ownerDiscordUserId, content: message, splitMessage });
+      return `DM sent to Discord user ${ownerDiscordUserId}.`;
+    },
+  },
+];
+
 export const plugin: PluginDefinition = {
   name: 'discord',
   version: '1.0.0',
   register: createRegister(),
   start,
   stop,
+  tools,
   settingsSchema,
 };

@@ -42,12 +42,13 @@ describe('youtube-music-client', () => {
     vi.clearAllMocks();
   });
 
-  const setupMockClient = () => {
+  const setupMockClient = (options?: { logged_in?: boolean }) => {
     mockCreate.mockResolvedValue({
       music: {
         search: mockMusicSearch,
         getInfo: mockMusicGetInfo,
       },
+      session: { logged_in: options?.logged_in ?? false },
     });
   };
 
@@ -618,4 +619,68 @@ describe('youtube-music-client', () => {
 
   // getAudioStreamUrl edge cases are now covered by resolve-stream-url.test.ts
   // since the function delegates entirely to yt-dlp.
+
+  describe('setAuthenticatedSearchApi', () => {
+    it('uses TVHTML5 API for search when set, skipping youtubei.js entirely', async () => {
+      setupMockClient();
+      await initYouTubeMusicClient();
+
+      const tvSearch = vi
+        .fn()
+        .mockResolvedValue([{ videoId: 'tv1', title: 'TV Result', artist: 'TV Artist', durationText: '3:45', thumbnailUrl: undefined }]);
+
+      const { setAuthenticatedSearchApi } = await import('../youtube-music-client');
+      setAuthenticatedSearchApi(tvSearch);
+
+      const results = await searchSongs('jazz', 5);
+
+      // Should use TVHTML5 API, NOT youtubei.js
+      expect(tvSearch).toHaveBeenCalledWith('jazz', 5);
+      expect(mockMusicSearch).not.toHaveBeenCalled();
+      expect(results).toHaveLength(1);
+      expect(results[0]?.videoId).toBe('tv1');
+      expect(results[0]?.title).toBe('TV Result');
+
+      // Clean up
+      setAuthenticatedSearchApi(null);
+    });
+
+    it('falls back to youtubei.js when TVHTML5 API search fails', async () => {
+      setupMockClient();
+      await initYouTubeMusicClient();
+
+      const tvSearch = vi.fn().mockRejectedValue(new Error('TVHTML5 search failed'));
+      mockMusicSearch.mockResolvedValue({
+        songs: { contents: [{ id: 'yt1', title: 'YT Fallback', artists: [{ name: 'A' }] }] },
+      });
+
+      const { setAuthenticatedSearchApi } = await import('../youtube-music-client');
+      setAuthenticatedSearchApi(tvSearch);
+
+      const results = await searchSongs('jazz', 5);
+
+      // Should fall back to youtubei.js after TVHTML5 fails
+      expect(tvSearch).toHaveBeenCalled();
+      expect(mockMusicSearch).toHaveBeenCalled();
+      expect(results[0]?.title).toBe('YT Fallback');
+
+      setAuthenticatedSearchApi(null);
+    });
+
+    it('uses youtubei.js directly when no TVHTML5 API is set', async () => {
+      setupMockClient();
+      await initYouTubeMusicClient();
+
+      mockMusicSearch.mockResolvedValue({
+        songs: { contents: [{ id: 'yt1', title: 'Normal Result', artists: [{ name: 'A' }] }] },
+      });
+
+      const { setAuthenticatedSearchApi } = await import('../youtube-music-client');
+      setAuthenticatedSearchApi(null);
+
+      const results = await searchSongs('jazz', 5);
+      expect(mockMusicSearch).toHaveBeenCalled();
+      expect(results[0]?.title).toBe('Normal Result');
+    });
+  });
 });

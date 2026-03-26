@@ -1,4 +1,7 @@
 // Send Discord reply — delivers an assistant response to the originating Discord channel
+// Supports two routing modes:
+// 1. Thread-source routing: thread.source === 'discord' (guild channel threads)
+// 2. Metadata routing: user message has discordChannelId in metadata (DMs routed to primary thread)
 
 import type { PluginContext } from '@harness/plugin-contract';
 import type { Client } from 'discord.js';
@@ -11,20 +14,53 @@ type SendDiscordReply = (params: {
   splitMessage: (content: string) => string[];
 }) => Promise<void>;
 
+type ResolveDiscordChannelId = (params: {
+  ctx: PluginContext;
+  threadId: string;
+  thread: { source: string | null; sourceId: string | null };
+  assistantCreatedAt: Date;
+}) => Promise<string | null>;
+
+const resolveDiscordChannelId: ResolveDiscordChannelId = async ({ ctx, threadId, thread, assistantCreatedAt }) => {
+  // Path 1: Thread-source routing (guild channel threads with source: 'discord')
+  if (thread.source === 'discord' && thread.sourceId) {
+    return extractChannelId(thread.sourceId);
+  }
+
+  // Path 2: Metadata routing — check the most recent user message before the assistant response
+  // for a discordChannelId tag. This handles DMs routed to the primary thread.
+  const recentUserMessages = await ctx.db.message.findMany({
+    where: {
+      threadId,
+      role: 'user',
+      createdAt: { lte: assistantCreatedAt },
+    },
+    orderBy: { createdAt: 'desc' },
+    take: 1,
+    select: { metadata: true, createdAt: true },
+  });
+
+  const triggeringMessage = recentUserMessages[0];
+  if (!triggeringMessage) {
+    return null;
+  }
+
+  const metadata = triggeringMessage.metadata as Record<string, unknown> | null;
+  const discordChannelId = metadata?.discordChannelId;
+  if (typeof discordChannelId !== 'string') {
+    return null;
+  }
+
+  return extractChannelId(discordChannelId);
+};
+
 export const sendDiscordReply: SendDiscordReply = async ({ client, ctx, threadId, splitMessage }) => {
-  // Look up the thread to check if it originated from Discord
   const thread = await ctx.db.thread.findUnique({
     where: { id: threadId },
     select: { source: true, sourceId: true },
   });
 
-  if (!thread || thread.source !== 'discord') {
-    return;
-  }
-
-  const channelId = extractChannelId(thread.sourceId);
-  if (!channelId) {
-    ctx.logger.warn(`discord: could not extract channel ID from sourceId [sourceId=${thread.sourceId}]`);
+  if (!thread) {
     return;
   }
 
@@ -52,10 +88,24 @@ export const sendDiscordReply: SendDiscordReply = async ({ client, ctx, threadId
     return;
   }
 
-  // Skip delivery if a pipeline error occurred after the last assistant message —
-  // this prevents re-delivering a stale response from a prior conversation turn
+  // Skip delivery if a pipeline error occurred after the last assistant message
   if (pipelineError && pipelineError.createdAt >= assistantMsg.createdAt) {
     ctx.logger.debug(`discord: skipping delivery — pipeline errored after last assistant message [thread=${threadId}]`);
+    return;
+  }
+
+  // Resolve the Discord channel ID via thread-source or message-metadata routing
+  const channelId = await resolveDiscordChannelId({
+    ctx,
+    threadId,
+    thread,
+    assistantCreatedAt: assistantMsg.createdAt,
+  });
+
+  if (!channelId) {
+    if (thread.source === 'discord') {
+      ctx.logger.warn(`discord: could not extract channel ID from sourceId [sourceId=${thread.sourceId}]`);
+    }
     return;
   }
 

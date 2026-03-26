@@ -54,11 +54,11 @@ const MUSIC_CONTROL_VEC = [0.05, 0.1, 0.9, 0.05];
 
 const makeFakeEmbeddings = (): number[][] => {
   // Must match the exact count of examples in INTENT_DEFINITIONS
-  // lights.control: 15, lights.toggle: 3, music.play: 11, music.control: 10
+  // lights.control: 22, lights.toggle: 5, music.play: 13, music.control: 10
   return [
-    ...Array.from<number[]>({ length: 15 }).fill(LIGHTS_CONTROL_VEC),
-    ...Array.from<number[]>({ length: 3 }).fill(LIGHTS_TOGGLE_VEC),
-    ...Array.from<number[]>({ length: 11 }).fill(MUSIC_PLAY_VEC),
+    ...Array.from<number[]>({ length: 22 }).fill(LIGHTS_CONTROL_VEC),
+    ...Array.from<number[]>({ length: 5 }).fill(LIGHTS_TOGGLE_VEC),
+    ...Array.from<number[]>({ length: 13 }).fill(MUSIC_PLAY_VEC),
     ...Array.from<number[]>({ length: 10 }).fill(MUSIC_CONTROL_VEC),
   ];
 };
@@ -112,7 +112,7 @@ describe('intent plugin', () => {
       expect(embed).toHaveBeenCalledOnce();
       // Should have been called with all example utterances flattened
       const callArgs = vi.mocked(embed).mock.calls[0]?.[0] as string[];
-      expect(callArgs.length).toBe(39); // 15 + 3 + 11 + 10
+      expect(callArgs.length).toBe(50); // 22 + 5 + 13 + 10
       expect(callArgs[0]).toBe('turn on the office lights');
     });
 
@@ -146,7 +146,7 @@ describe('intent plugin', () => {
 
       expect(result.handled).toBe(true);
       expect(result.response).toBe('Office lights turned on');
-      expect(ctx.executeTool).toHaveBeenCalledWith('govee__set_light', expect.objectContaining({ device: 'office', state: 'on' }), {
+      expect(ctx.executeTool).toHaveBeenCalledWith('govee__set_light', expect.objectContaining({ device: 'office', on: true }), {
         threadId: 'thread-1',
       });
     });
@@ -240,7 +240,7 @@ describe('intent plugin', () => {
 
       await hooks.onIntentClassify!('thread-1', 'set the office lights to red');
 
-      expect(ctx.executeTool).toHaveBeenCalledWith('govee__set_light', expect.objectContaining({ device: 'office', state: 'on', color: 'red' }), {
+      expect(ctx.executeTool).toHaveBeenCalledWith('govee__set_light', expect.objectContaining({ device: 'office', on: true, color: 'red' }), {
         threadId: 'thread-1',
       });
     });

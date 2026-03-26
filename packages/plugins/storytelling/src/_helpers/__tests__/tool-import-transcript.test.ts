@@ -40,6 +40,9 @@ const createMockCtx = (invokeOutput: string, transcriptOverrides: Record<string,
         findMany: vi.fn().mockResolvedValue([]),
         update: vi.fn().mockResolvedValue({}),
       },
+      agent: {
+        findFirst: vi.fn().mockResolvedValue({ soul: 'Safe space soul text' }),
+      },
     } as never,
     invoker: {
       invoke: vi.fn().mockResolvedValue({
@@ -115,7 +118,7 @@ describe('handleImportTranscript', () => {
 
     const result = await handleImportTranscript(ctx, 'story-1', { transcriptId: 'tx-1' });
 
-    expect(result).toContain('resumed from chunk 2');
+    expect(result).toContain('chunks 2-');
   });
 
   it('marks transcript as processed on completion', async () => {
@@ -206,6 +209,22 @@ describe('handleImportTranscript', () => {
     expect(prompt).toContain('Gym');
   });
 
+  it('returns descriptive error when invoker returns an error (e.g. content refusal)', async () => {
+    const ctx = createMockCtx('');
+    vi.mocked(ctx.invoker.invoke).mockResolvedValue({
+      output: '',
+      error: 'Content policy violation: inappropriate content detected',
+      durationMs: 50,
+      exitCode: 1,
+    });
+
+    const result = await handleImportTranscript(ctx, 'story-1', { transcriptId: 'tx-1' });
+
+    expect(result).toContain('Error');
+    expect(result).toContain('Content policy violation');
+    expect(ctx.logger.warn).toHaveBeenCalled();
+  });
+
   it('uses Sonnet model for extraction', async () => {
     const invokeOutput = JSON.stringify({
       characters: [],
@@ -218,6 +237,6 @@ describe('handleImportTranscript', () => {
     const ctx = createMockCtx(invokeOutput);
     await handleImportTranscript(ctx, 'story-1', { transcriptId: 'tx-1' });
 
-    expect(ctx.invoker.invoke).toHaveBeenCalledWith(expect.any(String), expect.objectContaining({ model: 'claude-sonnet-4-6' }));
+    expect(ctx.invoker.invoke).toHaveBeenCalledWith(expect.any(String), expect.objectContaining({ model: 'claude-opus-4-5-20251101' }));
   });
 });

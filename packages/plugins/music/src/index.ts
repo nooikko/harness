@@ -33,7 +33,13 @@ import {
 } from './_helpers/playback-controller';
 import { settingsSchema } from './_helpers/settings-schema';
 import type { MusicTrack } from './_helpers/youtube-music-client';
-import { destroyYouTubeMusicClient, getRawClient, replaceYouTubeMusicClient, searchSongs } from './_helpers/youtube-music-client';
+import {
+  destroyYouTubeMusicClient,
+  getRawClient,
+  replaceYouTubeMusicClient,
+  searchSongs,
+  setAuthenticatedSearchApi,
+} from './_helpers/youtube-music-client';
 
 // --- Helpers ---
 
@@ -110,6 +116,25 @@ const initClientWithSettings = async (ctx: PluginContext, settings: MusicSetting
     logger: ctx.logger,
   });
 
+  // Wire TVHTML5 API for search when OAuth is active (avoids WEB_REMIX 400 errors)
+  const tvApi = getAuthenticatedApi(settings);
+  if (tvApi) {
+    setAuthenticatedSearchApi(async (query, limit) => {
+      const tvTracks = await tvApi.searchSongs(query, limit);
+      return tvTracks.map((t) => ({
+        videoId: t.videoId,
+        title: t.title,
+        artist: t.artist,
+        album: undefined,
+        durationSeconds: undefined,
+        durationText: t.durationText,
+        thumbnailUrl: t.thumbnailUrl,
+      }));
+    });
+  } else {
+    setAuthenticatedSearchApi(null);
+  }
+
   const authMode = settings.youtubeAuth ? ' (authenticated)' : settings.cookie ? ' (cookie auth)' : ' (anonymous)';
   const poMode = poToken ? ' + PO token' : '';
   ctx.logger.info(`music: Client initialized${authMode}${poMode}`);
@@ -183,7 +208,7 @@ const musicPlugin: PluginDefinition = {
         },
         required: [],
       },
-      handler: async (ctx, input) => {
+      handler: async (ctx, input, meta) => {
         const { query, videoId, deviceName, radio } = input as {
           query?: string;
           videoId?: string;
@@ -197,6 +222,7 @@ const musicPlugin: PluginDefinition = {
 
         try {
           // Resolve the track
+          meta.reportProgress?.('Searching for track', { current: 1, total: 3 });
           let track: MusicTrack | undefined;
           if (videoId) {
             // Search by videoId to get metadata
@@ -222,7 +248,9 @@ const musicPlugin: PluginDefinition = {
             }
           }
 
+          meta.reportProgress?.('Resolving Cast device', { current: 2, total: 3 });
           const device = resolveDevice(deviceName);
+          meta.reportProgress?.('Starting playback', { current: 3, total: 3 });
           return await playTrack(device, track, radio);
         } catch (err) {
           const msg = err instanceof Error ? err.message : String(err);

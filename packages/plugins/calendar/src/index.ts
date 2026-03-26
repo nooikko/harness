@@ -348,10 +348,14 @@ const plugin: PluginDefinition = {
         properties: {},
         required: [],
       },
-      handler: async (ctx: PluginContext) => {
+      handler: async (ctx: PluginContext, _input: Record<string, unknown>, meta) => {
         void (async () => {
           try {
-            await Promise.allSettled([syncOutlookCalendars(ctx), syncGoogleCalendars(ctx)]);
+            meta.reportProgress?.('Syncing Outlook calendar', { current: 1, total: 3 });
+            await syncOutlookCalendars(ctx);
+            meta.reportProgress?.('Syncing Google calendar', { current: 2, total: 3 });
+            await syncGoogleCalendars(ctx);
+            meta.reportProgress?.('Projecting virtual events', { current: 3, total: 3 });
             await projectVirtualEvents(ctx);
           } catch (err) {
             ctx.logger.warn(`calendar: sync_now failed — ${err instanceof Error ? err.message : String(err)}`);

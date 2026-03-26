@@ -30,6 +30,7 @@ const createMockCtx = (invokeOutput: string) => {
     db: {
       storyArc: { findFirst: arcFindFirst },
       storyMoment: { findMany: momentFindMany },
+      agent: { findFirst: vi.fn().mockResolvedValue({ soul: 'Safe space soul text' }) },
     } as never,
     invoker: { invoke: vi.fn().mockResolvedValue({ output: invokeOutput, durationMs: 100, exitCode: 0 }) },
     logger: { info: vi.fn(), warn: vi.fn(), error: vi.fn(), debug: vi.fn() },
@@ -88,10 +89,10 @@ describe('handleDiscoverArcMoments', () => {
     expect(result).toContain('Error');
   });
 
-  it('uses Sonnet model', async () => {
+  it('uses Opus model with extraction system prompt', async () => {
     const { ctx } = createMockCtx(JSON.stringify({ related: [] }));
     await handleDiscoverArcMoments(ctx, 'story-1', { arcId: 'arc-1' });
-    expect(ctx.invoker.invoke).toHaveBeenCalledWith(expect.any(String), { model: 'claude-sonnet-4-6' });
+    expect(ctx.invoker.invoke).toHaveBeenCalledWith(expect.any(String), expect.objectContaining({ model: 'claude-opus-4-5-20251101' }));
   });
 
   it('excludes seed moments from candidates', async () => {

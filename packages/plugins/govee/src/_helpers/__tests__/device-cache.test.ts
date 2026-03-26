@@ -24,6 +24,20 @@ const mockDevices: GoveeDevice[] = [
       { type: 'devices.capabilities.color_setting', instance: 'colorRgb' },
     ],
   },
+  {
+    sku: 'H6008',
+    device: '11:22:33:44',
+    deviceName: 'Quinn Office 1',
+    type: 'devices.types.light',
+    capabilities: [{ type: 'devices.capabilities.on_off', instance: 'powerSwitch' }],
+  },
+  {
+    sku: 'H6008',
+    device: '55:66:77:88',
+    deviceName: 'Quinn Office 2',
+    type: 'devices.types.light',
+    capabilities: [{ type: 'devices.capabilities.on_off', instance: 'powerSwitch' }],
+  },
 ];
 
 const makeClient = (): GoveeClient => ({
@@ -50,7 +64,7 @@ describe('DeviceCache', () => {
 
   describe('devices', () => {
     it('returns all cached devices', () => {
-      expect(cache.devices).toHaveLength(2);
+      expect(cache.devices).toHaveLength(4);
     });
   });
 
@@ -67,6 +81,35 @@ describe('DeviceCache', () => {
 
     it('returns undefined for no match', () => {
       expect(cache.findByName('kitchen')).toBeUndefined();
+    });
+  });
+
+  describe('findAllByName', () => {
+    it('returns all devices matching a room name', () => {
+      const devices = cache.findAllByName('office');
+      expect(devices).toHaveLength(2);
+      expect(devices.map((d) => d.deviceName)).toEqual(['Quinn Office 1', 'Quinn Office 2']);
+    });
+
+    it('returns a single device for a specific name like "office 2"', () => {
+      const devices = cache.findAllByName('office 2');
+      expect(devices).toHaveLength(1);
+      expect(devices[0]?.deviceName).toBe('Quinn Office 2');
+    });
+
+    it('returns empty array for no match', () => {
+      expect(cache.findAllByName('garage')).toEqual([]);
+    });
+
+    it('is case-insensitive', () => {
+      const devices = cache.findAllByName('OFFICE');
+      expect(devices).toHaveLength(2);
+    });
+
+    it('returns exact match when available', () => {
+      const devices = cache.findAllByName('bedroom strip');
+      expect(devices).toHaveLength(1);
+      expect(devices[0]?.deviceName).toBe('Bedroom Strip');
     });
   });
 

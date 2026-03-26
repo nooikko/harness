@@ -180,6 +180,38 @@ describe('classifyIntent', () => {
     expect(result.intent).toBe('lights.control');
   });
 
+  it('weights max-example similarity at 80% so close example matches dominate', () => {
+    // Scenario: query is very close to one example (sim ~0.97) but the centroid
+    // is diluted because the intent has diverse examples. With 20/80 weighting,
+    // the max-example similarity should dominate.
+    const registry = {
+      entries: [
+        {
+          intent: 'lights.control',
+          plugin: 'govee',
+          tool: 'set_light',
+          // Diluted centroid — average of many diverse examples
+          centroid: [0.3, 0.3, 0.4],
+          examples: [
+            [0.95, 0.05, 0.0], // Very close to query
+            [0.05, 0.95, 0.0], // Far from query (diverse intent)
+            [0.0, 0.05, 0.95], // Far from query (diverse intent)
+          ],
+        },
+      ],
+    };
+
+    const query = [0.9, 0.1, 0.0];
+    const result = classifyIntent(query, registry);
+
+    // centroid sim ≈ 0.3*0.9 + 0.3*0.1 + 0.4*0 = 0.30
+    // max example sim ≈ 0.95*0.9 + 0.05*0.1 = 0.86
+    // With 20/80: 0.2*0.30 + 0.8*0.86 = 0.748
+    // With old 40/60: 0.4*0.30 + 0.6*0.86 = 0.636
+    // The 20/80 blend should produce confidence > 0.7
+    expect(result.confidence).toBeGreaterThan(0.7);
+  });
+
   it('returns low confidence for vectors far from all intents', () => {
     const registry = {
       entries: [

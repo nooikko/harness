@@ -1,12 +1,24 @@
 import type { PluginContext, PluginDefinition } from '@harness/plugin-contract';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
-const { mockSendDiscordReply } = vi.hoisted(() => ({
+const { mockSendDiscordReply, mockResolvePrimaryThread, mockResetCache, mockSendProactiveDm } = vi.hoisted(() => ({
   mockSendDiscordReply: vi.fn().mockResolvedValue(undefined),
+  mockResolvePrimaryThread: vi.fn().mockResolvedValue(null),
+  mockResetCache: vi.fn(),
+  mockSendProactiveDm: vi.fn().mockResolvedValue(undefined),
 }));
 
 vi.mock('../_helpers/send-discord-reply', () => ({
   sendDiscordReply: mockSendDiscordReply,
+}));
+
+vi.mock('../_helpers/resolve-primary-thread', () => ({
+  resolvePrimaryThread: mockResolvePrimaryThread,
+  resetCache: mockResetCache,
+}));
+
+vi.mock('../_helpers/send-proactive-dm', () => ({
+  sendProactiveDm: mockSendProactiveDm,
 }));
 
 // Mock discord.js at the module level -- vi.mock is hoisted, so all references
@@ -46,6 +58,9 @@ vi.mock('discord.js', () => {
       GuildMessages: 2,
       MessageContent: 4,
       DirectMessages: 8,
+    },
+    Partials: {
+      Channel: 0,
     },
   };
 });
@@ -1070,6 +1085,382 @@ describe('discord plugin', () => {
         threadId: 'thread-1',
       });
       expect(mockSendDiscordReply).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('DM routing to primary thread', () => {
+    const makeDmMessage = (content = 'hello from DM') => ({
+      author: {
+        bot: false,
+        id: 'user-1',
+        username: 'test',
+        displayName: 'Test',
+      },
+      mentions: { users: new Map() },
+      guild: null, // DM — no guild
+      content,
+      channel: {
+        id: 'dm-chan-789',
+        name: 'dm-chan-789',
+        isThread: () => false,
+      },
+    });
+
+    it('routes DM messages to the primary thread when it exists', async () => {
+      mockLogin.mockResolvedValue('token');
+      mockResolvePrimaryThread.mockResolvedValue({ id: 'primary-thread-1' });
+      const ctx = createMockContext({ discordToken: 'test-token' });
+
+      await plugin.start?.(ctx);
+
+      type MessageHandler = (msg: unknown) => Promise<void>;
+      const handler = findHandler<MessageHandler>(mockOn, 'messageCreate');
+
+      await handler?.(makeDmMessage());
+
+      // Should NOT upsert a Discord thread
+      expect(ctx.db.thread.upsert as ReturnType<typeof vi.fn>).not.toHaveBeenCalled();
+      // Should persist message to the primary thread with metadata
+      expect(ctx.db.message.create as ReturnType<typeof vi.fn>).toHaveBeenCalledWith(
+        expect.objectContaining({
+          data: expect.objectContaining({
+            threadId: 'primary-thread-1',
+            role: 'user',
+            content: 'hello from DM',
+            metadata: { discordChannelId: 'discord:dm-chan-789' },
+          }),
+        }),
+      );
+      expect(ctx.sendToThread).toHaveBeenCalledWith('primary-thread-1', 'hello from DM');
+    });
+
+    it('falls back to Discord thread upsert when no primary thread exists', async () => {
+      mockLogin.mockResolvedValue('token');
+      mockResolvePrimaryThread.mockResolvedValue(null);
+      const ctx = createMockContext({ discordToken: 'test-token' });
+
+      await plugin.start?.(ctx);
+
+      type MessageHandler = (msg: unknown) => Promise<void>;
+      const handler = findHandler<MessageHandler>(mockOn, 'messageCreate');
+
+      await handler?.(makeDmMessage());
+
+      // Should fall back to upsert
+      expect(ctx.db.thread.upsert as ReturnType<typeof vi.fn>).toHaveBeenCalled();
+      expect(ctx.logger.warn).toHaveBeenCalledWith(expect.stringContaining('no primary thread found'));
+    });
+
+    it('guild messages still upsert a per-channel thread', async () => {
+      mockLogin.mockResolvedValue('token');
+      mockResolvePrimaryThread.mockResolvedValue({ id: 'primary-thread-1' });
+      const ctx = createMockContext({ discordToken: 'test-token' });
+
+      await plugin.start?.(ctx);
+
+      type MessageHandler = (msg: unknown) => Promise<void>;
+      const handler = findHandler<MessageHandler>(mockOn, 'messageCreate');
+
+      const guildMessage = {
+        author: { bot: false, id: 'user-1', username: 'test', displayName: 'Test' },
+        mentions: { users: new Map([['bot-123', {}]]) },
+        guild: { id: 'guild-1' },
+        content: '<@bot-123> hello guild',
+        channel: { id: 'chan-1', name: 'general', isThread: () => false },
+      };
+
+      await handler?.(guildMessage);
+
+      // Should upsert a Discord thread, NOT use the primary thread
+      expect(ctx.db.thread.upsert as ReturnType<typeof vi.fn>).toHaveBeenCalled();
+      expect(ctx.sendToThread).toHaveBeenCalledWith('thread-1', 'hello guild');
+    });
+
+    it('guild messages include discordChannelId metadata', async () => {
+      mockLogin.mockResolvedValue('token');
+      const ctx = createMockContext({ discordToken: 'test-token' });
+
+      await plugin.start?.(ctx);
+
+      type MessageHandler = (msg: unknown) => Promise<void>;
+      const handler = findHandler<MessageHandler>(mockOn, 'messageCreate');
+
+      const guildMessage = {
+        author: { bot: false, id: 'user-1', username: 'test', displayName: 'Test' },
+        mentions: { users: new Map([['bot-123', {}]]) },
+        guild: { id: 'guild-1' },
+        content: '<@bot-123> hello',
+        channel: { id: 'chan-1', name: 'general', isThread: () => false },
+      };
+
+      await handler?.(guildMessage);
+
+      expect(ctx.db.message.create as ReturnType<typeof vi.fn>).toHaveBeenCalledWith(
+        expect.objectContaining({
+          data: expect.objectContaining({
+            metadata: { discordChannelId: 'discord:chan-1' },
+          }),
+        }),
+      );
+    });
+
+    it('onSettingsChange reloads ownerDiscordUserId and resets primary thread cache', async () => {
+      const ctx = createMockContext({ discordToken: 'test-token' });
+      (ctx.getSettings as ReturnType<typeof vi.fn>).mockResolvedValue({
+        botToken: 'test-token',
+        ownerDiscordUserId: 'user-999',
+      });
+
+      const hooks = await plugin.register(ctx);
+      await hooks.onSettingsChange!('discord');
+
+      expect(mockResetCache).toHaveBeenCalled();
+    });
+  });
+
+  describe('proactive DM delivery', () => {
+    it('sends proactive DM on discord:send-dm broadcast when ownerDiscordUserId is configured', async () => {
+      mockLogin.mockResolvedValue('token');
+      const ctx = createMockContext({ discordToken: 'test-token' });
+      (ctx.getSettings as ReturnType<typeof vi.fn>).mockResolvedValue({
+        botToken: 'test-token',
+        ownerDiscordUserId: 'owner-123',
+      });
+
+      const hooks = await plugin.register(ctx);
+      await plugin.start?.(ctx);
+
+      // Simulate the ready event to set connected state
+      type ReadyHandler = (readyClient: { user: { tag: string } }) => void;
+      const readyHandler = findHandler<ReadyHandler>(mockOnce, 'ready');
+      readyHandler?.({ user: { tag: 'HarnessBot#1234' } });
+
+      await hooks.onBroadcast!('discord:send-dm', { content: 'Proactive hello!' });
+
+      expect(mockSendProactiveDm).toHaveBeenCalledWith(
+        expect.objectContaining({
+          userId: 'owner-123',
+          content: 'Proactive hello!',
+        }),
+      );
+    });
+
+    it('skips proactive DM when ownerDiscordUserId is not configured', async () => {
+      mockLogin.mockResolvedValue('token');
+      const ctx = createMockContext({ discordToken: 'test-token' });
+      (ctx.getSettings as ReturnType<typeof vi.fn>).mockResolvedValue({
+        botToken: 'test-token',
+      });
+
+      const hooks = await plugin.register(ctx);
+      await plugin.start?.(ctx);
+
+      type ReadyHandler = (readyClient: { user: { tag: string } }) => void;
+      const readyHandler = findHandler<ReadyHandler>(mockOnce, 'ready');
+      readyHandler?.({ user: { tag: 'HarnessBot#1234' } });
+
+      await hooks.onBroadcast!('discord:send-dm', { content: 'hello' });
+
+      expect(mockSendProactiveDm).not.toHaveBeenCalled();
+    });
+
+    it('skips proactive DM when client is not connected', async () => {
+      const ctx = createMockContext({ discordToken: 'test-token' });
+      (ctx.getSettings as ReturnType<typeof vi.fn>).mockResolvedValue({
+        botToken: 'test-token',
+        ownerDiscordUserId: 'owner-123',
+      });
+
+      const hooks = await plugin.register(ctx);
+      // Don't start — client is null
+
+      await hooks.onBroadcast!('discord:send-dm', { content: 'hello' });
+
+      expect(mockSendProactiveDm).not.toHaveBeenCalled();
+    });
+
+    it('forwards cron pipeline:complete to Discord DM when ownerDiscordUserId is configured', async () => {
+      mockLogin.mockResolvedValue('token');
+      const ctx = createMockContext({ discordToken: 'test-token' });
+      (ctx.getSettings as ReturnType<typeof vi.fn>).mockResolvedValue({
+        botToken: 'test-token',
+        ownerDiscordUserId: 'owner-123',
+      });
+      // Mock thread lookup to return a cron thread
+      (ctx.db as unknown as Record<string, unknown>).thread = {
+        ...(ctx.db.thread as object),
+        upsert: vi.fn().mockResolvedValue({ id: 'thread-1' }),
+        findUnique: vi.fn().mockResolvedValue({ kind: 'cron', source: 'system' }),
+      };
+      // Mock the assistant message for proactive delivery
+      (ctx.db as unknown as Record<string, unknown>).message = {
+        ...(ctx.db.message as object),
+        create: vi.fn(),
+        findFirst: vi.fn().mockResolvedValue({ content: 'Cron output here', createdAt: new Date() }),
+      };
+
+      const hooks = await plugin.register(ctx);
+      await plugin.start?.(ctx);
+
+      type ReadyHandler = (readyClient: { user: { tag: string } }) => void;
+      const readyHandler = findHandler<ReadyHandler>(mockOnce, 'ready');
+      readyHandler?.({ user: { tag: 'HarnessBot#1234' } });
+
+      await hooks.onBroadcast!('pipeline:complete', { threadId: 'cron-thread-1' });
+
+      // sendDiscordReply should be called (for normal reply routing)
+      expect(mockSendDiscordReply).toHaveBeenCalled();
+      // sendProactiveDm should also be called for cron output
+      expect(mockSendProactiveDm).toHaveBeenCalledWith(
+        expect.objectContaining({
+          userId: 'owner-123',
+          content: 'Cron output here',
+        }),
+      );
+    });
+
+    it('does not double-deliver cron output when thread is already discord-sourced', async () => {
+      mockLogin.mockResolvedValue('token');
+      const ctx = createMockContext({ discordToken: 'test-token' });
+      (ctx.getSettings as ReturnType<typeof vi.fn>).mockResolvedValue({
+        botToken: 'test-token',
+        ownerDiscordUserId: 'owner-123',
+      });
+      (ctx.db as unknown as Record<string, unknown>).thread = {
+        ...(ctx.db.thread as object),
+        upsert: vi.fn().mockResolvedValue({ id: 'thread-1' }),
+        findUnique: vi.fn().mockResolvedValue({ kind: 'cron', source: 'discord' }),
+      };
+
+      const hooks = await plugin.register(ctx);
+      await plugin.start?.(ctx);
+
+      type ReadyHandler = (readyClient: { user: { tag: string } }) => void;
+      const readyHandler = findHandler<ReadyHandler>(mockOnce, 'ready');
+      readyHandler?.({ user: { tag: 'HarnessBot#1234' } });
+
+      await hooks.onBroadcast!('pipeline:complete', { threadId: 'cron-thread-1' });
+
+      // sendDiscordReply handles the normal path
+      expect(mockSendDiscordReply).toHaveBeenCalled();
+      // proactive DM should NOT be called (already discord-sourced)
+      expect(mockSendProactiveDm).not.toHaveBeenCalled();
+    });
+
+    it('does not forward non-cron pipeline:complete to proactive DM', async () => {
+      mockLogin.mockResolvedValue('token');
+      const ctx = createMockContext({ discordToken: 'test-token' });
+      (ctx.getSettings as ReturnType<typeof vi.fn>).mockResolvedValue({
+        botToken: 'test-token',
+        ownerDiscordUserId: 'owner-123',
+      });
+      (ctx.db as unknown as Record<string, unknown>).thread = {
+        ...(ctx.db.thread as object),
+        upsert: vi.fn().mockResolvedValue({ id: 'thread-1' }),
+        findUnique: vi.fn().mockResolvedValue({ kind: 'general', source: 'system' }),
+      };
+
+      const hooks = await plugin.register(ctx);
+      await plugin.start?.(ctx);
+
+      type ReadyHandler = (readyClient: { user: { tag: string } }) => void;
+      const readyHandler = findHandler<ReadyHandler>(mockOnce, 'ready');
+      readyHandler?.({ user: { tag: 'HarnessBot#1234' } });
+
+      await hooks.onBroadcast!('pipeline:complete', { threadId: 'general-thread-1' });
+
+      expect(mockSendProactiveDm).not.toHaveBeenCalled();
+    });
+
+    it('logs error when proactive DM fails', async () => {
+      mockLogin.mockResolvedValue('token');
+      mockSendProactiveDm.mockRejectedValueOnce(new Error('User blocked DMs'));
+      const ctx = createMockContext({ discordToken: 'test-token' });
+      (ctx.getSettings as ReturnType<typeof vi.fn>).mockResolvedValue({
+        botToken: 'test-token',
+        ownerDiscordUserId: 'owner-123',
+      });
+
+      const hooks = await plugin.register(ctx);
+      await plugin.start?.(ctx);
+
+      type ReadyHandler = (readyClient: { user: { tag: string } }) => void;
+      const readyHandler = findHandler<ReadyHandler>(mockOnce, 'ready');
+      readyHandler?.({ user: { tag: 'HarnessBot#1234' } });
+
+      await hooks.onBroadcast!('discord:send-dm', { content: 'hello' });
+
+      expect(ctx.logger.error).toHaveBeenCalledWith(expect.stringContaining('User blocked DMs'));
+    });
+  });
+
+  describe('send_dm MCP tool', () => {
+    it('exposes a send_dm tool in the plugin definition', () => {
+      expect(plugin.tools).toBeDefined();
+      const tool = plugin.tools?.find((t) => t.name === 'send_dm');
+      expect(tool).toBeDefined();
+      expect(tool?.description).toBeTruthy();
+      expect(tool?.schema).toBeDefined();
+    });
+
+    it('sends a DM when ownerDiscordUserId is configured and client is connected', async () => {
+      mockLogin.mockResolvedValue('token');
+      const ctx = createMockContext({ discordToken: 'test-token' });
+      (ctx.getSettings as ReturnType<typeof vi.fn>).mockResolvedValue({
+        botToken: 'test-token',
+        ownerDiscordUserId: 'owner-123',
+      });
+
+      await plugin.register(ctx);
+      await plugin.start?.(ctx);
+
+      // Simulate ready
+      type ReadyHandler = (readyClient: { user: { tag: string } }) => void;
+      const readyHandler = findHandler<ReadyHandler>(mockOnce, 'ready');
+      readyHandler?.({ user: { tag: 'HarnessBot#1234' } });
+
+      const tool = plugin.tools?.find((t) => t.name === 'send_dm');
+      const result = await tool?.handler(ctx, { message: 'Hey there!' }, { threadId: 'thread-1' });
+
+      expect(mockSendProactiveDm).toHaveBeenCalledWith(
+        expect.objectContaining({
+          userId: 'owner-123',
+          content: 'Hey there!',
+        }),
+      );
+      expect(result).toContain('owner-123');
+    });
+
+    it('returns error when ownerDiscordUserId is not configured', async () => {
+      const ctx = createMockContext({ discordToken: 'test-token' });
+      (ctx.getSettings as ReturnType<typeof vi.fn>).mockResolvedValue({
+        botToken: 'test-token',
+      });
+
+      await plugin.register(ctx);
+
+      const tool = plugin.tools?.find((t) => t.name === 'send_dm');
+      const result = await tool?.handler(ctx, { message: 'Hey' }, { threadId: 'thread-1' });
+
+      expect(mockSendProactiveDm).not.toHaveBeenCalled();
+      expect(result).toContain('not configured');
+    });
+
+    it('returns error when client is not connected', async () => {
+      const ctx = createMockContext({ discordToken: 'test-token' });
+      (ctx.getSettings as ReturnType<typeof vi.fn>).mockResolvedValue({
+        botToken: 'test-token',
+        ownerDiscordUserId: 'owner-123',
+      });
+
+      await plugin.register(ctx);
+      // Don't start — client is null
+
+      const tool = plugin.tools?.find((t) => t.name === 'send_dm');
+      const result = await tool?.handler(ctx, { message: 'Hey' }, { threadId: 'thread-1' });
+
+      expect(mockSendProactiveDm).not.toHaveBeenCalled();
+      expect(result).toContain('not connected');
     });
   });
 });

@@ -28,6 +28,9 @@ const createMockCtx = (invokeOutput: string) =>
       storyCharacter: {
         findFirst: vi.fn().mockResolvedValue(null),
       },
+      agent: {
+        findFirst: vi.fn().mockResolvedValue({ soul: 'Safe space soul text' }),
+      },
     } as never,
     invoker: {
       invoke: vi.fn().mockResolvedValue({ output: invokeOutput, durationMs: 100, exitCode: 0 }),
@@ -93,10 +96,10 @@ describe('handleDetectDuplicates', () => {
     );
   });
 
-  it('uses Sonnet model', async () => {
+  it('uses Opus model with extraction system prompt', async () => {
     const ctx = createMockCtx(JSON.stringify({ duplicates: [] }));
     await handleDetectDuplicates(ctx, 'story-1', {});
 
-    expect(ctx.invoker.invoke).toHaveBeenCalledWith(expect.any(String), { model: 'claude-sonnet-4-6' });
+    expect(ctx.invoker.invoke).toHaveBeenCalledWith(expect.any(String), expect.objectContaining({ model: 'claude-opus-4-5-20251101' }));
   });
 });

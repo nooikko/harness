@@ -78,8 +78,8 @@ test.describe('agents', () => {
     await agentsPage.gotoList();
     await agentsPage.waitForReady();
 
-    // Click the Edit button on the seeded agent card
-    await agentsPage.page.getByRole('button', { name: 'Edit' }).first().click();
+    // The seeded agent sorts after "E2E Created Agent" alphabetically, so it's the second Edit button
+    await agentsPage.page.getByRole('button', { name: 'Edit' }).nth(1).click();
 
     // Should be on the edit page
     await agentsPage.waitForReady();

@@ -10,6 +10,7 @@ import { sendMessage } from '../_actions/send-message';
 import { ChatInput } from './chat-input';
 import { DelegationStack } from './delegation-stack';
 import { PipelineActivity } from './pipeline-activity';
+import { ScrollToBottomButton } from './scroll-to-bottom-button';
 import { StreamingMessage } from './streaming-message';
 
 const POLL_INTERVAL_MS = 3000;
@@ -38,6 +39,7 @@ export const ChatArea: ChatAreaComponent = ({
 }) => {
   const [error, setError] = useState<string | null>(null);
   const [isThinking, setIsThinking] = useState(false);
+  const [showScrollButton, setShowScrollButton] = useState(false);
   const [isPending, startTransition] = useTransition();
   const [isRefreshing, startRefreshTransition] = useTransition();
   const sentAtRef = useRef<Date | null>(null);
@@ -116,6 +118,24 @@ export const ChatArea: ChatAreaComponent = ({
     }
     anchorRef.current?.scrollIntoView({ behavior: 'smooth', block: 'end' });
   }, [lastStepEvent, threadId]);
+
+  // Show/hide scroll-to-bottom button based on anchor visibility
+  useEffect(() => {
+    const anchor = anchorRef.current;
+    if (!anchor) {
+      return;
+    }
+    const observer = new IntersectionObserver(
+      ([entry]) => {
+        if (entry) {
+          setShowScrollButton(!entry.isIntersecting);
+        }
+      },
+      { threshold: 0 },
+    );
+    observer.observe(anchor);
+    return () => observer.disconnect();
+  }, []);
 
   // Scroll to bottom when streaming text arrives
   useEffect(() => {
@@ -209,17 +229,20 @@ export const ChatArea: ChatAreaComponent = ({
 
   return (
     <>
-      <ScrollArea className='min-h-0 flex-1 [&>[data-slot=scroll-area-viewport]>div]:min-h-full [&>[data-slot=scroll-area-viewport]>div]:flex! [&>[data-slot=scroll-area-viewport]>div]:flex-col'>
-        <div className='mx-auto flex flex-1 w-full max-w-4xl flex-col justify-end px-4 py-6 sm:px-6'>
-          <div className='flex flex-col gap-2'>
-            {children}
-            <StreamingMessage threadId={threadId} isActive={isThinking} />
-            <PipelineActivity threadId={threadId} isActive={isThinking} />
-            <DelegationStack parentThreadId={threadId} />
-            <div ref={anchorRef} data-scroll-anchor aria-hidden='true' />
+      <div className='relative min-h-0 flex-1'>
+        <ScrollArea className='h-full [&>[data-slot=scroll-area-viewport]>div]:min-h-full [&>[data-slot=scroll-area-viewport]>div]:flex! [&>[data-slot=scroll-area-viewport]>div]:flex-col'>
+          <div className='mx-auto flex flex-1 w-full max-w-4xl flex-col justify-end px-4 py-6 sm:px-6'>
+            <div className='flex flex-col gap-2'>
+              {children}
+              <StreamingMessage threadId={threadId} isActive={isThinking} />
+              <PipelineActivity threadId={threadId} isActive={isThinking} />
+              <DelegationStack parentThreadId={threadId} />
+              <div ref={anchorRef} data-scroll-anchor aria-hidden='true' />
+            </div>
           </div>
-        </div>
-      </ScrollArea>
+        </ScrollArea>
+        <ScrollToBottomButton isVisible={showScrollButton} onClick={() => anchorRef.current?.scrollIntoView({ behavior: 'smooth', block: 'end' })} />
+      </div>
       <ChatInput
         threadId={threadId}
         currentModel={currentModel}

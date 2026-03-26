@@ -111,6 +111,7 @@ export const runDelegationLoop: RunDelegationLoop = async (ctx, allHooks, option
     });
 
     ctx.logger.info(`Delegation: iteration ${iterations}/${maxIterations} for task ${taskId}`);
+    options.reportProgress?.(`Iteration ${iterations}/${maxIterations}: invoking sub-agent`, { current: iterations, total: maxIterations });
 
     // Persist the prompt as a user message in the task thread
     const iterationPrompt = buildIterationPrompt(options.prompt, feedback);
@@ -225,6 +226,8 @@ export const runDelegationLoop: RunDelegationLoop = async (ctx, allHooks, option
       data: { status: 'evaluating' },
     });
 
+    options.reportProgress?.(`Iteration ${iterations}/${maxIterations}: validating result`, { current: iterations, total: maxIterations });
+
     // Fire onTaskComplete hooks for validation
     const outcome = await fireTaskCompleteHooks(allHooks, threadId, taskId, invokeResult.output, ctx);
 
@@ -237,6 +240,7 @@ export const runDelegationLoop: RunDelegationLoop = async (ctx, allHooks, option
     });
 
     if (outcome.accepted) {
+      options.reportProgress?.(`Iteration ${iterations}/${maxIterations}: validation passed`, { current: iterations, total: maxIterations });
       // Task accepted — finalize
       await ctx.db.orchestratorTask.update({
         where: { id: taskId },

@@ -14,4 +14,11 @@ export const settingsSchema = createSettingsSchema({
     description: 'Comma-separated Discord channel IDs. When set, the bot only responds in these channels. Leave empty to allow all channels.',
     required: false,
   },
+  ownerDiscordUserId: {
+    type: 'string' as const,
+    label: 'Owner Discord User ID',
+    description:
+      'Your Discord user ID. Enables proactive DM delivery for cron outputs and notifications. Right-click your profile in Discord → Copy User ID.',
+    required: false,
+  },
 });

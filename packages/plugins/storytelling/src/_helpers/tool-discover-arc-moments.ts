@@ -1,6 +1,7 @@
 import type { PluginContext } from '@harness/plugin-contract';
 import { z } from 'zod';
 import { buildArcDiscoveryPrompt } from './build-arc-discovery-prompt';
+import { EXTRACTION_MODEL, loadExtractionSystemPrompt } from './extraction-config';
 
 const MAX_CANDIDATES_PER_BATCH = 75;
 
@@ -14,13 +15,16 @@ const DiscoveryResultSchema = z.object({
   ),
 });
 
+type ReportProgress = (message: string, detail?: { current?: number; total?: number }) => void;
+
 type HandleDiscoverArcMoments = (
   ctx: PluginContext,
   storyId: string,
   input: { arcId: string; guidance?: string; deepScan?: boolean },
+  reportProgress?: ReportProgress,
 ) => Promise<string>;
 
-export const handleDiscoverArcMoments: HandleDiscoverArcMoments = async (ctx, storyId, input) => {
+export const handleDiscoverArcMoments: HandleDiscoverArcMoments = async (ctx, storyId, input, reportProgress) => {
   if (!input.arcId?.trim()) {
     return 'Error: arcId is required.';
   }
@@ -102,6 +106,7 @@ export const handleDiscoverArcMoments: HandleDiscoverArcMoments = async (ctx, st
 
   for (let i = 0; i < batches.length; i++) {
     const batch = batches[i]!;
+    reportProgress?.(`Searching batch ${i + 1}/${batches.length}`, { current: i + 1, total: batches.length });
     const prompt = buildArcDiscoveryPrompt({
       arcName: arc.name,
       arcDescription: arc.description,
@@ -111,7 +116,7 @@ export const handleDiscoverArcMoments: HandleDiscoverArcMoments = async (ctx, st
       guidance: input.guidance,
     });
 
-    const result = await ctx.invoker.invoke(prompt, { model: 'claude-sonnet-4-6' });
+    const result = await ctx.invoker.invoke(prompt, { model: EXTRACTION_MODEL, systemPrompt: await loadExtractionSystemPrompt(ctx) });
 
     try {
       const start = result.output.indexOf('{');

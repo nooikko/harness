@@ -50,7 +50,7 @@ export const createSdkInvoker: CreateSdkInvoker = (config) => {
   const pool = createSessionPool(
     {
       maxSessions: 8,
-      ttlMs: 8 * 60 * 1000,
+      ttlMs: 35 * 60 * 1000, // 35 min — above default CLAUDE_TIMEOUT so timeout fires first
     },
     createSession,
     config.sessionConfig,
@@ -121,6 +121,7 @@ export const createSdkInvoker: CreateSdkInvoker = (config) => {
       taskId: options?.taskId,
       pendingBlocks: options?.pendingBlocks ?? [],
       ctx: pluginContext,
+      onToolProgress: options?.onToolProgress as ((event: unknown) => void) | undefined,
     };
 
     const sendOptions = {

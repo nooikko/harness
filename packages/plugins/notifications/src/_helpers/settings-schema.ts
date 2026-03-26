@@ -1,4 +1,5 @@
 import { createSettingsSchema } from '@harness/plugin-contract';
+import { VOICE_OPTIONS } from './edge-tts-provider';
 
 export const settingsSchema = createSettingsSchema({
   ttsProvider: {
@@ -9,10 +10,11 @@ export const settingsSchema = createSettingsSchema({
     options: [{ label: 'Microsoft Edge TTS (free)', value: 'edge-tts' }],
   },
   voice: {
-    type: 'string' as const,
+    type: 'select' as const,
     label: 'Voice',
-    description: 'Voice name for text-to-speech. Default: en-US-GuyNeural. Run "edge-tts --list-voices" for options.',
-    default: 'en-US-GuyNeural',
+    description: 'Voice for text-to-speech announcements.',
+    default: 'en-US-AvaMultilingualNeural',
+    options: VOICE_OPTIONS,
   },
   volume: {
     type: 'number' as const,
@@ -24,8 +26,8 @@ export const settingsSchema = createSettingsSchema({
     type: 'select' as const,
     label: 'Default Speaker',
     description: 'Cast device for announcements. Leave on "First available" to auto-select.',
-    default: '',
-    options: [{ label: 'First available', value: '' }],
+    default: '__auto__',
+    options: [{ label: 'First available', value: '__auto__' }],
     fetchOptionsUrl: '/api/plugins/notifications/devices',
   },
 });

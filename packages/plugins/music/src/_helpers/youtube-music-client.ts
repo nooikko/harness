@@ -125,6 +125,19 @@ const getClient = (): InnertubeClient => {
 
 export const getRawClient = (): InnertubeClient | null => innertube;
 
+// --- Authenticated search API (TVHTML5) ---
+// YouTube's device-code OAuth tokens are scoped for TV clients.
+// youtubei.js forces WEB_REMIX context which returns 400 with TV tokens.
+// When set, searchSongs uses this API first, falling back to youtubei.js.
+
+type AuthenticatedSearchFn = (query: string, limit: number) => Promise<MusicTrack[]>;
+
+let authenticatedSearchApi: AuthenticatedSearchFn | null = null;
+
+export const setAuthenticatedSearchApi = (api: AuthenticatedSearchFn | null): void => {
+  authenticatedSearchApi = api;
+};
+
 // --- Search ---
 
 const parseSearchResults = (results: Awaited<ReturnType<InnertubeClient['music']['search']>>, limit: number): MusicTrack[] => {
@@ -157,6 +170,16 @@ const parseSearchResults = (results: Awaited<ReturnType<InnertubeClient['music']
 export const searchSongs = async (query: string, limit = 10): Promise<MusicTrack[]> => {
   const yt = getClient();
   log?.debug('music: searchSongs', { query, limit, logged_in: yt.session.logged_in });
+
+  // Use TVHTML5 API when available (avoids WEB_REMIX 400 errors with TV OAuth tokens)
+  if (authenticatedSearchApi) {
+    try {
+      return await authenticatedSearchApi(query, limit);
+    } catch (err) {
+      const errMsg = err instanceof Error ? err.message : String(err);
+      log?.warn('music: searchSongs TVHTML5 failed, falling back to youtubei.js', { query, error: errMsg });
+    }
+  }
 
   try {
     const results = await yt.music.search(query, { type: 'song' });

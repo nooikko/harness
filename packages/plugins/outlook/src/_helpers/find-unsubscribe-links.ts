@@ -8,9 +8,18 @@ type UnsubscribeResult = {
   messageId: string;
 };
 
-type FindUnsubscribeLinks = (ctx: PluginContext, top?: number) => Promise<string>;
+type ReportProgress = (message: string, detail?: { current?: number; total?: number }) => void;
 
-const findUnsubscribeLinks: FindUnsubscribeLinks = async (ctx, top = 50) => {
+type FindUnsubscribeLinksOptions = {
+  top?: number;
+  reportProgress?: ReportProgress;
+};
+
+type FindUnsubscribeLinks = (ctx: PluginContext, options?: FindUnsubscribeLinksOptions) => Promise<string>;
+
+const findUnsubscribeLinks: FindUnsubscribeLinks = async (ctx, options) => {
+  const top = options?.top ?? 50;
+  const reportProgress = options?.reportProgress;
   const data = (await graphFetch(ctx, '/me/messages', {
     params: {
       $search: '"unsubscribe"',
@@ -32,7 +41,10 @@ const findUnsubscribeLinks: FindUnsubscribeLinks = async (ctx, top = 50) => {
 
   const results: UnsubscribeResult[] = [];
 
-  for (const msg of data.value) {
+  const total = data.value.length;
+  for (let i = 0; i < total; i++) {
+    const msg = data.value[i]!;
+    reportProgress?.(`Scanning email ${i + 1}/${total}`, { current: i + 1, total });
     const linkRegex = /href=["']([^"']*unsubscribe[^"']*)["']/gi;
     const links: string[] = [];
     let match: RegExpExecArray | null;

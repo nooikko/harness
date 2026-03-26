@@ -92,6 +92,87 @@ describe('notifications plugin', () => {
     expect(hooks.onSettingsChange).toBeDefined();
   });
 
+  describe('settings defaults for empty strings', () => {
+    it('uses default voice when getSettings returns empty string', async () => {
+      const mockGenerate = vi.fn(async () => Buffer.from('audio-data'));
+      const { createTtsProvider } = await import('../_helpers/tts-provider');
+      (createTtsProvider as ReturnType<typeof vi.fn>).mockReturnValue({
+        name: 'edge-tts',
+        generate: mockGenerate,
+        listVoices: vi.fn(async () => []),
+      });
+
+      const mockCtx = {
+        logger: { info: vi.fn(), warn: vi.fn(), error: vi.fn(), debug: vi.fn() },
+        getSettings: vi.fn(async () => ({
+          ttsProvider: 'edge-tts',
+          voice: '',
+          volume: 70,
+          defaultDevice: '__auto__',
+        })),
+      };
+
+      // Register with empty voice — should default, not pass ''
+      await plugin.register(mockCtx as never);
+
+      // Start the plugin to initialize ttsProvider and audioServer
+      await plugin.start!(mockCtx as never);
+
+      // Trigger announce tool
+      const announceTool = plugin.tools?.find((t) => t.name === 'announce');
+      await announceTool?.handler(mockCtx as never, { message: 'test' }, { threadId: 't1' });
+
+      // The voice passed to generate() must NOT be empty string
+      expect(mockGenerate).toHaveBeenCalledTimes(1);
+      const voiceArg = (mockGenerate.mock.calls as unknown[][])[0]![1];
+      expect(voiceArg).not.toBe('');
+      expect(voiceArg).toBeTruthy();
+    });
+
+    it('uses default voice when onSettingsChange returns empty string', async () => {
+      const mockGenerate = vi.fn(async () => Buffer.from('audio-data'));
+      const { createTtsProvider } = await import('../_helpers/tts-provider');
+      (createTtsProvider as ReturnType<typeof vi.fn>).mockReturnValue({
+        name: 'edge-tts',
+        generate: mockGenerate,
+        listVoices: vi.fn(async () => []),
+      });
+
+      const mockCtx = {
+        logger: { info: vi.fn(), warn: vi.fn(), error: vi.fn(), debug: vi.fn() },
+        getSettings: vi.fn(async () => ({
+          ttsProvider: 'edge-tts',
+          voice: 'en-US-GuyNeural',
+          volume: 70,
+          defaultDevice: '',
+        })),
+      };
+
+      // Register with valid settings first
+      const hooks = await plugin.register(mockCtx as never);
+      await plugin.start!(mockCtx as never);
+
+      // Now simulate settings change returning empty voice
+      (mockCtx.getSettings as ReturnType<typeof vi.fn>).mockResolvedValue({
+        ttsProvider: 'edge-tts',
+        voice: '',
+        volume: 50,
+        defaultDevice: '__auto__',
+      });
+      await hooks.onSettingsChange!('notifications');
+
+      // Trigger announce tool
+      const announceTool = plugin.tools?.find((t) => t.name === 'announce');
+      await announceTool?.handler(mockCtx as never, { message: 'test' }, { threadId: 't1' });
+
+      // Voice must not be empty
+      expect(mockGenerate).toHaveBeenCalled();
+      const voiceArg = (mockGenerate.mock.calls as unknown[][])[0]![1];
+      expect(voiceArg).not.toBe('');
+      expect(voiceArg).toBeTruthy();
+    });
+  });
+
   describe('announce tool', () => {
     it('has required schema fields', () => {
       const announceTool = plugin.tools?.find((t) => t.name === 'announce');

@@ -58,7 +58,17 @@ export const extractStoryState: ExtractStoryState = async (ctx, storyId, threadI
   // 7. Call Haiku
   const result = await ctx.invoker.invoke(prompt, { model: 'claude-haiku-4-5-20251001' });
 
-  // 8. Parse result
+  // 8. Check for invocation errors (e.g. content refusal)
+  if (result.error) {
+    ctx.logger.warn('storytelling: extraction sub-invocation failed', {
+      storyId,
+      threadId,
+      error: result.error,
+    });
+    return;
+  }
+
+  // 9. Parse result
   const parsed = parseExtractionResult(result.output);
   if (!parsed) {
     ctx.logger.warn('storytelling: extraction result could not be parsed', {

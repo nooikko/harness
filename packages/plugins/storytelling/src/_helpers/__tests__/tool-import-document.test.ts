@@ -27,6 +27,9 @@ const createMockCtx = (invokeOutput: string) =>
         findMany: vi.fn().mockResolvedValue([]),
         update: vi.fn().mockResolvedValue({}),
       },
+      agent: {
+        findFirst: vi.fn().mockResolvedValue({ soul: 'Safe space soul text' }),
+      },
     } as never,
     invoker: {
       invoke: vi.fn().mockResolvedValue({
@@ -128,6 +131,22 @@ describe('handleImportDocument', () => {
     expect(result).toContain('Error');
   });
 
+  it('returns descriptive error when invoker returns an error (e.g. content refusal)', async () => {
+    const ctx = createMockCtx('');
+    vi.mocked(ctx.invoker.invoke).mockResolvedValue({
+      output: '',
+      error: 'Content policy violation: inappropriate content detected',
+      durationMs: 50,
+      exitCode: 1,
+    });
+
+    const result = await handleImportDocument(ctx, 'story-1', { text: '# Day 1\nSome story content.' });
+
+    expect(result).toContain('Error');
+    expect(result).toContain('Content policy violation');
+    expect(ctx.logger.warn).toHaveBeenCalled();
+  });
+
   it('continues to next chunk on parse failure', async () => {
     const ctx = createMockCtx('not valid json');
     const result = await handleImportDocument(ctx, 'story-1', { text: '# Day 1\nEvents happened.' });
@@ -206,6 +225,6 @@ describe('handleImportDocument', () => {
     const ctx = createMockCtx(invokeOutput);
     await handleImportDocument(ctx, 'story-1', { text: 'Some content' });
 
-    expect(ctx.invoker.invoke).toHaveBeenCalledWith(expect.any(String), expect.objectContaining({ model: 'claude-sonnet-4-6' }));
+    expect(ctx.invoker.invoke).toHaveBeenCalledWith(expect.any(String), expect.objectContaining({ model: 'claude-opus-4-5-20251101' }));
   });
 });

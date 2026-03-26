@@ -99,8 +99,10 @@ export const classifyIntent = (queryVector: number[], registry: IntentRegistry):
       }
     }
 
-    // Blend: 40% centroid + 60% best example — gives better resolution
-    const score = 0.4 * centroidSim + 0.6 * maxExampleSim;
+    // Blend: 20% centroid + 80% best example — max-example similarity is the
+    // strongest signal. Diverse intents (lights: on/off/dim/color) dilute the
+    // centroid, but the closest example stays highly predictive.
+    const score = 0.2 * centroidSim + 0.8 * maxExampleSim;
 
     if (score > bestScore) {
       bestScore = score;

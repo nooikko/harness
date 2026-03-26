@@ -311,6 +311,14 @@ export const pluginToolRegistry: PluginToolEntry[] = [
   },
   {
     "pluginName": "project",
+    "toolName": "get-project-info",
+    "qualifiedName": "project__get_project_info",
+    "description": "Read the current project metadata: name, description, instructions, and working directory.",
+    "args": "",
+    "audience": "agent"
+  },
+  {
+    "pluginName": "project",
     "toolName": "get-project-memory",
     "qualifiedName": "project__get_project_memory",
     "description": "Read the current project memory document for the active project. Call this before set_project_memory to see what currently exists.",
@@ -323,6 +331,22 @@ export const pluginToolRegistry: PluginToolEntry[] = [
     "qualifiedName": "project__set_project_memory",
     "description": "Write the complete project memory document. You are responsible for preserving existing facts that are still relevant, removing stale ones, and adding new observations. Call get_project_memory first to read the current state.",
     "args": "<memory>",
+    "audience": "agent"
+  },
+  {
+    "pluginName": "project",
+    "toolName": "set-project-instructions",
+    "qualifiedName": "project__set_project_instructions",
+    "description": "Update the project instructions that are injected into every prompt. Use this to evolve how you approach the project over time — add conventions, constraints, or context that should persist across all conversations.",
+    "args": "<instructions>",
+    "audience": "agent"
+  },
+  {
+    "pluginName": "project",
+    "toolName": "set-project-description",
+    "qualifiedName": "project__set_project_description",
+    "description": "Update the project description.",
+    "args": "<description>",
     "audience": "agent"
   },
   {
@@ -724,6 +748,14 @@ export const pluginToolRegistry: PluginToolEntry[] = [
     "description": "Get Govee plugin status including device count, rate limit usage, and group info.",
     "args": "",
     "audience": "agent"
+  },
+  {
+    "pluginName": "discord",
+    "toolName": "send-dm",
+    "qualifiedName": "discord__send_dm",
+    "description": "Send a direct message to the owner on Discord. Use this to proactively notify the user about completed tasks, important events, or anything that warrants immediate attention.",
+    "args": "<message>",
+    "audience": "both"
   },
   {
     "pluginName": "delegation",

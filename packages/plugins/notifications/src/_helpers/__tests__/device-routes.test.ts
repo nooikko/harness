@@ -25,7 +25,7 @@ describe('deviceRoutes', () => {
     expect(result.status).toBe(200);
     const body = result.body as { options: Array<{ label: string; value: string }> };
     expect(body.options).toHaveLength(3);
-    expect(body.options[0]).toEqual({ label: 'First available', value: '' });
+    expect(body.options[0]).toEqual({ label: 'First available', value: '__auto__' });
     expect(body.options[1]).toEqual({ label: 'Living Room (Google Home)', value: 'Living Room' });
     expect(body.options[2]).toEqual({ label: 'Kitchen', value: 'Kitchen' });
   });
@@ -41,6 +41,6 @@ describe('deviceRoutes', () => {
 
     const body = result.body as { options: Array<{ label: string; value: string }> };
     expect(body.options).toHaveLength(1);
-    expect(body.options[0]).toEqual({ label: 'First available', value: '' });
+    expect(body.options[0]).toEqual({ label: 'First available', value: '__auto__' });
   });
 });

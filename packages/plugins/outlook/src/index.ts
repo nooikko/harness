@@ -227,9 +227,9 @@ const plugin: PluginDefinition = {
         },
         required: [],
       },
-      handler: async (ctx, input) => {
+      handler: async (ctx, input, meta) => {
         const { top } = input as { top?: number };
-        return findUnsubscribeLinks(ctx, top);
+        return findUnsubscribeLinks(ctx, { top, reportProgress: meta.reportProgress });
       },
     },
   ],

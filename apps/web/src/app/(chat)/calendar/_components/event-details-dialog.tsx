@@ -79,7 +79,7 @@ export const EventDetailsDialog: EventDetailsDialogComponent = ({ event, childre
   return (
     <Dialog>
       <DialogTrigger asChild>{children}</DialogTrigger>
-      <DialogContent>
+      <DialogContent aria-describedby={undefined}>
         <DialogHeader>
           <div className='flex items-start justify-between gap-3 pr-6'>
             <DialogTitle className={event.isCancelled ? 'line-through opacity-60' : ''}>{event.title || '(No title)'}</DialogTitle>

@@ -10,33 +10,41 @@ import type { TtsProvider } from './tts-provider';
 const EDGE_TTS_TIMEOUT_MS = 30_000;
 
 /**
- * Hardcoded list of commonly used English voices.
- * edge-tts supports many more — run `edge-tts --list-voices` for the full list.
- * We list a curated subset to avoid spawning a subprocess just to list voices.
+ * Curated list of English voices verified against edge-tts 7.x.
+ * Each entry becomes a dropdown option in the admin UI settings.
+ * Run `edge-tts --list-voices` for the full (all-language) list.
  */
-const KNOWN_VOICES = [
-  'en-US-GuyNeural',
-  'en-US-JennyNeural',
-  'en-US-AriaNeural',
-  'en-US-DavisNeural',
-  'en-US-AmberNeural',
-  'en-US-AnaNeural',
-  'en-US-AndrewNeural',
-  'en-US-BrandonNeural',
-  'en-US-ChristopherNeural',
-  'en-US-CoraNeural',
-  'en-US-ElizabethNeural',
-  'en-US-EricNeural',
-  'en-US-JacobNeural',
-  'en-US-MichelleNeural',
-  'en-US-MonicaNeural',
-  'en-US-RogerNeural',
-  'en-US-SteffanNeural',
-  'en-GB-RyanNeural',
-  'en-GB-SoniaNeural',
-  'en-AU-NatashaNeural',
-  'en-AU-WilliamNeural',
+export const VOICE_OPTIONS: { label: string; value: string }[] = [
+  // US English
+  { label: 'Ava Multilingual (Female, Expressive)', value: 'en-US-AvaMultilingualNeural' },
+  { label: 'Ava (Female, Expressive)', value: 'en-US-AvaNeural' },
+  { label: 'Emma Multilingual (Female, Cheerful)', value: 'en-US-EmmaMultilingualNeural' },
+  { label: 'Emma (Female, Cheerful)', value: 'en-US-EmmaNeural' },
+  { label: 'Jenny (Female, Friendly)', value: 'en-US-JennyNeural' },
+  { label: 'Aria (Female, Confident)', value: 'en-US-AriaNeural' },
+  { label: 'Michelle (Female, Friendly)', value: 'en-US-MichelleNeural' },
+  { label: 'Ana (Female, Cute)', value: 'en-US-AnaNeural' },
+  { label: 'Andrew Multilingual (Male, Warm)', value: 'en-US-AndrewMultilingualNeural' },
+  { label: 'Andrew (Male, Warm)', value: 'en-US-AndrewNeural' },
+  { label: 'Brian Multilingual (Male, Casual)', value: 'en-US-BrianMultilingualNeural' },
+  { label: 'Brian (Male, Casual)', value: 'en-US-BrianNeural' },
+  { label: 'Guy (Male, Newscast)', value: 'en-US-GuyNeural' },
+  { label: 'Roger (Male, Lively)', value: 'en-US-RogerNeural' },
+  { label: 'Eric (Male, Friendly)', value: 'en-US-EricNeural' },
+  { label: 'Christopher (Male, Reliable)', value: 'en-US-ChristopherNeural' },
+  { label: 'Steffan (Male, Professional)', value: 'en-US-SteffanNeural' },
+  // UK English
+  { label: 'Sonia — GB (Female)', value: 'en-GB-SoniaNeural' },
+  { label: 'Libby — GB (Female)', value: 'en-GB-LibbyNeural' },
+  { label: 'Maisie — GB (Female)', value: 'en-GB-MaisieNeural' },
+  { label: 'Ryan — GB (Male)', value: 'en-GB-RyanNeural' },
+  { label: 'Thomas — GB (Male)', value: 'en-GB-ThomasNeural' },
+  // Australian English
+  { label: 'Natasha — AU (Female)', value: 'en-AU-NatashaNeural' },
+  { label: 'William Multilingual — AU (Male)', value: 'en-AU-WilliamMultilingualNeural' },
 ];
+
+const KNOWN_VOICES = VOICE_OPTIONS.map((o) => o.value);
 
 // --- Helpers ---
 

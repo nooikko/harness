@@ -20,4 +20,13 @@ describe('settingsSchema', () => {
       required: false,
     });
   });
+
+  it('ownerDiscordUserId is an optional string field', () => {
+    const fields = settingsSchema.toFieldArray();
+    const ownerDiscordUserId = fields.find((f) => f.name === 'ownerDiscordUserId');
+    expect(ownerDiscordUserId).toMatchObject({
+      type: 'string',
+      required: false,
+    });
+  });
 });

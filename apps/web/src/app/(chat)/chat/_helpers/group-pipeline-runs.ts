@@ -1,7 +1,7 @@
 import type { Message } from '@harness/database';
 
 // A message kind that belongs inside a pipeline run (between start and complete status lines).
-const PIPELINE_ACTIVITY_KINDS = new Set(['pipeline_step', 'thinking', 'tool_call', 'tool_result']);
+const PIPELINE_ACTIVITY_KINDS = new Set(['pipeline_step', 'thinking', 'tool_call', 'tool_result', 'tool_progress']);
 
 type IsPipelineStatus = (message: Message, type: 'start' | 'complete') => boolean;
 

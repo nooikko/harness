@@ -123,7 +123,7 @@ describe('outlook plugin', () => {
   describe('find_unsubscribe_links', () => {
     it('defaults top to undefined', async () => {
       await findTool('find_unsubscribe_links').handler(mockCtx, {}, mockMeta);
-      expect(findUnsubscribeLinks).toHaveBeenCalledWith(mockCtx, undefined);
+      expect(findUnsubscribeLinks).toHaveBeenCalledWith(mockCtx, { top: undefined, reportProgress: undefined });
     });
   });
 });

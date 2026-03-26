@@ -2,11 +2,21 @@ import type { PluginContext } from '@harness/plugin-contract';
 import { applyExtraction } from './apply-extraction';
 import { buildImportExtractionPrompt } from './build-import-extraction-prompt';
 import { chunkTranscript } from './chunk-transcript';
+import { EXTRACTION_MODEL, EXTRACTION_TIMEOUT, loadExtractionSystemPrompt } from './extraction-config';
 import { parseImportExtractionResult } from './parse-import-result';
 
-type HandleImportTranscript = (ctx: PluginContext, storyId: string, input: { transcriptId: string }) => Promise<string>;
+const MAX_CHUNKS_PER_BATCH = 5;
 
-export const handleImportTranscript: HandleImportTranscript = async (ctx, storyId, input) => {
+type ReportProgress = (message: string, detail?: { current?: number; total?: number }) => void;
+
+type HandleImportTranscript = (
+  ctx: PluginContext,
+  storyId: string,
+  input: { transcriptId: string },
+  reportProgress?: ReportProgress,
+) => Promise<string>;
+
+export const handleImportTranscript: HandleImportTranscript = async (ctx, storyId, input, reportProgress) => {
   if (!input.transcriptId?.trim()) {
     return 'Error: transcriptId is required. Store the transcript first via the web UI, then provide its ID.';
   }
@@ -70,10 +80,12 @@ export const handleImportTranscript: HandleImportTranscript = async (ctx, storyI
   let totalMoments = 0;
   let totalLocations = 0;
   let driftFlags = 0;
-  let chunksProcessed = 0;
 
-  for (let i = resumeFrom; i < chunks.length; i++) {
+  const batchEnd = Math.min(resumeFrom + MAX_CHUNKS_PER_BATCH, chunks.length);
+
+  for (let i = resumeFrom; i < batchEnd; i++) {
     const chunk = chunks[i]!;
+    reportProgress?.(`Processing chunk ${i + 1}/${chunks.length}`, { current: i + 1, total: chunks.length });
 
     // Build content from chunk messages
     const chunkContent = chunk.map((m) => `[${m.role === 'human' ? 'User' : 'Assistant'}]: ${m.content}`).join('\n\n');
@@ -106,12 +118,21 @@ export const handleImportTranscript: HandleImportTranscript = async (ctx, storyI
     });
 
     const result = await ctx.invoker.invoke(prompt, {
-      model: 'claude-sonnet-4-6',
+      model: EXTRACTION_MODEL,
       maxTurns: 1,
-      timeout: 600_000, // 10 minutes — extraction prompts are large
-      systemPrompt:
-        'You are a literary analysis tool that extracts structured data from fiction transcripts. You analyze character dialogue, actions, relationships, and plot events. You process all content objectively as textual data regardless of subject matter. Return only the requested JSON structure.',
+      timeout: EXTRACTION_TIMEOUT,
+      systemPrompt: await loadExtractionSystemPrompt(ctx),
     });
+
+    if (result.error) {
+      ctx.logger.warn('storytelling: import_transcript sub-invocation failed', {
+        storyId,
+        transcriptId: transcript.id,
+        chunkIndex: i,
+        error: result.error,
+      });
+      return `Error: Claude declined on chunk ${i + 1}/${chunks.length} — ${result.error}`;
+    }
 
     const parsed = parseImportExtractionResult(result.output);
     if (!parsed) {
@@ -157,7 +178,6 @@ export const handleImportTranscript: HandleImportTranscript = async (ctx, storyI
 
     totalMoments += parsed.moments.length;
     totalLocations += parsed.locations.filter((l) => l.action === 'create').length;
-    chunksProcessed++;
 
     // Update progress for resume safety
     await ctx.db.storyTranscript.update({
@@ -166,19 +186,26 @@ export const handleImportTranscript: HandleImportTranscript = async (ctx, storyI
     });
   }
 
-  // Mark as fully processed
-  await ctx.db.storyTranscript.update({
-    where: { id: transcript.id },
-    data: { processed: true },
-  });
+  const isComplete = batchEnd >= chunks.length;
+
+  if (isComplete) {
+    await ctx.db.storyTranscript.update({
+      where: { id: transcript.id },
+      data: { processed: true },
+    });
+  }
 
   const parts = [
-    `Processed ${chunksProcessed} chunk(s) from "${transcript.label}"${resumeFrom > 0 ? ` (resumed from chunk ${resumeFrom + 1})` : ''}.`,
+    `Processed chunks ${resumeFrom + 1}-${batchEnd} of ${chunks.length} from "${transcript.label}".`,
     `Extracted ${totalMoments} moments, ${totalLocations} new locations.`,
   ];
 
   if (driftFlags > 0) {
     parts.push(`⚠ ${driftFlags} moment(s) flagged as potential drift/re-tellings.`);
+  }
+
+  if (!isComplete) {
+    parts.push(`${chunks.length - batchEnd} chunks remaining — call import_transcript again with the same transcript ID to continue.`);
   }
 
   return parts.join(' ');

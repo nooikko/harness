@@ -10,6 +10,8 @@ export type InvocationMeta = {
   taskId?: string;
   pendingBlocks: unknown[][];
   ctx: unknown;
+  /** Callback to push tool progress events into the pipeline's streamEvents array. */
+  onToolProgress?: (event: unknown) => void;
 };
 
 export type SendOptions = {
@@ -21,6 +23,7 @@ export type Session = {
   send: (prompt: string, options?: SendOptions) => Promise<SDKResultMessage>;
   close: () => void;
   isAlive: boolean;
+  isBusy: boolean;
   lastActivity: number;
 };
 
@@ -64,7 +67,7 @@ export const createSessionPool: CreateSessionPool = (config, factory, sessionCon
     evictionTimer = setInterval(() => {
       const now = Date.now();
       for (const [threadId, entry] of sessions) {
-        if (!entry.session.isAlive || now - entry.session.lastActivity > config.ttlMs) {
+        if (!entry.session.isAlive || (!entry.session.isBusy && now - entry.session.lastActivity > config.ttlMs)) {
           entry.session.close();
           sessions.delete(threadId);
         }

@@ -161,7 +161,7 @@ export const FilePreviewModal: FilePreviewModalComponent = ({ file, open, onOpen
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className='max-w-4xl'>
+      <DialogContent className='max-w-4xl' aria-describedby={undefined}>
         <DialogHeader>
           <DialogTitle className='flex items-center justify-between'>
             <span className='truncate'>{file.name}</span>

@@ -6,6 +6,7 @@ export type DeviceCache = {
   refresh: () => Promise<void>;
   clear: () => void;
   findByName: (name: string) => GoveeDevice | undefined;
+  findAllByName: (name: string) => GoveeDevice[];
   findByMac: (mac: string) => GoveeDevice | undefined;
   hasCapability: (device: GoveeDevice, instance: string) => boolean;
 };
@@ -35,6 +36,8 @@ export const createDeviceCache: CreateDeviceCache = (client) => {
     },
 
     findByName: (name) => devices.find((d) => fuzzyMatch(d.deviceName, name)),
+
+    findAllByName: (name) => devices.filter((d) => fuzzyMatch(d.deviceName, name)),
 
     findByMac: (mac) => {
       const lower = mac.toLowerCase();

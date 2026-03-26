@@ -86,6 +86,13 @@ export const MessageItem: MessageItemComponent = ({ message, files, threadKind, 
       );
     case 'tool_result':
       return <ToolResultBlock content={message.content} metadata={metadata} />;
+    case 'tool_progress':
+      return (
+        <div className='flex items-center gap-1.5 py-0.5 text-xs text-muted-foreground/60'>
+          <Info className='h-3 w-3 shrink-0' />
+          <span className='italic'>{message.content}</span>
+        </div>
+      );
     case 'pipeline_step':
       return <PipelineStep message={message as ActivityMessageProps['message']} />;
     case 'status':

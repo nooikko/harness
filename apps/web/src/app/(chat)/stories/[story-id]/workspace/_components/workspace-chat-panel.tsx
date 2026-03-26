@@ -44,27 +44,28 @@ const buildQuickActions: BuildQuickActions = (transcripts) => {
   return [
     {
       label: 'Scan Characters',
-      prompt: `Here are the uploaded transcripts for this story:\n${transcriptList}\n\nFor each transcript, call storytelling__import_transcript with the transcript ID to extract characters and moments. Start with the first unprocessed one${unprocessedIds.length > 0 ? ` (ID: ${unprocessedIds[0]})` : ''}. Report what characters you find after each one.`,
+      prompt: `Here are the uploaded transcripts for this story:\n${transcriptList}\n\nFor each transcript, call mcp__harness__storytelling__import_transcript with the transcript ID to extract characters and moments. Start with the first unprocessed one${unprocessedIds.length > 0 ? ` (ID: ${unprocessedIds[0]})` : ''}. Report what characters you find after each one.`,
     },
     {
       label: 'Process All',
-      prompt: `Here are the uploaded transcripts:\n${transcriptList}\n\n${unprocessed.length > 0 ? `Process these unprocessed transcripts in order using storytelling__import_transcript:\n${unprocessed.map((t) => `- ${t.label}: ${t.id}`).join('\n')}\n\nCall the tool once for each ID. Report progress after each.` : 'All transcripts are already processed.'}`,
+      prompt: `Here are the uploaded transcripts:\n${transcriptList}\n\n${unprocessed.length > 0 ? `Process these unprocessed transcripts in order using mcp__harness__storytelling__import_transcript:\n${unprocessed.map((t) => `- ${t.label}: ${t.id}`).join('\n')}\n\nCall the tool once for each ID. Report progress after each.` : 'All transcripts are already processed.'}`,
     },
     {
       label: 'Find Duplicates',
       prompt:
-        'Use storytelling__detect_duplicates to find duplicate moments across the story. Present results with recommendations on which to merge.',
+        'Use mcp__harness__storytelling__detect_duplicates to find duplicate moments across the story. Present results with recommendations on which to merge.',
     },
     {
       label: 'Discover Arcs',
       prompt:
-        'Use storytelling__discover_arc_moments to find narrative arcs from the extracted moments. Look for character development, recurring themes, and story progression.',
+        'Use mcp__harness__storytelling__discover_arc_moments to find narrative arcs from the extracted moments. Look for character development, recurring themes, and story progression.',
     },
   ];
 };
 
-export const WorkspaceChatPanel = ({ storyId: _storyId, threadId, transcripts: transcriptList }: WorkspaceChatPanelProps) => {
-  const quickActions = buildQuickActions(transcriptList);
+export const WorkspaceChatPanel = ({ storyId: _storyId, threadId, transcripts: initialTranscripts }: WorkspaceChatPanelProps) => {
+  const [transcripts, setTranscripts] = useState(initialTranscripts);
+  const quickActions = buildQuickActions(transcripts);
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [input, setInput] = useState('');
   const [isPending, startTransition] = useTransition();
@@ -74,6 +75,15 @@ export const WorkspaceChatPanel = ({ storyId: _storyId, threadId, transcripts: t
   const scrollRef = useRef<HTMLDivElement>(null);
   const prevMessageCountRef = useRef(0);
   const { selection } = useWorkspaceSelection();
+
+  // Refresh transcript processed status
+  const loadTranscripts = useCallback(async () => {
+    const res = await fetch(`/api/stories/${_storyId}/transcripts`);
+    if (res.ok) {
+      const data = await res.json();
+      setTranscripts(data.transcripts ?? []);
+    }
+  }, [_storyId]);
 
   // Load chat messages
   const loadMessages = useCallback(async () => {
@@ -125,13 +135,24 @@ export const WorkspaceChatPanel = ({ storyId: _storyId, threadId, transcripts: t
         setIsProcessing(false);
         setPipelineStep(null);
         loadMessages();
+        loadTranscripts();
+      }
+    });
+    const unsubError = wsCtx.subscribe('pipeline:error', (data) => {
+      const d = data as { threadId?: string; error?: string };
+      if (d.threadId === threadId) {
+        setIsProcessing(false);
+        setPipelineStep(null);
+        loadMessages();
+        loadTranscripts();
       }
     });
     return () => {
       unsubStep();
       unsubComplete();
+      unsubError();
     };
-  }, [wsCtx, threadId, loadMessages]);
+  }, [wsCtx, threadId, loadMessages, loadTranscripts]);
 
   // Clear chat
   const handleClear = useCallback(() => {
@@ -285,16 +306,24 @@ export const WorkspaceChatPanel = ({ storyId: _storyId, threadId, transcripts: t
             </div>
           )}
           {messages
-            .filter((m) => m.kind === 'text')
-            .map((msg) => (
-              <div
-                key={msg.id}
-                className={cn('flex flex-col gap-1 rounded-lg px-3 py-2', msg.role === 'user' ? 'bg-blue-500/10 ml-8' : 'bg-muted/50 mr-8')}
-              >
-                <span className='text-[10px] font-medium text-muted-foreground'>{msg.role === 'user' ? 'You' : 'Assistant'}</span>
-                <p className='text-xs whitespace-pre-wrap break-words'>{msg.content}</p>
-              </div>
-            ))}
+            .filter((m) => m.kind === 'text' || (m.kind === 'status' && m.content.startsWith('Pipeline error:')))
+            .map((msg) => {
+              const isError = msg.kind === 'status';
+              return (
+                <div
+                  key={msg.id}
+                  className={cn(
+                    'flex flex-col gap-1 rounded-lg px-3 py-2',
+                    isError ? 'bg-red-500/10 border border-red-500/20 mr-8' : msg.role === 'user' ? 'bg-blue-500/10 ml-8' : 'bg-muted/50 mr-8',
+                  )}
+                >
+                  <span className='text-[10px] font-medium text-muted-foreground'>
+                    {isError ? 'Error' : msg.role === 'user' ? 'You' : 'Assistant'}
+                  </span>
+                  <p className='text-xs whitespace-pre-wrap wrap-break-word'>{isError ? msg.content.replace('Pipeline error: ', '') : msg.content}</p>
+                </div>
+              );
+            })}
         </div>
       </div>
 

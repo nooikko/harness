@@ -130,7 +130,7 @@ export const goveePlugin: PluginDefinition = {
         required: ['device'],
       },
       handler: async (_ctx, input) => {
-        const { client: c, cache } = ensureConnected();
+        const { client: c, cache, limiter: _limiter } = ensureConnected();
         const {
           device: nameOrMac,
           on,
@@ -145,55 +145,87 @@ export const goveePlugin: PluginDefinition = {
           color?: string;
         };
 
-        const device = resolveDevice(cache, nameOrMac);
-        if (!device) {
+        // Resolve all matching devices — "office" matches Office 1 + Office 2,
+        // "office 2" matches only Office 2, MAC address matches exactly one.
+        const devices = cache.findAllByName(nameOrMac);
+        if (devices.length === 0) {
+          const byMac = cache.findByMac(nameOrMac);
+          if (byMac) {
+            devices.push(byMac);
+          }
+        }
+        if (devices.length === 0) {
           return `Device "${nameOrMac}" not found.`;
         }
 
-        const results: string[] = [];
+        const applyToDevice = async (device: GoveeDevice): Promise<string[]> => {
+          const results: string[] = [];
 
-        if (on !== undefined) {
-          await c.controlDevice(device.sku, device.device, {
-            type: 'devices.capabilities.on_off',
-            instance: 'powerSwitch',
-            value: on ? 1 : 0,
-          });
-          results.push(on ? 'turned on' : 'turned off');
+          if (on !== undefined) {
+            await c.controlDevice(device.sku, device.device, {
+              type: 'devices.capabilities.on_off',
+              instance: 'powerSwitch',
+              value: on ? 1 : 0,
+            });
+            results.push(on ? 'turned on' : 'turned off');
+          }
+
+          if (brightness !== undefined) {
+            await c.controlDevice(device.sku, device.device, {
+              type: 'devices.capabilities.range',
+              instance: 'brightness',
+              value: Math.max(1, Math.min(100, brightness)),
+            });
+            results.push(`brightness: ${brightness}%`);
+          }
+
+          if (colorTemp !== undefined) {
+            await c.controlDevice(device.sku, device.device, {
+              type: 'devices.capabilities.color_setting',
+              instance: 'colorTemperatureK',
+              value: Math.max(2000, Math.min(9000, colorTemp)),
+            });
+            results.push(`color temp: ${colorTemp}K`);
+          }
+
+          if (color !== undefined) {
+            const rgbInt = resolveColor(color);
+            await c.controlDevice(device.sku, device.device, {
+              type: 'devices.capabilities.color_setting',
+              instance: 'colorRgb',
+              value: rgbInt,
+            });
+            results.push(`color: ${color}`);
+          }
+
+          return results;
+        };
+
+        const allResults = await Promise.all(
+          devices.map(async (device) => {
+            const results = await applyToDevice(device);
+            return { name: device.deviceName, results };
+          }),
+        );
+
+        const successful = allResults.filter((r) => r.results.length > 0);
+        if (successful.length === 0) {
+          return `No changes specified for "${nameOrMac}".`;
         }
 
-        if (brightness !== undefined) {
-          await c.controlDevice(device.sku, device.device, {
-            type: 'devices.capabilities.range',
-            instance: 'brightness',
-            value: Math.max(1, Math.min(100, brightness)),
-          });
-          results.push(`brightness: ${brightness}%`);
+        // Compact format: if all devices got the same changes, summarize
+        const firstAction = successful[0]!.results.join(', ');
+        const allSame = successful.every((r) => r.results.join(', ') === firstAction);
+
+        if (allSame && successful.length > 1) {
+          return `${successful.length} "${nameOrMac}" devices: ${firstAction}.`;
         }
 
-        if (colorTemp !== undefined) {
-          await c.controlDevice(device.sku, device.device, {
-            type: 'devices.capabilities.color_setting',
-            instance: 'colorTemperatureK',
-            value: Math.max(2000, Math.min(9000, colorTemp)),
-          });
-          results.push(`color temp: ${colorTemp}K`);
+        if (successful.length === 1) {
+          return `"${successful[0]!.name}": ${firstAction}.`;
         }
 
-        if (color !== undefined) {
-          const rgbInt = resolveColor(color);
-          await c.controlDevice(device.sku, device.device, {
-            type: 'devices.capabilities.color_setting',
-            instance: 'colorRgb',
-            value: rgbInt,
-          });
-          results.push(`color: ${color}`);
-        }
-
-        if (results.length === 0) {
-          return `No changes specified for "${device.deviceName}".`;
-        }
-
-        return `Updated "${device.deviceName}": ${results.join(', ')}.`;
+        return successful.map((r) => `"${r.name}": ${r.results.join(', ')}.`).join('\n');
       },
     },
     {
@@ -211,23 +243,44 @@ export const goveePlugin: PluginDefinition = {
         const { client: c, cache } = ensureConnected();
         const { device: nameOrMac } = input as { device: string };
 
-        const device = resolveDevice(cache, nameOrMac);
-        if (!device) {
+        const devices = cache.findAllByName(nameOrMac);
+        if (devices.length === 0) {
+          const byMac = cache.findByMac(nameOrMac);
+          if (byMac) {
+            devices.push(byMac);
+          }
+        }
+        if (devices.length === 0) {
           return `Device "${nameOrMac}" not found.`;
         }
 
-        const state = await c.getDeviceState(device.sku, device.device);
-        const powerCap = state.capabilities.find((c) => c.instance === 'powerSwitch');
-        const currentlyOn = powerCap?.state.value === 1;
-        const newValue = currentlyOn ? 0 : 1;
+        const results = await Promise.all(
+          devices.map(async (device) => {
+            const state = await c.getDeviceState(device.sku, device.device);
+            const powerCap = state.capabilities.find((cap) => cap.instance === 'powerSwitch');
+            const currentlyOn = powerCap?.state.value === 1;
+            const newValue = currentlyOn ? 0 : 1;
 
-        await c.controlDevice(device.sku, device.device, {
-          type: 'devices.capabilities.on_off',
-          instance: 'powerSwitch',
-          value: newValue,
-        });
+            await c.controlDevice(device.sku, device.device, {
+              type: 'devices.capabilities.on_off',
+              instance: 'powerSwitch',
+              value: newValue,
+            });
 
-        return `Toggled "${device.deviceName}" ${newValue === 1 ? 'ON' : 'OFF'}.`;
+            return { name: device.deviceName, action: newValue === 1 ? 'ON' : 'OFF' };
+          }),
+        );
+
+        if (results.length === 1) {
+          return `"${results[0]!.name}": toggled ${results[0]!.action}.`;
+        }
+
+        const allSame = results.every((r) => r.action === results[0]!.action);
+        if (allSame) {
+          return `${results.length} "${nameOrMac}" devices: toggled ${results[0]!.action}.`;
+        }
+
+        return results.map((r) => `"${r.name}": toggled ${r.action}.`).join('\n');
       },
     },
     {

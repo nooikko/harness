@@ -28,6 +28,9 @@ const createMockCtx = (invokeOutput: string) =>
         findUnique: vi.fn().mockResolvedValue({ aliases: [] }),
         update: vi.fn().mockResolvedValue({}),
       },
+      agent: {
+        findFirst: vi.fn().mockResolvedValue({ soul: 'Safe space soul text' }),
+      },
     } as never,
     invoker: {
       invoke: vi.fn().mockResolvedValue({
@@ -59,7 +62,7 @@ describe('handleImportCharacters', () => {
     expect(result).toContain('Created 2 characters');
     expect(result).toContain('Violet');
     expect(result).toContain('Kai');
-    expect(ctx.invoker.invoke).toHaveBeenCalledWith(expect.any(String), expect.objectContaining({ model: 'claude-sonnet-4-6' }));
+    expect(ctx.invoker.invoke).toHaveBeenCalledWith(expect.any(String), expect.objectContaining({ model: 'claude-opus-4-5-20251101' }));
   });
 
   it('reports updates for existing characters', async () => {
@@ -90,13 +93,29 @@ describe('handleImportCharacters', () => {
     expect(result).toContain('could not parse');
   });
 
+  it('returns descriptive error when invoker returns an error (e.g. content refusal)', async () => {
+    const ctx = createMockCtx('');
+    vi.mocked(ctx.invoker.invoke).mockResolvedValue({
+      output: '',
+      error: 'Content policy violation: inappropriate content detected',
+      durationMs: 50,
+      exitCode: 1,
+    });
+
+    const result = await handleImportCharacters(ctx, 'story-1', { text: 'some story text' });
+
+    expect(result).toContain('Error');
+    expect(result).toContain('Content policy violation');
+    expect(ctx.logger.warn).toHaveBeenCalled();
+  });
+
   it('uses Sonnet model for high-fidelity extraction', async () => {
     const invokeOutput = JSON.stringify({ characters: [] });
     const ctx = createMockCtx(invokeOutput);
 
     await handleImportCharacters(ctx, 'story-1', { text: 'profiles here' });
 
-    expect(ctx.invoker.invoke).toHaveBeenCalledWith(expect.any(String), expect.objectContaining({ model: 'claude-sonnet-4-6' }));
+    expect(ctx.invoker.invoke).toHaveBeenCalledWith(expect.any(String), expect.objectContaining({ model: 'claude-opus-4-5-20251101' }));
   });
 
   it('merges character when resolve returns merge action', async () => {

@@ -55,6 +55,10 @@ type StreamActivity = {
   type: string;
   label: string;
   timestamp: number;
+  /** Progress detail message (e.g., "Processing chunk 3/12") — only for tool_progress events. */
+  progressContent?: string;
+  /** Tool name for tool_progress events — used to replace previous progress for same tool. */
+  progressToolName?: string;
 };
 
 export const PipelineActivity: PipelineActivityComponent = ({ threadId, isActive }) => {
@@ -131,6 +135,9 @@ export const PipelineActivity: PipelineActivityComponent = ({ threadId, isActive
       return;
     }
 
+    // Any step event from this thread is proof of life — reset heartbeat timer
+    lastHeartbeatRef.current = Date.now();
+    setIsUnresponsive(false);
     setSteps((prev) => [...prev, { step: event.step, detail: event.detail, metadata: event.metadata, timestamp: event.timestamp }]);
   }, [lastEvent, threadId, isActive]);
 
@@ -158,7 +165,36 @@ export const PipelineActivity: PipelineActivityComponent = ({ threadId, isActive
       return;
     }
 
-    setStreamActivity((prev) => [...prev, { type: evt.type, label, timestamp: evt.timestamp ?? Date.now() }]);
+    // Any stream event from this thread is proof of life — reset heartbeat timer
+    lastHeartbeatRef.current = Date.now();
+    setIsUnresponsive(false);
+
+    const newEntry: StreamActivity = {
+      type: evt.type,
+      label,
+      timestamp: evt.timestamp ?? Date.now(),
+      ...(evt.type === 'tool_progress' ? { progressContent: evt.content, progressToolName: evt.toolName } : {}),
+    };
+
+    setStreamActivity((prev) => {
+      // When a new tool_call starts, snap any lingering tool_progress timestamps
+      // to the new tool_call's timestamp so duration calculations can't go negative
+      if (evt.type === 'tool_call') {
+        const callTimestamp = newEntry.timestamp;
+        const cleaned = prev.map((sa) => (sa.type === 'tool_progress' ? { ...sa, timestamp: callTimestamp } : sa));
+        return [...cleaned, newEntry];
+      }
+      // tool_progress replaces previous progress for the same tool (it's a status line, not a log)
+      if (evt.type === 'tool_progress' && evt.toolName) {
+        const idx = prev.findLastIndex((sa) => sa.type === 'tool_progress' && sa.progressToolName === evt.toolName);
+        if (idx !== -1) {
+          const updated = [...prev];
+          updated[idx] = newEntry;
+          return updated;
+        }
+      }
+      return [...prev, newEntry];
+    });
   }, [lastStreamEvent, threadId, isActive]);
 
   // Track heartbeats — detect unresponsive agent
@@ -174,7 +210,7 @@ export const PipelineActivity: PipelineActivityComponent = ({ threadId, isActive
     setIsUnresponsive(false);
   }, [lastHeartbeat, threadId, isActive]);
 
-  // Check for stale heartbeats (30s without one during active pipeline)
+  // Check for stale heartbeats (60s without any pipeline event during active pipeline)
   useEffect(() => {
     if (!isActive) {
       return;
@@ -182,7 +218,7 @@ export const PipelineActivity: PipelineActivityComponent = ({ threadId, isActive
 
     const interval = setInterval(() => {
       const sinceLastHeartbeat = Date.now() - lastHeartbeatRef.current;
-      if (sinceLastHeartbeat > 30_000 && steps.length > 0) {
+      if (sinceLastHeartbeat > 60_000 && steps.length > 0) {
         setIsUnresponsive(true);
       }
     }, 5_000);
@@ -248,6 +284,7 @@ export const PipelineActivity: PipelineActivityComponent = ({ threadId, isActive
                       <span className='inline-block h-3 w-3 text-center leading-3 shrink-0'>✓</span>
                     )}
                     <span className='font-medium'>{sa.label}</span>
+                    {sa.progressContent && <span className='text-muted-foreground/60 ml-1'>{sa.progressContent}</span>}
                     {!isLatest && durationMs != null && (
                       <span className='text-muted-foreground/40 tabular-nums ml-1'>
                         {durationMs >= 1000 ? `${(durationMs / 1000).toFixed(1)}s` : `${durationMs}ms`}

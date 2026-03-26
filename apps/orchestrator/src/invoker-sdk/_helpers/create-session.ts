@@ -47,6 +47,7 @@ export const createSession: CreateSession = (model, config) => {
         contextRef.taskId = request.meta.taskId;
         contextRef.pendingBlocks = request.meta.pendingBlocks as ContentBlock[][];
         contextRef.ctx = request.meta.ctx as PluginContext | null;
+        contextRef.onToolProgress = request.meta.onToolProgress as ToolContextRef['onToolProgress'];
       }
 
       resolver({
@@ -122,8 +123,9 @@ export const createSession: CreateSession = (model, config) => {
             req.resolve(message as SDKResultMessage);
             drainQueue();
           }
-        } else if (activeRequest?.onMessage) {
-          activeRequest.onMessage(message);
+        } else if (activeRequest) {
+          lastActivity = Date.now();
+          activeRequest.onMessage?.(message);
         }
       }
     } catch (err) {
@@ -174,6 +176,9 @@ export const createSession: CreateSession = (model, config) => {
     close,
     get isAlive() {
       return alive;
+    },
+    get isBusy() {
+      return activeRequest !== null;
     },
     get lastActivity() {
       return lastActivity;

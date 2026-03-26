@@ -5,7 +5,7 @@ import { sendDiscordReply } from '../send-discord-reply';
 
 type MockDb = {
   thread: { findUnique: ReturnType<typeof vi.fn> };
-  message: { findFirst: ReturnType<typeof vi.fn> };
+  message: { findFirst: ReturnType<typeof vi.fn>; findMany: ReturnType<typeof vi.fn> };
 };
 
 const makeCtx = (db: MockDb): PluginContext =>
@@ -39,7 +39,7 @@ describe('sendDiscordReply', () => {
   beforeEach(() => {
     db = {
       thread: { findUnique: vi.fn() },
-      message: { findFirst: vi.fn() },
+      message: { findFirst: vi.fn(), findMany: vi.fn().mockResolvedValue([]) },
     };
   });
 
@@ -145,6 +145,7 @@ describe('sendDiscordReply', () => {
 
   it('warns when sourceId does not contain a valid channel ID', async () => {
     db.thread.findUnique.mockResolvedValue({ source: 'discord', sourceId: 'web:something' });
+    db.message.findFirst.mockResolvedValueOnce({ content: 'Hello', createdAt: new Date() }).mockResolvedValueOnce(null);
     const client = makeClient();
     const ctx = makeCtx(db);
 
@@ -211,5 +212,64 @@ describe('sendDiscordReply', () => {
     await sendDiscordReply({ client, ctx, threadId: 'thread-1', splitMessage });
 
     expect(channel.send).toHaveBeenCalledWith('response');
+  });
+
+  describe('metadata-based routing (primary thread)', () => {
+    it('delivers reply when the triggering user message has discordChannelId metadata', async () => {
+      db.thread.findUnique.mockResolvedValue({ source: 'system', sourceId: 'primary' });
+      const assistantAt = new Date('2026-01-01T00:01:00Z');
+      db.message.findFirst.mockResolvedValueOnce({ content: 'Hello from Claude', createdAt: assistantAt }).mockResolvedValueOnce(null); // no pipeline error
+      db.message.findMany.mockResolvedValue([{ metadata: { discordChannelId: 'discord:dm-chan-456' }, createdAt: new Date('2026-01-01T00:00:30Z') }]);
+      const channel = makeSendableChannel();
+      const client = makeClient(channel);
+      const ctx = makeCtx(db);
+
+      await sendDiscordReply({ client, ctx, threadId: 'thread-1', splitMessage });
+
+      expect(client.channels.fetch).toHaveBeenCalledWith('dm-chan-456');
+      expect(channel.send).toHaveBeenCalledWith('Hello from Claude');
+    });
+
+    it('does not deliver when user message has no discordChannelId metadata', async () => {
+      db.thread.findUnique.mockResolvedValue({ source: 'system', sourceId: 'primary' });
+      const assistantAt = new Date('2026-01-01T00:01:00Z');
+      db.message.findFirst.mockResolvedValueOnce({ content: 'Hello', createdAt: assistantAt }).mockResolvedValueOnce(null);
+      db.message.findMany.mockResolvedValue([{ metadata: {}, createdAt: new Date('2026-01-01T00:00:30Z') }]);
+      const channel = makeSendableChannel();
+      const client = makeClient(channel);
+      const ctx = makeCtx(db);
+
+      await sendDiscordReply({ client, ctx, threadId: 'thread-1', splitMessage });
+
+      expect(client.channels.fetch).not.toHaveBeenCalled();
+    });
+
+    it('does not deliver when no recent user messages exist', async () => {
+      db.thread.findUnique.mockResolvedValue({ source: 'system', sourceId: 'primary' });
+      db.message.findFirst.mockResolvedValueOnce({ content: 'Hello', createdAt: new Date() }).mockResolvedValueOnce(null);
+      db.message.findMany.mockResolvedValue([]);
+      const channel = makeSendableChannel();
+      const client = makeClient(channel);
+      const ctx = makeCtx(db);
+
+      await sendDiscordReply({ client, ctx, threadId: 'thread-1', splitMessage });
+
+      expect(client.channels.fetch).not.toHaveBeenCalled();
+    });
+
+    it('skips delivery when pipeline error is newer than assistant message (metadata path)', async () => {
+      db.thread.findUnique.mockResolvedValue({ source: 'system', sourceId: 'primary' });
+      db.message.findFirst
+        .mockResolvedValueOnce({ content: 'old', createdAt: new Date('2026-01-01T00:00:00Z') })
+        .mockResolvedValueOnce({ createdAt: new Date('2026-01-01T00:01:00Z') }); // pipeline error newer
+      db.message.findMany.mockResolvedValue([{ metadata: { discordChannelId: 'discord:dm-chan-456' }, createdAt: new Date('2026-01-01T00:00:00Z') }]);
+      const channel = makeSendableChannel();
+      const client = makeClient(channel);
+      const ctx = makeCtx(db);
+
+      await sendDiscordReply({ client, ctx, threadId: 'thread-1', splitMessage });
+
+      expect(channel.send).not.toHaveBeenCalled();
+    });
   });
 });

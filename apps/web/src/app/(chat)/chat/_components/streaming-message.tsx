@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useWs } from '@/app/_components/ws-provider';
 import { MarkdownContent } from './markdown-content';
 
@@ -23,10 +23,14 @@ type StreamingMessageComponent = (props: StreamingMessageProps) => React.ReactNo
 export const StreamingMessage: StreamingMessageComponent = ({ threadId, isActive }) => {
   const { lastEvent } = useWs('pipeline:stream');
   const [text, setText] = useState('');
+  const isActiveRef = useRef(isActive);
+  isActiveRef.current = isActive;
 
-  // Accumulate assistant text from stream events
+  // Accumulate assistant text from stream events.
+  // Uses isActiveRef instead of isActive in deps to prevent re-processing
+  // the stale lastEvent when isActive transitions false→true.
   useEffect(() => {
-    if (!lastEvent || !isActive) {
+    if (!lastEvent || !isActiveRef.current) {
       return;
     }
     const data = lastEvent as StreamEvent;
@@ -37,7 +41,7 @@ export const StreamingMessage: StreamingMessageComponent = ({ threadId, isActive
       return;
     }
     setText((prev) => (prev ? `${prev}\n\n${data.event.content}` : data.event.content!));
-  }, [lastEvent, threadId, isActive]);
+  }, [lastEvent, threadId]);
 
   // Clear text when pipeline finishes
   useEffect(() => {

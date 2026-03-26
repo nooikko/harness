@@ -1,4 +1,4 @@
-import { render, screen } from '@testing-library/react';
+import { act, render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
@@ -34,6 +34,25 @@ vi.mock('../pipeline-activity', () => ({
 vi.mock('../delegation-stack', () => ({
   DelegationStack: () => null,
 }));
+
+vi.mock('../streaming-message', () => ({
+  StreamingMessage: () => null,
+}));
+
+// IntersectionObserver mock — captures the callback so tests can simulate visibility changes
+let intersectionCallback: IntersectionObserverCallback;
+const mockObserve = vi.fn();
+const mockDisconnect = vi.fn();
+
+class MockIntersectionObserver {
+  constructor(cb: IntersectionObserverCallback) {
+    intersectionCallback = cb;
+  }
+  observe = mockObserve;
+  disconnect = mockDisconnect;
+  unobserve = vi.fn();
+}
+vi.stubGlobal('IntersectionObserver', MockIntersectionObserver);
 
 vi.mock('../chat-input', () => ({
   ChatInput: ({
@@ -360,5 +379,74 @@ describe('ChatArea', () => {
     await vi.advanceTimersByTimeAsync(3500);
 
     expect(mockRefresh).toHaveBeenCalled();
+  });
+
+  describe('scroll-to-bottom button', () => {
+    const renderChatArea = () =>
+      render(
+        <ChatArea
+          threadId='thread-1'
+          currentModel={null}
+          currentAgentId={null}
+          currentAgentName={null}
+          currentEffort={null}
+          currentPermissionMode={null}
+        >
+          <div>Messages</div>
+        </ChatArea>,
+      );
+
+    it('does not show the scroll-to-bottom button when anchor is visible (at bottom)', () => {
+      renderChatArea();
+
+      // Simulate anchor being visible (user is at bottom)
+      act(() => {
+        intersectionCallback([{ isIntersecting: true } as IntersectionObserverEntry], {} as IntersectionObserver);
+      });
+
+      expect(screen.queryByRole('button', { name: /scroll to bottom/i })).not.toBeInTheDocument();
+    });
+
+    it('shows the scroll-to-bottom button when anchor is not visible (scrolled up)', () => {
+      renderChatArea();
+
+      // Simulate anchor being hidden (user scrolled up)
+      act(() => {
+        intersectionCallback([{ isIntersecting: false } as IntersectionObserverEntry], {} as IntersectionObserver);
+      });
+
+      expect(screen.getByRole('button', { name: /scroll to bottom/i })).toBeInTheDocument();
+    });
+
+    it('scrolls to bottom when the button is clicked', async () => {
+      vi.useRealTimers();
+      const user = userEvent.setup();
+      renderChatArea();
+
+      // Show the button
+      act(() => {
+        intersectionCallback([{ isIntersecting: false } as IntersectionObserverEntry], {} as IntersectionObserver);
+      });
+
+      await user.click(screen.getByRole('button', { name: /scroll to bottom/i }));
+
+      expect(Element.prototype.scrollIntoView).toHaveBeenCalledWith({
+        behavior: 'smooth',
+        block: 'end',
+      });
+    });
+
+    it('observes the scroll anchor element', () => {
+      renderChatArea();
+
+      expect(mockObserve).toHaveBeenCalledWith(expect.any(HTMLDivElement));
+    });
+
+    it('disconnects observer on unmount', () => {
+      const { unmount } = renderChatArea();
+      unmount();
+
+      expect(mockDisconnect).toHaveBeenCalled();
+    });
   });
 });

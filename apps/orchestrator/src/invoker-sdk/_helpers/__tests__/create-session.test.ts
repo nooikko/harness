@@ -305,6 +305,38 @@ describe('createSession', () => {
     session.close();
   });
 
+  it('updates lastActivity on stream events to prevent premature eviction', async () => {
+    vi.useFakeTimers();
+    const session = createSession('sonnet');
+    await tick();
+
+    const initialActivity = session.lastActivity;
+    const sendPromise = session.send('Hello', { onMessage: vi.fn() });
+    await tick();
+
+    // Advance time significantly
+    vi.advanceTimersByTime(300_000); // 5 minutes
+
+    // Yield a stream event (thinking, tool call, etc.)
+    const streamEvent = {
+      type: 'assistant',
+      session_id: 'sess-1',
+      message: { role: 'assistant', content: [{ type: 'text', text: 'thinking...' }] },
+    } as unknown as SDKMessage;
+    activeController!.yield(streamEvent);
+    await tick();
+
+    // lastActivity should have been refreshed by the stream event
+    expect(session.lastActivity).toBeGreaterThan(initialActivity);
+
+    // Complete the session
+    activeController!.yield(makeResult());
+    await sendPromise;
+    vi.useRealTimers();
+
+    session.close();
+  });
+
   it('marks session not alive when iterator ends naturally', async () => {
     const session = createSession('sonnet');
     await tick();

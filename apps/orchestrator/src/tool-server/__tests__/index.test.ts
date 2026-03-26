@@ -31,7 +31,14 @@ const makePlugin = (name: string, tools?: PluginTool[]): PluginDefinition => ({
 });
 
 const makeContextRef = (overrides?: Partial<ToolContextRef>): ToolContextRef => ({
-  ctx: { db: {}, invoker: {}, config: {}, logger: {}, sendToThread: vi.fn(), broadcast: vi.fn() } as unknown as PluginContext,
+  ctx: {
+    db: {},
+    invoker: {},
+    config: {},
+    logger: { error: vi.fn(), warn: vi.fn(), info: vi.fn(), debug: vi.fn() },
+    sendToThread: vi.fn(),
+    broadcast: vi.fn(),
+  } as unknown as PluginContext,
   threadId: 'thread-1',
   pendingBlocks: [],
   ...overrides,
@@ -143,7 +150,9 @@ describe('createToolServer', () => {
     const input = { prompt: 'hello' };
     const result = await mcpTool.handler(input);
 
-    expect(handler).toHaveBeenCalledWith(contextRef.ctx, input, { threadId: 'thread-42' } satisfies PluginToolMeta);
+    const calledMeta = handler.mock.calls[0]![2] as PluginToolMeta;
+    expect(calledMeta.threadId).toBe('thread-42');
+    expect(typeof calledMeta.reportProgress).toBe('function');
     expect(result).toEqual({ content: [{ type: 'text', text: 'tool output' }] });
   });
 
@@ -167,7 +176,10 @@ describe('createToolServer', () => {
 
     await mcpTool.handler({ prompt: 'hello' });
 
-    expect(handler).toHaveBeenCalledWith(contextRef.ctx, { prompt: 'hello' }, expect.objectContaining({ threadId: 'thread-42', taskId: 'task-99' }));
+    const calledMeta = handler.mock.calls[0]![2] as PluginToolMeta;
+    expect(calledMeta.threadId).toBe('thread-42');
+    expect(calledMeta.taskId).toBe('task-99');
+    expect(typeof calledMeta.reportProgress).toBe('function');
   });
 
   it('handler omits taskId from meta when contextRef has no taskId', async () => {
@@ -333,5 +345,67 @@ describe('createToolServer', () => {
     expect(contextRef.pendingBlocks).toHaveLength(2);
     expect(contextRef.pendingBlocks[0]).toEqual(blocks1);
     expect(contextRef.pendingBlocks[1]).toEqual(blocks2);
+  });
+
+  it('injects reportProgress into meta and flushes progress events to onToolProgress', async () => {
+    const handler = vi.fn().mockImplementation(async (_ctx: PluginContext, _input: Record<string, unknown>, meta: PluginToolMeta) => {
+      meta.reportProgress?.('Step 1/2', { current: 1, total: 2 });
+      meta.reportProgress?.('Step 2/2', { current: 2, total: 2 });
+      return 'done';
+    });
+    const tool: PluginTool = {
+      name: 'heavy-tool',
+      description: 'A heavy tool',
+      schema: { type: 'object' },
+      handler,
+    };
+    const collected = [{ ...tool, pluginName: 'test', qualifiedName: 'test__heavy-tool' }];
+    const onToolProgress = vi.fn();
+    const contextRef = makeContextRef({ threadId: 'thread-42', traceId: 'trace-1', onToolProgress });
+
+    createToolServer(collected, contextRef);
+
+    type McpHandler = (input: Record<string, unknown>) => Promise<{ content: Array<{ type: string; text: string }> }>;
+    const mockCallParams = mockCreateSdkMcpServer.mock.calls[0] as unknown as Parameters<typeof createSdkMcpServer>;
+    const mcpTools = mockCallParams[0].tools as unknown as Array<{ handler: McpHandler }>;
+
+    await mcpTools[0]!.handler({});
+
+    // Progress events should have been flushed to onToolProgress
+    expect(onToolProgress).toHaveBeenCalledTimes(2);
+    expect(onToolProgress.mock.calls[0]![0]).toEqual(
+      expect.objectContaining({ type: 'tool_progress', toolName: 'test__heavy-tool', content: 'Step 1/2' }),
+    );
+    expect(onToolProgress.mock.calls[1]![0]).toEqual(
+      expect.objectContaining({ type: 'tool_progress', toolName: 'test__heavy-tool', content: 'Step 2/2' }),
+    );
+  });
+
+  it('flushes progress events even when handler throws', async () => {
+    const handler = vi.fn().mockImplementation(async (_ctx: PluginContext, _input: Record<string, unknown>, meta: PluginToolMeta) => {
+      meta.reportProgress?.('Started');
+      throw new Error('Something went wrong');
+    });
+    const tool: PluginTool = {
+      name: 'failing-tool',
+      description: 'A failing tool',
+      schema: { type: 'object' },
+      handler,
+    };
+    const collected = [{ ...tool, pluginName: 'test', qualifiedName: 'test__failing-tool' }];
+    const onToolProgress = vi.fn();
+    const contextRef = makeContextRef({ threadId: 'thread-42', onToolProgress });
+
+    createToolServer(collected, contextRef);
+
+    type McpHandler = (input: Record<string, unknown>) => Promise<{ content: Array<{ type: string; text: string }>; isError?: boolean }>;
+    const mockCallParams = mockCreateSdkMcpServer.mock.calls[0] as unknown as Parameters<typeof createSdkMcpServer>;
+    const mcpTools = mockCallParams[0].tools as unknown as Array<{ handler: McpHandler }>;
+
+    const result = await mcpTools[0]!.handler({});
+
+    expect(result.isError).toBe(true);
+    expect(onToolProgress).toHaveBeenCalledTimes(1);
+    expect(onToolProgress.mock.calls[0]![0]).toEqual(expect.objectContaining({ type: 'tool_progress', content: 'Started' }));
   });
 });

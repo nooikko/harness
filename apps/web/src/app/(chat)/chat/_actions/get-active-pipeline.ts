@@ -29,19 +29,40 @@ export const getActivePipeline: GetActivePipeline = async (threadId) => {
   const traceId = (metadata?.traceId as string) ?? '';
   const startedAt = (metadata?.startedAt as string) ?? startMessage.createdAt.toISOString();
 
-  // Check if there's a matching pipeline_complete after this start
-  const completeMessage = await prisma.message.findFirst({
-    where: {
-      threadId,
-      role: 'system',
-      kind: 'status',
-      content: 'Pipeline completed',
-      createdAt: { gte: startMessage.createdAt },
-    },
-    select: { id: true },
-  });
+  // Check if the pipeline finished — look for completion, error, or assistant response after start
+  const [completeMessage, errorMessage, assistantMessage] = await Promise.all([
+    prisma.message.findFirst({
+      where: {
+        threadId,
+        role: 'system',
+        kind: 'status',
+        content: 'Pipeline completed',
+        createdAt: { gte: startMessage.createdAt },
+      },
+      select: { id: true },
+    }),
+    prisma.message.findFirst({
+      where: {
+        threadId,
+        role: 'system',
+        kind: 'status',
+        content: { startsWith: 'Pipeline error' },
+        createdAt: { gte: startMessage.createdAt },
+      },
+      select: { id: true },
+    }),
+    prisma.message.findFirst({
+      where: {
+        threadId,
+        role: 'assistant',
+        kind: 'text',
+        createdAt: { gte: startMessage.createdAt },
+      },
+      select: { id: true },
+    }),
+  ]);
 
-  if (completeMessage) {
+  if (completeMessage || errorMessage || assistantMessage) {
     return { active: false };
   }
 

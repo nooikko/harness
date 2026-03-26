@@ -54,7 +54,7 @@ export const DirectoryBrowserDialog: DirectoryBrowserDialogComponent = ({ open, 
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className='sm:max-w-md gap-3'>
+      <DialogContent className='sm:max-w-md gap-3' aria-describedby={undefined}>
         <DialogHeader>
           <DialogTitle className='text-base'>Select Directory</DialogTitle>
         </DialogHeader>

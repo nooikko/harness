@@ -61,7 +61,7 @@ test.describe('smoke tests', () => {
     await projectsPage.gotoList();
     await projectsPage.waitForReady();
 
-    // Should see the seeded project
-    await expect(projectsPage.page.getByText('E2E Test Project')).toBeVisible();
+    // Should see the seeded project (check by description — name may be renamed by projects.spec.ts)
+    await expect(projectsPage.page.getByText('A project used for end-to-end testing.')).toBeVisible();
   });
 });

@@ -44,6 +44,7 @@ const EDITOR_CONFIG: InitialConfigType = {
     {
       replace: BeautifulMentionNode,
       with: (node: BeautifulMentionNode) => new CommandNode(node.getTrigger(), node.getValue(), node.getData()),
+      withKlass: CommandNode,
     },
   ],
   onError: (error: Error) => {

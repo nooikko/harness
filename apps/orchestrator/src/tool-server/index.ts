@@ -1,7 +1,14 @@
-import type { SdkMcpToolDefinition } from '@anthropic-ai/claude-agent-sdk';
-import { createSdkMcpServer } from '@anthropic-ai/claude-agent-sdk';
-import type { ContentBlock, PluginContext, PluginDefinition, PluginTool, PluginToolMeta } from '@harness/plugin-contract';
-import { ToolError } from '@harness/plugin-contract';
+import { createSdkMcpServer, type SdkMcpToolDefinition } from '@anthropic-ai/claude-agent-sdk';
+import {
+  type ContentBlock,
+  createToolProgressReporter,
+  type InvokeStreamEvent,
+  type PluginContext,
+  type PluginDefinition,
+  type PluginTool,
+  type PluginToolMeta,
+  ToolError,
+} from '@harness/plugin-contract';
 import type { ZodTypeAny } from 'zod';
 import { jsonSchemaToZodShape } from './_helpers/json-schema-to-zod-shape';
 
@@ -16,6 +23,8 @@ export type ToolContextRef = {
   traceId?: string;
   taskId?: string;
   pendingBlocks: ContentBlock[][];
+  /** Callback to push tool progress events into the pipeline's streamEvents array for persistence. */
+  onToolProgress?: (event: InvokeStreamEvent) => void;
 };
 
 type CollectTools = (plugins: PluginDefinition[]) => CollectedTool[];
@@ -52,10 +61,19 @@ export const createToolServer: CreateToolServer = (tools, contextRef) => {
           `Tool "${t.qualifiedName}" called before PluginContext was initialized. This can happen if a tool is called before plugin registration completes.`,
         );
       }
+
+      // Create progress reporter for this tool invocation
+      const { reportProgress, events: progressEvents } = createToolProgressReporter(
+        contextRef.ctx,
+        { threadId: contextRef.threadId, traceId: contextRef.traceId, taskId: contextRef.taskId },
+        t.qualifiedName,
+      );
+
       const meta: PluginToolMeta = {
         threadId: contextRef.threadId,
         traceId: contextRef.traceId,
         ...(contextRef.taskId ? { taskId: contextRef.taskId } : {}),
+        reportProgress,
       };
       try {
         const raw = await t.handler(contextRef.ctx, input, meta);
@@ -63,8 +81,20 @@ export const createToolServer: CreateToolServer = (tools, contextRef) => {
         if (typeof raw !== 'string' && raw.blocks.length > 0) {
           contextRef.pendingBlocks.push(raw.blocks);
         }
+        // Flush captured progress events into the pipeline's streamEvents for persistence
+        if (progressEvents.length > 0 && contextRef.onToolProgress) {
+          for (const event of progressEvents) {
+            contextRef.onToolProgress(event);
+          }
+        }
         return { content: [{ type: 'text' as const, text }] };
       } catch (err) {
+        // Still flush progress events on error — they may be useful for debugging
+        if (progressEvents.length > 0 && contextRef.onToolProgress) {
+          for (const event of progressEvents) {
+            contextRef.onToolProgress(event);
+          }
+        }
         const code = err instanceof ToolError ? err.code : 'INTERNAL_ERROR';
         const message = err instanceof Error ? err.message : String(err);
         contextRef.ctx.logger.error(`Tool "${t.qualifiedName}" failed [${code}]: ${message}`, {

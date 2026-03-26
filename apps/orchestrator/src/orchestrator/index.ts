@@ -122,6 +122,7 @@ export const createOrchestrator: CreateOrchestrator = (deps) => {
           await runNotifyHooks(allHooks(), 'onPipelineStart', (h) => h.onPipelineStart?.(threadId, { traceId }), pipelineLogger, names);
 
           // Intent classification — fast-path for high-confidence tool requests
+          const intentStart = Date.now();
           const intentResult = await runEarlyReturnHook(
             allHooks(),
             'onIntentClassify',
@@ -129,9 +130,23 @@ export const createOrchestrator: CreateOrchestrator = (deps) => {
             pipelineLogger,
             names,
           );
+          const intentDurationMs = Date.now() - intentStart;
 
           if (intentResult?.handled && intentResult.response) {
-            pipelineLogger.info(`sendToThread: intent fast-path handled [responseLength=${intentResult.response.length}]`);
+            pipelineLogger.info(
+              `sendToThread: intent fast-path handled [responseLength=${intentResult.response.length}, elapsed=${intentDurationMs}ms]`,
+            );
+            try {
+              await context.broadcast('pipeline:step', {
+                threadId,
+                step: 'intentClassify',
+                detail: 'fast-path',
+                metadata: { durationMs: intentDurationMs, handled: true },
+                timestamp: Date.now(),
+              });
+            } catch {
+              // Non-critical UI broadcast — errors must not block the fast-path response
+            }
 
             await deps.db.message.create({
               data: {
@@ -157,6 +172,17 @@ export const createOrchestrator: CreateOrchestrator = (deps) => {
             return;
           }
 
+          try {
+            await context.broadcast('pipeline:step', {
+              threadId,
+              step: 'intentClassify',
+              detail: 'fallthrough',
+              metadata: { durationMs: intentDurationMs, handled: false },
+              timestamp: Date.now(),
+            });
+          } catch {
+            // Non-critical UI broadcast — errors must not block the pipeline
+          }
           pipelineLogger.info('sendToThread: calling handleMessage');
           const result = await handle(threadId, 'user', content, traceId, pipelineLogger);
           pipelineLogger.info(
@@ -411,10 +437,10 @@ export const createOrchestrator: CreateOrchestrator = (deps) => {
       metadata: invokingMeta,
       timestamp: invokingTimestamp,
     });
-    // Heartbeat: broadcast every 10s during invocation so the frontend knows the agent is alive
+    // Heartbeat: broadcast every 5s during invocation so the frontend knows the agent is alive
     const heartbeatInterval = setInterval(() => {
       void context.broadcast('pipeline:heartbeat', { threadId, elapsedMs: Date.now() - (pipelineSteps[0]?.timestamp ?? Date.now()) });
-    }, 10_000);
+    }, 5_000);
 
     let invokeResult: InvokeResult;
     try {
@@ -441,6 +467,10 @@ export const createOrchestrator: CreateOrchestrator = (deps) => {
 
           // Broadcast stream events for real-time frontend visibility
           void context.broadcast('pipeline:stream', { threadId, event });
+        },
+        // Tool progress events are already broadcast by the helper — only capture for persistence
+        onToolProgress: (event) => {
+          streamEvents.push(event);
         },
       });
     } finally {

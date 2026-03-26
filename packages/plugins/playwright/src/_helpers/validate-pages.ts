@@ -19,7 +19,10 @@ export const validatePages: ValidatePages = async (ctx, input, meta) => {
   try {
     const page = await getPage(meta.threadId);
 
-    for (const url of urls) {
+    for (let i = 0; i < urls.length; i++) {
+      const url = urls[i]!;
+      meta.reportProgress?.(`Screenshotting page ${i + 1}/${urls.length}`, { current: i + 1, total: urls.length });
+
       const validation = validateUrl(url);
       if (!validation.valid) {
         results.push({ url, error: `Blocked: ${validation.reason}` });

@@ -160,6 +160,7 @@ const delegateTools: PluginTool[] = [
         planTaskId: input.planTaskId as string | undefined,
         parentTaskId: input.parentTaskId as string | undefined,
         cwd: input.cwd as string | undefined,
+        reportProgress: meta.reportProgress,
       })
         .catch((err) => {
           const error = err instanceof Error ? err : new Error(String(err));

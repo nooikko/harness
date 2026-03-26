@@ -68,6 +68,7 @@ describe('createSdkInvoker', () => {
       send: vi.fn().mockResolvedValue(successResult),
       close: vi.fn(),
       isAlive: true,
+      isBusy: false,
       lastActivity: Date.now(),
     };
 
@@ -94,7 +95,7 @@ describe('createSdkInvoker', () => {
   it('creates a session pool with correct config', () => {
     createSdkInvoker({ defaultModel: 'haiku', defaultTimeout: 300000 });
 
-    expect(mockCreateSessionPool).toHaveBeenCalledWith({ maxSessions: 8, ttlMs: 480000 }, expect.any(Function), undefined);
+    expect(mockCreateSessionPool).toHaveBeenCalledWith({ maxSessions: 8, ttlMs: 35 * 60 * 1000 }, expect.any(Function), undefined);
   });
 
   it('passes sessionConfig to session pool when provided', () => {
@@ -375,6 +376,7 @@ describe('createSdkInvoker', () => {
       send: vi.fn().mockResolvedValue(successResult),
       close: vi.fn(),
       isAlive: true,
+      isBusy: false,
       lastActivity: Date.now(),
     };
     vi.mocked(mockSession.send).mockRejectedValueOnce(new Error('Session is closed'));
@@ -396,6 +398,7 @@ describe('createSdkInvoker', () => {
       send: vi.fn().mockRejectedValue(new Error('Connection lost')),
       close: vi.fn(),
       isAlive: true,
+      isBusy: false,
       lastActivity: Date.now(),
     };
     vi.mocked(mockSession.send).mockRejectedValueOnce(new Error('Session is closed'));
@@ -525,6 +528,7 @@ describe('createSdkInvoker', () => {
         send: vi.fn().mockResolvedValue(successResult),
         close: vi.fn(),
         isAlive: true,
+        isBusy: false,
         lastActivity: Date.now(),
       };
       vi.mocked(mockSession.send).mockRejectedValueOnce(new Error('Session is closed'));
@@ -543,6 +547,7 @@ describe('createSdkInvoker', () => {
         send: vi.fn().mockResolvedValue(successResult),
         close: vi.fn(),
         isAlive: true,
+        isBusy: false,
         lastActivity: Date.now(),
       };
       vi.mocked(mockSession.send).mockRejectedValueOnce(new Error('Session is closed'));

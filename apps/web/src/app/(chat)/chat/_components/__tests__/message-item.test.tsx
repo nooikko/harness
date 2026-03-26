@@ -157,6 +157,13 @@ describe('MessageItem', () => {
     expect(screen.getByTestId('pipeline-step')).toBeInTheDocument();
   });
 
+  it('renders tool_progress as a compact info line', () => {
+    render(<MessageItem message={makeMessage({ role: 'system', kind: 'tool_progress', content: 'Processing chunk 3/12' })} />);
+    expect(screen.getByText('Processing chunk 3/12')).toBeInTheDocument();
+    // Should NOT render as generic system message (no article with System label)
+    expect(screen.queryByLabelText('System')).not.toBeInTheDocument();
+  });
+
   it('renders StatusLine for kind=status', () => {
     render(<MessageItem message={makeMessage({ role: 'system', kind: 'status', content: 'Pipeline completed' })} />);
     expect(screen.getByTestId('status-line')).toBeInTheDocument();

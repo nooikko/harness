@@ -358,7 +358,7 @@ const storytellingTools: PluginTool[] = [
       if (!storyId) {
         return 'This thread is not part of a story.';
       }
-      return handleImportCharacters(ctx, storyId, input as { text: string });
+      return handleImportCharacters(ctx, storyId, input as { text: string }, meta.reportProgress);
     },
   },
   {
@@ -379,7 +379,7 @@ const storytellingTools: PluginTool[] = [
       if (!storyId) {
         return 'This thread is not part of a story.';
       }
-      return handleImportDocument(ctx, storyId, input as { text: string; label?: string });
+      return handleImportDocument(ctx, storyId, input as { text: string; label?: string }, meta.reportProgress);
     },
   },
   {
@@ -401,7 +401,7 @@ const storytellingTools: PluginTool[] = [
       if (!storyId) {
         return 'This thread is not part of a story.';
       }
-      return handleImportTranscript(ctx, storyId, input as { transcriptId: string });
+      return handleImportTranscript(ctx, storyId, input as { transcriptId: string }, meta.reportProgress);
     },
   },
   {
@@ -422,7 +422,7 @@ const storytellingTools: PluginTool[] = [
       if (!storyId) {
         return 'This thread is not part of a story.';
       }
-      return handleDetectDuplicates(ctx, storyId, input as { scope?: string });
+      return handleDetectDuplicates(ctx, storyId, input as { scope?: string }, meta.reportProgress);
     },
   },
   {
@@ -558,7 +558,7 @@ const storytellingTools: PluginTool[] = [
       if (!storyId) {
         return 'This thread is not part of a story.';
       }
-      return handleDiscoverArcMoments(ctx, storyId, input as { arcId: string; guidance?: string; deepScan?: boolean });
+      return handleDiscoverArcMoments(ctx, storyId, input as { arcId: string; guidance?: string; deepScan?: boolean }, meta.reportProgress);
     },
   },
   {

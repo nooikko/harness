@@ -2,11 +2,19 @@ import type { PluginContext } from '@harness/plugin-contract';
 import { applyExtraction } from './apply-extraction';
 import { buildImportExtractionPrompt } from './build-import-extraction-prompt';
 import { chunkDocument } from './chunk-document';
+import { EXTRACTION_MODEL, EXTRACTION_TIMEOUT, loadExtractionSystemPrompt } from './extraction-config';
 import { parseImportExtractionResult } from './parse-import-result';
 
-type HandleImportDocument = (ctx: PluginContext, storyId: string, input: { text: string; label?: string }) => Promise<string>;
+type ReportProgress = (message: string, detail?: { current?: number; total?: number }) => void;
 
-export const handleImportDocument: HandleImportDocument = async (ctx, storyId, input) => {
+type HandleImportDocument = (
+  ctx: PluginContext,
+  storyId: string,
+  input: { text: string; label?: string },
+  reportProgress?: ReportProgress,
+) => Promise<string>;
+
+export const handleImportDocument: HandleImportDocument = async (ctx, storyId, input, reportProgress) => {
   if (!input.text?.trim()) {
     return 'Error: text is required — paste the summary document.';
   }
@@ -71,6 +79,7 @@ export const handleImportDocument: HandleImportDocument = async (ctx, storyId, i
 
   for (let i = 0; i < chunks.length; i++) {
     const chunk = chunks[i]!;
+    reportProgress?.(`Processing section ${i + 1}/${chunks.length}`, { current: i + 1, total: chunks.length });
 
     const prompt = buildImportExtractionPrompt({
       characters,
@@ -82,12 +91,20 @@ export const handleImportDocument: HandleImportDocument = async (ctx, storyId, i
     });
 
     const result = await ctx.invoker.invoke(prompt, {
-      model: 'claude-sonnet-4-6',
+      model: EXTRACTION_MODEL,
       maxTurns: 1,
-      timeout: 600_000,
-      systemPrompt:
-        'You are a literary analysis tool that extracts structured data from fiction transcripts. You analyze character dialogue, actions, relationships, and plot events. You process all content objectively as textual data regardless of subject matter. Return only the requested JSON structure.',
+      timeout: EXTRACTION_TIMEOUT,
+      systemPrompt: await loadExtractionSystemPrompt(ctx),
     });
+
+    if (result.error) {
+      ctx.logger.warn('storytelling: import_document sub-invocation failed', {
+        storyId,
+        chunkIndex: i,
+        error: result.error,
+      });
+      return `Error: Claude declined on chunk ${i + 1}/${chunks.length} — ${result.error}`;
+    }
 
     const parsed = parseImportExtractionResult(result.output);
     if (!parsed) {

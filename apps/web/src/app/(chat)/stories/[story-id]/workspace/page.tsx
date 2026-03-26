@@ -37,16 +37,30 @@ const WorkspacePage = async ({ params }: WorkspacePageProps) => {
     orderBy: { sortOrder: 'asc' },
   });
 
+  // Resolve Safe Space agent for import threads
+  const safeSpaceAgent = await prisma.agent.findFirst({
+    where: { slug: 'safe-space', enabled: true },
+    select: { id: true },
+  });
+
   // Find or create the import thread for the chat panel
   let importThread = await prisma.thread.findFirst({
     where: { storyId, source: 'web', sourceId: `import-${storyId}` },
-    select: { id: true, kind: true },
+    select: { id: true, kind: true, agentId: true },
   });
 
   if (importThread && importThread.kind !== 'story-import') {
     await prisma.thread.update({
       where: { id: importThread.id },
       data: { kind: 'story-import' },
+    });
+  }
+
+  // Ensure existing import threads have the Safe Space agent assigned
+  if (importThread && !importThread.agentId && safeSpaceAgent) {
+    await prisma.thread.update({
+      where: { id: importThread.id },
+      data: { agentId: safeSpaceAgent.id },
     });
   }
 
@@ -60,8 +74,9 @@ const WorkspacePage = async ({ params }: WorkspacePageProps) => {
         storyId,
         status: 'active',
         lastActivity: new Date(),
+        ...(safeSpaceAgent ? { agentId: safeSpaceAgent.id } : {}),
       },
-      select: { id: true, kind: true },
+      select: { id: true, kind: true, agentId: true },
     });
   }
 

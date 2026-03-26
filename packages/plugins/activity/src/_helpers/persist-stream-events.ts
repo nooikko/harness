@@ -23,19 +23,36 @@ const persistStreamEvents: PersistStreamEvents = async (db, threadId, events, tr
     const willPersist =
       (event.type === 'thinking' && !!event.content) ||
       (event.type === 'tool_call' && !!event.toolName) ||
-      (event.type === 'tool_use_summary' && !!event.content);
+      (event.type === 'tool_use_summary' && !!event.content) ||
+      (event.type === 'tool_progress' && !!event.content);
     if (willPersist) {
       persistableEvents.push({ event, nextTimestamp: null });
     }
   }
+  // Deduplicate tool_progress: keep only the last event per toolName.
+  // Progress events are status lines (like the live view), not a log.
+  const lastProgressByTool = new Map<string, number>();
+  for (let i = 0; i < persistableEvents.length; i++) {
+    const pe = persistableEvents[i]!;
+    if (pe.event.type === 'tool_progress' && pe.event.toolName) {
+      lastProgressByTool.set(pe.event.toolName, i);
+    }
+  }
+  const deduped = persistableEvents.filter((pe, i) => {
+    if (pe.event.type !== 'tool_progress' || !pe.event.toolName) {
+      return true;
+    }
+    return lastProgressByTool.get(pe.event.toolName) === i;
+  });
+
   // Fill nextTimestamp from each persisted event's successor
-  for (let i = 0; i < persistableEvents.length - 1; i++) {
-    persistableEvents[i]!.nextTimestamp = persistableEvents[i + 1]!.event.timestamp;
+  for (let i = 0; i < deduped.length - 1; i++) {
+    deduped[i]!.nextTimestamp = deduped[i + 1]!.event.timestamp;
   }
 
   const records: MessageData[] = [];
 
-  for (const { event, nextTimestamp } of persistableEvents) {
+  for (const { event, nextTimestamp } of deduped) {
     const durationMs = nextTimestamp != null ? nextTimestamp - event.timestamp : null;
 
     if (event.type === 'thinking' && event.content) {
@@ -58,6 +75,22 @@ const persistStreamEvents: PersistStreamEvents = async (db, threadId, events, tr
           toolName: event.toolName,
           toolUseId: event.toolUseId ?? null,
           input: event.toolInput ?? null,
+          durationMs,
+          ...(traceId ? { traceId } : {}),
+        },
+      });
+    } else if (event.type === 'tool_progress' && event.content) {
+      const progressEvent = event as InvokeStreamEvent & { current?: number; total?: number; traceId?: string };
+      records.push({
+        threadId,
+        role: 'system',
+        kind: 'tool_progress',
+        source: event.toolName ? parsePluginSource(event.toolName) : 'builtin',
+        content: event.content,
+        metadata: {
+          toolName: event.toolName ?? null,
+          ...(progressEvent.current !== undefined ? { current: progressEvent.current } : {}),
+          ...(progressEvent.total !== undefined ? { total: progressEvent.total } : {}),
           durationMs,
           ...(traceId ? { traceId } : {}),
         },

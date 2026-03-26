@@ -124,10 +124,108 @@ export const pluginSettingsRegistry: PluginSettingsEntry[] = [
       },
       {
         "name": "voice",
-        "type": "string",
+        "type": "select",
         "label": "Voice",
-        "description": "Voice name for text-to-speech. Default: en-US-GuyNeural. Run \"edge-tts --list-voices\" for options.",
-        "default": "en-US-GuyNeural"
+        "description": "Voice for text-to-speech announcements.",
+        "default": "en-US-AvaMultilingualNeural",
+        "options": [
+          {
+            "label": "Ava Multilingual (Female, Expressive)",
+            "value": "en-US-AvaMultilingualNeural"
+          },
+          {
+            "label": "Ava (Female, Expressive)",
+            "value": "en-US-AvaNeural"
+          },
+          {
+            "label": "Emma Multilingual (Female, Cheerful)",
+            "value": "en-US-EmmaMultilingualNeural"
+          },
+          {
+            "label": "Emma (Female, Cheerful)",
+            "value": "en-US-EmmaNeural"
+          },
+          {
+            "label": "Jenny (Female, Friendly)",
+            "value": "en-US-JennyNeural"
+          },
+          {
+            "label": "Aria (Female, Confident)",
+            "value": "en-US-AriaNeural"
+          },
+          {
+            "label": "Michelle (Female, Friendly)",
+            "value": "en-US-MichelleNeural"
+          },
+          {
+            "label": "Ana (Female, Cute)",
+            "value": "en-US-AnaNeural"
+          },
+          {
+            "label": "Andrew Multilingual (Male, Warm)",
+            "value": "en-US-AndrewMultilingualNeural"
+          },
+          {
+            "label": "Andrew (Male, Warm)",
+            "value": "en-US-AndrewNeural"
+          },
+          {
+            "label": "Brian Multilingual (Male, Casual)",
+            "value": "en-US-BrianMultilingualNeural"
+          },
+          {
+            "label": "Brian (Male, Casual)",
+            "value": "en-US-BrianNeural"
+          },
+          {
+            "label": "Guy (Male, Newscast)",
+            "value": "en-US-GuyNeural"
+          },
+          {
+            "label": "Roger (Male, Lively)",
+            "value": "en-US-RogerNeural"
+          },
+          {
+            "label": "Eric (Male, Friendly)",
+            "value": "en-US-EricNeural"
+          },
+          {
+            "label": "Christopher (Male, Reliable)",
+            "value": "en-US-ChristopherNeural"
+          },
+          {
+            "label": "Steffan (Male, Professional)",
+            "value": "en-US-SteffanNeural"
+          },
+          {
+            "label": "Sonia — GB (Female)",
+            "value": "en-GB-SoniaNeural"
+          },
+          {
+            "label": "Libby — GB (Female)",
+            "value": "en-GB-LibbyNeural"
+          },
+          {
+            "label": "Maisie — GB (Female)",
+            "value": "en-GB-MaisieNeural"
+          },
+          {
+            "label": "Ryan — GB (Male)",
+            "value": "en-GB-RyanNeural"
+          },
+          {
+            "label": "Thomas — GB (Male)",
+            "value": "en-GB-ThomasNeural"
+          },
+          {
+            "label": "Natasha — AU (Female)",
+            "value": "en-AU-NatashaNeural"
+          },
+          {
+            "label": "William Multilingual — AU (Male)",
+            "value": "en-AU-WilliamMultilingualNeural"
+          }
+        ]
       },
       {
         "name": "volume",
@@ -141,11 +239,11 @@ export const pluginSettingsRegistry: PluginSettingsEntry[] = [
         "type": "select",
         "label": "Default Speaker",
         "description": "Cast device for announcements. Leave on \"First available\" to auto-select.",
-        "default": "",
+        "default": "__auto__",
         "options": [
           {
             "label": "First available",
-            "value": ""
+            "value": "__auto__"
           }
         ],
         "fetchOptionsUrl": "/api/plugins/notifications/devices"
@@ -309,6 +407,13 @@ export const pluginSettingsRegistry: PluginSettingsEntry[] = [
         "type": "string",
         "label": "Allowed Channel IDs",
         "description": "Comma-separated Discord channel IDs. When set, the bot only responds in these channels. Leave empty to allow all channels.",
+        "required": false
+      },
+      {
+        "name": "ownerDiscordUserId",
+        "type": "string",
+        "label": "Owner Discord User ID",
+        "description": "Your Discord user ID. Enables proactive DM delivery for cron outputs and notifications. Right-click your profile in Discord → Copy User ID.",
         "required": false
       }
     ]
