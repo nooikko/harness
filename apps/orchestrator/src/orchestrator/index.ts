@@ -333,6 +333,9 @@ export const createOrchestrator: CreateOrchestrator = (deps) => {
     reportBackgroundError: () => {
       // No-op on the shared context — each plugin gets a scoped version in buildPluginContext
     },
+    runBackground: (_taskName: string, _fn: () => Promise<void>) => {
+      // No-op on the shared context — each plugin gets a scoped version in buildPluginContext
+    },
     uploadFile: createUploadFile({
       db: deps.db,
       uploadDir: deps.config.uploadDir,
@@ -358,9 +361,29 @@ export const createOrchestrator: CreateOrchestrator = (deps) => {
     const scopedReportBackgroundError = (taskName: string, error: Error) => {
       backgroundErrors.report(definition.name, taskName, error);
     };
+    const scopedRunBackground = (taskName: string, fn: () => Promise<void>) => {
+      const taskId = backgroundErrors.trackStart(definition.name, taskName);
+      void (async () => {
+        try {
+          await fn();
+          backgroundErrors.trackComplete(taskId);
+        } catch (err) {
+          const error = err instanceof Error ? err : new Error(String(err));
+          backgroundErrors.trackFail(taskId, error);
+        }
+      })();
+    };
     const state = createPluginState();
     if (definition.system) {
-      return { ...context, reportStatus: scopedReportStatus, reportBackgroundError: scopedReportBackgroundError, state };
+      return {
+        ...context,
+        getSettings: async <T extends SettingsFieldDefs>(schema: PluginSettingsSchemaInstance<T>) =>
+          getPluginSettings(deps.db, definition.name, schema),
+        reportStatus: scopedReportStatus,
+        reportBackgroundError: scopedReportBackgroundError,
+        runBackground: scopedRunBackground,
+        state,
+      };
     }
     return {
       ...context,
@@ -369,6 +392,7 @@ export const createOrchestrator: CreateOrchestrator = (deps) => {
         getPluginSettings(deps.db, definition.name, schema),
       reportStatus: scopedReportStatus,
       reportBackgroundError: scopedReportBackgroundError,
+      runBackground: scopedRunBackground,
       state,
     };
   };

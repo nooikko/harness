@@ -1,9 +1,9 @@
 // Auto-namer plugin — generates a short thread title after the first user message
 // Hook: onMessage — fires before invoke, starts name generation as background void
 
-import type { PluginContext, PluginDefinition, PluginHooks } from '@harness/plugin-contract';
+import type { InferSettings, PluginContext, PluginDefinition, PluginHooks } from '@harness/plugin-contract';
 import { generateThreadName } from './_helpers/generate-thread-name';
-import { settingsSchema } from './_helpers/settings-schema';
+import { type settingsFields, settingsSchema } from './_helpers/settings-schema';
 
 type GenerateNameInBackground = (ctx: PluginContext, threadId: string, content: string, customPrompt?: string) => Promise<void>;
 
@@ -21,14 +21,17 @@ const generateNameInBackground: GenerateNameInBackground = async (ctx, threadId,
   }
 };
 
+let settings: InferSettings<typeof settingsFields> = {};
+
 export const plugin: PluginDefinition = {
   name: 'auto-namer',
   version: '1.0.0',
   settingsSchema,
+  start: async (ctx: PluginContext): Promise<void> => {
+    settings = await ctx.getSettings(settingsSchema);
+  },
   register: async (ctx: PluginContext): Promise<PluginHooks> => {
     ctx.logger.info('Auto-namer plugin registered');
-
-    let settings = await ctx.getSettings(settingsSchema);
 
     return {
       onSettingsChange: async (pluginName: string) => {

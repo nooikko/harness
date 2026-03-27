@@ -29,6 +29,7 @@ const createMockContext: CreateMockContext = () =>
     notifySettingsChange: vi.fn(),
     reportStatus: vi.fn(),
     reportBackgroundError: vi.fn(),
+    runBackground: vi.fn(),
     uploadFile: vi.fn().mockResolvedValue({ fileId: 'test', relativePath: 'test' }),
   }) as never;
 
@@ -188,6 +189,7 @@ describe('onAfterInvoke hook', () => {
     (ctx.getSettings as ReturnType<typeof vi.fn>).mockResolvedValue({ triggerCount: 10 });
     (ctx.db.message.count as ReturnType<typeof vi.fn>).mockResolvedValue(9);
     const hooks = await plugin.register(ctx);
+    await plugin.start!(ctx);
 
     await hooks.onAfterInvoke!('thread-1', { output: '', durationMs: 0, exitCode: 0 });
     await vi.runAllTimersAsync();
@@ -202,6 +204,7 @@ describe('onAfterInvoke hook', () => {
     (ctx.getSettings as ReturnType<typeof vi.fn>).mockResolvedValue({ duplicateGuardSeconds: 120 });
     (ctx.db.message.count as ReturnType<typeof vi.fn>).mockResolvedValue(49);
     const hooks = await plugin.register(ctx);
+    await plugin.start!(ctx);
 
     await hooks.onAfterInvoke!('thread-1', { output: '', durationMs: 0, exitCode: 0 });
     await vi.runAllTimersAsync();
@@ -221,6 +224,7 @@ describe('onAfterInvoke hook', () => {
     (ctx.getSettings as ReturnType<typeof vi.fn>).mockResolvedValue({ customPrompt: 'CUSTOM_PROMPT:' });
     (ctx.db.message.count as ReturnType<typeof vi.fn>).mockResolvedValue(49);
     const hooks = await plugin.register(ctx);
+    await plugin.start!(ctx);
 
     await hooks.onAfterInvoke!('thread-1', { output: '', durationMs: 0, exitCode: 0 });
     await vi.runAllTimersAsync();
@@ -235,6 +239,7 @@ describe('onAfterInvoke hook', () => {
     (ctx.getSettings as ReturnType<typeof vi.fn>).mockResolvedValue({ model: 'claude-sonnet-4-5' });
     (ctx.db.message.count as ReturnType<typeof vi.fn>).mockResolvedValue(49);
     const hooks = await plugin.register(ctx);
+    await plugin.start!(ctx);
 
     await hooks.onAfterInvoke!('thread-1', { output: '', durationMs: 0, exitCode: 0 });
     await vi.runAllTimersAsync();
@@ -246,10 +251,11 @@ describe('onAfterInvoke hook', () => {
 
   it('uses updated settings on next onAfterInvoke call after settings reload', async () => {
     (ctx.getSettings as ReturnType<typeof vi.fn>)
-      .mockResolvedValueOnce({}) // initial registration
+      .mockResolvedValueOnce({}) // initial start — no custom settings
       .mockResolvedValueOnce({ triggerCount: 10 }); // onSettingsChange reload
     (ctx.db.message.count as ReturnType<typeof vi.fn>).mockResolvedValue(9);
     const hooks = await plugin.register(ctx);
+    await plugin.start!(ctx);
 
     // Default triggerCount is 50: count=9 does not qualify ((9+1)%50 !== 0)
     await hooks.onAfterInvoke!('thread-1', { output: '', durationMs: 0, exitCode: 0 });

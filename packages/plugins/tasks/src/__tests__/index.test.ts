@@ -77,6 +77,7 @@ describe('tasksPlugin', () => {
       notifySettingsChange: vi.fn(),
       reportStatus: vi.fn(),
       reportBackgroundError: vi.fn(),
+      runBackground: vi.fn(),
       uploadFile: vi.fn().mockResolvedValue({ fileId: 'test', relativePath: 'test' }),
     } as Parameters<typeof tasksPlugin.register>[0];
 

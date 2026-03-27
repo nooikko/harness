@@ -76,7 +76,7 @@ export const splitMessage: SplitMessage = (content) => {
   return chunks;
 };
 
-// Shared mutable state resolved during register(), used by start() and onSettingsChange()
+// Shared mutable state resolved during start(), used by start() and onSettingsChange()
 let resolvedToken: string | undefined;
 let allowedChannels: Set<string> = new Set();
 let defaultAgentId: string | undefined;
@@ -87,15 +87,6 @@ type CreateRegister = () => PluginDefinition['register'];
 const createRegister: CreateRegister = () => {
   const register = async (ctx: PluginContext): Promise<PluginHooks> => {
     ctx.logger.info('Discord plugin registered');
-
-    const settings = await ctx.getSettings(settingsSchema);
-    resolvedToken = settings.botToken ?? ctx.config.discordToken;
-    allowedChannels = parseAllowedChannels(settings.allowedChannelIds);
-    ownerDiscordUserId = settings.ownerDiscordUserId ?? undefined;
-
-    // Cache default agent for thread creation (avoid per-message DB lookup)
-    const defaultAgent = await ctx.db.agent.findFirst({ where: { slug: 'default', enabled: true }, select: { id: true } });
-    defaultAgentId = defaultAgent?.id;
 
     const hooks: PluginHooks = {
       onBroadcast: async (event, data) => {
@@ -194,6 +185,15 @@ const createRegister: CreateRegister = () => {
 type StartDiscordPlugin = NonNullable<PluginDefinition['start']>;
 
 const start: StartDiscordPlugin = async (ctx) => {
+  const settings = await ctx.getSettings(settingsSchema);
+  resolvedToken = settings.botToken ?? ctx.config.discordToken;
+  allowedChannels = parseAllowedChannels(settings.allowedChannelIds);
+  ownerDiscordUserId = settings.ownerDiscordUserId ?? undefined;
+
+  // Cache default agent for thread creation (avoid per-message DB lookup)
+  const defaultAgent = await ctx.db.agent.findFirst({ where: { slug: 'default', enabled: true }, select: { id: true } });
+  defaultAgentId = defaultAgent?.id;
+
   const token = resolvedToken ?? ctx.config.discordToken;
   if (!token) {
     ctx.logger.warn('Discord plugin: DISCORD_TOKEN not set, skipping Discord connection');

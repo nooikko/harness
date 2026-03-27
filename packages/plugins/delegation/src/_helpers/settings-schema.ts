@@ -1,6 +1,6 @@
-import { createSettingsSchema } from '@harness/plugin-contract';
+import { createSettingsSchema, type SettingsFieldDefs } from '@harness/plugin-contract';
 
-export const settingsSchema = createSettingsSchema({
+export const settingsFields = {
   maxIterations: {
     type: 'number' as const,
     label: 'Max Iterations',
@@ -13,4 +13,6 @@ export const settingsSchema = createSettingsSchema({
     description: 'Maximum cost in USD for a single delegation. The loop aborts if this limit is exceeded.',
     default: 5,
   },
-});
+} satisfies SettingsFieldDefs;
+
+export const settingsSchema = createSettingsSchema(settingsFields);

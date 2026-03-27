@@ -121,6 +121,7 @@ const createMockContext: CreateMockContext = (overrides = {}) => {
     notifySettingsChange: vi.fn().mockResolvedValue(undefined),
     reportStatus: vi.fn(),
     reportBackgroundError: vi.fn(),
+    runBackground: vi.fn(),
     uploadFile: vi.fn().mockResolvedValue({ fileId: 'test', relativePath: 'test' }),
   };
 };
@@ -664,6 +665,7 @@ describe('storytelling plugin', () => {
         notifySettingsChange: vi.fn().mockResolvedValue(undefined),
         reportStatus: vi.fn(),
         reportBackgroundError: vi.fn(),
+        runBackground: vi.fn(),
         uploadFile: vi.fn().mockResolvedValue({ fileId: 'test', relativePath: 'test' }),
       } as unknown as PluginContext;
 

@@ -35,6 +35,9 @@ describe('loadConfig', () => {
       expect(config.discordChannelId).toBeUndefined();
       expect(config.port).toBe(4001);
       expect(config.logLevel).toBe('info');
+      // hookTimeouts defaults
+      expect(config.hookTimeouts?.onBeforeInvoke).toBe(15_000);
+      expect(config.hookTimeouts?.onIntentClassify).toBe(2_000);
     });
   });
 

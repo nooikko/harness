@@ -162,6 +162,25 @@ describe('createOrchestrator', () => {
       expect(passedContext.db).toBe(deps.db);
     });
 
+    it('provides real getSettings to system plugins (not the shared stub)', async () => {
+      const deps = makeDeps();
+      const orchestrator = createOrchestrator(deps);
+      const definition = makePluginDefinition('calendar', {}, { system: true });
+
+      await orchestrator.registerPlugin(definition);
+
+      const passedContext = (definition.register as ReturnType<typeof vi.fn>).mock.calls[0]![0] as PluginContext;
+      // The shared context stub returns {} without reading the DB.
+      // System plugins must get the real getPluginSettings implementation
+      // that reads from deps.db.pluginConfig.
+      const mockSchema = { toFieldArray: () => [] };
+      await passedContext.getSettings(mockSchema as never);
+
+      // If getSettings is the real implementation, it will call db.pluginConfig.findUnique
+      // The scoped db for non-system uses $extends, but system plugins use deps.db directly
+      expect(deps.db.pluginConfig.findUnique).toHaveBeenCalledWith({ where: { pluginName: 'calendar' } });
+    });
+
     it('logs a message after registering the plugin', async () => {
       const deps = makeDeps();
       const orchestrator = createOrchestrator(deps);
@@ -1222,6 +1241,66 @@ describe('createOrchestrator', () => {
       await orchestrator.handleMessage('thread-1', 'user', 'hi');
 
       expect(deps.invoker.invoke).toHaveBeenCalledWith(expect.any(String), expect.objectContaining({ effort: undefined }));
+    });
+  });
+
+  describe('runBackground', () => {
+    it('provides runBackground as a function on plugin context', async () => {
+      const deps = makeDeps();
+      const orchestrator = createOrchestrator(deps);
+      const definition = makePluginDefinition('test-plugin');
+
+      await orchestrator.registerPlugin(definition);
+
+      const passedContext = (definition.register as ReturnType<typeof vi.fn>).mock.calls[0]![0] as PluginContext;
+      expect(typeof passedContext.runBackground).toBe('function');
+    });
+
+    it('runBackground completes successfully without throwing', async () => {
+      const deps = makeDeps();
+      const orchestrator = createOrchestrator(deps);
+      const fn = vi.fn().mockResolvedValue(undefined);
+      const definition = makePluginDefinition('test-plugin');
+
+      await orchestrator.registerPlugin(definition);
+
+      const passedContext = (definition.register as ReturnType<typeof vi.fn>).mock.calls[0]![0] as PluginContext;
+
+      // Should not throw even though it's fire-and-forget
+      expect(() => passedContext.runBackground('my-task', fn)).not.toThrow();
+
+      // Wait for the async work to settle
+      await vi.waitFor(() => {
+        expect(fn).toHaveBeenCalledOnce();
+      });
+    });
+
+    it('runBackground does not throw when fn rejects', async () => {
+      const deps = makeDeps();
+      const orchestrator = createOrchestrator(deps);
+      const fn = vi.fn().mockRejectedValue(new Error('task failed'));
+      const definition = makePluginDefinition('test-plugin');
+
+      await orchestrator.registerPlugin(definition);
+
+      const passedContext = (definition.register as ReturnType<typeof vi.fn>).mock.calls[0]![0] as PluginContext;
+
+      // Should not throw — errors are handled internally
+      expect(() => passedContext.runBackground('my-task', fn)).not.toThrow();
+
+      // Wait for the async work to settle
+      await vi.waitFor(() => {
+        expect(fn).toHaveBeenCalledOnce();
+      });
+    });
+
+    it('shared context runBackground is a no-op', async () => {
+      const deps = makeDeps();
+      const orchestrator = createOrchestrator(deps);
+
+      const sharedContext = orchestrator.getContext();
+      // Should not throw — it's a no-op
+      expect(() => sharedContext.runBackground('task', async () => {})).not.toThrow();
     });
   });
 

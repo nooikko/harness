@@ -1,6 +1,6 @@
-// Tracks fire-and-forget background task errors per plugin.
-// Aggregates error counts and surfaces them via the status registry when a
-// threshold is reached, so silent failures become visible.
+// Tracks fire-and-forget background task lifecycle per plugin.
+// Tracks both running tasks and error accumulation. Errors above a threshold
+// are surfaced via the status registry so silent failures become visible.
 
 import type { Logger } from '@harness/logger';
 import type { PluginStatusRegistry } from './plugin-status-registry';
@@ -11,11 +11,22 @@ type ErrorEntry = {
   lastOccurred: number;
 };
 
+export type RunningTask = {
+  pluginName: string;
+  taskName: string;
+  startedAt: number;
+};
+
 export type BackgroundErrorTracker = {
   report: (pluginName: string, taskName: string, error: Error) => void;
   getErrors: (pluginName: string) => Record<string, ErrorEntry>;
   getAllErrors: () => Record<string, Record<string, ErrorEntry>>;
   reset: (pluginName: string) => void;
+  trackStart: (pluginName: string, taskName: string) => string;
+  trackComplete: (taskId: string) => void;
+  trackFail: (taskId: string, error: Error) => void;
+  getRunning: (pluginName: string) => RunningTask[];
+  getAllRunning: () => RunningTask[];
 };
 
 /** Errors above this threshold within the decay window trigger a degraded status report. */
@@ -28,6 +39,8 @@ type CreateBackgroundErrorTracker = (logger: Logger, statusRegistry: PluginStatu
 
 export const createBackgroundErrorTracker: CreateBackgroundErrorTracker = (logger, statusRegistry) => {
   const errors = new Map<string, Map<string, ErrorEntry>>();
+  const running = new Map<string, RunningTask>();
+  let nextTaskId = 0;
 
   const report = (pluginName: string, taskName: string, error: Error) => {
     logger.error(`Background task failed [plugin=${pluginName}, task=${taskName}]: ${error.message}`, { pluginName, taskName, stack: error.stack });
@@ -84,5 +97,36 @@ export const createBackgroundErrorTracker: CreateBackgroundErrorTracker = (logge
     errors.delete(pluginName);
   };
 
-  return { report, getErrors, getAllErrors, reset };
+  const trackStart = (pluginName: string, taskName: string): string => {
+    const taskId = `bg-${++nextTaskId}`;
+    running.set(taskId, { pluginName, taskName, startedAt: Date.now() });
+    return taskId;
+  };
+
+  const trackComplete = (taskId: string) => {
+    running.delete(taskId);
+  };
+
+  const trackFail = (taskId: string, error: Error) => {
+    const task = running.get(taskId);
+    if (!task) {
+      return;
+    }
+    running.delete(taskId);
+    report(task.pluginName, task.taskName, error);
+  };
+
+  const getRunning = (pluginName: string): RunningTask[] => {
+    const result: RunningTask[] = [];
+    for (const task of running.values()) {
+      if (task.pluginName === pluginName) {
+        result.push(task);
+      }
+    }
+    return result;
+  };
+
+  const getAllRunning = (): RunningTask[] => [...running.values()];
+
+  return { report, getErrors, getAllErrors, reset, trackStart, trackComplete, trackFail, getRunning, getAllRunning };
 };

@@ -1,6 +1,6 @@
-import { createSettingsSchema } from '@harness/plugin-contract';
+import { createSettingsSchema, type SettingsFieldDefs } from '@harness/plugin-contract';
 
-export const settingsSchema = createSettingsSchema({
+export const settingsFields = {
   importanceThreshold: {
     type: 'number' as const,
     label: 'Importance Threshold',
@@ -44,4 +44,6 @@ export const settingsSchema = createSettingsSchema({
       'Extra score added to SEMANTIC (user insight) memories during retrieval. Higher values prioritize user facts over episodic memories.',
     default: 0.3,
   },
-});
+} satisfies SettingsFieldDefs;
+
+export const settingsSchema = createSettingsSchema(settingsFields);

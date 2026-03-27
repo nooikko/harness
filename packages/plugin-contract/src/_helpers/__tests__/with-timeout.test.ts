@@ -105,6 +105,23 @@ describe('withTimeout', () => {
     await Promise.resolve();
   });
 
+  it('rejects with the original error when the hook fails before timeout', async () => {
+    const promise = Promise.reject(new Error('hook crashed'));
+
+    await expect(withTimeout(promise, 5_000, 'crashing:hook')).rejects.toThrow('hook crashed');
+  });
+
+  it('clears the timeout timer when the hook rejects before timeout', async () => {
+    const clearTimeoutSpy = vi.spyOn(globalThis, 'clearTimeout');
+
+    const promise = Promise.reject(new Error('hook crashed'));
+    await expect(withTimeout(promise, 5_000, 'crashing:hook')).rejects.toThrow('hook crashed');
+
+    expect(clearTimeoutSpy).toHaveBeenCalled();
+
+    clearTimeoutSpy.mockRestore();
+  });
+
   it('clears the timeout timer when the hook resolves before timeout', async () => {
     const clearTimeoutSpy = vi.spyOn(globalThis, 'clearTimeout');
 

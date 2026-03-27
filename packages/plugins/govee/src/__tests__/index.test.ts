@@ -25,6 +25,7 @@ const makeCtx = (): PluginContext =>
     notifySettingsChange: vi.fn(),
     reportStatus: vi.fn(),
     reportBackgroundError: vi.fn(),
+    runBackground: vi.fn(),
     broadcast: vi.fn(),
   }) as unknown as PluginContext;
 

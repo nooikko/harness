@@ -426,6 +426,18 @@ export const plugin: PluginDefinition = {
   version: '1.0.0',
   settingsSchema,
   register: async (ctx: PluginContext): Promise<PluginHooks> => {
+    ctx.logger.info('SSH plugin registered');
+
+    return {
+      onSettingsChange: async (pluginName: string) => {
+        if (pluginName === 'ssh') {
+          settings = await ctx.getSettings(settingsSchema);
+          ctx.logger.info('SSH plugin: settings reloaded');
+        }
+      },
+    };
+  },
+  start: async (ctx: PluginContext): Promise<void> => {
     const env = loadSshEnv();
     encryptionKey = env.encryptionKey;
     if (!encryptionKey) {
@@ -441,18 +453,6 @@ export const plugin: PluginDefinition = {
       },
     });
 
-    ctx.logger.info('SSH plugin registered');
-
-    return {
-      onSettingsChange: async (pluginName: string) => {
-        if (pluginName === 'ssh') {
-          settings = await ctx.getSettings(settingsSchema);
-          ctx.logger.info('SSH plugin: settings reloaded');
-        }
-      },
-    };
-  },
-  start: async (ctx: PluginContext): Promise<void> => {
     ctx.logger.info('SSH plugin started');
   },
   stop: async (ctx: PluginContext): Promise<void> => {

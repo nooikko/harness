@@ -1,7 +1,7 @@
 // Context plugin — injects file references, conversation history,
 // and project context into prompts via onBeforeInvoke hook
 
-import type { PluginContext, PluginDefinition, PluginHooks } from '@harness/plugin-contract';
+import type { InferSettings, PluginContext, PluginDefinition, PluginHooks } from '@harness/plugin-contract';
 import { formatFileReferences } from './_helpers/format-file-references';
 import { formatHistorySection } from './_helpers/format-history-section';
 import { formatProjectToolsSection } from './_helpers/format-project-tools-section';
@@ -9,7 +9,7 @@ import { formatSummarySection } from './_helpers/format-summary-section';
 import { formatUserProfileSection } from './_helpers/format-user-profile-section';
 import { loadHistory } from './_helpers/history-loader';
 import { loadFileReferences } from './_helpers/load-file-references';
-import { settingsSchema } from './_helpers/settings-schema';
+import { type settingsFields, settingsSchema } from './_helpers/settings-schema';
 
 const DEFAULT_HISTORY_LIMIT_WITH_SUMMARY = 25;
 const DEFAULT_HISTORY_LIMIT = 50;
@@ -22,9 +22,9 @@ const buildPrompt: BuildPrompt = (parts) => {
   return nonEmpty.join('\n\n---\n\n');
 };
 
-const register = async (ctx: PluginContext): Promise<PluginHooks> => {
-  let settings = await ctx.getSettings(settingsSchema);
+let settings: InferSettings<typeof settingsFields> = {};
 
+const register = async (ctx: PluginContext): Promise<PluginHooks> => {
   ctx.logger.info('Context plugin registered');
 
   return {
@@ -137,5 +137,8 @@ export const plugin: PluginDefinition = {
   name: 'context',
   version: '1.0.0',
   settingsSchema,
+  start: async (ctx: PluginContext): Promise<void> => {
+    settings = await ctx.getSettings(settingsSchema);
+  },
   register,
 };

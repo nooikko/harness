@@ -1,6 +1,6 @@
-import { createSettingsSchema } from '@harness/plugin-contract';
+import { createSettingsSchema, type SettingsFieldDefs } from '@harness/plugin-contract';
 
-export const settingsSchema = createSettingsSchema({
+export const settingsFields = {
   historyLimit: {
     type: 'number' as const,
     label: 'History Limit',
@@ -19,4 +19,6 @@ export const settingsSchema = createSettingsSchema({
     description: 'Maximum number of prior summaries injected into the prompt.',
     default: 2,
   },
-});
+} satisfies SettingsFieldDefs;
+
+export const settingsSchema = createSettingsSchema(settingsFields);

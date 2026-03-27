@@ -1,6 +1,6 @@
-import { createSettingsSchema } from '@harness/plugin-contract';
+import { createSettingsSchema, type SettingsFieldDefs } from '@harness/plugin-contract';
 
-export const settingsSchema = createSettingsSchema({
+export const settingsFields = {
   triggerCount: {
     type: 'number' as const,
     label: 'Trigger Count',
@@ -24,4 +24,6 @@ export const settingsSchema = createSettingsSchema({
     description: 'Model used for generating summaries. Defaults to claude-haiku-4-5-20251001.',
     default: 'claude-haiku-4-5-20251001',
   },
-});
+} satisfies SettingsFieldDefs;
+
+export const settingsSchema = createSettingsSchema(settingsFields);

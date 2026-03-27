@@ -21,6 +21,7 @@ const makeMockCtx = (invokeOutput = 'Generated Thread Name') => ({
   notifySettingsChange: vi.fn(),
   reportStatus: vi.fn(),
   reportBackgroundError: vi.fn(),
+  runBackground: vi.fn(),
   uploadFile: vi.fn().mockResolvedValue({ fileId: 'test', relativePath: 'test' }),
   invoker: {
     invoke: vi.fn().mockResolvedValue({
@@ -167,8 +168,9 @@ describe('auto-namer plugin', () => {
     it('reloads settings when pluginName is auto-namer', async () => {
       const ctx = makeMockCtx();
       const hooks = await plugin.register(ctx as never);
+      await plugin.start!(ctx as never);
 
-      // getSettings called once during register
+      // getSettings called once during start
       expect(ctx.getSettings).toHaveBeenCalledTimes(1);
 
       await hooks.onSettingsChange!('auto-namer');
@@ -179,19 +181,21 @@ describe('auto-namer plugin', () => {
     it('ignores settings changes for other plugins', async () => {
       const ctx = makeMockCtx();
       const hooks = await plugin.register(ctx as never);
+      await plugin.start!(ctx as never);
 
       await hooks.onSettingsChange!('discord');
 
-      // Still only the initial call from register
+      // Still only the initial call from start
       expect(ctx.getSettings).toHaveBeenCalledTimes(1);
     });
 
     it('uses updated customPrompt after settings reload', async () => {
       const ctx = makeMockCtx('Custom Named Thread');
       ctx.getSettings
-        .mockResolvedValueOnce({}) // initial register — no custom prompt
+        .mockResolvedValueOnce({}) // initial start — no custom prompt
         .mockResolvedValueOnce({ customPrompt: 'Give a 3-word title' }); // after reload
       const hooks = await plugin.register(ctx as never);
+      await plugin.start!(ctx as never);
 
       // Reload settings
       await hooks.onSettingsChange!('auto-namer');

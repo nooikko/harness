@@ -1,6 +1,6 @@
-import { createSettingsSchema } from '@harness/plugin-contract';
+import { createSettingsSchema, type SettingsFieldDefs } from '@harness/plugin-contract';
 
-export const settingsSchema = createSettingsSchema({
+export const settingsFields = {
   messageLimit: {
     type: 'number' as const,
     label: 'Message Extraction Limit',
@@ -13,4 +13,6 @@ export const settingsSchema = createSettingsSchema({
     description: 'Minimum seconds between audit extractions for the same thread.',
     default: 60,
   },
-});
+} satisfies SettingsFieldDefs;
+
+export const settingsSchema = createSettingsSchema(settingsFields);

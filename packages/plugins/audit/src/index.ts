@@ -1,9 +1,9 @@
 // Audit plugin — extracts thread conversation into a ThreadAudit record then hard-deletes the thread
 // Hook: onBroadcast — listens for 'audit:requested' event
 
-import type { PluginContext, PluginDefinition, PluginHooks } from '@harness/plugin-contract';
+import type { InferSettings, PluginContext, PluginDefinition, PluginHooks } from '@harness/plugin-contract';
 import { buildExtractionPrompt } from './_helpers/build-extraction-prompt';
-import { settingsSchema } from './_helpers/settings-schema';
+import { type settingsFields, settingsSchema } from './_helpers/settings-schema';
 
 const DEFAULT_MESSAGE_LIMIT = 200;
 const DEFAULT_DUPLICATE_GUARD_SECONDS = 60;
@@ -94,14 +94,17 @@ const runAuditInBackground: RunAuditInBackground = async (ctx, threadId, message
   }
 };
 
+let settings: InferSettings<typeof settingsFields> = {};
+
 export const plugin: PluginDefinition = {
   name: 'audit',
   version: '1.0.0',
   settingsSchema,
+  start: async (ctx: PluginContext): Promise<void> => {
+    settings = await ctx.getSettings(settingsSchema);
+  },
   register: async (ctx: PluginContext): Promise<PluginHooks> => {
     ctx.logger.info('Audit plugin registered');
-
-    let settings = await ctx.getSettings(settingsSchema);
 
     return {
       onSettingsChange: async (pluginName: string) => {

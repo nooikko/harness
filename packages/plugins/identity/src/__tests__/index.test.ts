@@ -93,6 +93,7 @@ const createMockContext: CreateMockContext = (options) => {
     notifySettingsChange: vi.fn().mockResolvedValue(undefined),
     reportStatus: vi.fn(),
     reportBackgroundError: vi.fn(),
+    runBackground: vi.fn(),
     uploadFile: vi.fn().mockResolvedValue({ fileId: 'test', relativePath: 'test' }),
   };
 };
@@ -439,10 +440,11 @@ describe('identity plugin', () => {
     it('reloads settings when pluginName is identity', async () => {
       const ctx = createMockContext();
       const hooks = await plugin.register(ctx);
+      await plugin.start!(ctx);
 
       await hooks.onSettingsChange?.('identity');
 
-      // getSettings called once during register, once during reload
+      // getSettings called once during start, once during reload
       expect(ctx.getSettings).toHaveBeenCalledTimes(2);
       expect(ctx.logger.info).toHaveBeenCalledWith('Identity plugin: settings reloaded');
     });
@@ -450,10 +452,11 @@ describe('identity plugin', () => {
     it('skips reload when pluginName is not identity', async () => {
       const ctx = createMockContext();
       const hooks = await plugin.register(ctx);
+      await plugin.start!(ctx);
 
       await hooks.onSettingsChange?.('cron');
 
-      // getSettings called only once during register
+      // getSettings called only once during start
       expect(ctx.getSettings).toHaveBeenCalledTimes(1);
     });
   });

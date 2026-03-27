@@ -1,9 +1,9 @@
 // Summarization plugin — periodically summarizes thread history to prevent token overflow
 
-import type { PluginContext, PluginDefinition, PluginHooks } from '@harness/plugin-contract';
+import type { InferSettings, PluginContext, PluginDefinition, PluginHooks } from '@harness/plugin-contract';
 import { countThreadMessages } from './_helpers/count-thread-messages';
 import { generateSummary } from './_helpers/generate-summary';
-import { settingsSchema } from './_helpers/settings-schema';
+import { type settingsFields, settingsSchema } from './_helpers/settings-schema';
 
 const DEFAULT_TRIGGER_COUNT = 50;
 const DEFAULT_DUPLICATE_GUARD_SECONDS = 60;
@@ -51,14 +51,17 @@ const summarizeInBackground: SummarizeInBackground = async (ctx, threadId, messa
   }
 };
 
+let settings: InferSettings<typeof settingsFields> = {};
+
 export const plugin: PluginDefinition = {
   name: 'summarization',
   version: '1.0.0',
   settingsSchema,
+  start: async (ctx: PluginContext): Promise<void> => {
+    settings = await ctx.getSettings(settingsSchema);
+  },
   register: async (ctx) => {
     ctx.logger.info('Summarization plugin registered');
-
-    let settings = await ctx.getSettings(settingsSchema);
 
     const hooks: PluginHooks = {
       onSettingsChange: async (pluginName: string) => {

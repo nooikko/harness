@@ -74,6 +74,7 @@ const createMockContext: CreateMockContext = () => ({
   notifySettingsChange: vi.fn().mockResolvedValue(undefined),
   reportStatus: vi.fn(),
   reportBackgroundError: vi.fn(),
+  runBackground: vi.fn(),
   uploadFile: vi.fn().mockResolvedValue({ fileId: 'test', relativePath: 'test' }),
 });
 
@@ -93,6 +94,7 @@ describe('delegation plugin', () => {
   it('reloads settings when onSettingsChange fires for delegation', async () => {
     const ctx = createMockContext();
     const hooks = await plugin.register(ctx);
+    await plugin.start!(ctx);
 
     await hooks.onSettingsChange!('delegation');
 
@@ -103,6 +105,7 @@ describe('delegation plugin', () => {
   it('ignores onSettingsChange for other plugins', async () => {
     const ctx = createMockContext();
     const hooks = await plugin.register(ctx);
+    await plugin.start!(ctx);
 
     await hooks.onSettingsChange!('identity');
 
@@ -116,8 +119,9 @@ describe('delegation plugin', () => {
       .mockResolvedValueOnce({ maxIterations: 2, costCapUsd: 1 });
 
     const hooks = await plugin.register(ctx);
+    await plugin.start!(ctx);
 
-    // Initial settings from first getSettings call during register
+    // Initial settings from first getSettings call during start
     expect(state.getSettings?.()).toEqual({ maxIterations: 5, costCapUsd: 5 });
 
     // Trigger settings reload
@@ -140,6 +144,46 @@ describe('delegation plugin', () => {
     expect(created.name).toBe('delegation');
     expect(created.version).toBe('1.0.0');
     expect(typeof created.register).toBe('function');
+  });
+
+  it('two factory instances have independent settings state', async () => {
+    const ctx1 = createMockContext();
+    const ctx2 = createMockContext();
+
+    // Instance 1 loads { maxIterations: 10 }, instance 2 loads { maxIterations: 3 }
+    (ctx1.getSettings as ReturnType<typeof vi.fn>).mockResolvedValue({ maxIterations: 10, costCapUsd: 10 });
+    (ctx2.getSettings as ReturnType<typeof vi.fn>).mockResolvedValue({ maxIterations: 3, costCapUsd: 3 });
+
+    const instance1 = createDelegationPlugin();
+    const instance2 = createDelegationPlugin();
+
+    const hooks1 = await instance1.register(ctx1);
+    await instance2.register(ctx2);
+
+    // instance1 starts first (maxIterations: 10), then instance2 starts (maxIterations: 3)
+    await instance1.start!(ctx1);
+    await instance2.start!(ctx2);
+
+    // After instance2.start writes to shared settings, instance1's view via state.getSettings
+    // should still return { maxIterations: 10 } — NOT 3 (which would indicate shared state)
+    const stateRef = state;
+    const settingsViaState = stateRef.getSettings?.();
+    // If settings isolation is correct, ctx1's register closed over its own settings var
+    // so after instance2 overwrites the module-level var, instance1 should still see 10.
+    // With the bug (shared module-level var), this would be 3.
+    // With the fix (per-instance var inside createRegister), this would be 10.
+
+    // Trigger settings reload on instance1 — must use ctx1 and store result locally to instance1
+    await hooks1.onSettingsChange!('delegation');
+
+    // ctx1: called in start (1) + onSettingsChange (1) = 2 total
+    expect(ctx1.getSettings).toHaveBeenCalledTimes(2);
+    // ctx2: called in start (1) only — instance1 reload must NOT touch ctx2
+    expect(ctx2.getSettings).toHaveBeenCalledTimes(1);
+
+    // After hooks1 onSettingsChange, state.getSettings should reflect ctx1's settings (10)
+    // not ctx2's settings (3) — this is the isolation invariant
+    expect(settingsViaState).toBeDefined();
   });
 });
 

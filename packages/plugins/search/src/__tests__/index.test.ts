@@ -27,6 +27,7 @@ const createMockCtx = () => ({
   logger: { info: vi.fn(), warn: vi.fn(), error: vi.fn(), debug: vi.fn() },
   db: {},
   reportBackgroundError: vi.fn(),
+  runBackground: vi.fn(),
 });
 
 describe('search plugin', () => {

@@ -1,6 +1,6 @@
-import { createSettingsSchema } from '@harness/plugin-contract';
+import { createSettingsSchema, type SettingsFieldDefs } from '@harness/plugin-contract';
 
-export const settingsSchema = createSettingsSchema({
+export const settingsFields = {
   customRubric: {
     type: 'string' as const,
     label: 'Custom Validation Rubric',
@@ -11,4 +11,6 @@ export const settingsSchema = createSettingsSchema({
     label: 'Validation Model',
     description: 'Model to use for validation invocations. Defaults to claude-opus-4-6.',
   },
-});
+} satisfies SettingsFieldDefs;
+
+export const settingsSchema = createSettingsSchema(settingsFields);

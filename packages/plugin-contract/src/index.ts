@@ -223,6 +223,10 @@ export type PluginContext = {
    *  should call this in their .catch() handler so failures are tracked in the
    *  status registry rather than only appearing in logs. */
   reportBackgroundError: (taskName: string, error: Error) => void;
+  /** Run a background task with lifecycle tracking. Registers as "running" on start,
+   *  removes on success, reports to error tracker on failure. Replaces manual
+   *  `void fn().catch(err => ctx.reportBackgroundError(...))` patterns. */
+  runBackground: (taskName: string, fn: () => Promise<void>) => void;
   /** Execute a registered plugin tool by qualified name (e.g., "govee__set_light").
    *  Returns the tool result string. Throws if the tool is not found. */
   executeTool?: (qualifiedName: string, input: Record<string, unknown>, meta: PluginToolMeta) => Promise<ToolResult>;

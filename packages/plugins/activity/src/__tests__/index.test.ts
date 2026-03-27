@@ -24,6 +24,7 @@ const makeCtx = (): PluginContext => ({
   notifySettingsChange: vi.fn().mockResolvedValue(undefined),
   reportStatus: vi.fn(),
   reportBackgroundError: vi.fn(),
+  runBackground: vi.fn(),
   uploadFile: vi.fn().mockResolvedValue({ fileId: 'test', relativePath: 'test' }),
 });
 

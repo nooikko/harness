@@ -1,7 +1,7 @@
 // Identity plugin — injects agent soul, identity, and memories into prompts
 // Writes episodic memories based on conversation importance after each invocation
 
-import type { PluginContext, PluginDefinition, PluginHooks } from '@harness/plugin-contract';
+import type { InferSettings, PluginContext, PluginDefinition, PluginHooks } from '@harness/plugin-contract';
 import { formatBootstrapPrompt } from './_helpers/format-bootstrap-prompt';
 import { formatIdentityAnchor } from './_helpers/format-identity-anchor';
 import { formatIdentityHeader } from './_helpers/format-identity-header';
@@ -10,17 +10,22 @@ import { loadAgentConfig } from './_helpers/load-agent-config';
 import type { RetrievalConfig } from './_helpers/retrieve-memories';
 import { retrieveMemories } from './_helpers/retrieve-memories';
 import { scoreAndWriteMemory } from './_helpers/score-and-write-memory';
-import { settingsSchema } from './_helpers/settings-schema';
+import { type settingsFields, settingsSchema } from './_helpers/settings-schema';
 import { updateAgentSelf } from './_helpers/update-agent-self';
 
 const SOUL_MAX_CHARS = 5000;
 const IDENTITY_MAX_CHARS = 2000;
 const DEFAULT_MEMORY_LIMIT = 10;
 
+let settings: InferSettings<typeof settingsFields> = {};
+
 export const plugin: PluginDefinition = {
   name: 'identity',
   version: '1.0.0',
   settingsSchema,
+  start: async (ctx: PluginContext): Promise<void> => {
+    settings = await ctx.getSettings(settingsSchema);
+  },
   tools: [
     {
       name: 'update_self',
@@ -48,8 +53,6 @@ export const plugin: PluginDefinition = {
   ],
   register: async (ctx: PluginContext): Promise<PluginHooks> => {
     ctx.logger.info('Identity plugin registered');
-
-    let settings = await ctx.getSettings(settingsSchema);
 
     return {
       onSettingsChange: async (pluginName: string) => {

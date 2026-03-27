@@ -20,30 +20,19 @@ export const withTimeout = <T>(promise: Promise<T>, timeoutMs: number, label: st
   const startedAt = Date.now();
 
   return new Promise<T>((resolve, reject) => {
-    let timer: ReturnType<typeof setTimeout> | undefined;
-
-    const cleanup = (winner: 'hook' | 'timer') => {
-      if (winner === 'hook' && timer !== undefined) {
-        clearTimeout(timer);
-        timer = undefined;
-      }
-    };
-
-    timer = setTimeout(() => {
-      const elapsed = Date.now() - startedAt;
-      timer = undefined;
+    const timer = setTimeout(() => {
       // Suppress unhandled rejection from the zombie promise
       promise.catch(() => {});
-      reject(new HookTimeoutError(label, timeoutMs, elapsed));
+      reject(new HookTimeoutError(label, timeoutMs, Date.now() - startedAt));
     }, timeoutMs);
 
     promise.then(
       (value) => {
-        cleanup('hook');
+        clearTimeout(timer);
         resolve(value);
       },
       (err: unknown) => {
-        cleanup('hook');
+        clearTimeout(timer);
         reject(err);
       },
     );

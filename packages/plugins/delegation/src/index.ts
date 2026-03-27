@@ -2,22 +2,22 @@
 // Exposes delegation__delegate and delegation__checkin MCP tools for Claude.
 // Manages task lifecycle and enforces iteration limits via validation hooks.
 
-import type { PluginContext, PluginDefinition, PluginHooks, PluginTool } from '@harness/plugin-contract';
+import type { InferSettings, PluginContext, PluginDefinition, PluginHooks, PluginTool } from '@harness/plugin-contract';
 import { type DelegationResult, runDelegationLoop } from './_helpers/delegation-loop';
 import { createDelegationSemaphore } from './_helpers/delegation-semaphore';
 import { handleCheckin } from './_helpers/handle-checkin';
-import { settingsSchema } from './_helpers/settings-schema';
+import { type settingsFields, settingsSchema } from './_helpers/settings-schema';
 import type { DelegationOptions } from './_helpers/setup-delegation-task';
 
 export type { DelegationOptions, DelegationResult };
 
-type CreateRegister = () => PluginDefinition['register'];
+type CreatePlugin = () => PluginDefinition;
 
-const createRegister: CreateRegister = () => {
+const createPlugin: CreatePlugin = () => {
+  let settings: InferSettings<typeof settingsFields> = {};
+
   const register = async (ctx: PluginContext): Promise<PluginHooks> => {
     ctx.logger.info('Delegation plugin registered');
-
-    let settings = await ctx.getSettings(settingsSchema);
 
     // Store setHooks on the plugin state so the orchestrator can call it after all plugins
     // register — the tool handler uses state.currentHooks to pass allHooks to runDelegationLoop.
@@ -48,7 +48,18 @@ const createRegister: CreateRegister = () => {
     };
   };
 
-  return register;
+  const start = async (ctx: PluginContext): Promise<void> => {
+    settings = await ctx.getSettings(settingsSchema);
+  };
+
+  return {
+    name: 'delegation',
+    version: '1.0.0',
+    settingsSchema,
+    start,
+    register,
+    tools: delegateTools,
+  };
 };
 
 const semaphore = createDelegationSemaphore();
@@ -198,20 +209,6 @@ const delegateTools: PluginTool[] = [
   },
 ];
 
-export const plugin: PluginDefinition = {
-  name: 'delegation',
-  version: '1.0.0',
-  settingsSchema,
-  register: createRegister(),
-  tools: delegateTools,
-};
+export const plugin: PluginDefinition = createPlugin();
 
-type CreateDelegationPlugin = () => PluginDefinition;
-
-export const createDelegationPlugin: CreateDelegationPlugin = () => ({
-  name: 'delegation',
-  version: '1.0.0',
-  settingsSchema,
-  register: createRegister(),
-  tools: delegateTools,
-});
+export const createDelegationPlugin: CreatePlugin = createPlugin;

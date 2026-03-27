@@ -1,7 +1,7 @@
 import { createSettingsSchema } from '@harness/plugin-contract';
 import { VOICE_OPTIONS } from './edge-tts-provider';
 
-export const settingsSchema = createSettingsSchema({
+export const settingsFields = {
   ttsProvider: {
     type: 'select' as const,
     label: 'TTS Provider',
@@ -30,4 +30,6 @@ export const settingsSchema = createSettingsSchema({
     options: [{ label: 'First available', value: '__auto__' }],
     fetchOptionsUrl: '/api/plugins/notifications/devices',
   },
-});
+};
+
+export const settingsSchema = createSettingsSchema(settingsFields);

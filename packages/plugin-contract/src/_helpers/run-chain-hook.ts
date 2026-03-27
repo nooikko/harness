@@ -31,7 +31,7 @@ export const runChainHook: RunChainHook = async (allHooks, hookName, initialValu
       } catch (err) {
         const pluginLabel = names?.[i] ? ` [plugin=${names[i]}]` : '';
         if (err instanceof HookTimeoutError) {
-          logger.error(`Hook "${hookName}" timed out${pluginLabel}: ${err.message}`, {
+          logger.warn(`Hook "${hookName}" timed out${pluginLabel}: ${err.message}`, {
             plugin: names?.[i],
             hookName,
             timeoutMs: err.timeoutMs,

@@ -30,6 +30,7 @@ const makeMockCtx = () => ({
   notifySettingsChange: vi.fn(),
   reportStatus: vi.fn(),
   reportBackgroundError: vi.fn(),
+  runBackground: vi.fn(),
   uploadFile: vi.fn().mockResolvedValue({ fileId: 'test', relativePath: 'test' }),
 });
 
@@ -125,8 +126,8 @@ describe('audit plugin', () => {
 
     await hooks.onSettingsChange!('audit');
 
-    // getSettings called once on register + once on reload
-    expect(ctx.getSettings).toHaveBeenCalledTimes(2);
+    // getSettings called once on reload (start not called in this test)
+    expect(ctx.getSettings).toHaveBeenCalledTimes(1);
     expect(ctx.logger.info).toHaveBeenCalledWith('Audit plugin: settings reloaded');
   });
 
@@ -136,8 +137,8 @@ describe('audit plugin', () => {
 
     await hooks.onSettingsChange!('discord');
 
-    // getSettings called only once on register
-    expect(ctx.getSettings).toHaveBeenCalledTimes(1);
+    // getSettings not called — wrong plugin name, start not called in this test
+    expect(ctx.getSettings).toHaveBeenCalledTimes(0);
   });
 
   it('logs error and broadcasts audit:failed on exception', async () => {
@@ -280,6 +281,7 @@ describe('audit plugin', () => {
     ctx.getSettings.mockResolvedValue({ messageLimit: 3 });
     ctx.db.message.findMany.mockResolvedValue([{ role: 'user', content: 'Hello' }]);
     const hooks = await plugin.register(ctx as never);
+    await plugin.start!(ctx as never);
 
     await hooks.onBroadcast!('audit:requested', { threadId: 't-limit' });
     await new Promise((r) => setTimeout(r, 10));
@@ -317,6 +319,7 @@ describe('audit plugin', () => {
     ctx.getSettings.mockResolvedValue({});
     ctx.db.message.findMany.mockResolvedValue([{ role: 'user', content: 'Hello' }]);
     const hooks = await plugin.register(ctx as never);
+    await plugin.start!(ctx as never);
 
     // First audit uses default messageLimit (200)
     await hooks.onBroadcast!('audit:requested', { threadId: 't-reload-1' });

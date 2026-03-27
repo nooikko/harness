@@ -1,6 +1,6 @@
-import { createSettingsSchema } from '@harness/plugin-contract';
+import { createSettingsSchema, type SettingsFieldDefs } from '@harness/plugin-contract';
 
-export const settingsSchema = createSettingsSchema({
+export const settingsFields = {
   botToken: {
     type: 'string' as const,
     label: 'Bot Token',
@@ -21,4 +21,6 @@ export const settingsSchema = createSettingsSchema({
       'Your Discord user ID. Enables proactive DM delivery for cron outputs and notifications. Right-click your profile in Discord → Copy User ID.',
     required: false,
   },
-});
+} satisfies SettingsFieldDefs;
+
+export const settingsSchema = createSettingsSchema(settingsFields);

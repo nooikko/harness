@@ -164,7 +164,7 @@ describe('runChainHook', () => {
       vi.useRealTimers();
     });
 
-    it('preserves previous value on timeout and logs at error level', async () => {
+    it('preserves previous value on timeout and logs at warn level (not error)', async () => {
       let resolveSlowHook!: (v: string) => void;
       const slowHook = new Promise<string>((r) => {
         resolveSlowHook = r;
@@ -179,10 +179,11 @@ describe('runChainHook', () => {
       const result = await runPromise;
 
       expect(result).toBe('first result');
-      expect(mockLogger.error).toHaveBeenCalledWith(
+      expect(mockLogger.warn).toHaveBeenCalledWith(
         expect.stringContaining('timed out'),
         expect.objectContaining({ plugin: 'slow', hookName: 'onTransform', timeoutMs: 100 }),
       );
+      expect(mockLogger.error).not.toHaveBeenCalled();
 
       resolveSlowHook('too late');
     });

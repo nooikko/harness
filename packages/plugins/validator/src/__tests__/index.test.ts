@@ -37,6 +37,7 @@ const createMockContext: CreateMockContext = () =>
     notifySettingsChange: vi.fn().mockResolvedValue(undefined),
     reportStatus: vi.fn(),
     reportBackgroundError: vi.fn(),
+    runBackground: vi.fn(),
     uploadFile: vi.fn().mockResolvedValue({ fileId: 'test', relativePath: 'test' }),
   }) as unknown as PluginContext;
 
@@ -315,6 +316,7 @@ describe('validator plugin', () => {
       vi.mocked(ctx.getSettings).mockResolvedValueOnce({ model: 'claude-sonnet-4-6' });
 
       const hooks = await plugin.register(ctx);
+      await plugin.start!(ctx);
 
       await hooks.onTaskComplete?.('thread-1', 'task-1', 'some result');
 
@@ -325,6 +327,7 @@ describe('validator plugin', () => {
       vi.mocked(ctx.getSettings).mockResolvedValueOnce({});
 
       const hooks = await plugin.register(ctx);
+      await plugin.start!(ctx);
 
       await hooks.onTaskComplete?.('thread-1', 'task-1', 'some result');
 
@@ -335,6 +338,7 @@ describe('validator plugin', () => {
       vi.mocked(ctx.getSettings).mockResolvedValueOnce({ customRubric: 'Is the code correct?' });
 
       const hooks = await plugin.register(ctx);
+      await plugin.start!(ctx);
 
       await hooks.onTaskComplete?.('thread-1', 'task-1', 'some result');
 
@@ -348,8 +352,9 @@ describe('validator plugin', () => {
     it('reloads settings when pluginName is validator', async () => {
       const ctx = createMockContext();
       const hooks = await plugin.register(ctx);
+      await plugin.start!(ctx);
 
-      // register calls getSettings once
+      // start calls getSettings once
       expect(ctx.getSettings).toHaveBeenCalledTimes(1);
 
       await hooks.onSettingsChange?.('validator');
@@ -360,18 +365,20 @@ describe('validator plugin', () => {
     it('ignores settings change for other plugins', async () => {
       const ctx = createMockContext();
       const hooks = await plugin.register(ctx);
+      await plugin.start!(ctx);
 
       await hooks.onSettingsChange?.('cron');
 
-      // Only the initial call from register, no reload
+      // Only the initial call from start, no reload
       expect(ctx.getSettings).toHaveBeenCalledTimes(1);
     });
 
     it('uses reloaded settings on subsequent onTaskComplete calls', async () => {
       const ctx = createMockContext();
-      // Initial registration returns default settings (no model override)
+      // Initial start returns default settings (no model override)
       vi.mocked(ctx.getSettings).mockResolvedValueOnce({});
       const hooks = await plugin.register(ctx);
+      await plugin.start!(ctx);
 
       // Simulate admin changing model to sonnet
       vi.mocked(ctx.getSettings).mockResolvedValueOnce({ model: 'claude-sonnet-4-6' });

@@ -40,6 +40,7 @@ const createMockContext = (overrides: Partial<PluginContext> = {}): PluginContex
     notifySettingsChange: vi.fn().mockResolvedValue(undefined),
     reportStatus: vi.fn(),
     reportBackgroundError: vi.fn(),
+    runBackground: vi.fn(),
     uploadFile: vi.fn().mockResolvedValue({ fileId: 'test', relativePath: 'test' }),
     executeTool: vi.fn().mockResolvedValue('Tool executed successfully'),
     state: createPluginState(),

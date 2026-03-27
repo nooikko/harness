@@ -126,6 +126,7 @@ const createMockContext = (overrides: Partial<PluginContext['config']> = {}): Pl
     notifySettingsChange: vi.fn().mockResolvedValue(undefined),
     reportStatus: vi.fn(),
     reportBackgroundError: vi.fn(),
+    runBackground: vi.fn(),
     uploadFile: vi.fn().mockResolvedValue({ fileId: 'test', relativePath: 'test' }),
   }) as unknown as PluginContext;
 
@@ -169,9 +170,10 @@ describe('discord plugin', () => {
       expect(hooks.onMessage).toBeUndefined();
     });
 
-    it('register calls ctx.getSettings and returns onSettingsChange hook', async () => {
+    it('start calls ctx.getSettings and register returns onSettingsChange hook', async () => {
       const ctx = createMockContext();
       const hooks = await plugin.register(ctx);
+      await plugin.start?.(ctx);
       expect(ctx.getSettings).toHaveBeenCalledWith(expect.objectContaining({ toFieldArray: expect.any(Function) }));
       expect(typeof hooks.onSettingsChange).toBe('function');
     });
@@ -805,20 +807,20 @@ describe('discord plugin', () => {
       mockLogin.mockResolvedValue('token');
       const ctx = createMockContext({ discordToken: 'test-token' });
       (ctx.getSettings as ReturnType<typeof vi.fn>)
-        .mockResolvedValueOnce({}) // register
+        .mockResolvedValueOnce({}) // start (initial)
         .mockResolvedValue({
           botToken: 'test-token',
           allowedChannelIds: 'chan-1, chan-2',
-        }); // onSettingsChange
+        }); // onSettingsChange + reconnect via start
 
       const hooks = await plugin.register(ctx);
       await plugin.start?.(ctx);
 
       await hooks.onSettingsChange?.('discord');
 
-      // Verify it re-fetched settings (the allowed channels parsing is internal,
-      // but we verify getSettings was called during onSettingsChange)
-      expect(ctx.getSettings).toHaveBeenCalledTimes(2);
+      // Verify it re-fetched settings: once in start + twice in onSettingsChange
+      // (onSettingsChange reads settings, then calls start() again to reconnect)
+      expect(ctx.getSettings).toHaveBeenCalledTimes(3);
     });
 
     it('applies updated allowedChannels to subsequent message filtering', async () => {
@@ -1447,14 +1449,14 @@ describe('discord plugin', () => {
     });
 
     it('returns error when client is not connected', async () => {
-      const ctx = createMockContext({ discordToken: 'test-token' });
+      // No discordToken — start() skips login so client stays null
+      const ctx = createMockContext();
       (ctx.getSettings as ReturnType<typeof vi.fn>).mockResolvedValue({
-        botToken: 'test-token',
         ownerDiscordUserId: 'owner-123',
       });
 
-      await plugin.register(ctx);
-      // Don't start — client is null
+      await plugin.start?.(ctx);
+      // client is null because no token was provided
 
       const tool = plugin.tools?.find((t) => t.name === 'send_dm');
       const result = await tool?.handler(ctx, { message: 'Hey' }, { threadId: 'thread-1' });

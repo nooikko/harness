@@ -52,6 +52,7 @@ const createMockContext = (options?: CreateMockContextOptions): PluginContext =>
     notifySettingsChange: vi.fn().mockResolvedValue(undefined),
     reportStatus: vi.fn(),
     reportBackgroundError: vi.fn(),
+    runBackground: vi.fn(),
     uploadFile: vi.fn().mockResolvedValue({ fileId: 'test', relativePath: 'test' }),
   };
 };
@@ -530,6 +531,7 @@ describe('context plugin', () => {
       summaryLookback: 5,
     });
     const hooks = await plugin.register(ctx);
+    await plugin.start!(ctx);
 
     await hooks.onBeforeInvoke?.('thread-1', 'prompt');
 
@@ -542,19 +544,21 @@ describe('context plugin', () => {
   it('reloads settings on onSettingsChange for context plugin', async () => {
     const ctx = createMockContext();
     const hooks = await plugin.register(ctx);
+    await plugin.start!(ctx);
 
     await hooks.onSettingsChange?.('context');
 
-    expect(ctx.getSettings).toHaveBeenCalledTimes(2); // once on register, once on reload
+    expect(ctx.getSettings).toHaveBeenCalledTimes(2); // once on start, once on reload
     expect(ctx.logger.info).toHaveBeenCalledWith('Context plugin: settings reloaded');
   });
 
   it('ignores onSettingsChange for other plugins', async () => {
     const ctx = createMockContext();
     const hooks = await plugin.register(ctx);
+    await plugin.start!(ctx);
 
     await hooks.onSettingsChange?.('cron');
 
-    expect(ctx.getSettings).toHaveBeenCalledTimes(1); // only on register
+    expect(ctx.getSettings).toHaveBeenCalledTimes(1); // only on start
   });
 });

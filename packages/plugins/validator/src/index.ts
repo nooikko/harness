@@ -1,19 +1,19 @@
 // Validator plugin — quality-gates sub-agent delegation outputs via onTaskComplete hook
 
-import type { PluginContext, PluginDefinition, PluginHooks } from '@harness/plugin-contract';
+import type { InferSettings, PluginContext, PluginDefinition, PluginHooks } from '@harness/plugin-contract';
 import { buildRubricPrompt } from './_helpers/build-rubric-prompt';
 import { parseVerdict } from './_helpers/parse-verdict';
-import { settingsSchema } from './_helpers/settings-schema';
+import { type settingsFields, settingsSchema } from './_helpers/settings-schema';
 
 const DEFAULT_MODEL = 'claude-opus-4-6';
+
+let settings: InferSettings<typeof settingsFields> = {};
 
 type CreateRegister = () => PluginDefinition['register'];
 
 const createRegister: CreateRegister = () => {
   const register = async (ctx: PluginContext): Promise<PluginHooks> => {
     ctx.logger.info('Validator plugin registered');
-
-    let settings = await ctx.getSettings(settingsSchema);
 
     return {
       onSettingsChange: async (pluginName: string) => {
@@ -99,5 +99,8 @@ export const plugin: PluginDefinition = {
   name: 'validator',
   version: '1.0.0',
   settingsSchema,
+  start: async (ctx: PluginContext): Promise<void> => {
+    settings = await ctx.getSettings(settingsSchema);
+  },
   register: createRegister(),
 };

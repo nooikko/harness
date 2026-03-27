@@ -1,9 +1,9 @@
 import { listDevices, resolveDevice, startDiscovery, stopDiscovery } from '@harness/cast-devices';
-import type { PluginContext, PluginDefinition, PluginHooks } from '@harness/plugin-contract';
+import type { InferSettings, PluginContext, PluginDefinition, PluginHooks } from '@harness/plugin-contract';
 import { createAudioServer } from './_helpers/audio-server';
 import { announce } from './_helpers/cast-announcer';
 import { deviceRoutes } from './_helpers/device-routes';
-import { settingsSchema } from './_helpers/settings-schema';
+import { type settingsFields, settingsSchema } from './_helpers/settings-schema';
 import type { TtsProvider } from './_helpers/tts-provider';
 import { createTtsProvider } from './_helpers/tts-provider';
 
@@ -13,12 +13,7 @@ let audioServer: ReturnType<typeof createAudioServer> | null = null;
 let ttsProvider: TtsProvider | null = null;
 const AUDIO_SERVER_PORT = 9849;
 
-let currentSettings = {
-  ttsProvider: 'edge-tts',
-  voice: 'en-US-AvaMultilingualNeural',
-  volume: 70,
-  defaultDevice: '',
-};
+let currentSettings: InferSettings<typeof settingsFields> = {};
 
 // --- Helpers ---
 
@@ -30,12 +25,12 @@ const performAnnouncement: PerformAnnouncement = async (ctx, message, deviceName
   }
 
   const device = resolveDevice(deviceName || currentSettings.defaultDevice || undefined);
-  const volume = (volumeOverride ?? currentSettings.volume) / 100;
+  const volume = (volumeOverride ?? currentSettings.volume ?? 70) / 100;
 
   ctx.logger.info(`notifications: generating TTS for "${message.slice(0, 50)}..." → ${device.name}`);
 
   // Generate audio
-  const audioBuffer = await ttsProvider.generate(message, currentSettings.voice);
+  const audioBuffer = await ttsProvider.generate(message, currentSettings.voice ?? 'en-US-AvaMultilingualNeural');
 
   // Register with audio server so Cast device can fetch it
   const audioUrl = audioServer.register(audioBuffer, 'audio/mpeg');
@@ -105,14 +100,6 @@ export const plugin: PluginDefinition = {
   ],
 
   register: async (ctx: PluginContext): Promise<PluginHooks> => {
-    const settings = await ctx.getSettings(settingsSchema);
-    currentSettings = {
-      ttsProvider: settings.ttsProvider || 'edge-tts',
-      voice: settings.voice || 'en-US-AvaMultilingualNeural',
-      volume: settings.volume ?? 70,
-      defaultDevice: settings.defaultDevice === '__auto__' ? '' : settings.defaultDevice || '',
-    };
-
     return {
       onBroadcast: async (event: string, data: unknown) => {
         if (event !== 'notification:announce') {
@@ -160,6 +147,14 @@ export const plugin: PluginDefinition = {
   },
 
   start: async (ctx: PluginContext): Promise<void> => {
+    const s = await ctx.getSettings(settingsSchema);
+    currentSettings = {
+      ttsProvider: s.ttsProvider || 'edge-tts',
+      voice: s.voice || 'en-US-AvaMultilingualNeural',
+      volume: s.volume ?? 70,
+      defaultDevice: s.defaultDevice === '__auto__' ? '' : s.defaultDevice || '',
+    };
+
     ctx.logger.info('notifications: starting');
 
     // Initialize TTS provider

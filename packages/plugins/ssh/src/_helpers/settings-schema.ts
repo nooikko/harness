@@ -1,6 +1,6 @@
-import { createSettingsSchema } from '@harness/plugin-contract';
+import { createSettingsSchema, type SettingsFieldDefs } from '@harness/plugin-contract';
 
-export const settingsSchema = createSettingsSchema({
+export const settingsFields = {
   defaultTimeout: {
     type: 'number' as const,
     label: 'Default Timeout (seconds)',
@@ -28,4 +28,6 @@ export const settingsSchema = createSettingsSchema({
     description: 'Maximum total SSH connections across all hosts.',
     default: 20,
   },
-});
+} satisfies SettingsFieldDefs;
+
+export const settingsSchema = createSettingsSchema(settingsFields);

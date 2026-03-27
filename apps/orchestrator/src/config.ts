@@ -33,13 +33,13 @@ export const loadConfig: LoadConfig = () => {
 
   const hookTimeouts: HookTimeouts = {
     onMessage: env.HOOK_TIMEOUT_ON_MESSAGE ?? 5_000,
-    onBeforeInvoke: env.HOOK_TIMEOUT_ON_BEFORE_INVOKE ?? 2_000,
+    onBeforeInvoke: env.HOOK_TIMEOUT_ON_BEFORE_INVOKE ?? 15_000,
     onAfterInvoke: env.HOOK_TIMEOUT_ON_AFTER_INVOKE ?? 5_000,
     onBroadcast: env.HOOK_TIMEOUT_ON_BROADCAST ?? 10_000,
     onPipelineStart: env.HOOK_TIMEOUT_ON_PIPELINE_START ?? 5_000,
     onPipelineComplete: env.HOOK_TIMEOUT_ON_PIPELINE_COMPLETE ?? 15_000,
     onSettingsChange: env.HOOK_TIMEOUT_ON_SETTINGS_CHANGE ?? 30_000,
-    onIntentClassify: env.HOOK_TIMEOUT_ON_INTENT_CLASSIFY,
+    onIntentClassify: env.HOOK_TIMEOUT_ON_INTENT_CLASSIFY ?? 2_000,
   };
 
   const config: OrchestratorConfig = {

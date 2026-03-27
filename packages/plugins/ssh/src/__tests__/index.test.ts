@@ -92,6 +92,7 @@ const makeMockCtx = (db: PrismaClient, overrides: Record<string, unknown> = {}) 
   }),
   reportStatus: vi.fn(),
   reportBackgroundError: vi.fn(),
+  runBackground: vi.fn(),
   uploadFile: vi.fn().mockResolvedValue({ fileId: 'test', relativePath: 'test' }),
   broadcast: vi.fn(),
   sendToThread: vi.fn(),
@@ -187,7 +188,7 @@ describe('SSH plugin', () => {
       const db = makeMockDb();
       const ctx = makeMockCtx(db);
 
-      await plugin.register!(ctx as never);
+      await plugin.start!(ctx as never);
 
       expect(ctx.getSettings).toHaveBeenCalledWith(plugin.settingsSchema);
     });
@@ -199,7 +200,7 @@ describe('SSH plugin', () => {
       const db = makeMockDb();
       const ctx = makeMockCtx(db);
 
-      await plugin.register!(ctx as never);
+      await plugin.start!(ctx as never);
 
       expect(ctx.reportStatus).toHaveBeenCalledWith('degraded', 'HARNESS_ENCRYPTION_KEY not set — cannot store SSH keys securely');
     });
@@ -239,8 +240,8 @@ describe('SSH plugin', () => {
       const db = makeMockDb();
       const ctx = makeMockCtx(db);
 
-      // Initialize pool by running register first
-      await plugin.register!(ctx as never);
+      // Initialize pool by running start first
+      await plugin.start!(ctx as never);
       await plugin.stop!(ctx as never);
 
       expect(mockPool.releaseAll).toHaveBeenCalledTimes(1);
@@ -250,7 +251,7 @@ describe('SSH plugin', () => {
       const db = makeMockDb();
       const ctx = makeMockCtx(db);
 
-      await plugin.register!(ctx as never);
+      await plugin.start!(ctx as never);
       await plugin.stop!(ctx as never);
 
       expect(ctx.logger.info).toHaveBeenCalledWith('SSH plugin stopped');
@@ -264,6 +265,7 @@ describe('SSH plugin', () => {
       const db = makeMockDb();
       const ctx = makeMockCtx(db);
       await plugin.register!(ctx as never);
+      await plugin.start!(ctx as never);
 
       const host = makeResolvedHost();
       mockResolveHost.mockResolvedValue(host);
@@ -287,6 +289,7 @@ describe('SSH plugin', () => {
       const db = makeMockDb();
       const ctx = makeMockCtx(db);
       await plugin.register!(ctx as never);
+      await plugin.start!(ctx as never);
 
       const host = makeResolvedHost();
       mockResolveHost.mockResolvedValue(host);
@@ -324,6 +327,7 @@ describe('SSH plugin', () => {
       const db = makeMockDb();
       const ctx = makeMockCtx(db);
       await plugin.register!(ctx as never);
+      await plugin.start!(ctx as never);
 
       mockResolveHost.mockRejectedValue(new Error('SSH host not found: ghost'));
 
@@ -336,6 +340,7 @@ describe('SSH plugin', () => {
       const db = makeMockDb();
       const ctx = makeMockCtx(db);
       await plugin.register!(ctx as never);
+      await plugin.start!(ctx as never);
 
       const host = makeResolvedHost();
       mockResolveHost.mockResolvedValue(host);
@@ -366,6 +371,7 @@ describe('SSH plugin', () => {
       const db = makeMockDb();
       const ctx = makeMockCtx(db);
       await plugin.register!(ctx as never);
+      await plugin.start!(ctx as never);
 
       const host = makeResolvedHost();
       mockResolveHost.mockResolvedValue(host);
@@ -389,6 +395,7 @@ describe('SSH plugin', () => {
       const db = makeMockDb();
       const ctx = makeMockCtx(db);
       await plugin.register!(ctx as never);
+      await plugin.start!(ctx as never);
 
       const host = makeResolvedHost();
       mockResolveHost.mockResolvedValue(host);
@@ -675,6 +682,7 @@ describe('SSH plugin', () => {
       const db = makeMockDb();
       const ctx = makeMockCtx(db);
       await plugin.register!(ctx as never);
+      await plugin.start!(ctx as never);
 
       const host = makeResolvedHost({ fingerprint: 'existing-fingerprint' });
       mockResolveHost.mockResolvedValue(host);
@@ -692,6 +700,7 @@ describe('SSH plugin', () => {
       const db = makeMockDb();
       const ctx = makeMockCtx(db);
       await plugin.register!(ctx as never);
+      await plugin.start!(ctx as never);
 
       const host = makeResolvedHost({ fingerprint: 'fp-abc' });
       mockResolveHost.mockResolvedValue(host);
@@ -711,6 +720,7 @@ describe('SSH plugin', () => {
       const db = makeMockDb();
       const ctx = makeMockCtx(db);
       await plugin.register!(ctx as never);
+      await plugin.start!(ctx as never);
 
       mockResolveHost.mockRejectedValue(new Error('SSH host is disabled: locked-server'));
 
@@ -723,6 +733,7 @@ describe('SSH plugin', () => {
       const db = makeMockDb();
       const ctx = makeMockCtx(db);
       await plugin.register!(ctx as never);
+      await plugin.start!(ctx as never);
 
       const host = makeResolvedHost();
       mockResolveHost.mockResolvedValue(host);
@@ -737,6 +748,7 @@ describe('SSH plugin', () => {
       const db = makeMockDb();
       const ctx = makeMockCtx(db);
       await plugin.register!(ctx as never);
+      await plugin.start!(ctx as never);
 
       const host = makeResolvedHost({ fingerprint: 'fp-xyz' });
       mockResolveHost.mockResolvedValue(host);

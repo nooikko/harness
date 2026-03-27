@@ -111,6 +111,109 @@ describe('createBackgroundErrorTracker', () => {
     expect(statusRegistry.report).not.toHaveBeenCalled();
   });
 
+  describe('running task tracking', () => {
+    it('trackStart registers a running task and returns a unique taskId', () => {
+      const taskId = tracker.trackStart('music', 'castDiscovery');
+
+      expect(taskId).toBeTruthy();
+      expect(typeof taskId).toBe('string');
+
+      const running = tracker.getRunning('music');
+      expect(running).toHaveLength(1);
+      expect(running[0]).toEqual(
+        expect.objectContaining({
+          pluginName: 'music',
+          taskName: 'castDiscovery',
+        }),
+      );
+      expect(running[0]?.startedAt).toBeGreaterThan(0);
+    });
+
+    it('trackStart returns distinct taskIds for concurrent tasks with same name', () => {
+      const id1 = tracker.trackStart('music', 'sync');
+      const id2 = tracker.trackStart('music', 'sync');
+
+      expect(id1).not.toBe(id2);
+      expect(tracker.getRunning('music')).toHaveLength(2);
+    });
+
+    it('trackComplete removes a running task', () => {
+      const taskId = tracker.trackStart('music', 'castDiscovery');
+      expect(tracker.getRunning('music')).toHaveLength(1);
+
+      tracker.trackComplete(taskId);
+
+      expect(tracker.getRunning('music')).toHaveLength(0);
+    });
+
+    it('trackComplete is a no-op for unknown taskId', () => {
+      tracker.trackStart('music', 'castDiscovery');
+
+      tracker.trackComplete('nonexistent-id');
+
+      expect(tracker.getRunning('music')).toHaveLength(1);
+    });
+
+    it('trackFail removes from running and delegates to report()', () => {
+      const taskId = tracker.trackStart('music', 'castDiscovery');
+      const error = new Error('connection lost');
+
+      tracker.trackFail(taskId, error);
+
+      // Should be removed from running
+      expect(tracker.getRunning('music')).toHaveLength(0);
+
+      // Should have delegated to report() — error count incremented
+      const errors = tracker.getErrors('music');
+      expect(errors.castDiscovery?.count).toBe(1);
+      expect(errors.castDiscovery?.lastError).toBe('connection lost');
+    });
+
+    it('trackFail is a no-op for unknown taskId', () => {
+      tracker.trackFail('nonexistent-id', new Error('fail'));
+
+      expect(logger.error).not.toHaveBeenCalled();
+    });
+
+    it('getRunning returns empty array for unknown plugin', () => {
+      expect(tracker.getRunning('nonexistent')).toEqual([]);
+    });
+
+    it('getAllRunning returns tasks across all plugins', () => {
+      tracker.trackStart('music', 'castDiscovery');
+      tracker.trackStart('discord', 'gateway');
+
+      const all = tracker.getAllRunning();
+      expect(all).toHaveLength(2);
+
+      const pluginNames = all.map((t) => t.pluginName);
+      expect(pluginNames).toContain('music');
+      expect(pluginNames).toContain('discord');
+    });
+
+    it('getAllRunning returns empty array when nothing is running', () => {
+      expect(tracker.getAllRunning()).toEqual([]);
+    });
+
+    it('trackFail escalates to status registry after threshold', () => {
+      // trackFail delegates to report(), which escalates at 5 errors
+      for (let i = 0; i < 5; i++) {
+        const taskId = tracker.trackStart('music', 'castDiscovery');
+        tracker.trackFail(taskId, new Error('repeated failure'));
+      }
+
+      expect(statusRegistry.report).toHaveBeenCalledWith(
+        'music',
+        'degraded',
+        expect.stringContaining('castDiscovery'),
+        expect.objectContaining({
+          taskName: 'castDiscovery',
+          errorCount: 5,
+        }),
+      );
+    });
+  });
+
   it('decays error count after 15-minute window', () => {
     vi.useFakeTimers();
 
