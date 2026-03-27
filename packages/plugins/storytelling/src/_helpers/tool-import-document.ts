@@ -76,6 +76,7 @@ export const handleImportDocument: HandleImportDocument = async (ctx, storyId, i
   let totalLocations = 0;
   let totalCharacterUpdates = 0;
   let driftFlags = 0;
+  let successfulChunks = 0;
 
   for (let i = 0; i < chunks.length; i++) {
     const chunk = chunks[i]!;
@@ -115,6 +116,8 @@ export const handleImportDocument: HandleImportDocument = async (ctx, storyId, i
       });
       continue;
     }
+
+    successfulChunks++;
 
     // Count drift flags before applying
     driftFlags += parsed.moments.filter((m) => m.driftFlag).length;
@@ -159,12 +162,13 @@ export const handleImportDocument: HandleImportDocument = async (ctx, storyId, i
     );
   }
 
-  // Mark transcript as processed
+  // Mark transcript as processed only if at least one chunk succeeded —
+  // if all chunks failed, leave processed:false so retry is possible
   await ctx.db.storyTranscript.update({
     where: { id: transcript.id },
     data: {
-      processed: true,
-      processedThrough: chunks.length - 1,
+      ...(successfulChunks > 0 ? { processed: true } : {}),
+      processedThrough: successfulChunks > 0 ? chunks.length - 1 : -1,
       totalChunks: chunks.length,
     },
   });

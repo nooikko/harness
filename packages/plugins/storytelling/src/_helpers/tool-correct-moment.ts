@@ -68,6 +68,15 @@ export const handleCorrectMoment: HandleCorrectMoment = async (ctx, storyId, inp
   if (input.addCharacters && input.addCharacters.length > 0) {
     let added = 0;
     for (const char of input.addCharacters) {
+      // Guard against duplicate CharacterInMoment records
+      const alreadyLinked = await ctx.db.characterInMoment.findFirst({
+        where: { momentId: input.momentId, characterName: { equals: char.name, mode: 'insensitive' } },
+        select: { id: true },
+      });
+      if (alreadyLinked) {
+        continue;
+      }
+
       // Try to resolve character ID
       const existing = await ctx.db.storyCharacter.findFirst({
         where: { storyId, name: { equals: char.name, mode: 'insensitive' } },

@@ -1,6 +1,7 @@
 import type { PluginContext } from '@harness/plugin-contract';
 import { applyExtraction } from './apply-extraction';
 import { buildExtractionPrompt } from './build-extraction-prompt';
+import { EXTRACTION_MODEL, EXTRACTION_TIMEOUT, loadExtractionSystemPrompt } from './extraction-config';
 import { parseExtractionResult } from './parse-extraction-result';
 
 type ExtractStoryState = (ctx: PluginContext, storyId: string, threadId: string, assistantOutput: string) => Promise<void>;
@@ -56,8 +57,14 @@ export const extractStoryState: ExtractStoryState = async (ctx, storyId, threadI
     latestExchange,
   });
 
-  // 7. Call Haiku
-  const result = await ctx.invoker.invoke(prompt, { model: 'claude-haiku-4-5-20251001' });
+  // 7. Call extraction model with Safe Space soul
+  const systemPrompt = await loadExtractionSystemPrompt(ctx);
+  const result = await ctx.invoker.invoke(prompt, {
+    model: EXTRACTION_MODEL,
+    maxTurns: 1,
+    timeout: EXTRACTION_TIMEOUT,
+    systemPrompt,
+  });
 
   // 8. Check for invocation errors (e.g. content refusal)
   if (result.error) {
@@ -81,5 +88,5 @@ export const extractStoryState: ExtractStoryState = async (ctx, storyId, threadI
   }
 
   // 9. Apply extraction to DB
-  await applyExtraction(parsed, ctx.db as never, storyId);
+  await applyExtraction(parsed, ctx.db as never, storyId, ctx as never);
 };

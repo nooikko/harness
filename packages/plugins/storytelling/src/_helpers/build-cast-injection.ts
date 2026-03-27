@@ -37,7 +37,7 @@ export const buildCastInjection: BuildCastInjection = async (storyId, currentSce
       take: 50,
     }),
     db.storyMoment.findMany({
-      where: { storyId },
+      where: { storyId, deletedAt: null },
       select: { id: true, summary: true, importance: true },
       orderBy: { importance: 'desc' },
       take: 200,

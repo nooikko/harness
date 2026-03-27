@@ -292,6 +292,21 @@ describe('handleImportCharacters', () => {
     vi.mocked(resolveCharacterIdentity).mockReturnValue({ action: 'create' });
   });
 
+  it('upsert update clause does not contain destructive aliases set', async () => {
+    const invokeOutput = JSON.stringify({
+      characters: [{ action: 'create', name: 'Violet', aliases: ['Vi', 'V'], fields: { personality: 'Guarded' } }],
+    });
+
+    const ctx = createMockCtx(invokeOutput);
+    await handleImportCharacters(ctx, 'story-1', { text: 'Violet is guarded.' });
+
+    const upsertCall = vi.mocked(ctx.db.storyCharacter.upsert).mock.calls[0]?.[0] as {
+      update: Record<string, unknown>;
+    };
+    // The update clause must NOT contain aliases: { set: ... } — the alias-merge block handles aliases additively
+    expect(upsertCall.update).not.toHaveProperty('aliases');
+  });
+
   it('falls through to create when judge target not found in DB', async () => {
     const { findSimilarCharacters } = await import('../find-similar-characters');
     const { resolveCharacterIdentity } = await import('../resolve-character-identity');

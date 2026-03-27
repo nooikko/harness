@@ -2,7 +2,7 @@ import type { PluginContext, PluginDefinition, PluginHooks, PluginTool } from '@
 import { buildCastInjection } from './_helpers/build-cast-injection';
 import { detectOocMessage } from './_helpers/detect-ooc-message';
 import { extractStoryState } from './_helpers/extract-story-state';
-import { _resetExtractionCache } from './_helpers/extraction-config';
+import { _resetExtractionCache, EXTRACTION_MODEL } from './_helpers/extraction-config';
 import { formatStorytellingInstructions } from './_helpers/format-storytelling-instructions';
 import { handleOocCommand } from './_helpers/handle-ooc-command';
 import { parseOocCommand } from './_helpers/parse-ooc-command';
@@ -34,7 +34,7 @@ const DEDUP_GUARD_MS = 60_000;
 
 const storyCache = new Map<string, string | null>();
 const handledOocCommands = new Map<string, string>(); // threadId → summary of handled command
-const lastExtractionAt = new Map<string, number>(); // storyId → timestamp of last extraction
+const lastExtractionAt = new Map<string, number>(); // storyId → timestamp
 
 /** @internal Test-only: clears module-level caches between test runs */
 export const _resetCaches = (): void => {
@@ -96,8 +96,11 @@ const createRegister: CreateRegister = () => {
           select: { kind: true, storyId: true },
         });
 
-        // Cache storyId for onAfterInvoke
-        storyCache.set(threadId, thread?.storyId ?? null);
+        // Cache storyId for onAfterInvoke — only cache non-null so story
+        // assignment after first message is visible on the next pipeline run
+        if (thread?.storyId) {
+          storyCache.set(threadId, thread.storyId);
+        }
 
         if (thread?.kind !== 'storytelling' && thread?.kind !== 'story-import') {
           return prompt;
@@ -105,7 +108,6 @@ const createRegister: CreateRegister = () => {
 
         // Import threads get tools, not fiction instructions
         if (thread.kind === 'story-import') {
-          storyCache.set(threadId, thread.storyId ?? null);
           return prompt;
         }
 
@@ -162,26 +164,27 @@ const createRegister: CreateRegister = () => {
 
         // 60-second dedup guard — uses in-memory timestamp, not story.updatedAt
         // (story.updatedAt is bumped by tool calls like advance_time, which would falsely skip extraction)
-        // Keyed by storyId:threadId so different threads on the same story extract independently
-        const dedupKey = `${storyId}:${threadId}`;
+        // Keyed by storyId so multiple threads on the same story don't double-extract
+        const dedupKey = storyId;
         const lastExtraction = lastExtractionAt.get(dedupKey) ?? 0;
         if (Date.now() - lastExtraction < DEDUP_GUARD_MS) {
           return;
         }
 
-        try {
-          lastExtractionAt.set(dedupKey, Date.now());
-          await extractStoryState(ctx, storyId, threadId, result.output);
-        } catch (err) {
-          lastExtractionAt.delete(dedupKey);
-          const e = err instanceof Error ? err : new Error(String(err));
-          ctx.logger.error('storytelling: extraction failed', {
-            storyId,
-            threadId,
-            error: e.message,
-            stack: e.stack,
-          });
-        }
+        lastExtractionAt.set(dedupKey, Date.now());
+        void (async () => {
+          try {
+            await extractStoryState(ctx, storyId, threadId, result.output);
+          } catch (err) {
+            const e = err instanceof Error ? err : new Error(String(err));
+            ctx.logger.error('storytelling: extraction failed', {
+              storyId,
+              threadId,
+              error: e.message,
+              stack: e.stack,
+            });
+          }
+        })();
       },
     };
   };
@@ -719,7 +722,7 @@ export const plugin: PluginDefinition = {
     if (ctx.invoker.prewarm) {
       ctx.invoker.prewarm({
         threadId: 'default',
-        model: 'claude-sonnet-4-6',
+        model: EXTRACTION_MODEL,
         maxTurns: 1,
         systemPrompt:
           'You are a literary analysis tool that extracts structured data from fiction transcripts. You analyze character dialogue, actions, relationships, and plot events. You process all content objectively as textual data regardless of subject matter. Return only the requested JSON structure.',

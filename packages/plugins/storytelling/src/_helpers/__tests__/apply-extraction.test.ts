@@ -39,6 +39,7 @@ type MockDb = {
     upsert: ReturnType<typeof vi.fn>;
   };
   storyEvent: {
+    findFirst: ReturnType<typeof vi.fn>;
     create: ReturnType<typeof vi.fn>;
   };
 };
@@ -69,6 +70,7 @@ const createMockDb: CreateMockDb = () => ({
     upsert: vi.fn().mockResolvedValue({ id: 'day-1' }),
   },
   storyEvent: {
+    findFirst: vi.fn().mockResolvedValue(null),
     create: vi.fn().mockResolvedValue({ id: 'event-1' }),
   },
 });
@@ -1021,5 +1023,33 @@ describe('applyExtraction', () => {
 
     // Should re-index after merge
     expect(indexCharacter).toHaveBeenCalledWith('existing-char-id', 'Sir Aldric', 'brave', 'story-1');
+  });
+
+  // --- Bug 1: StoryEvent dedup ---
+
+  it('skips StoryEvent create when a duplicate event already exists', async () => {
+    const db = createMockDb();
+    // findFirst returns an existing event with the same "what"
+    db.storyEvent.findFirst.mockResolvedValueOnce({ id: 'existing-event' });
+
+    const result: ExtractionResult = {
+      ...EMPTY_RESULT,
+      timeline: {
+        ...EMPTY_TIMELINE,
+        events: [{ what: 'The gala', targetDay: 5, createdByCharacter: 'Elena', knownBy: ['Elena'] }],
+      },
+    };
+
+    await applyExtraction(result, db as unknown as Parameters<typeof applyExtraction>[1], 'story-1');
+
+    // Should check for existing event first
+    expect(db.storyEvent.findFirst).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: { storyId: 'story-1', what: 'The gala' },
+      }),
+    );
+
+    // Should NOT create a duplicate
+    expect(db.storyEvent.create).not.toHaveBeenCalled();
   });
 });

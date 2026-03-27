@@ -42,6 +42,8 @@ Reply with ONLY the number (e.g., "1") of the matching candidate, or "none" if t
 
   const result = await ctx.invoker.invoke(prompt, {
     model: 'claude-haiku-4-5-20251001',
+    threadId: 'storytelling-judge',
+    timeout: 30_000,
   });
   const output = result.output.trim().toLowerCase();
 

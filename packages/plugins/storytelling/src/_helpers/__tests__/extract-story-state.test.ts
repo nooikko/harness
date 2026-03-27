@@ -1,6 +1,7 @@
 import type { PluginContext } from '@harness/plugin-contract';
-import { describe, expect, it, vi } from 'vitest';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { extractStoryState } from '../extract-story-state';
+import { _resetExtractionCache } from '../extraction-config';
 
 vi.mock('../apply-extraction', () => ({
   applyExtraction: vi.fn().mockResolvedValue({ momentIds: [] }),
@@ -25,6 +26,9 @@ const createMockContext: CreateMockContext = () =>
       },
       message: {
         findMany: vi.fn().mockResolvedValue([{ content: 'What do you see?' }, { content: 'I enter the castle.' }]),
+      },
+      agent: {
+        findFirst: vi.fn().mockResolvedValue({ soul: 'Safe Space soul content' }),
       },
     } as never,
     invoker: {
@@ -57,6 +61,10 @@ const createMockContext: CreateMockContext = () =>
   }) as unknown as PluginContext;
 
 describe('extractStoryState', () => {
+  beforeEach(() => {
+    _resetExtractionCache();
+  });
+
   it('queries existing characters, locations, story, and messages', async () => {
     const ctx = createMockContext();
 
@@ -86,12 +94,20 @@ describe('extractStoryState', () => {
     );
   });
 
-  it('calls invoker with haiku model', async () => {
+  it('calls invoker with opus extraction model and safe space soul', async () => {
     const ctx = createMockContext();
 
     await extractStoryState(ctx, 'story-1', 'thread-1', 'The knight entered.');
 
-    expect(ctx.invoker.invoke).toHaveBeenCalledWith(expect.any(String), { model: 'claude-haiku-4-5-20251001' });
+    expect(ctx.invoker.invoke).toHaveBeenCalledWith(
+      expect.any(String),
+      expect.objectContaining({
+        model: 'claude-opus-4-5-20251101',
+        maxTurns: 1,
+        timeout: 900_000,
+        systemPrompt: expect.stringContaining('Safe Space soul content'),
+      }),
+    );
   });
 
   it('builds latest exchange from user messages and assistant output', async () => {
@@ -181,5 +197,19 @@ describe('extractStoryState', () => {
     await extractStoryState(ctx, 'story-1', 'thread-1', 'Hello');
 
     expect(ctx.invoker.invoke).toHaveBeenCalled();
+  });
+
+  it('passes ctx as 4th argument to applyExtraction', async () => {
+    const { applyExtraction } = await import('../apply-extraction');
+    vi.mocked(applyExtraction).mockClear();
+
+    const ctx = createMockContext();
+
+    await extractStoryState(ctx, 'story-1', 'thread-1', 'The knight entered.');
+
+    expect(applyExtraction).toHaveBeenCalledTimes(1);
+    const callArgs = vi.mocked(applyExtraction).mock.calls[0]!;
+    expect(callArgs).toHaveLength(4);
+    expect(callArgs[3]).not.toBeUndefined();
   });
 });

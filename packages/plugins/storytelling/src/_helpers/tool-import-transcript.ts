@@ -142,11 +142,8 @@ export const handleImportTranscript: HandleImportTranscript = async (ctx, storyI
         chunkIndex: i,
         rawOutput: result.output.slice(0, 500),
       });
-      // Continue to next chunk rather than failing entirely
-      await ctx.db.storyTranscript.update({
-        where: { id: transcript.id },
-        data: { processedThrough: i },
-      });
+      // Continue to next chunk rather than failing entirely — do NOT advance
+      // processedThrough so this chunk can be retried on the next run
       continue;
     }
 

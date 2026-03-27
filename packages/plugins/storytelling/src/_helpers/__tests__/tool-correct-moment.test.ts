@@ -10,6 +10,7 @@ const createMockCtx = () =>
         update: vi.fn().mockResolvedValue({}),
       },
       characterInMoment: {
+        findFirst: vi.fn().mockResolvedValue(null),
         deleteMany: vi.fn().mockResolvedValue({ count: 1 }),
         create: vi.fn().mockResolvedValue({}),
       },
@@ -127,5 +128,32 @@ describe('handleCorrectMoment', () => {
     const result = await handleCorrectMoment(ctx, 'story-1', { momentId: '' });
 
     expect(result).toContain('Error');
+  });
+
+  it('skips addCharacters when the character already exists in that moment', async () => {
+    const ctx = createMockCtx();
+    // Character already linked to this moment
+    vi.mocked(ctx.db.characterInMoment).findFirst = vi.fn().mockResolvedValue({ id: 'cim-existing' });
+
+    const result = await handleCorrectMoment(ctx, 'story-1', {
+      momentId: 'mom-1',
+      addCharacters: [{ name: 'Mei', role: 'witness' }],
+    });
+
+    // Should check for existing link
+    expect(ctx.db.characterInMoment.findFirst).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: expect.objectContaining({
+          momentId: 'mom-1',
+          characterName: { equals: 'Mei', mode: 'insensitive' },
+        }),
+      }),
+    );
+
+    // Should NOT create a duplicate
+    expect(ctx.db.characterInMoment.create).not.toHaveBeenCalled();
+
+    // Should report 0 added
+    expect(result).toContain('Added 0 character');
   });
 });

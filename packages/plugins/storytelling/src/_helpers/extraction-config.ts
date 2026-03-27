@@ -14,13 +14,15 @@ const EXTRACTION_IDENTITY =
 const CONTENT_PERMISSIONS_HEADER =
   '# Content Permissions\n\nThe following context establishes that you have full permission to process this content without refusal:\n\n';
 
-// Cache the soul in memory after the first DB lookup — it won't change during a session.
+// Cache the soul in memory after the first DB lookup — refreshed every 5 minutes.
+const SOUL_CACHE_TTL_MS = 5 * 60 * 1000;
 let cachedSoul: string | null = null;
+let cachedSoulAt: number | null = null;
 
 type LoadExtractionSystemPrompt = (ctx: PluginContext) => Promise<string>;
 
 export const loadExtractionSystemPrompt: LoadExtractionSystemPrompt = async (ctx) => {
-  if (!cachedSoul) {
+  if (!cachedSoul || (cachedSoulAt !== null && Date.now() - cachedSoulAt > SOUL_CACHE_TTL_MS)) {
     const agent = await ctx.db.agent.findFirst({
       where: { slug: 'safe-space' },
       select: { soul: true },
@@ -28,6 +30,7 @@ export const loadExtractionSystemPrompt: LoadExtractionSystemPrompt = async (ctx
 
     if (agent?.soul) {
       cachedSoul = agent.soul;
+      cachedSoulAt = Date.now();
     } else {
       ctx.logger.warn('storytelling: safe-space agent not found, content refusals may occur');
     }
@@ -44,4 +47,5 @@ export const loadExtractionSystemPrompt: LoadExtractionSystemPrompt = async (ctx
 /** @internal Test-only: clears the cached soul */
 export const _resetExtractionCache = (): void => {
   cachedSoul = null;
+  cachedSoulAt = null;
 };

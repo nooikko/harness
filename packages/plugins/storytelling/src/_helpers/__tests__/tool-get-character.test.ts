@@ -123,4 +123,29 @@ describe('handleGetCharacter', () => {
     expect(result).toContain('Wears standard armor');
     expect(result).not.toContain('Key moments');
   });
+
+  it('filters out soft-deleted moments via deletedAt: null', async () => {
+    const db = createMockDb({
+      character: {
+        id: 'char-1',
+        name: 'Elena',
+        appearance: null,
+        personality: 'Brave',
+        mannerisms: null,
+        motives: null,
+        backstory: null,
+        relationships: null,
+        moments: [],
+      },
+      allMoments: [],
+    });
+
+    await handleGetCharacter(db, 'story-1', { name: 'Elena' });
+
+    expect((db as unknown as { storyMoment: { findMany: ReturnType<typeof vi.fn> } }).storyMoment.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: { storyId: 'story-1', deletedAt: null },
+      }),
+    );
+  });
 });

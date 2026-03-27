@@ -29,7 +29,7 @@ export const handleGetCharacter: HandleGetCharacter = async (db, storyId, input)
   }
 
   const allMoments = await db.storyMoment.findMany({
-    where: { storyId },
+    where: { storyId, deletedAt: null },
     select: { id: true, summary: true, importance: true },
     orderBy: { importance: 'desc' },
     take: 200,

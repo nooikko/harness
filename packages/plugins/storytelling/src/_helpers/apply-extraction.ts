@@ -31,6 +31,7 @@ type PrismaClient = {
     upsert: (args: Record<string, unknown>) => Promise<{ id: string }>;
   };
   storyEvent: {
+    findFirst: (args: Record<string, unknown>) => Promise<{ id: string } | null>;
     create: (args: Record<string, unknown>) => Promise<{ id: string }>;
   };
 };
@@ -375,6 +376,13 @@ export const applyExtraction: ApplyExtraction = async (result, db, storyId, ctx)
           select: { id: true },
         });
         eventDayId = day.id;
+      }
+
+      const existing = await db.storyEvent.findFirst({
+        where: { storyId, what: event.what },
+      });
+      if (existing) {
+        continue;
       }
 
       await db.storyEvent.create({

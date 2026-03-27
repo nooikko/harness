@@ -78,6 +78,19 @@ describe('buildCastInjection', () => {
     expect(result).toContain('Story time: November 14, evening');
   });
 
+  it('filters out soft-deleted moments via deletedAt: null', async () => {
+    db.storyCharacter.findMany.mockResolvedValue([]);
+
+    // biome-ignore lint/suspicious/noExplicitAny: test mock
+    await buildCastInjection(storyId, null, db as any);
+
+    expect(db.storyMoment.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: { storyId, deletedAt: null },
+      }),
+    );
+  });
+
   it('assigns characters in currentScene to Tier 1 with full detail', async () => {
     const sam = makeCharacter({
       name: 'Sam',

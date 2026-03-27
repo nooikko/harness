@@ -151,9 +151,18 @@ describe('handleImportDocument', () => {
     const ctx = createMockCtx('not valid json');
     const result = await handleImportDocument(ctx, 'story-1', { text: '# Day 1\nEvents happened.' });
 
-    // Should still complete successfully (skipping the unparseable chunk)
+    // Should still complete (skipping the unparseable chunk) but NOT mark as processed
     expect(result).toContain('0 moments');
     expect(ctx.logger.warn).toHaveBeenCalledWith('storytelling: import_document chunk parse failed', expect.objectContaining({ chunkIndex: 0 }));
+  });
+
+  it('does NOT mark transcript as processed when all chunks fail to parse', async () => {
+    const ctx = createMockCtx('not valid json at all');
+    await handleImportDocument(ctx, 'story-1', { text: '# Day 1\nEvents happened.' });
+
+    // Transcript should NOT be marked processed — allows retry
+    const updateCall = vi.mocked(ctx.db.storyTranscript.update).mock.calls[0];
+    expect(updateCall?.[0]?.data).not.toHaveProperty('processed', true);
   });
 
   it('defaults label to Summary document when not provided', async () => {

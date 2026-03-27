@@ -1,5 +1,6 @@
 import type { PluginContext } from '@harness/plugin-contract';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { EXTRACTION_MODEL } from '../_helpers/extraction-config';
 import { _resetCaches, plugin } from '../index';
 
 vi.mock('../_helpers/extract-story-state', () => ({
@@ -321,6 +322,23 @@ describe('storytelling plugin', () => {
     expect(result).toContain('Annotation updated');
   });
 
+  it('start pre-warms with EXTRACTION_MODEL, not a hardcoded model', async () => {
+    const prewarmMock = vi.fn();
+    const ctx = {
+      ...createMockContext(),
+      invoker: { invoke: vi.fn(), prewarm: prewarmMock },
+      db: {
+        ...createMockContext().db,
+        storyCharacter: { findMany: vi.fn().mockResolvedValue([]) },
+      } as never,
+      logger: { info: vi.fn(), warn: vi.fn(), error: vi.fn(), debug: vi.fn() },
+    } as unknown as PluginContext;
+
+    await plugin.start?.(ctx);
+
+    expect(prewarmMock).toHaveBeenCalledWith(expect.objectContaining({ model: EXTRACTION_MODEL }));
+  });
+
   it('stop clears all caches', async () => {
     expect(plugin.stop).toBeDefined();
     await plugin.stop?.({} as PluginContext);
@@ -521,7 +539,7 @@ describe('storytelling plugin', () => {
       );
     });
 
-    it('onAfterInvoke is blocking (awaited, not fire-and-forget)', async () => {
+    it('onAfterInvoke is fire-and-forget (does not block the pipeline)', async () => {
       const ctx = createMockContext({
         threadKind: 'storytelling',
         storyId: 'story-blocking',
@@ -547,8 +565,13 @@ describe('storytelling plugin', () => {
 
       callOrder.push('after-hook-returned');
 
-      // If it were fire-and-forget, 'after-hook-returned' would appear before 'extract-end'
-      expect(callOrder).toEqual(['extract-start', 'extract-end', 'after-hook-returned']);
+      // Fire-and-forget: hook returns before extraction completes
+      expect(callOrder[0]).toBe('extract-start');
+      expect(callOrder[1]).toBe('after-hook-returned');
+
+      // Wait for the background extraction to finish
+      await new Promise((resolve) => setTimeout(resolve, 20));
+      expect(callOrder).toEqual(['extract-start', 'after-hook-returned', 'extract-end']);
     });
 
     it('caches storyId from onBeforeInvoke for use in onAfterInvoke', async () => {
@@ -586,7 +609,7 @@ describe('storytelling plugin', () => {
       expect(extractStoryState).not.toHaveBeenCalled();
     });
 
-    it('clears dedup guard on extraction failure so next message can retry', async () => {
+    it('keeps dedup guard active after extraction failure to prevent retry storms', async () => {
       const ctx = createMockContext({
         threadKind: 'storytelling',
         storyId: 'story-retry',
@@ -600,16 +623,19 @@ describe('storytelling plugin', () => {
       await hooks.onBeforeInvoke?.('thread-retry', 'prompt');
       await hooks.onAfterInvoke?.('thread-retry', { output: 'Response 1', durationMs: 100, exitCode: 0 });
 
+      // Wait for fire-and-forget to settle
+      await new Promise((resolve) => setTimeout(resolve, 10));
+
       expect(extractStoryState).toHaveBeenCalledTimes(1);
 
-      // Second call immediately — should NOT be blocked by dedup guard since first failed
+      // Second call immediately — SHOULD be blocked by dedup guard (key NOT deleted on failure)
       vi.mocked(extractStoryState).mockResolvedValueOnce(undefined);
       await hooks.onAfterInvoke?.('thread-retry', { output: 'Response 2', durationMs: 100, exitCode: 0 });
 
-      expect(extractStoryState).toHaveBeenCalledTimes(2);
+      expect(extractStoryState).toHaveBeenCalledTimes(1); // not called again
     });
 
-    it('uses thread-scoped dedup key so different threads on same story extract independently', async () => {
+    it('uses storyId-only dedup key so different threads on same story share the guard', async () => {
       const { extractStoryState } = await import('../_helpers/extract-story-state');
       vi.mocked(extractStoryState).mockResolvedValue(undefined);
 
@@ -621,14 +647,28 @@ describe('storytelling plugin', () => {
 
       expect(extractStoryState).toHaveBeenCalledTimes(1);
 
-      // Thread B on same story — should NOT be blocked by Thread A's dedup guard
+      // Thread B on same story — SHOULD be blocked by Thread A's dedup guard (storyId-only key)
       const ctxB = createMockContext({ threadKind: 'storytelling', storyId: 'story-shared' });
       const hooksB = await plugin.register(ctxB);
       await hooksB.onBeforeInvoke?.('thread-B', 'prompt');
       await hooksB.onAfterInvoke?.('thread-B', { output: 'Response B', durationMs: 100, exitCode: 0 });
 
-      expect(extractStoryState).toHaveBeenCalledTimes(2);
+      expect(extractStoryState).toHaveBeenCalledTimes(1); // not called again — same storyId dedup
     });
+  });
+
+  it('onMessage caches null storyId so subsequent calls skip DB lookup', async () => {
+    const ctx = createMockContext();
+    vi.mocked(ctx.db.thread.findUnique).mockResolvedValue({ storyId: null } as never);
+    const hooks = await plugin.register(ctx);
+
+    // First call — cold cache, triggers DB lookup
+    await hooks.onMessage?.('non-story-thread-2', 'user', 'hello');
+    expect(ctx.db.thread.findUnique).toHaveBeenCalledTimes(1);
+
+    // Second call — should hit cache (null was cached), no additional DB lookup
+    await hooks.onMessage?.('non-story-thread-2', 'user', 'hello again');
+    expect(ctx.db.thread.findUnique).toHaveBeenCalledTimes(1);
   });
 
   describe('onBeforeInvoke — commandSummary branch', () => {

@@ -35,6 +35,26 @@ describe('loadExtractionSystemPrompt', () => {
     expect(ctx.db.agent.findFirst).toHaveBeenCalledTimes(1);
   });
 
+  it('re-fetches soul after TTL expires', async () => {
+    vi.useFakeTimers();
+    const ctx = createMockCtx({ soul: 'Original soul.' });
+
+    await loadExtractionSystemPrompt(ctx);
+    expect(ctx.db.agent.findFirst).toHaveBeenCalledTimes(1);
+
+    // Advance past the 5-minute TTL
+    vi.advanceTimersByTime(5 * 60 * 1000 + 1);
+
+    // Update the mock to return a different soul
+    vi.mocked(ctx.db.agent.findFirst).mockResolvedValue({ soul: 'Updated soul.' } as never);
+
+    const prompt = await loadExtractionSystemPrompt(ctx);
+    expect(ctx.db.agent.findFirst).toHaveBeenCalledTimes(2);
+    expect(prompt).toContain('Updated soul.');
+
+    vi.useRealTimers();
+  });
+
   it('returns extraction identity without soul when agent not found', async () => {
     const ctx = createMockCtx(null);
     const prompt = await loadExtractionSystemPrompt(ctx);

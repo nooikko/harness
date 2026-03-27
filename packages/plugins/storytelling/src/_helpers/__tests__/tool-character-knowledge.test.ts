@@ -60,4 +60,20 @@ describe('handleCharacterKnowledge', () => {
 
     expect(result).toContain('No knowledge tracked yet');
   });
+
+  it('filters out soft-deleted moments via deletedAt: null', async () => {
+    const db = createMockDb({
+      character: { id: 'char-1', name: 'Elena' },
+      characterMoments: [],
+      allMoments: [],
+    });
+
+    await handleCharacterKnowledge(db, 'story-1', { name: 'Elena' });
+
+    expect((db as unknown as { storyMoment: { findMany: ReturnType<typeof vi.fn> } }).storyMoment.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: { storyId: 'story-1', deletedAt: null },
+      }),
+    );
+  });
 });

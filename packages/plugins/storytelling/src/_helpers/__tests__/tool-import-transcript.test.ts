@@ -157,7 +157,7 @@ describe('handleImportTranscript', () => {
     expect(result).toContain('could not parse');
   });
 
-  it('continues processing when a chunk fails to parse', async () => {
+  it('continues processing when a chunk fails to parse and does NOT advance processedThrough', async () => {
     // First call returns bad JSON, second returns valid
     let callCount = 0;
     const ctx = createMockCtx('');
@@ -189,6 +189,17 @@ describe('handleImportTranscript', () => {
     // Should complete despite chunk failure
     expect(result).toContain('Chat 1');
     expect(ctx.logger.warn).toHaveBeenCalled();
+
+    // Failed chunk (index 0) should NOT have triggered a processedThrough update
+    const updateCalls = vi.mocked(ctx.db.storyTranscript.update).mock.calls;
+    const processedThroughUpdates = updateCalls.filter((call) => 'processedThrough' in (call[0] as { data: Record<string, unknown> }).data);
+    // Only the successful chunk should have processedThrough set, not the failed one (index 0)
+    for (const call of processedThroughUpdates) {
+      const data = (call[0] as { data: { processedThrough?: number } }).data;
+      if (data.processedThrough !== undefined) {
+        expect(data.processedThrough).not.toBe(0); // chunk 0 failed, should not be recorded
+      }
+    }
   });
 
   it('includes location parent names in context', async () => {

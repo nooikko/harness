@@ -55,7 +55,7 @@ describe('judgeCharacterMatch', () => {
     expect(prompt).toContain('A tall guy from class');
     expect(prompt).toContain('[1] "Samuel" — Quiet student in biology');
     expect(prompt).toContain('[2] "Sammy" — Loud friend of Elena');
-    expect(call[1]).toEqual({ model: 'claude-haiku-4-5-20251001' });
+    expect(call[1]).toEqual({ model: 'claude-haiku-4-5-20251001', threadId: 'storytelling-judge', timeout: 30_000 });
   });
 
   it('uses "no description" when candidate has no description in map', async () => {

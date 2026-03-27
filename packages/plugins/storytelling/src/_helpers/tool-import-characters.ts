@@ -183,7 +183,7 @@ export const handleImportCharacters: HandleImportCharacters = async (ctx, storyI
     const upserted = await ctx.db.storyCharacter.upsert({
       where: { storyId_name: { storyId, name: char.name } },
       create: { storyId, name: char.name, aliases: char.aliases, ...updateFields },
-      update: { ...updateFields, aliases: { set: char.aliases } },
+      update: updateFields,
       select: { id: true, name: true },
     });
 

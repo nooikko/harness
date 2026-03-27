@@ -18,6 +18,12 @@ export const resolveStoryId: ResolveStoryId = async (threadId, storyCache, db) =
   });
 
   const storyId = thread?.storyId ?? null;
-  storyCache.set(threadId, storyId);
+
+  // Only cache non-null storyIds — null means "no story yet" and should
+  // re-query on the next call so a later story assignment is visible
+  if (storyId) {
+    storyCache.set(threadId, storyId);
+  }
+
   return storyId;
 };
