@@ -638,8 +638,31 @@ export const createOrchestrator: CreateOrchestrator = (deps) => {
               message: `Plugin start failed: ${message}`,
               stack: error instanceof Error ? error.stack : undefined,
             });
-            pluginHealth.push({ name: plugin.definition.name, status: 'failed', error: message });
-            statusRegistry.report(plugin.definition.name, 'error', `Start failed: ${message}`);
+
+            const coercedError = error instanceof Error ? error : new Error(String(error));
+
+            if (plugin.definition.onStartFailed) {
+              try {
+                await plugin.definition.onStartFailed(plugin.ctx, coercedError);
+                pluginHealth.push({ name: plugin.definition.name, status: 'degraded', error: message });
+                statusRegistry.report(plugin.definition.name, 'degraded', `Start failed (recovered): ${message}`);
+              } catch (recoveryError) {
+                const recoveryMessage = recoveryError instanceof Error ? recoveryError.message : String(recoveryError);
+                deps.logger.error(`Plugin onStartFailed also failed [plugin=${plugin.definition.name}]: ${recoveryMessage}`);
+                writeErrorToDb({
+                  db: deps.db,
+                  level: 'error',
+                  source: plugin.definition.name,
+                  message: `Plugin onStartFailed failed: ${recoveryMessage}`,
+                  stack: recoveryError instanceof Error ? recoveryError.stack : undefined,
+                });
+                pluginHealth.push({ name: plugin.definition.name, status: 'failed', error: message });
+                statusRegistry.report(plugin.definition.name, 'error', `Start failed: ${message}`);
+              }
+            } else {
+              pluginHealth.push({ name: plugin.definition.name, status: 'failed', error: message });
+              statusRegistry.report(plugin.definition.name, 'error', `Start failed: ${message}`);
+            }
           }
         } else {
           pluginHealth.push({ name: plugin.definition.name, status: 'healthy', startedAt: Date.now() });

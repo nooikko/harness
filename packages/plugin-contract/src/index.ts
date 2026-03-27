@@ -320,6 +320,7 @@ export type PluginTool = {
 export type RegisterFn = (ctx: PluginContext) => Promise<PluginHooks>;
 export type StartFn = (ctx: PluginContext) => Promise<void>;
 export type StopFn = (ctx: PluginContext) => Promise<void>;
+export type OnStartFailedFn = (ctx: PluginContext, error: Error) => Promise<void>;
 
 export type PluginRouteRequest = {
   body?: unknown;
@@ -344,6 +345,12 @@ export type PluginDefinition = {
   register: RegisterFn;
   start?: StartFn;
   stop?: StopFn;
+  /** Called when start() throws. The plugin can fall back to defaults, schedule
+   *  its own retry, or report degraded status. If this hook succeeds, the plugin
+   *  is marked 'degraded' (hooks remain active). If this hook also throws, the
+   *  plugin is marked 'failed'. Note: ctx.broadcast() may not reach WebSocket
+   *  clients if the web plugin has not yet started (plugins start sequentially). */
+  onStartFailed?: OnStartFailedFn;
   tools?: PluginTool[];
   routes?: PluginRoute[];
   system?: boolean;

@@ -379,6 +379,210 @@ describe('createOrchestrator', () => {
     });
   });
 
+  describe('start - onStartFailed recovery', () => {
+    it('calls onStartFailed with (ctx, Error) when start() throws', async () => {
+      const deps = makeDeps();
+      const orchestrator = createOrchestrator(deps);
+      const onStartFailed = vi.fn().mockResolvedValue(undefined);
+
+      await orchestrator.registerPlugin(
+        makePluginDefinition(
+          'recoverable',
+          {},
+          {
+            start: vi.fn().mockRejectedValue(new Error('DB unavailable')),
+            onStartFailed,
+          },
+        ),
+      );
+      await orchestrator.start();
+
+      expect(onStartFailed).toHaveBeenCalledTimes(1);
+      const [ctx, error] = onStartFailed.mock.calls[0]!;
+      expect(ctx).toHaveProperty('db');
+      expect(ctx).toHaveProperty('invoker');
+      expect(error).toBeInstanceOf(Error);
+      expect(error.message).toBe('DB unavailable');
+    });
+
+    it('marks plugin degraded in pluginHealth when onStartFailed succeeds', async () => {
+      const deps = makeDeps();
+      const orchestrator = createOrchestrator(deps);
+
+      await orchestrator.registerPlugin(
+        makePluginDefinition(
+          'recoverable',
+          {},
+          {
+            start: vi.fn().mockRejectedValue(new Error('transient')),
+            onStartFailed: vi.fn().mockResolvedValue(undefined),
+          },
+        ),
+      );
+      await orchestrator.start();
+
+      const health = orchestrator.getPluginHealth();
+      expect(health).toEqual([{ name: 'recoverable', status: 'degraded', error: 'transient' }]);
+    });
+
+    it('marks plugin degraded in statusRegistry when onStartFailed succeeds', async () => {
+      const deps = makeDeps();
+      const orchestrator = createOrchestrator(deps);
+
+      await orchestrator.registerPlugin(
+        makePluginDefinition(
+          'recoverable',
+          {},
+          {
+            start: vi.fn().mockRejectedValue(new Error('transient')),
+            onStartFailed: vi.fn().mockResolvedValue(undefined),
+          },
+        ),
+      );
+      await orchestrator.start();
+
+      const statuses = orchestrator.getPluginStatuses();
+      expect(statuses[0]!.status).toBe('degraded');
+      expect(statuses[0]!.message).toContain('Start failed (recovered)');
+    });
+
+    it('marks plugin failed when onStartFailed also throws', async () => {
+      const deps = makeDeps();
+      const orchestrator = createOrchestrator(deps);
+
+      await orchestrator.registerPlugin(
+        makePluginDefinition(
+          'double-fail',
+          {},
+          {
+            start: vi.fn().mockRejectedValue(new Error('start boom')),
+            onStartFailed: vi.fn().mockRejectedValue(new Error('recovery boom')),
+          },
+        ),
+      );
+      await orchestrator.start();
+
+      const health = orchestrator.getPluginHealth();
+      expect(health).toEqual([{ name: 'double-fail', status: 'failed', error: 'start boom' }]);
+      // Both errors logged
+      expect(deps.logger.error).toHaveBeenCalledWith(expect.stringContaining('Plugin start failed [plugin=double-fail]'));
+      expect(deps.logger.error).toHaveBeenCalledWith(expect.stringContaining('Plugin onStartFailed also failed [plugin=double-fail]'));
+    });
+
+    it('continues starting subsequent plugins after onStartFailed throws (loop isolation)', async () => {
+      const deps = makeDeps();
+      const orchestrator = createOrchestrator(deps);
+
+      await orchestrator.registerPlugin(
+        makePluginDefinition(
+          'broken',
+          {},
+          {
+            start: vi.fn().mockRejectedValue(new Error('start fail')),
+            onStartFailed: vi.fn().mockRejectedValue(new Error('recovery fail')),
+          },
+        ),
+      );
+      await orchestrator.registerPlugin(
+        makePluginDefinition(
+          'healthy',
+          {},
+          {
+            start: vi.fn().mockResolvedValue(undefined),
+          },
+        ),
+      );
+      await orchestrator.start();
+
+      const health = orchestrator.getPluginHealth();
+      expect(health).toHaveLength(2);
+      expect(health[0]).toEqual({ name: 'broken', status: 'failed', error: 'start fail' });
+      expect(health[1]).toEqual({ name: 'healthy', status: 'healthy', startedAt: expect.any(Number) });
+    });
+
+    it('still produces failed status when no onStartFailed is defined (regression guard)', async () => {
+      const deps = makeDeps();
+      const orchestrator = createOrchestrator(deps);
+
+      await orchestrator.registerPlugin(
+        makePluginDefinition(
+          'no-recovery',
+          {},
+          {
+            start: vi.fn().mockRejectedValue(new Error('kaboom')),
+          },
+        ),
+      );
+      await orchestrator.start();
+
+      const health = orchestrator.getPluginHealth();
+      expect(health).toEqual([{ name: 'no-recovery', status: 'failed', error: 'kaboom' }]);
+    });
+
+    it('coerces non-Error rejection to Error before passing to onStartFailed', async () => {
+      const deps = makeDeps();
+      const orchestrator = createOrchestrator(deps);
+      const onStartFailed = vi.fn().mockResolvedValue(undefined);
+
+      await orchestrator.registerPlugin(
+        makePluginDefinition(
+          'string-throw',
+          {},
+          {
+            start: vi.fn().mockRejectedValue('connection refused'),
+            onStartFailed,
+          },
+        ),
+      );
+      await orchestrator.start();
+
+      expect(onStartFailed).toHaveBeenCalledTimes(1);
+      const [, error] = onStartFailed.mock.calls[0]!;
+      expect(error).toBeInstanceOf(Error);
+      expect(error.message).toBe('connection refused');
+    });
+
+    it('both stores agree on status for each branch', async () => {
+      const deps = makeDeps();
+      const orchestrator = createOrchestrator(deps);
+
+      // Degraded plugin (onStartFailed succeeds)
+      await orchestrator.registerPlugin(
+        makePluginDefinition(
+          'degraded-plugin',
+          {},
+          {
+            start: vi.fn().mockRejectedValue(new Error('oops')),
+            onStartFailed: vi.fn().mockResolvedValue(undefined),
+          },
+        ),
+      );
+      // Failed plugin (onStartFailed throws)
+      await orchestrator.registerPlugin(
+        makePluginDefinition(
+          'failed-plugin',
+          {},
+          {
+            start: vi.fn().mockRejectedValue(new Error('boom')),
+            onStartFailed: vi.fn().mockRejectedValue(new Error('nope')),
+          },
+        ),
+      );
+      await orchestrator.start();
+
+      const health = orchestrator.getPluginHealth();
+      const statuses = orchestrator.getPluginStatuses();
+
+      // Degraded: both stores agree
+      expect(health[0]!.status).toBe('degraded');
+      expect(statuses[0]!.status).toBe('degraded');
+
+      // Failed: pluginHealth uses 'failed', statusRegistry uses 'error' (pre-existing asymmetry)
+      expect(health[1]!.status).toBe('failed');
+      expect(statuses[1]!.status).toBe('error');
+    });
+  });
+
   describe('stop', () => {
     it('calls stop() on each registered plugin that defines it', async () => {
       const deps = makeDeps();
