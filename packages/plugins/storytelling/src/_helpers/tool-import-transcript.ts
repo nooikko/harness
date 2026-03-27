@@ -81,6 +81,24 @@ export const handleImportTranscript: HandleImportTranscript = async (ctx, storyI
   let totalLocations = 0;
   let driftFlags = 0;
 
+  // Load recent moments once before the loop (Fix 5: avoid N+1 per-chunk query)
+  const recentMoments = await ctx.db.storyMoment.findMany({
+    where: { storyId, deletedAt: null },
+    select: {
+      summary: true,
+      storyTime: true,
+      characters: { select: { characterName: true } },
+    },
+    orderBy: { createdAt: 'desc' },
+    take: 15,
+  });
+
+  const recentMomentRefs = recentMoments.map((m: { summary: string; storyTime: string | null; characters: { characterName: string }[] }) => ({
+    summary: m.summary,
+    storyTime: m.storyTime,
+    characterNames: m.characters.map((c: { characterName: string }) => c.characterName),
+  }));
+
   const batchEnd = Math.min(resumeFrom + MAX_CHUNKS_PER_BATCH, chunks.length);
 
   for (let i = resumeFrom; i < batchEnd; i++) {
@@ -89,24 +107,6 @@ export const handleImportTranscript: HandleImportTranscript = async (ctx, storyI
 
     // Build content from chunk messages
     const chunkContent = chunk.map((m) => `[${m.role === 'human' ? 'User' : 'Assistant'}]: ${m.content}`).join('\n\n');
-
-    // Load recent moments for drift detection context
-    const recentMoments = await ctx.db.storyMoment.findMany({
-      where: { storyId, deletedAt: null },
-      select: {
-        summary: true,
-        storyTime: true,
-        characters: { select: { characterName: true } },
-      },
-      orderBy: { createdAt: 'desc' },
-      take: 15,
-    });
-
-    const recentMomentRefs = recentMoments.map((m: { summary: string; storyTime: string | null; characters: { characterName: string }[] }) => ({
-      summary: m.summary,
-      storyTime: m.storyTime,
-      characterNames: m.characters.map((c: { characterName: string }) => c.characterName),
-    }));
 
     const prompt = buildImportExtractionPrompt({
       characters,
@@ -168,6 +168,26 @@ export const handleImportTranscript: HandleImportTranscript = async (ctx, storyI
 
     totalMoments += parsed.moments.length;
     totalLocations += parsed.locations.filter((l) => l.action === 'create').length;
+
+    // Refresh recent moments for next chunk's drift detection context
+    const latest = await ctx.db.storyMoment.findMany({
+      where: { storyId, deletedAt: null },
+      select: {
+        summary: true,
+        storyTime: true,
+        characters: { select: { characterName: true } },
+      },
+      orderBy: { createdAt: 'desc' },
+      take: 15,
+    });
+    recentMomentRefs.length = 0;
+    recentMomentRefs.push(
+      ...latest.map((m: { summary: string; storyTime: string | null; characters: { characterName: string }[] }) => ({
+        summary: m.summary,
+        storyTime: m.storyTime,
+        characterNames: m.characters.map((c: { characterName: string }) => c.characterName),
+      })),
+    );
 
     // Update progress for resume safety
     await ctx.db.storyTranscript.update({

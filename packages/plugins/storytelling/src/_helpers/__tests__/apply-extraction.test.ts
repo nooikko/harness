@@ -11,6 +11,9 @@ vi.mock('../resolve-character-identity', () => ({
 vi.mock('../index-character', () => ({
   indexCharacter: vi.fn().mockResolvedValue(undefined),
 }));
+vi.mock('../judge-character-match', () => ({
+  judgeCharacterMatch: vi.fn().mockResolvedValue(null),
+}));
 
 type MockDb = {
   storyCharacter: {
@@ -26,6 +29,7 @@ type MockDb = {
     create: ReturnType<typeof vi.fn>;
   };
   characterInMoment: {
+    findFirst: ReturnType<typeof vi.fn>;
     create: ReturnType<typeof vi.fn>;
   };
   story: {
@@ -55,6 +59,7 @@ const createMockDb: CreateMockDb = () => ({
     create: vi.fn().mockResolvedValue({ id: 'moment-new' }),
   },
   characterInMoment: {
+    findFirst: vi.fn().mockResolvedValue(null),
     create: vi.fn().mockResolvedValue({}),
   },
   story: {
@@ -771,5 +776,250 @@ describe('applyExtraction', () => {
     // dayTransition without currentDay cannot increment — intentional no-op
     expect(db.storyDay.upsert).not.toHaveBeenCalled();
     expect(db.story.update).not.toHaveBeenCalled();
+  });
+
+  it('skips CharacterInMoment create when the character already exists in that moment', async () => {
+    const db = createMockDb();
+    db.storyCharacter.findFirst.mockResolvedValue({ id: 'char-1', aliases: [] });
+    // Simulate that the character is already linked to this moment
+    db.characterInMoment.findFirst = vi.fn().mockResolvedValue({ id: 'cim-existing' });
+
+    const result: ExtractionResult = {
+      ...EMPTY_RESULT,
+      moments: [
+        {
+          summary: 'Scene with existing character',
+          kind: 'action',
+          importance: 5,
+          characters: [{ name: 'Sir Aldric', role: 'protagonist' }],
+        },
+      ],
+    };
+
+    await applyExtraction(result, db as unknown as Parameters<typeof applyExtraction>[1], 'story-1');
+
+    // Should check for existing link first
+    expect(db.characterInMoment.findFirst).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: expect.objectContaining({
+          momentId: 'moment-new',
+          characterName: 'Sir Aldric',
+        }),
+      }),
+    );
+
+    // Should NOT create a duplicate
+    expect(db.characterInMoment.create).not.toHaveBeenCalled();
+  });
+
+  // --- Fix 1: Judge character match wiring ---
+
+  it('calls judgeCharacterMatch when resolution is judge and merges on match', async () => {
+    const { resolveCharacterIdentity } = await import('../resolve-character-identity');
+    const { judgeCharacterMatch } = await import('../judge-character-match');
+    (resolveCharacterIdentity as Mock).mockReturnValueOnce({
+      action: 'judge',
+      candidates: [{ characterId: 'existing-char-id', name: 'Sir Aldric', score: 0.75 }],
+    });
+    // Judge says they match
+    (judgeCharacterMatch as Mock).mockResolvedValueOnce('existing-char-id');
+
+    const db = createMockDb();
+    // 1st findFirst: candidate description lookup for judge prompt
+    db.storyCharacter.findFirst.mockResolvedValueOnce({
+      personality: 'brave knight',
+      appearance: 'tall',
+    });
+    // 2nd findFirst: matched character for alias/merge
+    db.storyCharacter.findFirst.mockResolvedValueOnce({
+      id: 'existing-char-id',
+      aliases: [],
+    });
+    // 3rd findFirst: field check for null-fill
+    db.storyCharacter.findFirst.mockResolvedValueOnce({
+      personality: null,
+      appearance: null,
+      mannerisms: null,
+      motives: null,
+      backstory: null,
+      relationships: null,
+      color: null,
+      status: null,
+    });
+
+    const result: ExtractionResult = {
+      ...EMPTY_RESULT,
+      characters: [
+        {
+          action: 'create',
+          name: 'The Knight',
+          fields: { personality: 'brave' },
+        },
+      ],
+    };
+
+    const mockCtx = { invoker: { invoke: vi.fn() }, db } as unknown as Parameters<typeof applyExtraction>[3];
+    await applyExtraction(result, db as unknown as Parameters<typeof applyExtraction>[1], 'story-1', mockCtx);
+
+    // Should call judgeCharacterMatch
+    expect(judgeCharacterMatch).toHaveBeenCalled();
+
+    // Should NOT upsert (should merge into existing)
+    expect(db.storyCharacter.upsert).not.toHaveBeenCalled();
+
+    // Should add alias
+    expect(db.storyCharacter.update).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: { id: 'existing-char-id' },
+        data: { aliases: { push: 'The Knight' } },
+      }),
+    );
+  });
+
+  it('falls through to create when judge returns no match', async () => {
+    const { resolveCharacterIdentity } = await import('../resolve-character-identity');
+    const { judgeCharacterMatch } = await import('../judge-character-match');
+    (resolveCharacterIdentity as Mock).mockReturnValueOnce({
+      action: 'judge',
+      candidates: [{ characterId: 'maybe-id', name: 'Some Guy', score: 0.7 }],
+    });
+    // Judge says no match
+    (judgeCharacterMatch as Mock).mockResolvedValueOnce(null);
+
+    const db = createMockDb();
+
+    const result: ExtractionResult = {
+      ...EMPTY_RESULT,
+      characters: [
+        {
+          action: 'create',
+          name: 'New Character',
+          fields: { personality: 'mysterious' },
+        },
+      ],
+    };
+
+    const mockCtx = { invoker: { invoke: vi.fn() }, db } as unknown as Parameters<typeof applyExtraction>[3];
+    await applyExtraction(result, db as unknown as Parameters<typeof applyExtraction>[1], 'story-1', mockCtx);
+
+    // Should fall through to upsert
+    expect(db.storyCharacter.upsert).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: { storyId_name: { storyId: 'story-1', name: 'New Character' } },
+      }),
+    );
+  });
+
+  it('falls through to create when no ctx provided for judge (backward compat)', async () => {
+    const { resolveCharacterIdentity } = await import('../resolve-character-identity');
+    (resolveCharacterIdentity as Mock).mockReturnValueOnce({
+      action: 'judge',
+      candidates: [{ characterId: 'maybe-id', name: 'Some Guy', score: 0.7 }],
+    });
+
+    const db = createMockDb();
+
+    const result: ExtractionResult = {
+      ...EMPTY_RESULT,
+      characters: [
+        {
+          action: 'create',
+          name: 'New Character',
+          fields: { personality: 'mysterious' },
+        },
+      ],
+    };
+
+    // No ctx provided — backward compatibility
+    await applyExtraction(result, db as unknown as Parameters<typeof applyExtraction>[1], 'story-1');
+
+    // Should fall through to upsert since judge can't run without ctx
+    expect(db.storyCharacter.upsert).toHaveBeenCalled();
+  });
+
+  // --- Fix 2: Null-guard on upsert path ---
+
+  it('upsert update path only writes fields that are currently null on existing character', async () => {
+    const db = createMockDb();
+    // Simulate existing character with personality already set
+    db.storyCharacter.findFirst.mockResolvedValueOnce({
+      personality: 'already set by user',
+      appearance: null,
+      mannerisms: null,
+      motives: null,
+      backstory: null,
+      relationships: null,
+      color: null,
+      status: null,
+    });
+
+    const result: ExtractionResult = {
+      ...EMPTY_RESULT,
+      characters: [
+        {
+          action: 'update',
+          name: 'Sir Aldric',
+          fields: { personality: 'overwrite attempt', appearance: 'tall knight' },
+        },
+      ],
+    };
+
+    await applyExtraction(result, db as unknown as Parameters<typeof applyExtraction>[1], 'story-1');
+
+    // Upsert update should only contain appearance (personality already set)
+    const upsertCall = db.storyCharacter.upsert.mock.calls[0]?.[0] as {
+      update: Record<string, unknown>;
+      create: Record<string, unknown>;
+    };
+    expect(upsertCall.update).not.toHaveProperty('personality');
+    expect(upsertCall.update).toHaveProperty('appearance', 'tall knight');
+    // Create clause should still have both (for new records)
+    expect(upsertCall.create).toHaveProperty('personality', 'overwrite attempt');
+    expect(upsertCall.create).toHaveProperty('appearance', 'tall knight');
+  });
+
+  // --- Fix 3: Re-index after merge ---
+
+  it('calls indexCharacter after merge to update Qdrant vectors', async () => {
+    const { resolveCharacterIdentity } = await import('../resolve-character-identity');
+    const { indexCharacter } = await import('../index-character');
+    (resolveCharacterIdentity as Mock).mockReturnValueOnce({
+      action: 'merge',
+      targetId: 'existing-char-id',
+      targetName: 'Sir Aldric',
+    });
+
+    const db = createMockDb();
+    db.storyCharacter.findFirst.mockResolvedValueOnce({
+      id: 'existing-char-id',
+      aliases: [],
+    });
+    // Second findFirst for field check
+    db.storyCharacter.findFirst.mockResolvedValueOnce({
+      personality: null,
+      appearance: null,
+      mannerisms: null,
+      motives: null,
+      backstory: null,
+      relationships: null,
+      color: null,
+      status: null,
+    });
+
+    const result: ExtractionResult = {
+      ...EMPTY_RESULT,
+      characters: [
+        {
+          action: 'create',
+          name: 'The Knight',
+          fields: { personality: 'brave' },
+        },
+      ],
+    };
+
+    await applyExtraction(result, db as unknown as Parameters<typeof applyExtraction>[1], 'story-1');
+
+    // Should re-index after merge
+    expect(indexCharacter).toHaveBeenCalledWith('existing-char-id', 'Sir Aldric', 'brave', 'story-1');
   });
 });

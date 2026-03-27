@@ -1,5 +1,6 @@
 import type { PluginContext } from '@harness/plugin-contract';
 import { buildImportCharacterPrompt } from './build-import-character-prompt';
+import { CHARACTER_FIELDS } from './character-fields';
 import { EXTRACTION_MODEL, EXTRACTION_TIMEOUT, loadExtractionSystemPrompt } from './extraction-config';
 import { findSimilarCharacters } from './find-similar-characters';
 import { indexCharacter } from './index-character';
@@ -7,8 +8,6 @@ import { isValidCharacterName } from './is-valid-character-name';
 import { judgeCharacterMatch } from './judge-character-match';
 import { parseImportCharacterResult } from './parse-import-result';
 import { resolveCharacterIdentity } from './resolve-character-identity';
-
-const CHARACTER_FIELDS = ['appearance', 'personality', 'mannerisms', 'motives', 'backstory', 'relationships', 'color', 'status'] as const;
 
 type ReportProgress = (message: string, detail?: { current?: number; total?: number }) => void;
 

@@ -1,7 +1,9 @@
 import { z } from 'zod';
+import { CHARACTER_FIELDS } from './character-fields';
 import { findSimilarCharacters } from './find-similar-characters';
 import { indexCharacter } from './index-character';
 import { isValidCharacterName } from './is-valid-character-name';
+import { judgeCharacterMatch } from './judge-character-match';
 import type { ExtractionResult } from './parse-extraction-result';
 import { resolveCharacterIdentity } from './resolve-character-identity';
 
@@ -19,6 +21,7 @@ type PrismaClient = {
     create: (args: Record<string, unknown>) => Promise<{ id: string }>;
   };
   characterInMoment: {
+    findFirst: (args: Record<string, unknown>) => Promise<{ id: string } | null>;
     create: (args: Record<string, unknown>) => Promise<unknown>;
   };
   story: {
@@ -38,13 +41,16 @@ const CurrentSceneSchema = z.object({
   storyTime: z.string().nullable(),
 });
 
-const CHARACTER_FIELDS = ['appearance', 'personality', 'mannerisms', 'motives', 'backstory', 'relationships', 'color', 'status'] as const;
+type JudgeContext = {
+  invoker: { invoke: (prompt: string, opts?: Record<string, unknown>) => Promise<{ output: string }> };
+  db: unknown;
+};
 
 type ApplyExtractionResult = { momentIds: string[] };
 
-type ApplyExtraction = (result: ExtractionResult, db: PrismaClient, storyId: string) => Promise<ApplyExtractionResult>;
+type ApplyExtraction = (result: ExtractionResult, db: PrismaClient, storyId: string, ctx?: JudgeContext) => Promise<ApplyExtractionResult>;
 
-export const applyExtraction: ApplyExtraction = async (result, db, storyId) => {
+export const applyExtraction: ApplyExtraction = async (result, db, storyId, ctx) => {
   // 1. Process characters (upsert)
   const characterNameToId = new Map<string, string>();
 
@@ -93,24 +99,98 @@ export const applyExtraction: ApplyExtraction = async (result, db, storyId) => {
             data: mergeFields,
           });
         }
+        // Fix 3: Re-index after merge so Qdrant vectors reflect updated fields
+        const mergedDescription = char.fields.personality ?? char.fields.appearance ?? '';
+        void indexCharacter(existing.id, resolution.targetName, mergedDescription, storyId);
+
         characterNameToId.set(char.name, existing.id);
         continue;
       }
     }
-    // For 'judge' action, fall through to create (LLM judge wired at higher level later)
-    // For 'create' action, proceed with upsert below
+
+    // Fix 1: Wire LLM judge for uncertain Qdrant matches (score 0.65–0.84)
+    if (resolution.action === 'judge' && ctx) {
+      const existingDescriptions = new Map<string, string>();
+      for (const candidate of resolution.candidates) {
+        const candidateRecord = await db.storyCharacter.findFirst({
+          where: { id: candidate.characterId },
+          select: { personality: true, appearance: true },
+        });
+        const desc =
+          (candidateRecord as { personality?: string; appearance?: string } | null)?.personality ??
+          (candidateRecord as { personality?: string; appearance?: string } | null)?.appearance ??
+          '';
+        existingDescriptions.set(candidate.characterId, desc);
+      }
+
+      const matchedId = await judgeCharacterMatch(ctx as never, { name: char.name, description }, resolution.candidates, existingDescriptions);
+
+      if (matchedId) {
+        const target = await db.storyCharacter.findFirst({
+          where: { id: matchedId },
+          select: { id: true, aliases: true },
+        });
+        if (target) {
+          const currentAliases = new Set(target.aliases);
+          if (!currentAliases.has(char.name)) {
+            await db.storyCharacter.update({
+              where: { id: target.id },
+              data: { aliases: { push: char.name } },
+            });
+          }
+          const full = await db.storyCharacter.findFirst({
+            where: { id: target.id },
+            select: Object.fromEntries(CHARACTER_FIELDS.map((f) => [f, true])),
+          });
+          const mergeFields: Record<string, string> = {};
+          for (const key of CHARACTER_FIELDS) {
+            const value = char.fields[key];
+            const current = full?.[key as keyof typeof full] as string | null | undefined;
+            if (value !== undefined && !current) {
+              mergeFields[key] = value;
+            }
+          }
+          if (Object.keys(mergeFields).length > 0) {
+            await db.storyCharacter.update({
+              where: { id: target.id },
+              data: mergeFields,
+            });
+          }
+          void indexCharacter(target.id, char.name, description, storyId);
+          characterNameToId.set(char.name, target.id);
+          continue;
+        }
+      }
+    }
+    // For 'create' action (or judge with no ctx / no match), proceed with upsert below
+
+    // Build create fields (all provided fields for new records)
+    const createFields: Record<string, string> = {};
+    for (const key of CHARACTER_FIELDS) {
+      const value = char.fields[key];
+      if (value !== undefined) {
+        createFields[key] = value;
+      }
+    }
+
+    // Fix 2: Null-guard on upsert update — only write fields that are currently null
+    const existingRecord = await db.storyCharacter.findFirst({
+      where: { storyId, name: char.name },
+      select: Object.fromEntries(CHARACTER_FIELDS.map((f) => [f, true])),
+    });
 
     const updateFields: Record<string, string> = {};
     for (const key of CHARACTER_FIELDS) {
       const value = char.fields[key];
-      if (value !== undefined) {
+      const current = existingRecord?.[key as keyof typeof existingRecord] as string | null | undefined;
+      if (value !== undefined && !current) {
         updateFields[key] = value;
       }
     }
 
     const upserted = await db.storyCharacter.upsert({
       where: { storyId_name: { storyId, name: char.name } },
-      create: { storyId, name: char.name, ...updateFields },
+      create: { storyId, name: char.name, ...createFields },
       update: updateFields,
       select: { id: true },
     });
@@ -229,17 +309,24 @@ export const applyExtraction: ApplyExtraction = async (result, db, storyId) => {
         }
       }
 
-      await db.characterInMoment.create({
-        data: {
-          momentId: created.id,
-          characterName: charRef.name,
-          role: charRef.role,
-          ...(characterId ? { characterId } : {}),
-          ...(charRef.perspective ? { perspective: charRef.perspective } : {}),
-          ...(charRef.emotionalImpact ? { emotionalImpact: charRef.emotionalImpact } : {}),
-          ...(charRef.knowledgeGained ? { knowledgeGained: charRef.knowledgeGained } : {}),
-        },
+      // Guard against duplicate CharacterInMoment records
+      const existingLink = await db.characterInMoment.findFirst({
+        where: { momentId: created.id, characterName: charRef.name },
+        select: { id: true },
       });
+      if (!existingLink) {
+        await db.characterInMoment.create({
+          data: {
+            momentId: created.id,
+            characterName: charRef.name,
+            role: charRef.role,
+            ...(characterId ? { characterId } : {}),
+            ...(charRef.perspective ? { perspective: charRef.perspective } : {}),
+            ...(charRef.emotionalImpact ? { emotionalImpact: charRef.emotionalImpact } : {}),
+            ...(charRef.knowledgeGained ? { knowledgeGained: charRef.knowledgeGained } : {}),
+          },
+        });
+      }
     }
   }
 
