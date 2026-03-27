@@ -13,10 +13,22 @@ export { encryptValue } from './_helpers/encrypt-value';
 export type { ModelPricing } from './_helpers/model-pricing';
 export { getModelCost, getModelPricing, isKnownModel } from './_helpers/model-pricing';
 export { createToolProgressReporter } from './_helpers/report-tool-progress';
+export { HookTimeoutError } from './_helpers/with-timeout';
 export { runChainHook, runEarlyReturnHook, runHook };
 
 // Inlined from orchestrator config
 export type LogLevel = 'debug' | 'info' | 'warn' | 'error';
+
+export type HookTimeouts = {
+  onMessage?: number;
+  onBeforeInvoke?: number;
+  onAfterInvoke?: number;
+  onBroadcast?: number;
+  onPipelineStart?: number;
+  onPipelineComplete?: number;
+  onSettingsChange?: number;
+  onIntentClassify?: number;
+};
 
 export type OrchestratorConfig = {
   databaseUrl: string;
@@ -29,6 +41,7 @@ export type OrchestratorConfig = {
   port: number;
   logLevel: LogLevel;
   uploadDir: string;
+  hookTimeouts?: HookTimeouts;
 };
 
 // Inlined from orchestrator invoker

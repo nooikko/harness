@@ -1,5 +1,5 @@
 import type { Logger } from '@harness/logger';
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { runChainHook } from '../run-chain-hook';
 
 type TestHooks = {
@@ -153,5 +153,107 @@ describe('runChainHook', () => {
 
     expect(result).toBe('final transform');
     expect(mockLogger.error).toHaveBeenCalledTimes(1);
+  });
+
+  describe('timeout behavior', () => {
+    beforeEach(() => {
+      vi.useFakeTimers();
+    });
+
+    afterEach(() => {
+      vi.useRealTimers();
+    });
+
+    it('preserves previous value on timeout and logs at error level', async () => {
+      let resolveSlowHook!: (v: string) => void;
+      const slowHook = new Promise<string>((r) => {
+        resolveSlowHook = r;
+      });
+      const hookObjects: TestHooks[] = [{ onTransform: vi.fn().mockResolvedValue('first result') }, { onTransform: vi.fn(() => slowHook) }];
+
+      const callHook = vi.fn((hooks: TestHooks, currentValue: string) => (hooks.onTransform ? hooks.onTransform(currentValue) : undefined));
+
+      const runPromise = runChainHook(hookObjects, 'onTransform', 'initial', callHook, mockLogger, ['fast', 'slow'], 100);
+
+      await vi.advanceTimersByTimeAsync(101);
+      const result = await runPromise;
+
+      expect(result).toBe('first result');
+      expect(mockLogger.error).toHaveBeenCalledWith(
+        expect.stringContaining('timed out'),
+        expect.objectContaining({ plugin: 'slow', hookName: 'onTransform', timeoutMs: 100 }),
+      );
+
+      resolveSlowHook('too late');
+    });
+
+    it('next hook receives pre-timeout value', async () => {
+      let resolveSlowHook!: (v: string) => void;
+      const slowHook = new Promise<string>((r) => {
+        resolveSlowHook = r;
+      });
+      const thirdHook = vi.fn().mockResolvedValue('final value');
+      const hookObjects: TestHooks[] = [
+        { onTransform: vi.fn().mockResolvedValue('step-1') },
+        { onTransform: vi.fn(() => slowHook) },
+        { onTransform: thirdHook },
+      ];
+
+      const callHook = vi.fn((hooks: TestHooks, currentValue: string) => (hooks.onTransform ? hooks.onTransform(currentValue) : undefined));
+
+      const runPromise = runChainHook(hookObjects, 'onTransform', 'start', callHook, mockLogger, ['a', 'b', 'c'], 50);
+
+      await vi.advanceTimersByTimeAsync(51);
+      const result = await runPromise;
+
+      expect(result).toBe('final value');
+      expect(thirdHook).toHaveBeenCalledWith('step-1');
+
+      resolveSlowHook('too late');
+    });
+
+    it('no timeout applied when timeoutMs is undefined', async () => {
+      let resolveHook!: (v: string) => void;
+      const neverHook = new Promise<string>((r) => {
+        resolveHook = r;
+      });
+      const hookObjects: TestHooks[] = [{ onTransform: vi.fn(() => neverHook) }];
+
+      const callHook = vi.fn((hooks: TestHooks, currentValue: string) => (hooks.onTransform ? hooks.onTransform(currentValue) : undefined));
+
+      const runPromise = runChainHook(hookObjects, 'onTransform', 'initial', callHook, mockLogger, ['plugin'], undefined);
+
+      vi.advanceTimersByTime(100_000);
+
+      resolveHook('finally');
+      const result = await runPromise;
+
+      expect(result).toBe('finally');
+      expect(mockLogger.error).not.toHaveBeenCalled();
+    });
+
+    it('non-timeout errors still log at error level', async () => {
+      const hookObjects: TestHooks[] = [{ onTransform: vi.fn().mockRejectedValue(new Error('real failure')) }];
+
+      const callHook = vi.fn((hooks: TestHooks, currentValue: string) => (hooks.onTransform ? hooks.onTransform(currentValue) : undefined));
+
+      const result = await runChainHook(hookObjects, 'onTransform', 'initial', callHook, mockLogger, ['myPlugin'], 5_000);
+
+      expect(result).toBe('initial');
+      expect(mockLogger.error).toHaveBeenCalledWith(expect.stringContaining('real failure'), expect.objectContaining({ hookName: 'onTransform' }));
+    });
+
+    it('timeoutMs at position 7 does not break names at position 6', async () => {
+      const hookObjects: TestHooks[] = [{ onTransform: vi.fn().mockRejectedValue(new Error('boom')) }];
+
+      const callHook = vi.fn((hooks: TestHooks, currentValue: string) => (hooks.onTransform ? hooks.onTransform(currentValue) : undefined));
+
+      await runChainHook(hookObjects, 'onTransform', 'initial', callHook, mockLogger, ['context'], 5_000);
+
+      expect(mockLogger.error).toHaveBeenCalledWith(
+        expect.stringContaining('[plugin=context]'),
+        expect.objectContaining({ hookName: 'onTransform' }),
+      );
+    });
   });
 });

@@ -119,7 +119,14 @@ export const createOrchestrator: CreateOrchestrator = (deps) => {
           pipelineLogger.info(`sendToThread: starting [contentLength=${content.length}]`);
 
           pipelineLogger.info('sendToThread: firing onPipelineStart hooks');
-          await runNotifyHooks(allHooks(), 'onPipelineStart', (h) => h.onPipelineStart?.(threadId, { traceId }), pipelineLogger, names);
+          await runNotifyHooks(
+            allHooks(),
+            'onPipelineStart',
+            (h) => h.onPipelineStart?.(threadId, { traceId }),
+            pipelineLogger,
+            names,
+            deps.config.hookTimeouts?.onPipelineStart,
+          );
 
           // Intent classification — fast-path for high-confidence tool requests
           const intentStart = Date.now();
@@ -129,6 +136,7 @@ export const createOrchestrator: CreateOrchestrator = (deps) => {
             (h) => h.onIntentClassify?.(threadId, content),
             pipelineLogger,
             names,
+            deps.config.hookTimeouts?.onIntentClassify,
           );
           const intentDurationMs = Date.now() - intentStart;
 
@@ -196,6 +204,7 @@ export const createOrchestrator: CreateOrchestrator = (deps) => {
             (h) => h.onPipelineComplete?.(threadId, { invokeResult, pipelineSteps, streamEvents }),
             pipelineLogger,
             names,
+            deps.config.hookTimeouts?.onPipelineComplete,
           );
 
           if (invokeResult.output) {
@@ -296,13 +305,27 @@ export const createOrchestrator: CreateOrchestrator = (deps) => {
       await current;
     },
     broadcast: async (event: string, data: unknown) => {
-      await runNotifyHooks(allHooks(), 'onBroadcast', (h) => h.onBroadcast?.(event, data), deps.logger);
+      await runNotifyHooks(
+        allHooks(),
+        'onBroadcast',
+        (h) => h.onBroadcast?.(event, data),
+        deps.logger,
+        pluginNames(),
+        deps.config.hookTimeouts?.onBroadcast,
+      );
     },
     getSettings: async () => {
       return {};
     },
     notifySettingsChange: async (pluginName: string) => {
-      await runNotifyHooks(allHooks(), 'onSettingsChange', (h) => h.onSettingsChange?.(pluginName), deps.logger);
+      await runNotifyHooks(
+        allHooks(),
+        'onSettingsChange',
+        (h) => h.onSettingsChange?.(pluginName),
+        deps.logger,
+        pluginNames(),
+        deps.config.hookTimeouts?.onSettingsChange,
+      );
     },
     reportStatus: () => {
       // No-op on the shared context — each plugin gets a scoped version in buildPluginContext
@@ -370,7 +393,7 @@ export const createOrchestrator: CreateOrchestrator = (deps) => {
     log.info(`Pipeline: onMessage [role=${role}]`);
     const onMessagePlugins = plugins.filter((p) => p.hooks.onMessage).map((p) => p.definition.name);
     const onMessageStart = Date.now();
-    await runNotifyHooks(hooks, 'onMessage', (h) => h.onMessage?.(threadId, role, content), log, names);
+    await runNotifyHooks(hooks, 'onMessage', (h) => h.onMessage?.(threadId, role, content), log, names, deps.config.hookTimeouts?.onMessage);
     const onMessageDurationMs = Date.now() - onMessageStart;
     const onMessageMeta = { plugins: onMessagePlugins, durationMs: onMessageDurationMs };
     pipelineSteps.push({ step: 'onMessage', detail: onMessagePlugins.join(', ') || 'none', metadata: onMessageMeta, timestamp: Date.now() });
@@ -396,7 +419,7 @@ export const createOrchestrator: CreateOrchestrator = (deps) => {
     const onBeforePlugins = plugins.filter((p) => p.hooks.onBeforeInvoke).map((p) => p.definition.name);
     const promptBefore = basePrompt.length;
     const onBeforeStart = Date.now();
-    const prompt = await runChainHooks(hooks, threadId, basePrompt, log, names);
+    const prompt = await runChainHooks(hooks, threadId, basePrompt, log, names, deps.config.hookTimeouts?.onBeforeInvoke);
     const onBeforeDurationMs = Date.now() - onBeforeStart;
     const promptAfter = prompt.length;
     const onBeforeMeta = { plugins: onBeforePlugins, promptBefore, promptAfter, durationMs: onBeforeDurationMs };
@@ -502,7 +525,14 @@ export const createOrchestrator: CreateOrchestrator = (deps) => {
 
     // Step 5: Fire onAfterInvoke hooks (notification)
     const onAfterStart = Date.now();
-    await runNotifyHooks(hooks, 'onAfterInvoke', (h) => h.onAfterInvoke?.(threadId, invokeResult), log, names);
+    await runNotifyHooks(
+      hooks,
+      'onAfterInvoke',
+      (h) => h.onAfterInvoke?.(threadId, invokeResult),
+      log,
+      names,
+      deps.config.hookTimeouts?.onAfterInvoke,
+    );
     const onAfterDurationMs = Date.now() - onAfterStart;
     const onAfterMeta = {
       inputTokens: invokeResult.inputTokens ?? null,

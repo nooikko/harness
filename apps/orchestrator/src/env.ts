@@ -14,6 +14,14 @@ const envSchema = z.object({
   PORT: z.coerce.number().default(4001),
   LOG_LEVEL: z.string().optional(),
   UPLOAD_DIR: z.string().default('./uploads'),
+  HOOK_TIMEOUT_ON_MESSAGE: z.coerce.number().optional(),
+  HOOK_TIMEOUT_ON_BEFORE_INVOKE: z.coerce.number().optional(),
+  HOOK_TIMEOUT_ON_AFTER_INVOKE: z.coerce.number().optional(),
+  HOOK_TIMEOUT_ON_BROADCAST: z.coerce.number().optional(),
+  HOOK_TIMEOUT_ON_PIPELINE_START: z.coerce.number().optional(),
+  HOOK_TIMEOUT_ON_PIPELINE_COMPLETE: z.coerce.number().optional(),
+  HOOK_TIMEOUT_ON_SETTINGS_CHANGE: z.coerce.number().optional(),
+  HOOK_TIMEOUT_ON_INTENT_CLASSIFY: z.coerce.number().optional(),
 });
 
 type LoadEnv = () => z.infer<typeof envSchema>;

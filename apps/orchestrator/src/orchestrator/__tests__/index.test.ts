@@ -609,6 +609,7 @@ describe('createOrchestrator', () => {
         expect.any(Function),
         expect.anything(),
         expect.any(Array),
+        undefined,
       );
     });
 
@@ -624,6 +625,7 @@ describe('createOrchestrator', () => {
         expect.any(Function),
         expect.anything(),
         expect.any(Array),
+        undefined,
       );
     });
 
@@ -846,7 +848,7 @@ describe('createOrchestrator', () => {
 
       await orchestrator.handleMessage('thread-99', 'user', 'hello');
 
-      expect(mockRunNotifyHooks).toHaveBeenCalledWith([hooks], 'onMessage', expect.any(Function), expect.anything(), ['p']);
+      expect(mockRunNotifyHooks).toHaveBeenCalledWith([hooks], 'onMessage', expect.any(Function), expect.anything(), ['p'], undefined);
     });
 
     it('calls runChainHooks with the assembled prompt and returns modified prompt to invoker', async () => {
@@ -856,7 +858,7 @@ describe('createOrchestrator', () => {
 
       const result = await orchestrator.handleMessage('thread-1', 'user', 'original');
 
-      expect(mockRunChainHooks).toHaveBeenCalledWith([], 'thread-1', '[assembled] original', expect.anything(), []);
+      expect(mockRunChainHooks).toHaveBeenCalledWith([], 'thread-1', '[assembled] original', expect.anything(), [], undefined);
       expect(result.prompt).toBe('augmented prompt');
       expect(deps.invoker.invoke).toHaveBeenCalledWith(
         'augmented prompt',
@@ -893,7 +895,7 @@ describe('createOrchestrator', () => {
 
       await orchestrator.handleMessage('thread-1', 'user', 'content');
 
-      expect(mockRunNotifyHooks).toHaveBeenCalledWith([], 'onAfterInvoke', expect.any(Function), expect.anything(), []);
+      expect(mockRunNotifyHooks).toHaveBeenCalledWith([], 'onAfterInvoke', expect.any(Function), expect.anything(), [], undefined);
     });
 
     it('returns the invoke result and prompt in the result object', async () => {
@@ -948,7 +950,7 @@ describe('createOrchestrator', () => {
       const orchestrator = createOrchestrator(deps);
       await orchestrator.handleMessage('thread-1', 'user', 'hello');
 
-      expect(mockRunChainHooks).toHaveBeenCalledWith(expect.any(Array), 'thread-1', '[assembled] hello', expect.anything(), []);
+      expect(mockRunChainHooks).toHaveBeenCalledWith(expect.any(Array), 'thread-1', '[assembled] hello', expect.anything(), [], undefined);
     });
 
     it('uses kind "general" when thread is not found', async () => {
@@ -974,8 +976,8 @@ describe('createOrchestrator', () => {
 
       await orchestrator.handleMessage('t', 'user', 'hi');
 
-      expect(mockRunNotifyHooks).toHaveBeenCalledWith([hooks], 'onMessage', expect.any(Function), expect.anything(), ['p']);
-      expect(mockRunChainHooks).toHaveBeenCalledWith([hooks], 't', '[assembled] hi', expect.anything(), ['p']);
+      expect(mockRunNotifyHooks).toHaveBeenCalledWith([hooks], 'onMessage', expect.any(Function), expect.anything(), ['p'], undefined);
+      expect(mockRunChainHooks).toHaveBeenCalledWith([hooks], 't', '[assembled] hi', expect.anything(), ['p'], undefined);
     });
 
     it('looks up thread for sessionId and model before invoking', async () => {

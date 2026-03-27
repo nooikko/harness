@@ -144,4 +144,37 @@ describe('runNotifyHooks', () => {
 
     expect(callOrder).toEqual([hookA, hookB, hookC]);
   });
+
+  it('forwards timeoutMs to the underlying runner', async () => {
+    vi.useFakeTimers();
+    let resolveHook!: () => void;
+    const slowHook = new Promise<void>((r) => {
+      resolveHook = r;
+    });
+    const hookObjects: PluginHooks[] = [{}];
+    const callHook = vi.fn(() => slowHook);
+
+    const runPromise = runNotifyHooks(hookObjects, 'onBroadcast', callHook, mockLogger, ['notifications'], 100);
+
+    await vi.advanceTimersByTimeAsync(101);
+    await runPromise;
+
+    expect(mockLogger.warn).toHaveBeenCalledWith(
+      expect.stringContaining('timed out'),
+      expect.objectContaining({ plugin: 'notifications', hookName: 'onBroadcast', timeoutMs: 100 }),
+    );
+
+    resolveHook();
+    vi.useRealTimers();
+  });
+
+  it('does not apply timeout when timeoutMs is omitted', async () => {
+    const hookObjects: PluginHooks[] = [{}];
+    const callHook = vi.fn(() => Promise.resolve());
+
+    await runNotifyHooks(hookObjects, 'onMessage', callHook, mockLogger, ['identity']);
+
+    expect(mockLogger.warn).not.toHaveBeenCalled();
+    expect(mockLogger.error).not.toHaveBeenCalled();
+  });
 });

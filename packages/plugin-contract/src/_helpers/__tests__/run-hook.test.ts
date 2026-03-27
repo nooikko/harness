@@ -1,5 +1,5 @@
 import type { Logger } from '@harness/logger';
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { runHook } from '../run-hook';
 
 type TestHooks = {
@@ -173,5 +173,138 @@ describe('runHook', () => {
     await runHook(hookObjects, 'onNotify', callHook, mockLogger);
 
     expect(callOrder).toEqual([hookA, hookB, hookC]);
+  });
+
+  describe('timeout behavior', () => {
+    beforeEach(() => {
+      vi.useFakeTimers();
+    });
+
+    afterEach(() => {
+      vi.useRealTimers();
+    });
+
+    it('kills a slow hook and logs at warn level (not error)', async () => {
+      let resolveHook!: () => void;
+      const slowHook = new Promise<void>((r) => {
+        resolveHook = r;
+      });
+      const hookObjects: TestHooks[] = [{}];
+      const callHook = vi.fn(() => slowHook);
+
+      const runPromise = runHook(hookObjects, 'onBroadcast', callHook, mockLogger, ['notifications'], 100);
+
+      await vi.advanceTimersByTimeAsync(101);
+      await runPromise;
+
+      expect(mockLogger.warn).toHaveBeenCalledWith(
+        expect.stringContaining('onBroadcast'),
+        expect.objectContaining({ plugin: 'notifications', hookName: 'onBroadcast', timeoutMs: 100 }),
+      );
+      expect(mockLogger.error).not.toHaveBeenCalled();
+
+      resolveHook();
+    });
+
+    it('continues to the next hook after a timeout', async () => {
+      let resolveFirst!: () => void;
+      const firstHook = new Promise<void>((r) => {
+        resolveFirst = r;
+      });
+      const secondRan = vi.fn().mockResolvedValue(undefined);
+      const hookObjects: TestHooks[] = [{}, {}];
+
+      let callCount = 0;
+      const callHook = vi.fn(() => {
+        callCount++;
+        if (callCount === 1) {
+          return firstHook;
+        }
+        return secondRan();
+      });
+
+      const runPromise = runHook(hookObjects, 'onAfterInvoke', callHook, mockLogger, ['slow', 'fast'], 50);
+
+      await vi.advanceTimersByTimeAsync(51);
+      await runPromise;
+
+      expect(secondRan).toHaveBeenCalledTimes(1);
+      expect(mockLogger.warn).toHaveBeenCalledTimes(1);
+
+      resolveFirst();
+    });
+
+    it('middle hook timeout does not prevent first or third from running', async () => {
+      const results: string[] = [];
+      let resolveMiddle!: () => void;
+      const middleHook = new Promise<void>((r) => {
+        resolveMiddle = r;
+      });
+
+      const hookObjects: TestHooks[] = [{}, {}, {}];
+      let callCount = 0;
+      const callHook = vi.fn(() => {
+        callCount++;
+        if (callCount === 1) {
+          results.push('first');
+          return Promise.resolve();
+        }
+        if (callCount === 2) {
+          return middleHook;
+        }
+        results.push('third');
+        return Promise.resolve();
+      });
+
+      const runPromise = runHook(hookObjects, 'onMessage', callHook, mockLogger, ['a', 'b', 'c'], 50);
+
+      await vi.advanceTimersByTimeAsync(51);
+      await runPromise;
+
+      expect(results).toEqual(['first', 'third']);
+      expect(mockLogger.warn).toHaveBeenCalledTimes(1);
+
+      resolveMiddle();
+    });
+
+    it('non-timeout errors still log at error level', async () => {
+      const hookObjects: TestHooks[] = [{}];
+      const callHook = vi.fn(() => Promise.reject(new Error('real failure')));
+
+      await runHook(hookObjects, 'onMessage', callHook, mockLogger, ['myPlugin'], 5_000);
+
+      expect(mockLogger.error).toHaveBeenCalledWith(expect.stringContaining('real failure'), expect.objectContaining({ hookName: 'onMessage' }));
+      expect(mockLogger.warn).not.toHaveBeenCalled();
+    });
+
+    it('no timeout applied when timeoutMs is undefined', async () => {
+      const hookObjects: TestHooks[] = [{}];
+      let resolveHook!: () => void;
+      const neverHook = new Promise<void>((r) => {
+        resolveHook = r;
+      });
+      const callHook = vi.fn(() => neverHook);
+
+      const runPromise = runHook(hookObjects, 'onMessage', callHook, mockLogger, ['plugin'], undefined);
+
+      vi.advanceTimersByTime(100_000);
+
+      // Promise should still be pending — resolve it manually
+      resolveHook();
+      await runPromise;
+
+      expect(mockLogger.warn).not.toHaveBeenCalled();
+      expect(mockLogger.error).not.toHaveBeenCalled();
+    });
+
+    it('all hooks under timeout: no warnings logged', async () => {
+      const hookObjects: TestHooks[] = [{}, {}];
+      const callHook = vi.fn(() => Promise.resolve());
+
+      await runHook(hookObjects, 'onPipelineStart', callHook, mockLogger, ['a', 'b'], 5_000);
+
+      expect(mockLogger.warn).not.toHaveBeenCalled();
+      expect(mockLogger.error).not.toHaveBeenCalled();
+    });
   });
 });

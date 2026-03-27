@@ -119,4 +119,36 @@ describe('runChainHooks', () => {
     expect(result).toBe('from second hook');
     expect(secondHook).toHaveBeenCalledWith('thread-1', 'initial prompt');
   });
+
+  it('forwards timeoutMs to the underlying runner', async () => {
+    vi.useFakeTimers();
+    let resolveHook!: (v: string) => void;
+    const slowHook = new Promise<string>((r) => {
+      resolveHook = r;
+    });
+    const allHooks: PluginHooks[] = [{ onBeforeInvoke: vi.fn(() => slowHook) }];
+
+    const runPromise = runChainHooks(allHooks, 'thread-1', 'initial prompt', mockLogger, ['identity'], 100);
+
+    await vi.advanceTimersByTimeAsync(101);
+    const result = await runPromise;
+
+    expect(result).toBe('initial prompt');
+    expect(mockLogger.error).toHaveBeenCalledWith(
+      expect.stringContaining('timed out'),
+      expect.objectContaining({ plugin: 'identity', hookName: 'onBeforeInvoke', timeoutMs: 100 }),
+    );
+
+    resolveHook('too late');
+    vi.useRealTimers();
+  });
+
+  it('does not apply timeout when timeoutMs is omitted', async () => {
+    const allHooks: PluginHooks[] = [{ onBeforeInvoke: vi.fn().mockResolvedValue('modified') }];
+
+    const result = await runChainHooks(allHooks, 'thread-1', 'initial prompt', mockLogger, ['identity']);
+
+    expect(result).toBe('modified');
+    expect(mockLogger.error).not.toHaveBeenCalled();
+  });
 });

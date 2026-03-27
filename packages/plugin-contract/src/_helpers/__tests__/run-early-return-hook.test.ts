@@ -1,5 +1,5 @@
 import type { Logger } from '@harness/logger';
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { runEarlyReturnHook } from '../run-early-return-hook';
 
 type TestResult = { handled: boolean; response?: string };
@@ -153,5 +153,92 @@ describe('runEarlyReturnHook', () => {
     const result = await runEarlyReturnHook([{}], 'onClassify', callHook, mockLogger);
 
     expect(result).toBeNull();
+  });
+
+  describe('timeout behavior', () => {
+    beforeEach(() => {
+      vi.useFakeTimers();
+    });
+
+    afterEach(() => {
+      vi.useRealTimers();
+    });
+
+    it('timed-out hook is skipped and next hook can handle', async () => {
+      let resolveFirst!: (v: TestResult) => void;
+      const slowHook = new Promise<TestResult>((r) => {
+        resolveFirst = r;
+      });
+
+      let callCount = 0;
+      const callHook = vi.fn(() => {
+        callCount++;
+        if (callCount === 1) {
+          return slowHook;
+        }
+        return Promise.resolve({ handled: true, response: 'from second' } as TestResult);
+      });
+
+      const runPromise = runEarlyReturnHook([{}, {}], 'onClassify', callHook, mockLogger, ['slow', 'fast'], 100);
+
+      await vi.advanceTimersByTimeAsync(101);
+      const result = await runPromise;
+
+      expect(result).toEqual({ handled: true, response: 'from second' });
+      expect(mockLogger.warn).toHaveBeenCalledWith(
+        expect.stringContaining('timed out'),
+        expect.objectContaining({ plugin: 'slow', hookName: 'onClassify', timeoutMs: 100 }),
+      );
+
+      resolveFirst({ handled: true, response: 'too late' });
+    });
+
+    it('returns null if only hook times out', async () => {
+      let resolveHook!: (v: TestResult) => void;
+      const slowHook = new Promise<TestResult>((r) => {
+        resolveHook = r;
+      });
+
+      const callHook = vi.fn(() => slowHook);
+
+      const runPromise = runEarlyReturnHook([{}], 'onClassify', callHook, mockLogger, ['only'], 50);
+
+      await vi.advanceTimersByTimeAsync(51);
+      const result = await runPromise;
+
+      expect(result).toBeNull();
+      expect(mockLogger.warn).toHaveBeenCalledTimes(1);
+
+      resolveHook({ handled: true, response: 'too late' });
+    });
+
+    it('no timeout applied when timeoutMs is undefined', async () => {
+      let resolveHook!: (v: TestResult) => void;
+      const neverHook = new Promise<TestResult>((r) => {
+        resolveHook = r;
+      });
+
+      const callHook = vi.fn(() => neverHook);
+
+      const runPromise = runEarlyReturnHook([{}], 'onClassify', callHook, mockLogger, ['plugin'], undefined);
+
+      vi.advanceTimersByTime(100_000);
+
+      resolveHook({ handled: true, response: 'done' });
+      const result = await runPromise;
+
+      expect(result).toEqual({ handled: true, response: 'done' });
+      expect(mockLogger.warn).not.toHaveBeenCalled();
+    });
+
+    it('non-timeout errors still log at error level', async () => {
+      const callHook = vi.fn(() => Promise.reject(new Error('real failure')));
+
+      const result = await runEarlyReturnHook([{}], 'onClassify', callHook, mockLogger, ['broken'], 5_000);
+
+      expect(result).toBeNull();
+      expect(mockLogger.error).toHaveBeenCalledWith(expect.stringContaining('real failure'), expect.objectContaining({ hookName: 'onClassify' }));
+      expect(mockLogger.warn).not.toHaveBeenCalled();
+    });
   });
 });
