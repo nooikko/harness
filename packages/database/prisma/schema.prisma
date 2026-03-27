@@ -551,18 +551,22 @@ model Story {
   id           String           @id @default(cuid())
   name         String
   premise      String?          @db.Text
-  storyTime    String?
-  currentScene Json?
-  agentId      String?
-  agent        Agent?           @relation(fields: [agentId], references: [id])
-  threads      Thread[]
-  characters   StoryCharacter[]
-  moments      StoryMoment[]
-  locations    StoryLocation[]
-  arcs         StoryArc[]
-  transcripts  StoryTranscript[]
-  createdAt    DateTime         @default(now())
-  updatedAt    DateTime         @updatedAt
+  storyTime       String?
+  currentDay      Int?
+  dayOfWeekOrigin String?
+  currentScene    Json?
+  agentId         String?
+  agent           Agent?           @relation(fields: [agentId], references: [id])
+  threads         Thread[]
+  characters      StoryCharacter[]
+  moments         StoryMoment[]
+  locations       StoryLocation[]
+  arcs            StoryArc[]
+  transcripts     StoryTranscript[]
+  storyDays       StoryDay[]
+  events          StoryEvent[]
+  createdAt       DateTime         @default(now())
+  updatedAt       DateTime         @updatedAt
 
   @@index([agentId])
 }
@@ -634,8 +638,11 @@ model StoryMoment {
   importance         Int                @default(5)
   messageId          String?
   message            Message?           @relation(fields: [messageId], references: [id], onDelete: SetNull)
+  storyDayId         String?
+  storyDay           StoryDay?          @relation(fields: [storyDayId], references: [id], onDelete: SetNull)
   characters         CharacterInMoment[]
   arcs                    MomentInArc[]
+  events             StoryEvent[]
   transcriptAnnotations   TranscriptAnnotation[]
   sourceTranscriptId      String?
   sourceTranscript   StoryTranscript?   @relation(fields: [sourceTranscriptId], references: [id], onDelete: SetNull)
@@ -649,6 +656,7 @@ model StoryMoment {
   @@index([storyId, createdAt])
   @@index([storyId, importance])
   @@index([locationId])
+  @@index([storyDayId])
   @@index([sourceTranscriptId, sourceChunkIndex])
   @@index([deletedAt])
 }
@@ -736,4 +744,42 @@ model TranscriptAnnotation {
 
   @@index([transcriptId, messageIndex])
   @@index([momentId])
+}
+
+model StoryDay {
+  id        String        @id @default(cuid())
+  storyId   String
+  story     Story         @relation(fields: [storyId], references: [id], onDelete: Cascade)
+  dayNumber Int
+  label     String?
+  dayOfWeek String?
+  summary   String?       @db.Text
+  moments   StoryMoment[]
+  events    StoryEvent[]
+  createdAt DateTime      @default(now())
+
+  @@unique([storyId, dayNumber])
+  @@index([storyId])
+}
+
+model StoryEvent {
+  id                 String       @id @default(cuid())
+  storyId            String
+  story              Story        @relation(fields: [storyId], references: [id], onDelete: Cascade)
+  what               String       @db.Text
+  targetDay          Int?
+  targetTime         String?
+  status             String       @default("pending")
+  createdByCharacter String?
+  knownBy            String[]
+  resolvedAt         DateTime?
+  sourceMomentId     String?
+  sourceMoment       StoryMoment? @relation(fields: [sourceMomentId], references: [id], onDelete: SetNull)
+  storyDayId         String?
+  storyDay           StoryDay?    @relation(fields: [storyDayId], references: [id], onDelete: SetNull)
+  createdAt          DateTime     @default(now())
+  updatedAt          DateTime     @updatedAt
+
+  @@index([storyId, status])
+  @@index([storyId, targetDay])
 }

@@ -24,6 +24,12 @@ type PrismaClient = {
   story: {
     update: (args: Record<string, unknown>) => Promise<unknown>;
   };
+  storyDay: {
+    upsert: (args: Record<string, unknown>) => Promise<{ id: string }>;
+  };
+  storyEvent: {
+    create: (args: Record<string, unknown>) => Promise<{ id: string }>;
+  };
 };
 
 const CurrentSceneSchema = z.object({
@@ -34,7 +40,9 @@ const CurrentSceneSchema = z.object({
 
 const CHARACTER_FIELDS = ['appearance', 'personality', 'mannerisms', 'motives', 'backstory', 'relationships', 'color', 'status'] as const;
 
-type ApplyExtraction = (result: ExtractionResult, db: PrismaClient, storyId: string) => Promise<void>;
+type ApplyExtractionResult = { momentIds: string[] };
+
+type ApplyExtraction = (result: ExtractionResult, db: PrismaClient, storyId: string) => Promise<ApplyExtractionResult>;
 
 export const applyExtraction: ApplyExtraction = async (result, db, storyId) => {
   // 1. Process characters (upsert)
@@ -66,11 +74,16 @@ export const applyExtraction: ApplyExtraction = async (result, db, storyId) => {
             data: { aliases: { push: char.name } },
           });
         }
-        // Update any null fields on the existing record
+        // Only update fields that are currently null on the existing record
+        const full = await db.storyCharacter.findFirst({
+          where: { id: existing.id },
+          select: Object.fromEntries(CHARACTER_FIELDS.map((f) => [f, true])),
+        });
         const mergeFields: Record<string, string> = {};
         for (const key of CHARACTER_FIELDS) {
           const value = char.fields[key];
-          if (value !== undefined) {
+          const current = full?.[key as keyof typeof full] as string | null | undefined;
+          if (value !== undefined && !current) {
             mergeFields[key] = value;
           }
         }
@@ -154,6 +167,7 @@ export const applyExtraction: ApplyExtraction = async (result, db, storyId) => {
   }
 
   // 4. Process moments + CharacterInMoment records
+  const createdMomentIds: string[] = [];
   for (const moment of result.moments) {
     // Resolve location: use locationId if provided, or create from newLocationName
     let resolvedLocationId: string | undefined = moment.locationId;
@@ -173,6 +187,18 @@ export const applyExtraction: ApplyExtraction = async (result, db, storyId) => {
       locationNameToId.set(moment.newLocationName, newLoc.id);
     }
 
+    // Resolve storyDay -> storyDayId
+    let storyDayId: string | undefined;
+    if (moment.storyDay) {
+      const day = await db.storyDay.upsert({
+        where: { storyId_dayNumber: { storyId, dayNumber: moment.storyDay } },
+        create: { storyId, dayNumber: moment.storyDay },
+        update: {},
+        select: { id: true },
+      });
+      storyDayId = day.id;
+    }
+
     const created = await db.storyMoment.create({
       data: {
         storyId,
@@ -180,11 +206,13 @@ export const applyExtraction: ApplyExtraction = async (result, db, storyId) => {
         ...(moment.description ? { description: moment.description } : {}),
         ...(moment.storyTime ? { storyTime: moment.storyTime } : {}),
         ...(resolvedLocationId ? { locationId: resolvedLocationId } : {}),
+        ...(storyDayId ? { storyDayId } : {}),
         kind: moment.kind,
         importance: moment.importance,
       },
       select: { id: true },
     });
+    createdMomentIds.push(created.id);
 
     // Create CharacterInMoment records
     for (const charRef of moment.characters) {
@@ -231,10 +259,56 @@ export const applyExtraction: ApplyExtraction = async (result, db, storyId) => {
     storyUpdate.storyTime = newStoryTime;
   }
 
+  // 6. Process timeline data
+  if (result.timeline) {
+    const { currentDay, dayTransition, events: timelineEvents } = result.timeline;
+
+    if (currentDay !== null) {
+      storyUpdate.currentDay = currentDay;
+
+      // Upsert the StoryDay record
+      await db.storyDay.upsert({
+        where: { storyId_dayNumber: { storyId, dayNumber: currentDay } },
+        create: { storyId, dayNumber: currentDay },
+        update: {},
+      });
+    } else if (dayTransition && storyUpdate.currentDay === undefined) {
+      // dayTransition without explicit currentDay — we can't increment without knowing current
+      // (handled by the tool-advance-time when the agent calls it)
+    }
+
+    // Create StoryEvent records for future events mentioned
+    for (const event of timelineEvents) {
+      let eventDayId: string | undefined;
+      if (event.targetDay !== null && event.targetDay !== undefined) {
+        const day = await db.storyDay.upsert({
+          where: { storyId_dayNumber: { storyId, dayNumber: event.targetDay } },
+          create: { storyId, dayNumber: event.targetDay },
+          update: {},
+          select: { id: true },
+        });
+        eventDayId = day.id;
+      }
+
+      await db.storyEvent.create({
+        data: {
+          storyId,
+          what: event.what,
+          targetDay: event.targetDay ?? null,
+          createdByCharacter: event.createdByCharacter ?? null,
+          knownBy: event.knownBy ?? [],
+          ...(eventDayId ? { storyDayId: eventDayId } : {}),
+        },
+      });
+    }
+  }
+
   if (Object.keys(storyUpdate).length > 0) {
     await db.story.update({
       where: { id: storyId },
       data: storyUpdate,
     });
   }
+
+  return { momentIds: createdMomentIds };
 };

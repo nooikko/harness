@@ -10,6 +10,7 @@ describe('buildExtractionPrompt', () => {
       ],
       locations: [],
       storyTime: null,
+      currentDay: null,
       latestExchange: 'Hello',
     });
 
@@ -25,6 +26,7 @@ describe('buildExtractionPrompt', () => {
         { id: 'loc-2', name: 'Kingdom of Ardan' },
       ],
       storyTime: null,
+      currentDay: null,
       latestExchange: 'Hello',
     });
 
@@ -38,6 +40,7 @@ describe('buildExtractionPrompt', () => {
       characters: [],
       locations: [],
       storyTime: null,
+      currentDay: null,
       latestExchange: exchange,
     });
 
@@ -50,6 +53,7 @@ describe('buildExtractionPrompt', () => {
       characters: [],
       locations: [],
       storyTime: 'Dawn of the third day',
+      currentDay: null,
       latestExchange: 'Hello',
     });
 
@@ -61,6 +65,7 @@ describe('buildExtractionPrompt', () => {
       characters: [],
       locations: [],
       storyTime: null,
+      currentDay: null,
       latestExchange: 'Hello',
     });
 
@@ -72,6 +77,7 @@ describe('buildExtractionPrompt', () => {
       characters: [],
       locations: [],
       storyTime: null,
+      currentDay: null,
       latestExchange: 'Hello',
     });
 
@@ -83,6 +89,7 @@ describe('buildExtractionPrompt', () => {
       characters: [],
       locations: [],
       storyTime: null,
+      currentDay: null,
       latestExchange: 'Hello',
     });
 

@@ -123,6 +123,7 @@ Extract the following as a JSON object. This is an IMPORT operation — be thoro
       "summary": "1-2 sentence summary preserving emotional specificity",
       "description": "optional longer description with concrete details",
       "storyTime": "optional — when in the story this happened",
+      "storyDay": "optional integer — story day number (e.g. 3 for Day 3)",
       "locationId": "ID of existing location (if known)",
       "newLocationName": "name if this is a NEW location",
       "newLocationDescription": "description of new location",
@@ -157,9 +158,17 @@ Extract the following as a JSON object. This is an IMPORT operation — be thoro
   } | null,
   "aliases": [
     { "alias": "alternate name used", "resolvedName": "canonical character name" }
-  ]
+  ],
+  "timeline": {
+    "currentDay": "integer or null — story day number at end of this section",
+    "dayTransition": "boolean — true if a new day started in this section",
+    "timeOfDay": "string or null — morning/afternoon/evening/night/dawn/dusk",
+    "events": [
+      { "what": "future plan or commitment", "targetDay": "integer or null", "createdByCharacter": "name or null", "knownBy": ["character names"] }
+    ]
+  }
 }
 \`\`\`
 
-Output ONLY valid JSON. If nothing to extract for a category, use an empty array (or null for scene).`;
+Output ONLY valid JSON. If nothing to extract for a category, use an empty array (or null for scene/timeline fields).`;
 };

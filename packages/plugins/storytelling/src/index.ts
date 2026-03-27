@@ -2,13 +2,16 @@ import type { PluginContext, PluginDefinition, PluginHooks, PluginTool } from '@
 import { buildCastInjection } from './_helpers/build-cast-injection';
 import { detectOocMessage } from './_helpers/detect-ooc-message';
 import { extractStoryState } from './_helpers/extract-story-state';
+import { _resetExtractionCache } from './_helpers/extraction-config';
 import { formatStorytellingInstructions } from './_helpers/format-storytelling-instructions';
 import { handleOocCommand } from './_helpers/handle-ooc-command';
 import { parseOocCommand } from './_helpers/parse-ooc-command';
 import { resolveStoryId } from './_helpers/resolve-story-id';
+import { handleAddEvent } from './_helpers/tool-add-event';
 import { handleAddLocation } from './_helpers/tool-add-location';
 import { handleAdvanceTime } from './_helpers/tool-advance-time';
 import { handleAnnotateMoment } from './_helpers/tool-annotate-moment';
+import { handleBackfillDays } from './_helpers/tool-backfill-days';
 import { handleCharacterKnowledge } from './_helpers/tool-character-knowledge';
 import { handleCorrectMoment } from './_helpers/tool-correct-moment';
 import { handleCreateArc } from './_helpers/tool-create-arc';
@@ -18,9 +21,12 @@ import { handleGetCharacter } from './_helpers/tool-get-character';
 import { handleImportCharacters } from './_helpers/tool-import-characters';
 import { handleImportDocument } from './_helpers/tool-import-document';
 import { handleImportTranscript } from './_helpers/tool-import-transcript';
+import { handleListEvents } from './_helpers/tool-list-events';
 import { handleMergeMoments } from './_helpers/tool-merge-moments';
 import { handleRecordMoment } from './_helpers/tool-record-moment';
+import { handleResolveEvent } from './_helpers/tool-resolve-event';
 import { handleRestoreMoment } from './_helpers/tool-restore-moment';
+import { handleSetDayMapping } from './_helpers/tool-set-day-mapping';
 import { handleUpdateCharacter } from './_helpers/tool-update-character';
 import { wrapOocContent } from './_helpers/wrap-ooc-content';
 
@@ -156,15 +162,18 @@ const createRegister: CreateRegister = () => {
 
         // 60-second dedup guard — uses in-memory timestamp, not story.updatedAt
         // (story.updatedAt is bumped by tool calls like advance_time, which would falsely skip extraction)
-        const lastExtraction = lastExtractionAt.get(storyId) ?? 0;
+        // Keyed by storyId:threadId so different threads on the same story extract independently
+        const dedupKey = `${storyId}:${threadId}`;
+        const lastExtraction = lastExtractionAt.get(dedupKey) ?? 0;
         if (Date.now() - lastExtraction < DEDUP_GUARD_MS) {
           return;
         }
 
         try {
-          lastExtractionAt.set(storyId, Date.now());
+          lastExtractionAt.set(dedupKey, Date.now());
           await extractStoryState(ctx, storyId, threadId, result.output);
         } catch (err) {
+          lastExtractionAt.delete(dedupKey);
           const e = err instanceof Error ? err : new Error(String(err));
           ctx.logger.error('storytelling: extraction failed', {
             storyId,
@@ -261,11 +270,13 @@ const storytellingTools: PluginTool[] = [
   {
     name: 'advance_time',
     audience: 'agent',
-    description: 'Advance the in-story time to a new value.',
+    description: 'Advance the in-story time. Optionally set a structured day number for timeline tracking.',
     schema: {
       type: 'object',
       properties: {
         storyTime: { type: 'string', description: 'The new story time (e.g. "Dawn, Day 3" or "Three weeks later")' },
+        storyDay: { type: 'number', description: 'Story day number (e.g. 3 for Day 3). Creates a StoryDay record.' },
+        timeOfDay: { type: 'string', description: 'Time of day (e.g. "morning", "evening", "dawn")' },
       },
       required: ['storyTime'],
     },
@@ -274,7 +285,7 @@ const storytellingTools: PluginTool[] = [
       if (!storyId) {
         return 'This thread is not part of a story.';
       }
-      return handleAdvanceTime(ctx.db, storyId, input as { storyTime: string });
+      return handleAdvanceTime(ctx.db, storyId, input as { storyTime: string; storyDay?: number; timeOfDay?: string });
     },
   },
   {
@@ -582,6 +593,121 @@ const storytellingTools: PluginTool[] = [
       return handleAnnotateMoment(ctx, storyId, input as { momentId: string; annotation?: string; arcNames?: string[] });
     },
   },
+  {
+    name: 'add_event',
+    audience: 'agent',
+    description: 'Track a future event, plan, or character commitment. Events appear in the timeline injection during writing.',
+    schema: {
+      type: 'object',
+      properties: {
+        what: { type: 'string', description: 'What is planned or committed to' },
+        targetDay: { type: 'number', description: 'Story day number when it should happen (optional if vague)' },
+        targetTime: { type: 'string', description: 'Time of day (e.g. "evening", "dawn")' },
+        createdByCharacter: { type: 'string', description: 'Character who made the plan or commitment' },
+        knownBy: { type: 'array', items: { type: 'string' }, description: 'Character names who know about this event' },
+      },
+      required: ['what'],
+    },
+    handler: async (ctx, input, meta) => {
+      const storyId = await resolveStoryId(meta.threadId, storyCache, ctx.db as never);
+      if (!storyId) {
+        return 'This thread is not part of a story.';
+      }
+      return handleAddEvent(
+        ctx.db,
+        storyId,
+        input as { what: string; targetDay?: number; targetTime?: string; createdByCharacter?: string; knownBy?: string[] },
+      );
+    },
+  },
+  {
+    name: 'resolve_event',
+    audience: 'agent',
+    description: 'Mark a tracked event as happened, missed, or cancelled.',
+    schema: {
+      type: 'object',
+      properties: {
+        eventId: { type: 'string', description: 'ID of the event to resolve' },
+        status: { type: 'string', enum: ['happened', 'missed', 'cancelled'], description: 'What happened to the event' },
+        note: { type: 'string', description: 'Optional note about what actually happened' },
+      },
+      required: ['eventId', 'status'],
+    },
+    handler: async (ctx, input, meta) => {
+      const storyId = await resolveStoryId(meta.threadId, storyCache, ctx.db as never);
+      if (!storyId) {
+        return 'This thread is not part of a story.';
+      }
+      return handleResolveEvent(ctx.db, storyId, input as { eventId: string; status: 'happened' | 'missed' | 'cancelled'; note?: string });
+    },
+  },
+  {
+    name: 'list_events',
+    audience: 'agent',
+    description: 'List tracked events and commitments. Filter by status or character.',
+    schema: {
+      type: 'object',
+      properties: {
+        status: { type: 'string', enum: ['pending', 'happened', 'missed', 'cancelled', 'all'], description: 'Filter by status (default: all)' },
+        characterName: { type: 'string', description: 'Filter to events a specific character knows about' },
+      },
+    },
+    handler: async (ctx, input, meta) => {
+      const storyId = await resolveStoryId(meta.threadId, storyCache, ctx.db as never);
+      if (!storyId) {
+        return 'This thread is not part of a story.';
+      }
+      return handleListEvents(ctx.db, storyId, input as { status?: string; characterName?: string });
+    },
+  },
+  {
+    name: 'set_day_mapping',
+    audience: 'agent',
+    description: 'Establish which real day-of-week a story day corresponds to. Retroactively backfills all existing day records.',
+    schema: {
+      type: 'object',
+      properties: {
+        dayNumber: { type: 'number', description: 'Which story day number (e.g. 5)' },
+        dayOfWeek: {
+          type: 'string',
+          enum: ['monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday', 'sunday'],
+          description: 'What day of the week it is',
+        },
+      },
+      required: ['dayNumber', 'dayOfWeek'],
+    },
+    handler: async (ctx, input, meta) => {
+      const storyId = await resolveStoryId(meta.threadId, storyCache, ctx.db as never);
+      if (!storyId) {
+        return 'This thread is not part of a story.';
+      }
+      return handleSetDayMapping(ctx.db, storyId, input as { dayNumber: number; dayOfWeek: string });
+    },
+  },
+  {
+    name: 'backfill_days',
+    audience: 'agent',
+    description:
+      'Bulk-assign story day numbers to existing moments by matching their storyTime text. Use after establishing timeline for older moments.',
+    schema: {
+      type: 'object',
+      properties: {
+        mapping: {
+          type: 'object',
+          description: 'Map of storyTime text patterns to day numbers, e.g. { "Day 1": 1, "Day 2": 2 }',
+          additionalProperties: { type: 'number' },
+        },
+      },
+      required: ['mapping'],
+    },
+    handler: async (ctx, input, meta) => {
+      const storyId = await resolveStoryId(meta.threadId, storyCache, ctx.db as never);
+      if (!storyId) {
+        return 'This thread is not part of a story.';
+      }
+      return handleBackfillDays(ctx.db, storyId, input as { mapping: Record<string, number> });
+    },
+  },
 ];
 
 export const plugin: PluginDefinition = {
@@ -621,9 +747,9 @@ export const plugin: PluginDefinition = {
           (char as { personality?: string }).personality ?? '',
           (char as { storyId: string }).storyId,
         ).catch((err) => {
-          ctx.logger.warn(
-            `storytelling: failed to index character ${(char as { name: string }).name}: ${err instanceof Error ? err.message : String(err)}`,
-          );
+          const e = err instanceof Error ? err : new Error(String(err));
+          ctx.logger.warn(`storytelling: failed to index character ${(char as { name: string }).name}: ${e.message}`);
+          ctx.reportBackgroundError('indexCharacter', e);
         });
       }
       ctx.logger.info(`storytelling: backfilling ${characters.length} characters into Qdrant`);
@@ -635,6 +761,7 @@ export const plugin: PluginDefinition = {
     storyCache.clear();
     handledOocCommands.clear();
     lastExtractionAt.clear();
+    _resetExtractionCache();
   },
   tools: storytellingTools,
 };

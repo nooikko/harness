@@ -31,6 +31,12 @@ type MockDb = {
   story: {
     update: ReturnType<typeof vi.fn>;
   };
+  storyDay: {
+    upsert: ReturnType<typeof vi.fn>;
+  };
+  storyEvent: {
+    create: ReturnType<typeof vi.fn>;
+  };
 };
 
 type CreateMockDb = () => MockDb;
@@ -54,7 +60,20 @@ const createMockDb: CreateMockDb = () => ({
   story: {
     update: vi.fn().mockResolvedValue({}),
   },
+  storyDay: {
+    upsert: vi.fn().mockResolvedValue({ id: 'day-1' }),
+  },
+  storyEvent: {
+    create: vi.fn().mockResolvedValue({ id: 'event-1' }),
+  },
 });
+
+const EMPTY_TIMELINE = {
+  currentDay: null,
+  dayTransition: false,
+  timeOfDay: null,
+  events: [] as { what: string; targetDay: number | null; createdByCharacter: string | null; knownBy: string[] }[],
+};
 
 const EMPTY_RESULT: ExtractionResult = {
   characters: [],
@@ -62,6 +81,7 @@ const EMPTY_RESULT: ExtractionResult = {
   locations: [],
   scene: null,
   aliases: [],
+  timeline: EMPTY_TIMELINE,
 };
 
 describe('applyExtraction', () => {
@@ -506,6 +526,108 @@ describe('applyExtraction', () => {
     expect(db.storyCharacter.update).not.toHaveBeenCalled();
   });
 
+  it('merge path only updates null fields on existing character, preserving curated data', async () => {
+    const { resolveCharacterIdentity } = await import('../resolve-character-identity');
+    (resolveCharacterIdentity as Mock).mockReturnValueOnce({
+      action: 'merge',
+      targetId: 'existing-char-id',
+      targetName: 'Sir Aldric',
+    });
+
+    const db = createMockDb();
+    // First findFirst: returns existing character for merge (with aliases)
+    db.storyCharacter.findFirst.mockResolvedValueOnce({
+      id: 'existing-char-id',
+      aliases: [],
+    });
+
+    const result: ExtractionResult = {
+      ...EMPTY_RESULT,
+      characters: [
+        {
+          action: 'create',
+          name: 'The Knight',
+          fields: { personality: 'vague extraction', appearance: 'new appearance' },
+        },
+      ],
+    };
+
+    await applyExtraction(result, db as unknown as Parameters<typeof applyExtraction>[1], 'story-1');
+
+    // The merge path should call findFirst twice: once for alias check, once for field check
+    expect(db.storyCharacter.findFirst).toHaveBeenCalledTimes(2);
+
+    // The second findFirst should select character fields to check for nulls
+    const secondCall = db.storyCharacter.findFirst.mock.calls[1]?.[0] as { select: Record<string, boolean> };
+    expect(secondCall.select).toHaveProperty('personality', true);
+    expect(secondCall.select).toHaveProperty('appearance', true);
+
+    // Since the mock returns null for field values (default), both fields should be written
+    const updateCalls = db.storyCharacter.update.mock.calls;
+    const fieldUpdateCall = updateCalls.find((c: unknown[]) => {
+      const data = (c[0] as { data: Record<string, unknown> }).data;
+      return data.personality !== undefined || data.appearance !== undefined;
+    });
+    expect(fieldUpdateCall).toBeDefined();
+    const data = (fieldUpdateCall![0] as { data: Record<string, unknown> }).data;
+    expect(data).toHaveProperty('personality');
+    expect(data).toHaveProperty('appearance');
+  });
+
+  it('merge path skips fields that already have values on existing character', async () => {
+    const { resolveCharacterIdentity } = await import('../resolve-character-identity');
+    (resolveCharacterIdentity as Mock).mockReturnValueOnce({
+      action: 'merge',
+      targetId: 'existing-char-id',
+      targetName: 'Sir Aldric',
+    });
+
+    const db = createMockDb();
+    // Return existing character with aliases
+    db.storyCharacter.findFirst.mockResolvedValueOnce({
+      id: 'existing-char-id',
+      aliases: [],
+    });
+    // Second findFirst returns the full character record with existing personality
+    db.storyCharacter.findFirst.mockResolvedValueOnce({
+      id: 'existing-char-id',
+      personality: 'brave warrior — curated by user',
+      appearance: null,
+      mannerisms: null,
+      motives: null,
+      backstory: null,
+      relationships: null,
+      color: null,
+      status: null,
+    });
+
+    const result: ExtractionResult = {
+      ...EMPTY_RESULT,
+      characters: [
+        {
+          action: 'create',
+          name: 'The Knight',
+          fields: { personality: 'vague extraction', appearance: 'tall and armored' },
+        },
+      ],
+    };
+
+    await applyExtraction(result, db as unknown as Parameters<typeof applyExtraction>[1], 'story-1');
+
+    // Should NOT overwrite personality (already has 'brave warrior')
+    // Should write appearance (was null)
+    const updateCalls = db.storyCharacter.update.mock.calls;
+    const fieldUpdateCall = updateCalls.find((c: unknown[]) => {
+      const data = (c[0] as { data: Record<string, unknown> }).data;
+      return data.appearance !== undefined || data.personality !== undefined;
+    });
+
+    expect(fieldUpdateCall).toBeDefined();
+    const data = (fieldUpdateCall![0] as { data: Record<string, unknown> }).data;
+    expect(data).toHaveProperty('appearance', 'tall and armored');
+    expect(data).not.toHaveProperty('personality');
+  });
+
   it('skips updating currentScene when scene data fails Zod validation', async () => {
     const db = createMockDb();
     const result: ExtractionResult = {
@@ -521,6 +643,133 @@ describe('applyExtraction', () => {
     await applyExtraction(result, db as unknown as Parameters<typeof applyExtraction>[1], 'story-1');
 
     // story.update should not have been called since scene validation failed and no storyTime
+    expect(db.story.update).not.toHaveBeenCalled();
+  });
+
+  // --- Timeline processing tests ---
+
+  it('updates currentDay from timeline and upserts StoryDay', async () => {
+    const db = createMockDb();
+    const result: ExtractionResult = {
+      ...EMPTY_RESULT,
+      timeline: { ...EMPTY_TIMELINE, currentDay: 3 },
+    };
+
+    await applyExtraction(result, db as unknown as Parameters<typeof applyExtraction>[1], 'story-1');
+
+    expect(db.storyDay.upsert).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: { storyId_dayNumber: { storyId: 'story-1', dayNumber: 3 } },
+        create: { storyId: 'story-1', dayNumber: 3 },
+        update: {},
+      }),
+    );
+    expect(db.story.update).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({ currentDay: 3 }),
+      }),
+    );
+  });
+
+  it('creates StoryEvent records from timeline events', async () => {
+    const db = createMockDb();
+    const result: ExtractionResult = {
+      ...EMPTY_RESULT,
+      timeline: {
+        ...EMPTY_TIMELINE,
+        events: [{ what: 'The gala', targetDay: 5, createdByCharacter: 'Elena', knownBy: ['Elena', 'Aldric'] }],
+      },
+    };
+
+    await applyExtraction(result, db as unknown as Parameters<typeof applyExtraction>[1], 'story-1');
+
+    expect(db.storyDay.upsert).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: { storyId_dayNumber: { storyId: 'story-1', dayNumber: 5 } },
+      }),
+    );
+    expect(db.storyEvent.create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({
+          storyId: 'story-1',
+          what: 'The gala',
+          targetDay: 5,
+          createdByCharacter: 'Elena',
+          knownBy: ['Elena', 'Aldric'],
+          storyDayId: 'day-1',
+        }),
+      }),
+    );
+  });
+
+  it('creates StoryEvent without storyDayId when targetDay is null', async () => {
+    const db = createMockDb();
+    const result: ExtractionResult = {
+      ...EMPTY_RESULT,
+      timeline: {
+        ...EMPTY_TIMELINE,
+        events: [{ what: 'Someday visit the ruins', targetDay: null, createdByCharacter: null, knownBy: [] }],
+      },
+    };
+
+    await applyExtraction(result, db as unknown as Parameters<typeof applyExtraction>[1], 'story-1');
+
+    expect(db.storyDay.upsert).not.toHaveBeenCalled();
+    expect(db.storyEvent.create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({
+          what: 'Someday visit the ruins',
+          targetDay: null,
+        }),
+      }),
+    );
+    const call = db.storyEvent.create.mock.calls[0]?.[0] as { data: Record<string, unknown> };
+    expect(call.data).not.toHaveProperty('storyDayId');
+  });
+
+  it('links moment to StoryDay via storyDayId when moment has storyDay', async () => {
+    const db = createMockDb();
+    const result: ExtractionResult = {
+      ...EMPTY_RESULT,
+      moments: [{ summary: 'Morning sparring', kind: 'action', importance: 5, characters: [], storyDay: 2 }],
+    };
+
+    await applyExtraction(result, db as unknown as Parameters<typeof applyExtraction>[1], 'story-1');
+
+    expect(db.storyDay.upsert).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: { storyId_dayNumber: { storyId: 'story-1', dayNumber: 2 } },
+      }),
+    );
+    expect(db.storyMoment.create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({
+          storyDayId: 'day-1',
+        }),
+      }),
+    );
+  });
+
+  it('does not create StoryDay or StoryEvent for empty timeline', async () => {
+    const db = createMockDb();
+
+    await applyExtraction(EMPTY_RESULT, db as unknown as Parameters<typeof applyExtraction>[1], 'story-1');
+
+    expect(db.storyDay.upsert).not.toHaveBeenCalled();
+    expect(db.storyEvent.create).not.toHaveBeenCalled();
+  });
+
+  it('handles dayTransition without currentDay as no-op', async () => {
+    const db = createMockDb();
+    const result: ExtractionResult = {
+      ...EMPTY_RESULT,
+      timeline: { ...EMPTY_TIMELINE, dayTransition: true },
+    };
+
+    await applyExtraction(result, db as unknown as Parameters<typeof applyExtraction>[1], 'story-1');
+
+    // dayTransition without currentDay cannot increment — intentional no-op
+    expect(db.storyDay.upsert).not.toHaveBeenCalled();
     expect(db.story.update).not.toHaveBeenCalled();
   });
 });

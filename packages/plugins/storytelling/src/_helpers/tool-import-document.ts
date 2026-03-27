@@ -120,22 +120,12 @@ export const handleImportDocument: HandleImportDocument = async (ctx, storyId, i
     driftFlags += parsed.moments.filter((m) => m.driftFlag).length;
 
     // Apply extraction — reuses existing applyExtraction with source tracking
-    await applyExtraction(parsed, ctx.db as never, storyId);
+    const { momentIds } = await applyExtraction(parsed, ctx.db as never, storyId);
 
-    // Update source tracking on newly created moments
-    const newMoments = await ctx.db.storyMoment.findMany({
-      where: {
-        storyId,
-        sourceTranscriptId: null,
-        createdAt: { gte: new Date(Date.now() - 5000) },
-      },
-      select: { id: true },
-      take: 50,
-    });
-
-    for (const m of newMoments) {
+    // Tag created moments with source provenance (uses returned IDs, not time-window heuristic)
+    for (const momentId of momentIds) {
       await ctx.db.storyMoment.update({
-        where: { id: m.id },
+        where: { id: momentId },
         data: {
           sourceTranscriptId: transcript.id,
           sourceChunkIndex: i,

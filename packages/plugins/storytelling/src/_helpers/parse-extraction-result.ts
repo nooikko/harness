@@ -18,6 +18,7 @@ const MomentExtractionSchema = z.object({
   summary: z.string().min(1),
   description: z.string().optional(),
   storyTime: z.string().optional(),
+  storyDay: z.number().int().positive().nullable().optional(),
   locationId: z.string().optional(),
   newLocationName: z.string().optional(),
   newLocationDescription: z.string().optional(),
@@ -44,12 +45,27 @@ const AliasExtractionSchema = z.object({
   resolvedName: z.string().min(1),
 });
 
+const EventExtractionSchema = z.object({
+  what: z.string().min(1),
+  targetDay: z.number().int().positive().nullable().default(null),
+  createdByCharacter: z.string().nullable().default(null),
+  knownBy: z.array(z.string()).default([]),
+});
+
+const TimelineExtractionSchema = z.object({
+  currentDay: z.number().int().positive().nullable().default(null),
+  dayTransition: z.boolean().default(false),
+  timeOfDay: z.string().nullable().default(null),
+  events: z.array(EventExtractionSchema).default([]),
+});
+
 const ExtractionResultSchema = z.object({
   characters: z.array(CharacterExtractionSchema).default([]),
   moments: z.array(MomentExtractionSchema).default([]),
   locations: z.array(LocationExtractionSchema).default([]),
   scene: SceneExtractionSchema.nullable().default(null),
   aliases: z.array(AliasExtractionSchema).default([]),
+  timeline: TimelineExtractionSchema.default({ currentDay: null, dayTransition: false, timeOfDay: null, events: [] }),
 });
 
 export type ExtractionResult = z.infer<typeof ExtractionResultSchema>;

@@ -2,7 +2,7 @@ import type { PluginContext } from '@harness/plugin-contract';
 import { describe, expect, it, vi } from 'vitest';
 
 vi.mock('../apply-extraction', () => ({
-  applyExtraction: vi.fn().mockResolvedValue(undefined),
+  applyExtraction: vi.fn().mockResolvedValue({ momentIds: [] }),
 }));
 
 const { handleImportTranscript } = await import('../tool-import-transcript');

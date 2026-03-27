@@ -20,6 +20,7 @@ const ImportMomentSchema = z.object({
   summary: z.string().min(1),
   description: z.string().optional(),
   storyTime: z.string().optional(),
+  storyDay: z.number().int().positive().nullable().optional(),
   locationId: z.string().optional(),
   newLocationName: z.string().optional(),
   newLocationDescription: z.string().optional(),
@@ -48,12 +49,27 @@ const ImportAliasSchema = z.object({
   resolvedName: z.string().min(1),
 });
 
+const ImportEventSchema = z.object({
+  what: z.string().min(1),
+  targetDay: z.number().int().positive().nullable().default(null),
+  createdByCharacter: z.string().nullable().default(null),
+  knownBy: z.array(z.string()).default([]),
+});
+
+const ImportTimelineSchema = z.object({
+  currentDay: z.number().int().positive().nullable().default(null),
+  dayTransition: z.boolean().default(false),
+  timeOfDay: z.string().nullable().default(null),
+  events: z.array(ImportEventSchema).default([]),
+});
+
 const ImportExtractionResultSchema = z.object({
   characters: z.array(ImportCharacterSchema).default([]),
   moments: z.array(ImportMomentSchema).default([]),
   locations: z.array(ImportLocationSchema).default([]),
   scene: ImportSceneSchema.nullable().default(null),
   aliases: z.array(ImportAliasSchema).default([]),
+  timeline: ImportTimelineSchema.default({ currentDay: null, dayTransition: false, timeOfDay: null, events: [] }),
 });
 
 export type ImportExtractionResult = z.infer<typeof ImportExtractionResultSchema>;

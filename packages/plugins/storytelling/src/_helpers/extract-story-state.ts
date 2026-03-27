@@ -26,10 +26,10 @@ export const extractStoryState: ExtractStoryState = async (ctx, storyId, threadI
     ...(l.parent ? { parentName: l.parent.name } : {}),
   }));
 
-  // 3. Query story time
+  // 3. Query story time and current day
   const story = await ctx.db.story.findUnique({
     where: { id: storyId },
-    select: { storyTime: true },
+    select: { storyTime: true, currentDay: true },
   });
 
   // 4. Query recent user messages (take 2, most recent first)
@@ -52,6 +52,7 @@ export const extractStoryState: ExtractStoryState = async (ctx, storyId, threadI
     characters,
     locations: locationRefs,
     storyTime: story?.storyTime ?? null,
+    currentDay: story?.currentDay ?? null,
     latestExchange,
   });
 

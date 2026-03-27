@@ -108,10 +108,16 @@ export const handleImportCharacters: HandleImportCharacters = async (ctx, storyI
             data: { aliases: { push: char.name } },
           });
         }
+        // Only update fields that are currently null on the existing record
+        const full = await ctx.db.storyCharacter.findFirst({
+          where: { id: (target as { id: string }).id },
+          select: Object.fromEntries(CHARACTER_FIELDS.map((f) => [f, true])),
+        });
         const mergeFields: Record<string, string> = {};
         for (const key of CHARACTER_FIELDS) {
           const value = char.fields[key];
-          if (value !== undefined) {
+          const current = (full as Record<string, unknown> | null)?.[key] as string | null | undefined;
+          if (value !== undefined && !current) {
             mergeFields[key] = value;
           }
         }
@@ -141,10 +147,16 @@ export const handleImportCharacters: HandleImportCharacters = async (ctx, storyI
               data: { aliases: { push: char.name } },
             });
           }
+          // Only update fields that are currently null on the existing record
+          const full = await ctx.db.storyCharacter.findFirst({
+            where: { id: (target as { id: string }).id },
+            select: Object.fromEntries(CHARACTER_FIELDS.map((f) => [f, true])),
+          });
           const mergeFields: Record<string, string> = {};
           for (const key of CHARACTER_FIELDS) {
             const value = char.fields[key];
-            if (value !== undefined) {
+            const current = (full as Record<string, unknown> | null)?.[key] as string | null | undefined;
+            if (value !== undefined && !current) {
               mergeFields[key] = value;
             }
           }

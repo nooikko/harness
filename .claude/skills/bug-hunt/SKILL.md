@@ -1,15 +1,299 @@
 ---
 name: bug-hunt
-description: Plugin-focused logic bug hunter — cross-references plugin code against the contract and pipeline rules to find where things break
+description: Multi-agent adversarial plugin bug hunter — three independent auditors cross-review each other's findings until they converge on validated issues
 argument-hint: "<plugin-name>"
-disable-model-invocation: true
 ---
 
-# Plugin Bug Hunt
+# Plugin Bug Hunt (Multi-Agent Adversarial)
 
-**Mission**: Adversarial plugin auditor. Read the contract fresh, read the plugin code, find where things break. You are hunting logic bugs, not style issues.
+**Mission**: Launch three independent bug hunters against a plugin. Cross-pollinate their findings adversarially until every surviving finding has been independently verified against source code by all three agents.
 
 ---
+
+## Your Role: Pure Relay
+
+You are a **messenger, not a participant**. You have exactly three jobs:
+
+1. **Relay verbatim** — pass each agent's complete output to the others without summarizing, filtering, editorializing, or highlighting
+2. **Detect convergence** — mechanically compare finding lists across agents (a structural observation, not a quality judgment)
+3. **Enforce evidence requirements** — findings without file:line verification evidence are automatically invalid in the final report
+
+### You MUST NOT:
+
+- Evaluate findings ("this one looks important", "I agree with Agent A here")
+- Filter or summarize ("the key points from Agent A are...")
+- Steer attention ("you should look at what Agent B said about the race condition")
+- Suggest merges ("you both found the same issue, maybe combine them")
+- Express opinions on severity, validity, or priority of any finding
+- Add your own findings or observations about the plugin code
+- Praise or criticize any agent's work
+
+**If you catch yourself forming an opinion about the findings, stop. You are a relay.**
+
+---
+
+## Orchestration Protocol
+
+**Architecture**: Each round spawns fresh agents via the Agent tool. No SendMessage, no agent resumption. Each agent receives the full context it needs in its initial prompt.
+
+### Round 0 — Independent Hunt
+
+Launch three agents **in parallel** using the Agent tool. Each receives the **Base Agent Prompt** below (with `$ARGUMENTS` resolved to the plugin name).
+
+- Names: `bug-hunt-alpha-r0`, `bug-hunt-beta-r0`, `bug-hunt-gamma-r0`
+- `subagent_type: "general-purpose"`, `model: "sonnet"`
+
+Wait for all three to complete. Collect their full reports. Store them as `alpha_r0`, `beta_r0`, `gamma_r0`.
+
+### Round 1 — Cross-Review (Independent Verification)
+
+Launch three **new** agents **in parallel** using the Agent tool. Each receives:
+1. The **Base Agent Prompt** (so they can read source files themselves)
+2. The **Cross-Review Addendum** (verification rules)
+3. Their own Round 0 report
+4. The other two agents' Round 0 reports
+
+- Names: `bug-hunt-alpha-r1`, `bug-hunt-beta-r1`, `bug-hunt-gamma-r1`
+- `subagent_type: "general-purpose"`, `model: "sonnet"`
+
+**Prompt template for each Round 1 agent:**
+
+```
+{BASE AGENT PROMPT}
+
+---
+
+{CROSS-REVIEW ADDENDUM}
+
+---
+
+## Your Prior Findings (Round 0)
+
+{this agent's Round 0 report}
+
+---
+
+## Other Auditor's Findings (Round 0)
+
+### Auditor 2:
+{second agent's Round 0 report}
+
+### Auditor 3:
+{third agent's Round 0 report}
+```
+
+Assign the reports so each agent sees the other two:
+- alpha-r1 gets: own=`alpha_r0`, others=`beta_r0` + `gamma_r0`
+- beta-r1 gets: own=`beta_r0`, others=`alpha_r0` + `gamma_r0`
+- gamma-r1 gets: own=`gamma_r0`, others=`alpha_r0` + `beta_r0`
+
+Wait for all three to complete. Store as `alpha_r1`, `beta_r1`, `gamma_r1`.
+
+### Round 2 — Final Positions
+
+Launch three **new** agents **in parallel**. Each receives:
+1. The **Base Agent Prompt**
+2. The **Cross-Review Addendum**
+3. All three Round 1 reports
+
+- Names: `bug-hunt-alpha-r2`, `bug-hunt-beta-r2`, `bug-hunt-gamma-r2`
+- `subagent_type: "general-purpose"`, `model: "sonnet"`
+
+**Prompt template for each Round 2 agent:**
+
+```
+{BASE AGENT PROMPT}
+
+---
+
+{CROSS-REVIEW ADDENDUM}
+
+---
+
+This is the FINAL ROUND. Produce your definitive position. Every finding you include MUST have file:line verification evidence from YOUR OWN reading of the source code.
+
+## All Three Auditors' Round 1 Reports
+
+### Auditor Alpha:
+{alpha_r1}
+
+### Auditor Beta:
+{beta_r1}
+
+### Auditor Gamma:
+{gamma_r1}
+```
+
+Wait for all three to complete. Store as `alpha_r2`, `beta_r2`, `gamma_r2`.
+
+### Final Report — Synthesis
+
+Launch one final agent to produce the unified report:
+
+- Name: `bug-hunt-synthesizer`
+- `subagent_type: "general-purpose"`, `model: "sonnet"`
+
+**Prompt:**
+
+```
+You are a report synthesizer. You do NOT evaluate findings. You mechanically categorize them by cross-agent agreement.
+
+You have three auditors' final reports from an adversarial bug hunt of the {plugin-name} plugin. Your job is to produce a unified report by cross-referencing findings.
+
+## Categorization Rules
+
+A finding is identified by its **title + file path**. Two findings from different agents match if they describe the same bug in the same file, even if worded differently.
+
+### Validated (3/3)
+A finding appears in ALL THREE agents' final reports with source-code verification evidence. These are confirmed bugs.
+
+### Partially Validated (2/3)
+A finding appears in exactly TWO agents' final reports with verification evidence. These are probable bugs flagged for human review.
+
+### Unvalidated (1/3)
+A finding appears in only ONE agent's final report. These are leads, not confirmed bugs. Include them for completeness but clearly mark them as unvalidated.
+
+### Rejected
+A finding was raised in an earlier round but explicitly rejected with counter-evidence by an agent in their final report. Include the rejection reason.
+
+## Validation Check
+
+For each finding, verify it includes:
+- **File path** — specific source file
+- **Verification method** — what the agent read to confirm it
+- Findings missing these fields are automatically downgraded to Unvalidated regardless of how many agents listed them.
+
+## Output Format
+
+# Bug Hunt Report: {plugin-name} plugin
+
+## Plugin Profile
+- Name: {name}
+- Version: {version}
+- Hooks: {list}
+- Tools: {list or "none"}
+- Lifecycle: {start/stop or "none"}
+
+## Findings Summary
+
+| Validation Status    | Critical | Major | Minor |
+|----------------------|----------|-------|-------|
+| Validated (3/3)      | {n}      | {n}   | {n}   |
+| Partial (2/3)        | {n}      | {n}   | {n}   |
+| Unvalidated (1/3)    | {n}      | {n}   | {n}   |
+
+## Validated Findings — Confirmed by All 3 Agents
+
+{Each finding with: severity, title, file, problem, impact, evidence from each agent}
+
+## Partially Validated Findings — 2 of 3 Agents
+
+{Each finding with: severity, title, file, which agents confirmed, which did not}
+
+## Unvalidated Findings — Single Agent Only
+
+{Each finding with: severity, title, file, which agent reported it}
+
+## Findings Rejected During Review
+
+{Findings raised but rejected with counter-evidence}
+
+---
+
+## Auditor Alpha Final Report:
+{alpha_r2}
+
+## Auditor Beta Final Report:
+{beta_r2}
+
+## Auditor Gamma Final Report:
+{gamma_r2}
+```
+
+Pass the synthesizer's report to the user **as-is**. Do not add commentary.
+
+---
+
+## Cross-Review Addendum
+
+This section is appended to the agent prompt in Rounds 1 and 2. It is NOT included in Round 0.
+
+````
+## Cross-Review Protocol
+
+You have been given findings from other auditors AND (if Round 1+) your own prior findings.
+
+### The Verification Rule
+
+**A finding is NOT validated by agreeing with it.** A finding is validated ONLY when you:
+
+1. Read the specific source file referenced in the finding
+2. Locate the specific code path described
+3. Independently confirm the bug exists (or doesn't) by reading the actual code
+4. Cite the file path and the specific code you read as evidence
+
+These are INVALID verification methods:
+- "I agree with Agent B's assessment" — NOT VALID
+- "This makes sense based on the description" — NOT VALID
+- "The logic described would indeed cause a bug" — NOT VALID
+- "I accept this finding" — NOT VALID
+
+These are VALID verification methods:
+- "I read `_helpers/foo.ts` and confirmed: the function returns `undefined` on line 42 when `agentId` is null because the early return has no explicit return value" — VALID
+- "I read `_helpers/foo.ts` and this bug does NOT exist: line 42 has an explicit `return prompt` in the null case" — VALID
+
+### For Each Finding From Other Auditors:
+
+1. **GO READ THE FILE YOURSELF** — do not reason about whether the bug sounds plausible
+2. Find the exact code path described in the finding
+3. If the bug is there: include it in your findings with YOUR OWN code evidence
+4. If the bug is NOT there: reject it and cite the code that disproves it
+5. If the finding references a code path you didn't examine in Round 0: READ IT NOW
+
+**You are an auditor, not a reviewer. Auditors verify with their own eyes. Reviewers rubber-stamp.**
+
+### For Your Own Prior Findings:
+
+- Re-examine each one in light of what the other auditors raised
+- Did they find something in the same area that changes your assessment?
+- Were any of your findings based on incomplete reading of the code?
+- If another agent challenged your finding, go re-read the code to confirm or retract
+
+### Output Format for Cross-Review Rounds
+
+For EVERY finding in your updated report, you MUST include:
+
+```
+### [{SEVERITY}] {Short Title}
+
+**File:** `{path/to/file.ts}`
+**Category:** {contract-violation|null-path|race-condition|cross-coupling}
+**Verified by:** {your agent name} — Read `{file}` and confirmed: {what you observed in the code}
+**Originally found by:** {agent name who first reported it, or "self" if you found it in Round 0}
+
+**Problem:**
+{What is wrong — be specific about the code path}
+
+**Impact:**
+{What breaks, under what conditions, how likely is it}
+
+**Evidence:**
+```{language}
+{The relevant code snippet that YOU read}
+```
+```
+
+**Any finding missing the "Verified by" field with specific code evidence is automatically invalid.**
+````
+
+---
+
+## Base Agent Prompt
+
+The following is the base prompt given to each agent. In Round 0, this is the complete prompt. In Rounds 1-2, the Cross-Review Addendum and prior findings are appended after this prompt.
+
+````
+You are an adversarial plugin auditor for the Harness orchestrator system. Your mission: read the contract fresh, read the plugin code, find where things break. You are hunting logic bugs, not style issues.
 
 ## Critical Constraints
 
@@ -26,13 +310,11 @@ disable-model-invocation: true
 4. **LOGIC BUGS ONLY**: Do not flag style, naming, formatting, or documentation issues.
    This is not a code review. This is a bug hunt.
 
----
-
 ## Phase 0: Plugin Resolution
 
-Resolve `$ARGUMENTS` to a plugin directory:
+Resolve the target plugin to a plugin directory:
 
-1. Check `packages/plugins/$ARGUMENTS/src/index.ts` — if it exists, use it
+1. Check `packages/plugins/{TARGET}/src/index.ts` — if it exists, use it
 2. If not found, glob `packages/plugins/*/src/index.ts` and grep for a plugin with a matching `name` field
 3. If still not found, fail with: "Plugin not found. Available plugins:" and list all directories under `packages/plugins/`
 
@@ -42,8 +324,6 @@ Once resolved, read the plugin's `index.ts` and identify:
 - Whether `start()` / `stop()` lifecycle methods exist
 - Whether `system: true` is set
 - Whether `settingsSchema` is defined
-
----
 
 ## Phase 1: Contract Compliance
 
@@ -70,8 +350,6 @@ Then check every applicable item:
 | 9 | **Tool return type** | Tool handlers must return `string` or the structured `ToolResult` type. Does the handler return the correct type on ALL paths, including error paths? |
 | 10 | **Settings schema usage** | If the plugin defines `settingsSchema`, does it call `ctx.getSettings()` with its own schema? Does `onSettingsChange` properly reload when settings are updated? |
 
----
-
 ## Phase 2: Logic Tracing
 
 Read every file in the plugin's `src/` directory — `index.ts` and all files in `_helpers/`. For each, trace data flow and check:
@@ -88,8 +366,6 @@ Read every file in the plugin's `src/` directory — `index.ts` and all files in
 | 8 | **Unbounded queries** | `findMany()` without `take` can return thousands of records. Check for unbounded queries, especially in tool handlers (called during Claude invocation, adding latency) and in hooks that run on every message. |
 | 9 | **Hardcoded model references** | Does the plugin hardcode a model name (e.g., `claude-haiku-4-5-20251001`)? Model names change across versions. Should it use `ctx.config.claudeModel` or a settings-driven value instead? |
 | 10 | **Timeout and error handling on invoke** | If the plugin calls `ctx.invoker.invoke()`, does it handle: timeout (long-running invocation), empty response (model returned nothing), error/throw (SDK failure)? An unhandled invoke error in a fire-and-forget path is silently lost. |
-
----
 
 ## Phase 3: Generate Findings
 
@@ -118,8 +394,6 @@ For EACH issue found, create a structured finding:
 - **CRITICAL**: Will break the pipeline, lose data, or cause undefined behavior in realistic conditions
 - **MAJOR**: Will fail under specific but realistic conditions (null agent, disabled plugin, concurrent messages, empty DB)
 - **MINOR**: Defensive gap, missing error log, hardcoded value, undocumented coupling
-
----
 
 ## Phase 4: Summary Report
 
@@ -154,8 +428,6 @@ For EACH issue found, create a structured finding:
 {All findings from Phase 3, grouped by category}
 ```
 
----
-
 ## What NOT to Do
 
 - **DO NOT** fix code — only report findings
@@ -164,6 +436,13 @@ For EACH issue found, create a structured finding:
 - **DO NOT** flag style issues — this is a logic bug hunt, not a code review
 - **DO NOT** praise working code — focus exclusively on what can break
 - **DO NOT** flag issues in test files — only audit production source code
+
+## Review Target
+
+{TARGET}
+````
+
+Replace `{TARGET}` in the agent prompt with the resolved plugin name from `$ARGUMENTS`.
 
 ---
 

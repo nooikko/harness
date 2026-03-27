@@ -29,11 +29,12 @@ describe('COMMANDS registry', () => {
     expect(systemCmds.length).toBe(3);
   });
 
-  it('includes create-plan as the only human-facing tool command', () => {
+  it('includes human-facing tool commands', () => {
     const toolCmds = COMMANDS.filter((c) => c.category === 'tool');
-    expect(toolCmds.length).toBe(1);
-    expect(toolCmds[0]?.name).toBe('create-plan');
-    expect(toolCmds[0]?.pluginName).toBe('workspace');
+    expect(toolCmds.length).toBe(2);
+    const names = toolCmds.map((c) => c.name);
+    expect(names).toContain('create-plan');
+    expect(names).toContain('send-dm');
   });
 
   it('excludes all agent-audience tools from the command list', () => {

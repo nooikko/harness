@@ -139,9 +139,9 @@ describe('storytelling plugin', () => {
     expect(plugin.version).toBe('1.0.0');
   });
 
-  it('has tools array with 16 entries', () => {
+  it('has tools array with 21 entries', () => {
     expect(plugin.tools).toBeDefined();
-    expect(plugin.tools).toHaveLength(16);
+    expect(plugin.tools).toHaveLength(21);
   });
 
   it('each tool has name, description, schema, and handler', () => {
@@ -172,6 +172,11 @@ describe('storytelling plugin', () => {
       'create_arc',
       'discover_arc_moments',
       'annotate_moment',
+      'add_event',
+      'resolve_event',
+      'list_events',
+      'set_day_mapping',
+      'backfill_days',
     ]);
   });
 
@@ -578,6 +583,50 @@ describe('storytelling plugin', () => {
 
       const { extractStoryState } = await import('../_helpers/extract-story-state');
       expect(extractStoryState).not.toHaveBeenCalled();
+    });
+
+    it('clears dedup guard on extraction failure so next message can retry', async () => {
+      const ctx = createMockContext({
+        threadKind: 'storytelling',
+        storyId: 'story-retry',
+      });
+
+      const { extractStoryState } = await import('../_helpers/extract-story-state');
+
+      // First call — extraction fails
+      vi.mocked(extractStoryState).mockRejectedValueOnce(new Error('Haiku timeout'));
+      const hooks = await plugin.register(ctx);
+      await hooks.onBeforeInvoke?.('thread-retry', 'prompt');
+      await hooks.onAfterInvoke?.('thread-retry', { output: 'Response 1', durationMs: 100, exitCode: 0 });
+
+      expect(extractStoryState).toHaveBeenCalledTimes(1);
+
+      // Second call immediately — should NOT be blocked by dedup guard since first failed
+      vi.mocked(extractStoryState).mockResolvedValueOnce(undefined);
+      await hooks.onAfterInvoke?.('thread-retry', { output: 'Response 2', durationMs: 100, exitCode: 0 });
+
+      expect(extractStoryState).toHaveBeenCalledTimes(2);
+    });
+
+    it('uses thread-scoped dedup key so different threads on same story extract independently', async () => {
+      const { extractStoryState } = await import('../_helpers/extract-story-state');
+      vi.mocked(extractStoryState).mockResolvedValue(undefined);
+
+      // Thread A on story-shared
+      const ctxA = createMockContext({ threadKind: 'storytelling', storyId: 'story-shared' });
+      const hooksA = await plugin.register(ctxA);
+      await hooksA.onBeforeInvoke?.('thread-A', 'prompt');
+      await hooksA.onAfterInvoke?.('thread-A', { output: 'Response A', durationMs: 100, exitCode: 0 });
+
+      expect(extractStoryState).toHaveBeenCalledTimes(1);
+
+      // Thread B on same story — should NOT be blocked by Thread A's dedup guard
+      const ctxB = createMockContext({ threadKind: 'storytelling', storyId: 'story-shared' });
+      const hooksB = await plugin.register(ctxB);
+      await hooksB.onBeforeInvoke?.('thread-B', 'prompt');
+      await hooksB.onAfterInvoke?.('thread-B', { output: 'Response B', durationMs: 100, exitCode: 0 });
+
+      expect(extractStoryState).toHaveBeenCalledTimes(2);
     });
   });
 

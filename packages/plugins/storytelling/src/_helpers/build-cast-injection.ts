@@ -1,4 +1,5 @@
 import type { PrismaClient } from '@harness/database';
+import { buildTimelineInjection } from './build-timeline-injection';
 import { deriveCharacterKnowledge } from './derive-character-knowledge';
 import { formatCharacterFull } from './format-character-full';
 
@@ -159,6 +160,12 @@ export const buildCastInjection: BuildCastInjection = async (storyId, currentSce
         }
       }
     }
+  }
+
+  // Timeline injection (events, countdowns, overdue)
+  const timeline = await buildTimelineInjection(storyId, db);
+  if (timeline) {
+    sections.push('', timeline);
   }
 
   // Story time

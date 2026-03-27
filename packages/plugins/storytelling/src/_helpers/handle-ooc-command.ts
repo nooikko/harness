@@ -60,7 +60,7 @@ export const handleOocCommand: HandleOocCommand = async (command, db, storyId) =
       }
 
       const character = await db.storyCharacter.findFirst({
-        where: { storyId, name: { contains: charName, mode: 'insensitive' } },
+        where: { storyId, name: { equals: charName, mode: 'insensitive' } },
         select: { id: true, name: true, aliases: true, personality: true },
       });
 
@@ -86,7 +86,7 @@ export const handleOocCommand: HandleOocCommand = async (command, db, storyId) =
       }
 
       const character = await db.storyCharacter.findFirst({
-        where: { storyId, name: { contains: charName, mode: 'insensitive' } },
+        where: { storyId, name: { equals: charName, mode: 'insensitive' } },
         select: { id: true, name: true, aliases: true },
       });
 

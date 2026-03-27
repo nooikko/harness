@@ -190,6 +190,42 @@ describe('handleOocCommand', () => {
     });
   });
 
+  describe('personality — exact match', () => {
+    it('uses exact name match, not substring (does not match "Alice" when searching for "Al")', async () => {
+      db.storyCharacter.findFirst.mockResolvedValue(null);
+
+      const result = await handleOocCommand({ type: 'personality', params: { character: 'Al', trait: 'more confident' } }, db, 'story-1');
+
+      expect(result).toContain('not found');
+      expect(db.storyCharacter.findFirst).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: expect.objectContaining({
+            storyId: 'story-1',
+            name: { equals: 'Al', mode: 'insensitive' },
+          }),
+        }),
+      );
+    });
+  });
+
+  describe('remove — exact match', () => {
+    it('uses exact name match, not substring (does not match "Alice" when searching for "Al")', async () => {
+      db.storyCharacter.findFirst.mockResolvedValue(null);
+
+      const result = await handleOocCommand({ type: 'remove', params: { character: 'Al' } }, db, 'story-1');
+
+      expect(result).toContain('not found');
+      expect(db.storyCharacter.findFirst).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: expect.objectContaining({
+            storyId: 'story-1',
+            name: { equals: 'Al', mode: 'insensitive' },
+          }),
+        }),
+      );
+    });
+  });
+
   describe('unknown', () => {
     it('returns null for unknown commands', async () => {
       const result = await handleOocCommand({ type: 'unknown', params: {} }, db, 'story-1');

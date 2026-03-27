@@ -9,7 +9,7 @@
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
     "test:watch": "vitest",
-    "test:e2e": "npx playwright test",
+    "test:e2e": "tsx e2e/setup/start-e2e.ts",
     "test:e2e:report": "playwright show-report e2e/playwright-report"
   },
   "dependencies": {

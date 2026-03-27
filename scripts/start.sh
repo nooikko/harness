@@ -77,9 +77,10 @@ if [ ! -f "$PROJECT_ROOT/.env" ]; then
   log_warn ".env file not found at project root"
 fi
 
-if [ ! -f "$PROJECT_ROOT/packages/database/.env" ]; then
-  log_warn "packages/database/.env not found — DATABASE_URL may not be set"
-fi
+# DATABASE_URL is loaded from root .env via --env-file in ecosystem.config.cjs
+# and via dotenv-cli in packages/database/package.json scripts.
+# Do NOT create packages/database/.env — Prisma auto-loads it at import time,
+# which conflicts with E2E test database isolation.
 
 # --- Create logs directory ---
 

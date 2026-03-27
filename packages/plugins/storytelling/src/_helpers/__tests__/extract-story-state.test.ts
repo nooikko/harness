@@ -3,7 +3,7 @@ import { describe, expect, it, vi } from 'vitest';
 import { extractStoryState } from '../extract-story-state';
 
 vi.mock('../apply-extraction', () => ({
-  applyExtraction: vi.fn().mockResolvedValue(undefined),
+  applyExtraction: vi.fn().mockResolvedValue({ momentIds: [] }),
 }));
 
 type CreateMockContext = () => PluginContext;

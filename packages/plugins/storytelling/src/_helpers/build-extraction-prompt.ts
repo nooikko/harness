@@ -13,13 +13,14 @@ type BuildExtractionPromptInput = {
   characters: CharacterRef[];
   locations: LocationRef[];
   storyTime: string | null;
+  currentDay: number | null;
   latestExchange: string;
 };
 
 type BuildExtractionPrompt = (input: BuildExtractionPromptInput) => string;
 
 export const buildExtractionPrompt: BuildExtractionPrompt = (input) => {
-  const { characters, locations, storyTime, latestExchange } = input;
+  const { characters, locations, storyTime, currentDay, latestExchange } = input;
 
   const characterList = characters.length > 0 ? characters.map((c) => `- ${c.name} (id: ${c.id})`).join('\n') : '(none yet)';
 
@@ -33,7 +34,12 @@ export const buildExtractionPrompt: BuildExtractionPrompt = (input) => {
           .join('\n')
       : '(none yet)';
 
-  const timeContext = storyTime ? `Current story time: ${storyTime}` : 'Story time: not established yet';
+  const dayContext = currentDay !== null ? ` (Day ${currentDay})` : '';
+  const timeContext = storyTime
+    ? `Current story time: ${storyTime}${dayContext}`
+    : currentDay !== null
+      ? `Current story day: Day ${currentDay}`
+      : 'Story time: not established yet';
 
   return `You are a story state extractor. Read the latest exchange from a collaborative storytelling session and extract structured data.
 
@@ -61,6 +67,7 @@ Analyze the exchange above and extract the following as a JSON object:
    - summary: 1-sentence summary
    - description: optional longer description
    - storyTime: optional story-time when it happened
+   - storyDay: optional integer day number (e.g. 3 for Day 3) if determinable
    - locationId: ID of an existing location where it happened (if known)
    - newLocationName: if the moment happens at a NEW location not in the existing list, provide its name here
    - newLocationDescription: description of the new location
@@ -88,7 +95,17 @@ Analyze the exchange above and extract the following as a JSON object:
    - alias: the alternate name used
    - resolvedName: the canonical character name it refers to
 
-Output ONLY valid JSON matching this structure. If nothing to extract for a category, use an empty array (or null for scene).
+6. **timeline**: Time progression detected in this exchange:
+   - currentDay: integer day number after this exchange (null if unclear)
+   - dayTransition: true if a new day started during this exchange (sleep, "next morning", time skip)
+   - timeOfDay: current time of day after this exchange ("morning", "afternoon", "evening", "night", "dawn", "dusk", or null)
+   - events: future events or commitments characters mentioned. For each:
+     - what: what is planned
+     - targetDay: story day when it should happen (null if vague)
+     - createdByCharacter: who made the plan
+     - knownBy: array of character names who know about it
+
+Output ONLY valid JSON matching this structure. If nothing to extract for a category, use an empty array (or null for scene/timeline fields).
 
 \`\`\`json
 {
@@ -96,7 +113,8 @@ Output ONLY valid JSON matching this structure. If nothing to extract for a cate
   "moments": [],
   "locations": [],
   "scene": null,
-  "aliases": []
+  "aliases": [],
+  "timeline": { "currentDay": null, "dayTransition": false, "timeOfDay": null, "events": [] }
 }
 \`\`\``;
 };
