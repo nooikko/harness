@@ -1224,4 +1224,156 @@ describe('createOrchestrator', () => {
       expect(deps.invoker.invoke).toHaveBeenCalledWith(expect.any(String), expect.objectContaining({ effort: undefined }));
     });
   });
+
+  describe('plugin state container', () => {
+    it('provides a state container to each registered plugin', async () => {
+      const deps = makeDeps();
+      const orchestrator = createOrchestrator(deps);
+      const definition = makePluginDefinition('stateful-plugin');
+
+      await orchestrator.registerPlugin(definition);
+
+      const passedContext = (definition.register as ReturnType<typeof vi.fn>).mock.calls[0]![0] as PluginContext;
+      expect(passedContext.state).toBeDefined();
+      expect(typeof passedContext.state!.get).toBe('function');
+      expect(typeof passedContext.state!.set).toBe('function');
+      expect(typeof passedContext.state!.has).toBe('function');
+      expect(typeof passedContext.state!.delete).toBe('function');
+      expect(typeof passedContext.state!.clear).toBe('function');
+    });
+
+    it('provides isolated state containers to different plugins', async () => {
+      const deps = makeDeps();
+      const orchestrator = createOrchestrator(deps);
+      const pluginA = makePluginDefinition('plugin-a');
+      const pluginB = makePluginDefinition('plugin-b');
+
+      await orchestrator.registerPlugin(pluginA);
+      await orchestrator.registerPlugin(pluginB);
+
+      const ctxA = (pluginA.register as ReturnType<typeof vi.fn>).mock.calls[0]![0] as PluginContext;
+      const ctxB = (pluginB.register as ReturnType<typeof vi.fn>).mock.calls[0]![0] as PluginContext;
+
+      ctxA.state!.set('key', 'from-A');
+      ctxB.state!.set('key', 'from-B');
+
+      expect(ctxA.state!.get('key')).toBe('from-A');
+      expect(ctxB.state!.get('key')).toBe('from-B');
+    });
+
+    it('provides state container to system plugins', async () => {
+      const deps = makeDeps();
+      const orchestrator = createOrchestrator(deps);
+      const definition = makePluginDefinition('system-stateful', {}, { system: true });
+
+      await orchestrator.registerPlugin(definition);
+
+      const passedContext = (definition.register as ReturnType<typeof vi.fn>).mock.calls[0]![0] as PluginContext;
+      expect(passedContext.state).toBeDefined();
+      passedContext.state!.set('test', 42);
+      expect(passedContext.state!.get('test')).toBe(42);
+    });
+
+    it('state persists from register through start', async () => {
+      const deps = makeDeps();
+      const orchestrator = createOrchestrator(deps);
+      let capturedState: PluginContext['state'];
+
+      const definition = makePluginDefinition(
+        'lifecycle-plugin',
+        {},
+        {
+          start: vi.fn().mockImplementation(async (ctx: PluginContext) => {
+            // State set during register should still be here
+            expect(ctx.state!.get('registered')).toBe(true);
+            capturedState = ctx.state;
+          }),
+        },
+      );
+
+      // Override register to set state during registration
+      definition.register = vi.fn().mockImplementation(async (ctx: PluginContext) => {
+        ctx.state!.set('registered', true);
+        return {};
+      });
+
+      await orchestrator.registerPlugin(definition);
+      await orchestrator.start();
+
+      expect(capturedState).toBeDefined();
+      expect(capturedState!.get('registered')).toBe(true);
+    });
+
+    it('clears state after stop() completes', async () => {
+      const deps = makeDeps();
+      const orchestrator = createOrchestrator(deps);
+      let capturedState: PluginContext['state'];
+
+      const definition = makePluginDefinition(
+        'stoppable-plugin',
+        {},
+        {
+          start: vi.fn(),
+          stop: vi.fn().mockImplementation(async (ctx: PluginContext) => {
+            // State should still be accessible during stop
+            expect(ctx.state!.get('data')).toBe('alive');
+            capturedState = ctx.state;
+          }),
+        },
+      );
+
+      definition.register = vi.fn().mockImplementation(async (ctx: PluginContext) => {
+        ctx.state!.set('data', 'alive');
+        return {};
+      });
+
+      await orchestrator.registerPlugin(definition);
+      await orchestrator.start();
+      await orchestrator.stop();
+
+      // After stop, state should be cleared by the orchestrator
+      expect(capturedState!.has('data')).toBe(false);
+    });
+
+    it('clears state even when stop() throws', async () => {
+      const deps = makeDeps();
+      const orchestrator = createOrchestrator(deps);
+      let capturedState: PluginContext['state'];
+
+      const definition = makePluginDefinition(
+        'crashing-plugin',
+        {},
+        {
+          start: vi.fn(),
+          stop: vi.fn().mockImplementation(async (ctx: PluginContext) => {
+            capturedState = ctx.state;
+            throw new Error('stop failed');
+          }),
+        },
+      );
+
+      definition.register = vi.fn().mockImplementation(async (ctx: PluginContext) => {
+        ctx.state!.set('leaked', 'should-be-cleared');
+        return {};
+      });
+
+      await orchestrator.registerPlugin(definition);
+      await orchestrator.start();
+
+      // stop() throws because the plugin's stop() threw
+      await expect(orchestrator.stop()).rejects.toThrow('Plugin stop failures');
+
+      // State should still be cleared despite the throw
+      expect(capturedState!.has('leaked')).toBe(false);
+    });
+
+    it('shared context does not have a state container', () => {
+      const deps = makeDeps();
+      const orchestrator = createOrchestrator(deps);
+      const sharedCtx = orchestrator.getContext();
+
+      // The shared context should NOT have state — it's per-plugin only
+      expect(sharedCtx.state).toBeUndefined();
+    });
+  });
 });

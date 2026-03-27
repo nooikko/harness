@@ -8,6 +8,7 @@ import { runChainHook } from './_helpers/run-chain-hook';
 import { runEarlyReturnHook } from './_helpers/run-early-return-hook';
 import { runHook } from './_helpers/run-hook';
 
+export { createPluginState } from './_helpers/create-plugin-state';
 export { decryptValue } from './_helpers/decrypt-value';
 export { encryptValue } from './_helpers/encrypt-value';
 export type { ModelPricing } from './_helpers/model-pricing';
@@ -198,6 +199,14 @@ export type UploadFileResult = {
   relativePath: string;
 };
 
+export type PluginStateContainer = {
+  get: <T = unknown>(key: string) => T | undefined;
+  set: <T = unknown>(key: string, value: T) => void;
+  has: (key: string) => boolean;
+  delete: (key: string) => boolean;
+  clear: () => void;
+};
+
 export type PluginContext = {
   db: PrismaClient;
   invoker: Invoker;
@@ -217,6 +226,10 @@ export type PluginContext = {
   /** Execute a registered plugin tool by qualified name (e.g., "govee__set_light").
    *  Returns the tool result string. Throws if the tool is not found. */
   executeTool?: (qualifiedName: string, input: Record<string, unknown>, meta: PluginToolMeta) => Promise<ToolResult>;
+  /** Per-plugin isolated state container. Constructed by the orchestrator in buildPluginContext.
+   *  Optional on the type to avoid breaking existing test mocks — always present when the
+   *  orchestrator constructs the context. Capture in register() via `const state = ctx.state!`. */
+  state?: PluginStateContainer;
 };
 
 /** Result from onIntentClassify hook — when handled is true, the pipeline is short-circuited. */

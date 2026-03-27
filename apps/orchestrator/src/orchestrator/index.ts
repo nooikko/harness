@@ -18,7 +18,7 @@ import type {
   PluginStatusLevel,
   SettingsFieldDefs,
 } from '@harness/plugin-contract';
-import { runEarlyReturnHook } from '@harness/plugin-contract';
+import { createPluginState, runEarlyReturnHook } from '@harness/plugin-contract';
 import { createBackgroundErrorTracker } from './_helpers/background-error-tracker';
 import { computeDisallowedTools } from './_helpers/compute-disallowed-tools';
 import { createScopedDb } from './_helpers/create-scoped-db';
@@ -358,8 +358,9 @@ export const createOrchestrator: CreateOrchestrator = (deps) => {
     const scopedReportBackgroundError = (taskName: string, error: Error) => {
       backgroundErrors.report(definition.name, taskName, error);
     };
+    const state = createPluginState();
     if (definition.system) {
-      return { ...context, reportStatus: scopedReportStatus, reportBackgroundError: scopedReportBackgroundError };
+      return { ...context, reportStatus: scopedReportStatus, reportBackgroundError: scopedReportBackgroundError, state };
     }
     return {
       ...context,
@@ -368,6 +369,7 @@ export const createOrchestrator: CreateOrchestrator = (deps) => {
         getPluginSettings(deps.db, definition.name, schema),
       reportStatus: scopedReportStatus,
       reportBackgroundError: scopedReportBackgroundError,
+      state,
     };
   };
 
@@ -633,6 +635,8 @@ export const createOrchestrator: CreateOrchestrator = (deps) => {
             errors.push({ plugin: plugin.definition.name });
           }
         }
+        // Defensive: always clear per-plugin state, even if stop() threw
+        plugin.ctx.state?.clear();
       }
       deps.logger.info('Orchestrator stopped');
       if (errors.length > 0) {

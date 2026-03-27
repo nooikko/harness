@@ -1,4 +1,5 @@
 import type { PluginContext } from '@harness/plugin-contract';
+import { createPluginState } from '@harness/plugin-contract';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { plugin } from '../index';
 
@@ -41,6 +42,7 @@ const createMockContext = (overrides: Partial<PluginContext> = {}): PluginContex
     reportBackgroundError: vi.fn(),
     uploadFile: vi.fn().mockResolvedValue({ fileId: 'test', relativePath: 'test' }),
     executeTool: vi.fn().mockResolvedValue('Tool executed successfully'),
+    state: createPluginState(),
     ...overrides,
   }) as PluginContext;
 
@@ -65,8 +67,6 @@ const makeFakeEmbeddings = (): number[][] => {
 
 describe('intent plugin', () => {
   afterEach(async () => {
-    // Reset module-level state between tests
-    await plugin.stop?.({} as PluginContext);
     vi.clearAllMocks();
   });
 
@@ -247,17 +247,52 @@ describe('intent plugin', () => {
   });
 
   describe('stop()', () => {
-    it('clears registry so subsequent calls return handled: false', async () => {
+    it('state clearing by orchestrator makes subsequent calls return handled: false', async () => {
       vi.mocked(embed).mockResolvedValueOnce(makeFakeEmbeddings());
       const ctx = createMockContext();
       const hooks = await plugin.register(ctx);
       await plugin.start!(ctx);
 
+      // Simulate orchestrator clearing state after stop
       await plugin.stop!(ctx);
+      ctx.state!.clear();
 
       vi.mocked(embedSingle).mockResolvedValueOnce(LIGHTS_CONTROL_VEC);
       const result = await hooks.onIntentClassify!('thread-1', 'turn on the lights');
       expect(result.handled).toBe(false);
+    });
+  });
+
+  describe('ctx.state isolation', () => {
+    it('uses ctx.state to store registry instead of module-level variables', async () => {
+      vi.mocked(embed).mockResolvedValueOnce(makeFakeEmbeddings());
+      const ctx = createMockContext();
+      await plugin.register(ctx);
+      await plugin.start!(ctx);
+
+      // Registry should be stored in ctx.state
+      expect(ctx.state!.has('registry')).toBe(true);
+    });
+
+    it('two separate registrations have isolated state', async () => {
+      vi.mocked(embed).mockResolvedValueOnce(makeFakeEmbeddings());
+      const ctx1 = createMockContext();
+      await plugin.register(ctx1);
+      await plugin.start!(ctx1);
+
+      // Second registration with a separate context
+      vi.mocked(embed).mockResolvedValueOnce(makeFakeEmbeddings());
+      const ctx2 = createMockContext();
+      const hooks2 = await plugin.register(ctx2);
+      await plugin.start!(ctx2);
+
+      // Clearing ctx1's state should not affect ctx2
+      ctx1.state!.clear();
+
+      vi.mocked(embedSingle).mockResolvedValueOnce(LIGHTS_CONTROL_VEC);
+      vi.mocked(ctx2.executeTool!).mockResolvedValueOnce('works');
+      const result = await hooks2.onIntentClassify!('thread-1', 'turn on the lights');
+      expect(result.handled).toBe(true);
     });
   });
 });
